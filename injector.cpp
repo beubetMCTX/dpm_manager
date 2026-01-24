@@ -1,0 +1,4 @@
+#include "injector.h"
+
+Injector::Injector() {}
+
