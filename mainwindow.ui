@@ -23,8 +23,20 @@
      <height>17</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menureaddile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionRead"/>
+   </widget>
+   <addaction name="menureaddile"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionRead">
+   <property name="text">
+    <string>Read...</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

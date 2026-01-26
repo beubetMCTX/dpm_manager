@@ -1,11 +1,14 @@
 #ifndef INJECTOR_H
 #define INJECTOR_H
-#pragma pack(1)
 #pragma once
+;
+#pragma pack(push, 8)
 
 #include <QString>
 #include <qvector.h>
 #include <QVector3D>
+
+
 
 // 可能需要的枚举
 //粒子类型
@@ -57,6 +60,12 @@ enum Drag_Law
     dynamic_drag
 };
 
+enum Volume_Streams_Spec
+{
+    total_parcel_count,
+    parcel_per_cell
+};
+
 enum Volume_Specification
 {
     zone,
@@ -74,8 +83,8 @@ enum Volume_Bgeom_Shapes
 
 enum Rot_Drag_Law
 {
-    none,
-    Dennis_et_al
+    Dennis_et_al,
+    none
 };
 
 enum Rot_Lift_Law
@@ -90,32 +99,36 @@ enum Rot_Lift_Law
 class Injector
 {
 public:
+
     Injector();
+    ~Injector();
+    QString unit_type="injector";
+
 
 public:
 
-    QString name; //名字
-    DPM_Type type;//粒子类型
-    Injection_Type injection_type;//喷射源类型
+    QString name="injector"; //名字
+    DPM_Type type=Droplet;//粒子类型
+    Injection_Type injection_type=single;//喷射源类型
 
-    int numpts;//喷射点数
-    QString dpm_fname;//dpm文件名，默认为空
-    QVector<int> surfaces;//表面喷注选择面id
+    int numpts=10;//喷射点数
+    QString dpm_fname="\" \"";//dpm文件名，默认为空
+    QVector<int> surfaces={-1};//表面喷注选择面id
 
-    bool stochastic;//随机脉动开关
-    bool random_eddy;//离散随机轨迹模型
-    int ntries;//随机涡尝试次数
-    double time_scale_constant;//随机涡时间尺度常数
+    bool stochastic=false;//随机脉动开关
+    bool random_eddy=false;//离散随机轨迹模型
+    int ntries=1;//随机涡尝试次数
+    double time_scale_constant=0.15;//随机涡时间尺度常数
 
-    bool cloud;//颗粒云追踪
-    double cloud_min_dia;//颗粒云最小直径
-    double cloud_max_dia;//颗粒云最大直径
+    bool cloud=false;//颗粒云追踪
+    double cloud_min_dia=0;//颗粒云最小直径
+    double cloud_max_dia=100000;//颗粒云最大直径
 
-    QString material;//材料
+    QString material=nullptr;//材料
 
-    bool scale_by_area;//面积缩放开关
-    bool use_face_normal;//面法向使用开关
-    bool random_surface;//随机表面开关
+    bool scale_by_area=false;//面积缩放开关
+    bool use_face_normal=false;//面法向使用开关
+    bool random_surface=false;//随机表面开关
 
     QString devolatilizing_species;//热解组分
     QString evaporating_species;//蒸发组分
@@ -123,25 +136,25 @@ public:
     QString product_species;//生成物组分
     //若为空则默认#f
 
-    bool rr_disturb;//rr直径分布
-    bool rr_uniform_ln_d;//均匀对数正态分布开关（若为#t则上一项也为#t）
+    bool rr_disturb=true;//rr直径分布
+    bool rr_uniform_ln_d=false;//均匀对数正态分布开关（若为#t则上一项也为#t）
 
     //wet_combustion
-    bool evaporating_liquid;//蒸发液体开关
-    QString evaporating_material;//蒸发液体组分（留空则为#f）
-    double liquid_fraction;//液体分数（不启用蒸发液体则为-1）
+    bool evaporating_liquid=false;//蒸发液体开关
+    QString evaporating_material=nullptr;//蒸发液体组分（留空则为#f）
+    double liquid_fraction=-1;//液体分数（不启用蒸发液体则为-1）
     //未猜出部分
     QString dpm_domain="none";//DPM域
     QString collision_partner="dem-unknow";//碰撞对象
 
-    int parcel_number;//颗粒聚团数量
-    double parcel_mass;//聚团质量
-    double parcel_diameter;//聚团直径
-    Parcel_Model parcel_model;//聚团模型（直接输出enum值，无需输出eunm变量名）
+    int parcel_number=500;//颗粒聚团数量
+    double parcel_mass=1e-9;//聚团质量
+    double parcel_diameter=1e-5;//聚团直径
+    Parcel_Model parcel_model=standard;//聚团模型（直接输出enum值，无需输出eunm变量名）
 
-    Drag_Law drag_law;//曳力准则（输出需带双引号）
-    double shape_factor;//形状因子（nonspherical）
-    double cunningham_correction;//坎宁安修正系数
+    Drag_Law drag_law=spherical;//曳力准则（输出需带双引号）
+    double shape_factor=1;//形状因子（nonspherical）
+    double cunningham_correction=1;//坎宁安修正系数
     QString drag_fcn="none";//曳力函数,搁置
 
     bool brownian_motion;//布朗运动开关
@@ -187,7 +200,7 @@ public:
     //volume
     Volume_Specification volume_specification;
     //volume_zones暂时搁置
-    QString volume_streams_spec="total-parcel-count";
+    Volume_Streams_Spec volume_streams_spec=total_parcel_count;
     int volume_streams_total;
     //int volume_streams_total;//体积分数法搁置
     //double volume_packing_limit_per_cell;
@@ -302,12 +315,12 @@ public:
 
     QVector3D posu;//未知坐标
 
-
+private:
 
 
 
 };
 
 
-
+#pragma pack(pop)
 #endif // INJECTOR_H

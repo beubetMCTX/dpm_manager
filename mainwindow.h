@@ -2,6 +2,10 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <qvector.h>
+#include <QList>
+
+#include "unit.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -16,6 +20,11 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+    QList<Unit> units;
+
+private slots:
+    void on_actionRead_triggered();
 
 private:
     Ui::MainWindow *ui;

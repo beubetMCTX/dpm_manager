@@ -2,3 +2,8 @@
 
 Injector::Injector() {}
 
+Injector::~Injector()
+{
+    delete this;
+}
+
