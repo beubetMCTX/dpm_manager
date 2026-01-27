@@ -15,6 +15,12 @@
 #include "unit.h"
 
 
+enum Coord
+{
+    x,y,z
+};
+
+
 
 class dpm_file_io
 {

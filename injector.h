@@ -2,7 +2,7 @@
 #define INJECTOR_H
 #pragma once
 ;
-#pragma pack(push, 8)
+#pragma pack(push, 4)
 
 #include <QString>
 #include <qvector.h>
@@ -29,9 +29,11 @@ enum Injection_Type
     volume,
     cone,
     plain_oriface_atomizer,
+    pressure_swirl_atomizer,
+    air_blast_atomizer,
     flat_fan_atomizer,
     effervescent_atomizer,
-    file,
+    file_,
     condensate
 };
 //圆锥喷注圆柱类型
