@@ -113,9 +113,13 @@ public:
     DPM_Type type=Droplet;//粒子类型
     Injection_Type injection_type=single;//喷射源类型
 
+    QString local_reference_frame="global";
+
     int numpts=10;//喷射点数
     QString dpm_fname="\" \"";//dpm文件名，默认为空
+
     QVector<int> surfaces={-1};//表面喷注选择面id
+    QVector<int> boundary={-1};//表面喷注选择面边界条件
 
     bool stochastic=false;//随机脉动开关
     bool random_eddy=false;//离散随机轨迹模型
@@ -131,6 +135,14 @@ public:
     bool scale_by_area=false;//面积缩放开关
     bool use_face_normal=false;//面法向使用开关
     bool random_surface=false;//随机表面开关
+
+    bool tabulated_diam_dist = false;          // 对应 tabulated-diam-dist?（默认#f）
+    QString tabulated_diam_table_name = "";     // 对应 tabulated-diam-table-name（默认空字符串）
+    int tabulated_diam_ref_diam_col = -1;       // 对应 tabulated-diam-ref-diam-col（默认-1）
+    int tabulated_diam_num_frac_col = -1;       // 对应 tabulated-diam-num-frac-col（默认-1）
+    int tabulated_diam_mas_frac_col = -1;       // 对应 tabulated-diam-mas-frac-col（默认-1）
+    bool tabulated_diam_num_frac_accum = false; // 对应 tabulated-diam-num-frac-accum?（默认#f）
+    bool tabulated_diam_mas_frac_accum = false; // 对应 tabulated-diam-mas-frac-accum?（默认#f）
 
     QString devolatilizing_species;//热解组分
     QString evaporating_species;//蒸发组分
@@ -191,11 +203,11 @@ public:
     //schmehl
     double seco_breakup_schmehl_np;
 
-    QString laws[10]={0};
-    QString swit="\"Default\"";
+    //QString laws[10]={0};
+    //QString swit="\"Default\"";
 
-    QString udf_inject_init="\"none\"";
-    QString udf_heat_mass="none";
+    //QString udf_inject_init="\"none\"";
+    //QString udf_heat_mass="none";
 
     //components暂时搁置
 

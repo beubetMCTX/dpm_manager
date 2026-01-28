@@ -1,8 +1,26 @@
 #include "dpm_file_io.h"
 
+#define  Kill_Read  *ok=false;delete(in);delete(file);return unit;
+
 dpm_file_io::dpm_file_io() {}
 
 
+bool read_dpm_head(QFile *file,QTextStream *in,QString &name)
+{
+    QChar space,space2;
+    QChar leftblanket;
+    *in>>space>>leftblanket>>name>>space2;
+    qDebug()<<name;
+    if(leftblanket=='(')
+    {
+        return true;
+    }
+    else
+    {
+        QMessageBox::critical(nullptr, "错误", "在读取"+file->fileName()+"中\n开头:时出现错误");
+        return false;
+    }
+}
 
 bool read_dpm(QFile *file,QTextStream *in,const QString title,int &data)
 {
@@ -42,10 +60,18 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QString &data)
     QChar leftblanket;
     QString temp,dot;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
+    qDebug()<<space<<leftblanket<<temp<<dot<<data<<"!";
+    if(title=="dpm-fname")
+    {
+        *in>>data;
+        data="\" \"";
+        qDebug()<<data;
+        return true;
+    }
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
+        if(data=="#f") data.clear();
         return true;
     }
     else
@@ -368,16 +394,107 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Rot_Lift_Law &enum
     }
 }
 
+bool read_dpm(QFile *file,QTextStream *in,const QString title,bool &bool_data)
+{
+    QChar space;
+    QChar leftblanket;
+    QString temp,dot,data;
+    *in>>space>>leftblanket>>temp>>dot>>data;
+    qDebug()<<space<<leftblanket<<temp<<dot<<data;
+    if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
+    {
+        data.chop(1);
+        if(data.contains("#f",Qt::CaseInsensitive)) bool_data=false;
+        else if(data.contains("#t",Qt::CaseInsensitive)) bool_data=true;
+        else
+        {
+            QMessageBox::critical(nullptr, "错误", "在读取"+file->fileName()+"中\nbool变量"+title+"时检测到非法输入");
+            return false;
+        }
+        return true;
+    }
+    else
+    {
+        QMessageBox::critical(nullptr, "错误", "在读取"+file->fileName()+"中\nbool变量:"+title+"时出现错误");
+        return false;
+    }
+}
+
+bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
+{
+    QChar space;
+    QChar leftblanket;
+    QString temp,data;
+    *in>>space>>leftblanket>>temp>>data;
+    vect.clear();
+    if(title=="surfaces")
+    {
+        if(data.contains("."))
+        {
+            vect.push_back(-1);
+            *in>>data;
+            qDebug()<<data;
+        }
+        else
+        {
+            while(1)
+            {
+
+                if(data.contains(")"))
+                {
+                    data.chop(1);
+                    vect.push_back(data.toInt());
+                    //qDebug()<<data.toInt();
+                    break;
+                }
+                else
+                {
+                    vect.push_back(data.toInt());
+                    *in>>data;
+                }
+                //qDebug()<<data.toInt();
+            }
+        }
+        return true;
+    }
+    else if(title=="boundary")
+    {
+        while(1)
+        {
+            if(data.contains(")"))
+            {
+                data.chop(1);
+                vect.push_back(data.toInt());
+                //qDebug()<<data;
+                break;
+            }
+            else
+            {
+                vect.push_back(data.toInt());
+                //qDebug()<<data;
+                *in>>data;
+            }
+        }
+        return true;
+    }
+    else
+    {
+        QMessageBox::critical(nullptr, "错误", "在读取"+file->fileName()+"中\nvector<int>变量:"+title+"时出现错误");
+        return false;
+    }
+}
+
 QString Read_File_Dialog()
 {
     QString file_path=QFileDialog::getOpenFileName(nullptr, "选择文件", ".","所有文件 (*.*)");
     qDebug()<<file_path;
     return file_path;
 }
-Unit read_single_dpm_file(bool *ok)
+
+QList<Unit> read_single_dpm_file(bool *ok)
 {
     QFile *file=new QFile(Read_File_Dialog());
-    Unit unit;
+    QList<Unit> unit;
     if (!file->open(QIODevice::ReadOnly | QIODevice::Text)) {
         QMessageBox::critical(nullptr, "错误", "无法打开文件: " + file->errorString());
         *ok=false;
@@ -387,19 +504,106 @@ Unit read_single_dpm_file(bool *ok)
     else
     {
         QTextStream *in=new QTextStream(file);
-        int num;
-        double fnum;
-        QString str;
-        QVector3D vect;
-        Injection_Type enum_type;
-        if(!read_dpm(file,in,"test_data1",num)) {*ok=false;return unit;};
-        if(!read_dpm(file,in,"test_data2",fnum)) {*ok=false;return unit;};
-        if(!read_dpm(file,in,"test_data3",str )) {*ok=false;return unit;};
-        if(!read_dpm(file,in,"test_data4",vect ,x )) {*ok=false;return unit;};
-        if(!read_dpm(file,in,"test_data4",vect ,y )) {*ok=false;return unit;};
-        if(!read_dpm(file,in,"test_data4",vect ,z )) {*ok=false;return unit;};
-        if(!read_dpm(file,in,"test_data5",enum_type )) {*ok=false;return unit;};
-        qDebug()<<enum_type;
+        Unit iterator;
+        QString gibrs;
+        while(1)
+        {
+            if(!read_dpm_head(file,in,iterator.inj->name)){Kill_Read};
+            if(!read_dpm(file,in,"type",iterator.inj->type)){Kill_Read};
+            if(!read_dpm(file,in,"injection-type",iterator.inj->injection_type)){Kill_Read};
+            if(!read_dpm(file,in,"local-reference-frame",iterator.inj->local_reference_frame)){Kill_Read};
+            if(!read_dpm(file,in,"numpts",iterator.inj->numpts)){Kill_Read};
+            if(!read_dpm(file,in,"dpm-fname",iterator.inj->dpm_fname)){Kill_Read};
+            if(!read_dpm(file,in,"surfaces",iterator.inj->surfaces)){Kill_Read};
+            if(!read_dpm(file,in,"boundary",iterator.inj->boundary)){Kill_Read};
+            //基础配置
+            if (!read_dpm(file, in, "stochastic-on", iterator.inj->stochastic)) { Kill_Read };
+            if (!read_dpm(file, in, "random-eddy-on", iterator.inj->random_eddy)) { Kill_Read };
+            if (!read_dpm(file, in, "ntries", iterator.inj->ntries)) { Kill_Read };
+            if (!read_dpm(file, in, "time-scale-constant", iterator.inj->time_scale_constant)) { Kill_Read };
+            if (!read_dpm(file, in, "cloud-on", iterator.inj->cloud)) { Kill_Read };
+            if (!read_dpm(file, in, "cloud-min-dia", iterator.inj->cloud_min_dia)) { Kill_Read };
+            if (!read_dpm(file, in, "cloud-max-dia", iterator.inj->cloud_max_dia)) { Kill_Read };
+            if (!read_dpm(file, in, "material", iterator.inj->material)) { Kill_Read };
+            if (!read_dpm(file, in, "scale-by-area", iterator.inj->scale_by_area)) { Kill_Read };
+            if (!read_dpm(file, in, "use-face-normal", iterator.inj->use_face_normal)) { Kill_Read };
+            if (!read_dpm(file, in, "random-surface?", iterator.inj->random_surface)) { Kill_Read };
+            //表格雾化
+            if (!read_dpm(file, in, "tabulated-diam-dist?", iterator.inj->tabulated_diam_dist)) { Kill_Read };
+            if (!read_dpm(file, in, "tabulated-diam-table-name", iterator.inj->tabulated_diam_table_name)) { Kill_Read };
+            if (!read_dpm(file, in, "tabulated-diam-ref-diam-col", iterator.inj->tabulated_diam_ref_diam_col)) { Kill_Read };
+            if (!read_dpm(file, in, "tabulated-diam-num-frac-col", iterator.inj->tabulated_diam_num_frac_col)) { Kill_Read };
+            if (!read_dpm(file, in, "tabulated-diam-mas-frac-col", iterator.inj->tabulated_diam_mas_frac_col)) { Kill_Read };
+            if (!read_dpm(file, in, "tabulated-diam-num-frac-accum?", iterator.inj->tabulated_diam_num_frac_accum)) { Kill_Read };
+            if (!read_dpm(file, in, "tabulated-diam-mas-frac-accum?", iterator.inj->tabulated_diam_mas_frac_accum)) { Kill_Read };
+            // 组分与分布
+            if (!read_dpm(file, in, "devolatilizing-species", iterator.inj->devolatilizing_species)) { Kill_Read };
+            if (!read_dpm(file, in, "evaporating-species", iterator.inj->evaporating_species)) { Kill_Read };
+            if (!read_dpm(file, in, "oxidizing-species", iterator.inj->oxidizing_species)) { Kill_Read };
+            if (!read_dpm(file, in, "product-species", iterator.inj->product_species)) { Kill_Read };
+            if (!read_dpm(file, in, "rr-distrib", iterator.inj->rr_disturb)) { Kill_Read };
+            if (!read_dpm(file, in, "rr-uniform-ln-d", iterator.inj->rr_uniform_ln_d)) { Kill_Read };
+            if (!read_dpm(file, in, "evaporating-liquid-on", iterator.inj->evaporating_liquid)) { Kill_Read };
+            if (!read_dpm(file, in, "evaporating-material", iterator.inj->evaporating_material)) { Kill_Read };
+            if (!read_dpm(file, in, "liquid-fraction", iterator.inj->liquid_fraction)) { Kill_Read };
+            // DPM域与碰撞
+            if (!read_dpm(file, in, "dpm-domain", iterator.inj->dpm_domain)) { Kill_Read };
+            if (!read_dpm(file, in, "collision-partner", iterator.inj->collision_partner)) { Kill_Read };
+            //multiple-surface
+            *in>>gibrs;
+            // 颗粒聚团模型
+            if (!read_dpm(file, in, "parcel-number", iterator.inj->parcel_number)) { Kill_Read };
+            if (!read_dpm(file, in, "parcel-mass", iterator.inj->parcel_mass)) { Kill_Read };
+            if (!read_dpm(file, in, "parcel-diameter", iterator.inj->parcel_diameter)) { Kill_Read };
+            if (!read_dpm(file, in, "parcel-model", iterator.inj->parcel_model)) { Kill_Read };
+
+            // 曳力与运动
+            if (!read_dpm(file, in, "drag-law", iterator.inj->drag_law)) { Kill_Read };
+            if (!read_dpm(file, in, "shape-factor", iterator.inj->shape_factor)) { Kill_Read };
+            if (!read_dpm(file, in, "cunningham-correction", iterator.inj->cunningham_correction)) { Kill_Read };
+            if (!read_dpm(file, in, "drag-fcn", iterator.inj->drag_fcn)) { Kill_Read };
+
+            if (!read_dpm(file, in, "brownian-motion", iterator.inj->brownian_motion)) { Kill_Read };
+
+            // 颗粒破碎模型
+            if (!read_dpm(file, in, "seco-breakup-on?", iterator.inj->seco_breakup_on)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-tab?", iterator.inj->seco_breakup_tab)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-wave?", iterator.inj->seco_breakup_wave)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-khrt?", iterator.inj->seco_break_up_khrt)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-ssd?", iterator.inj->seco_breakup_ssd)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-madabhushi?", iterator.inj->seco_breakup_madahushi)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-schmehl?", iterator.inj->seco_breakup_schmehl)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-tab-y0", iterator.inj->seco_breakup_tab_y0)) { Kill_Read };
+            if (!read_dpm(file, in, "number-tab-diameters", iterator.inj->number_tab_diameters)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-wave-b1", iterator.inj->seco_breakup_wave_b1)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-wave-b0", iterator.inj->seco_breakup_wave_b0)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-khrt-cl", iterator.inj->seco_breakup_khrt_cl)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-khrt-ctau", iterator.inj->seco_breakup_khrt_ctau)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-khrt-crt", iterator.inj->seco_breakup_khrt_crt)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-ssd-we-cr", iterator.inj->seco_breakup_ssd_we_cr)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-ssd-core-bu", iterator.inj->seco_breakup_ssd_core_bu)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-ssd-np-target", iterator.inj->seco_breakup_ssd_np_target)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-ssd-x-si", iterator.inj->seco_breakup_ssd_x_si)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-madabhushi-c0", iterator.inj->seco_breakup_madabushi_c0)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-madabhushi-column-drag-cd", iterator.inj->seco_breakup_madabushi_column_drag_cd)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-madabhushi-ligament-factor", iterator.inj->seco_breakup_madabushi_ligament_factor)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-madabhushi-jet-diameter", iterator.inj->seco_breakup_madabushi_jet_diameter)) { Kill_Read };
+            if (!read_dpm(file, in, "seco-breakup-schmehl-np", iterator.inj->seco_breakup_schmehl_np)) { Kill_Read };
+
+            // 物理定律与UDF
+            // if (!read_dpm(file, in, "laws", iterator.inj->laws)) { Kill_Read }; // 假设支持数组读取
+            // if (!read_dpm(file, in, "switch", iterator.inj->swit)) { Kill_Read };
+            // if (!read_dpm(file, in, "udf-inject-init", iterator.inj->udf_inject_init)) { Kill_Read };
+            // if (!read_dpm(file, in, "udf-heat-mass", iterator.inj->udf_heat_mass)) { Kill_Read };
+
+            //unit.push_back(iterator);
+            break;
+        }
+
+        //if(!read_dpm(file,in,"",)) {*ok=false;return unit;};
+        *ok=true;
+        delete(in);
+        delete(file);
         return unit;
     }
 }

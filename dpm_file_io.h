@@ -30,7 +30,7 @@ public:
 
 
 QString Read_File_Dialog();
-Unit read_single_dpm_file(bool *ok);
+QList<Unit> read_single_dpm_file(bool *ok);
 
 
 

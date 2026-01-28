@@ -21,15 +21,14 @@ MainWindow::~MainWindow()
 
 void MainWindow::on_actionRead_triggered()
 {
-    Unit temp;
+    QList<Unit> temp;
     bool *ok=new bool();
     *ok= false;
     temp=read_single_dpm_file(ok);
     if(*ok)
     {
         units.clear();
-        units.shrink_to_fit();
-        units.push_back(temp);
+        units=temp;
     }
 }
 
