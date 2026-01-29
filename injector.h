@@ -213,11 +213,12 @@ public:
 
     //volume
     Volume_Specification volume_specification;
-    //volume_zones暂时搁置
+    QVector<int> volume_zones;
     Volume_Streams_Spec volume_streams_spec=total_parcel_count;
     int volume_streams_total;
+    int volume_streams_per_cell;
     //int volume_streams_total;//体积分数法搁置
-    //double volume_packing_limit_per_cell;
+    double volume_packing_limit_per_cell;
     Volume_Bgeom_Shapes volume_bgeom_shapes;
     QVector3D volume_bgeom_min;
     QVector3D volume_bgeom_max;
@@ -319,12 +320,16 @@ public:
     double total_flow_rate;//总流量
     double total_mass;//总质量
 
+    double volume_fraction=0;
+
     //rr分布设置
     double
         rr_min,
         rr_max,
-        rr_mean;
+        rr_mean,
+        rr_spread;
     int rr_numdia;
+
     QVector3D posr;//rr参考坐标
 
     QVector3D posu;//未知坐标

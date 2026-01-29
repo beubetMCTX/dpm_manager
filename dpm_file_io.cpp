@@ -425,10 +425,10 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
     QChar space;
     QChar leftblanket;
     QString temp,data;
-    *in>>space>>leftblanket>>temp>>data;
     vect.clear();
     if(title=="surfaces")
     {
+        *in>>space>>leftblanket>>temp>>data;
         if(data.contains("."))
         {
             vect.push_back(-1);
@@ -459,6 +459,7 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
     }
     else if(title=="boundary")
     {
+        *in>>space>>leftblanket>>temp>>data;
         while(1)
         {
             if(data.contains(")"))
@@ -477,6 +478,32 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
         }
         return true;
     }
+    else if(title=="volume-zones")
+    {
+        *in>>temp;
+        if(temp.contains(")")) return true;
+        else
+        {
+            while(1)
+            {
+                *in>>data;
+                if(data.contains(")"))
+                {
+                    data.chop(1);
+                    vect.push_back(data.toInt());
+                    //qDebug()<<data;
+                    break;
+                }
+                else
+                {
+                    vect.push_back(data.toInt());
+                    //qDebug()<<data;
+                    *in>>data;
+                }
+            }
+            return true;
+        }
+    }
     else
     {
         QMessageBox::critical(nullptr, "错误", "在读取"+file->fileName()+"中\nvector<int>变量:"+title+"时出现错误");
@@ -489,6 +516,23 @@ QString Read_File_Dialog()
     QString file_path=QFileDialog::getOpenFileName(nullptr, "选择文件", ".","所有文件 (*.*)");
     qDebug()<<file_path;
     return file_path;
+}
+
+
+void Ignore_input(QTextStream *in,int ignore_number)
+{
+    QString T;
+    int i=0;
+    while(1)
+    {
+        *in>>T;
+        if(T.contains(")"))
+        {
+            i+=T.count(')');
+            if(i>=ignore_number) break;
+        }
+    }
+
 }
 
 QList<Unit> read_single_dpm_file(bool *ok)
@@ -563,6 +607,9 @@ QList<Unit> read_single_dpm_file(bool *ok)
             if (!read_dpm(file, in, "cunningham-correction", iterator.inj->cunningham_correction)) { Kill_Read };
             if (!read_dpm(file, in, "drag-fcn", iterator.inj->drag_fcn)) { Kill_Read };
 
+            //htc
+            Ignore_input(in,3);
+
             if (!read_dpm(file, in, "brownian-motion", iterator.inj->brownian_motion)) { Kill_Read };
 
             // 颗粒破碎模型
@@ -590,11 +637,151 @@ QList<Unit> read_single_dpm_file(bool *ok)
             if (!read_dpm(file, in, "seco-breakup-madabhushi-jet-diameter", iterator.inj->seco_breakup_madabushi_jet_diameter)) { Kill_Read };
             if (!read_dpm(file, in, "seco-breakup-schmehl-np", iterator.inj->seco_breakup_schmehl_np)) { Kill_Read };
 
+
             // 物理定律与UDF
-            // if (!read_dpm(file, in, "laws", iterator.inj->laws)) { Kill_Read }; // 假设支持数组读取
+            Ignore_input(in,12);//laws
+            Ignore_input(in,2);//udf
+            // if (!read_dpm(file, in, "laws", iterator.inj->laws)) { Kill_Read };
             // if (!read_dpm(file, in, "switch", iterator.inj->swit)) { Kill_Read };
             // if (!read_dpm(file, in, "udf-inject-init", iterator.inj->udf_inject_init)) { Kill_Read };
             // if (!read_dpm(file, in, "udf-heat-mass", iterator.inj->udf_heat_mass)) { Kill_Read };
+            //component
+            Ignore_input(in,1);
+            //体积喷注设置
+            if (!read_dpm(file, in, "volume-specification", iterator.inj->volume_specification)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-zones", iterator.inj->volume_zones)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-streams-spec", iterator.inj->volume_streams_spec)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-streams-total", iterator.inj->volume_streams_total)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-streams-per-cell", iterator.inj->volume_streams_per_cell)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-packing-limit-per-cell", iterator.inj->volume_packing_limit_per_cell)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-shapes", iterator.inj->volume_bgeom_shapes)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-xmin", iterator.inj->volume_bgeom_min,x)) { Kill_Read }; // 假设QVector3D分量单独读取
+            if (!read_dpm(file, in, "volume-bgeom-ymin", iterator.inj->volume_bgeom_min,y)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-zmin", iterator.inj->volume_bgeom_min,z)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-xmax", iterator.inj->volume_bgeom_max,x)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-ymax", iterator.inj->volume_bgeom_max,y)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-zmax", iterator.inj->volume_bgeom_max,z)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-radius", iterator.inj->volume_bgeom_radius)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-bgeom-viconeangle", iterator.inj->volume_bgeom_viconeangle)) { Kill_Read };
+            if (!read_dpm(file, in, "mass-input-on", iterator.inj->mass_input_on)) { Kill_Read };
+            if (!read_dpm(file, in, "volfrac-input-on", iterator.inj->volfrac_input_on)) { Kill_Read };
+
+            // 旋转与圆锥配置
+            if (!read_dpm(file, in, "rotation-on?", iterator.inj->rotation_on)) { Kill_Read };
+            if (!read_dpm(file, in, "rot-drag-law", iterator.inj->rot_drag_law)) { Kill_Read };
+            if (!read_dpm(file, in, "rot-lift-law", iterator.inj->rot_lift_law)) { Kill_Read };
+            if (!read_dpm(file, in, "cone-type", iterator.inj->cone_type)) { Kill_Read };
+            if (!read_dpm(file, in, "uniform-mass-dist-on?", iterator.inj->uniform_mass_dist_on)) { Kill_Read };
+            if (!read_dpm(file, in, "spatial-staggering/std-inj/on?", iterator.inj->spatial_staggering_std_inj_on)) { Kill_Read };
+            if (!read_dpm(file, in, "spatial-staggering/atomizer/on?", iterator.inj->spatial_staggering_atomizer_on)) { Kill_Read };
+            if (!read_dpm(file, in, "stagger-radius", iterator.inj->stagger_radius)) { Kill_Read };
+            if (!read_dpm(file, in, "rough-wall-on?", iterator.inj->rough_wall_on)) { Kill_Read };
+            if (!read_dpm(file, in, "cphase-domain", iterator.inj->cphace_domain)) { Kill_Read };
+
+            // 位置与速度（QVector3D分量）
+            if (!read_dpm(file, in, "pos", iterator.inj->pos,x)) { Kill_Read };
+            if (!read_dpm(file, in, "pos2", iterator.inj->pos2,x)) { Kill_Read };
+            if (!read_dpm(file, in, "pos", iterator.inj->pos,y)) { Kill_Read };
+            if (!read_dpm(file, in, "pos2", iterator.inj->pos2,y)) { Kill_Read };
+            if (!read_dpm(file, in, "pos", iterator.inj->pos,z)) { Kill_Read };
+            if (!read_dpm(file, in, "pos2", iterator.inj->pos2,z)) { Kill_Read };
+
+            // 扁平风扇坐标
+            if (!read_dpm(file, in, "ff-center", iterator.inj->ff_center,x)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-center", iterator.inj->ff_center,y)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-center", iterator.inj->ff_center,z)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-virtual-origin", iterator.inj->ff_virtual_origin,x)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-virtual-origin", iterator.inj->ff_virtual_origin,y)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-virtual-origin", iterator.inj->ff_virtual_origin,z)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-normal", iterator.inj->ff_normal,x)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-normal", iterator.inj->ff_normal,y)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-normal", iterator.inj->ff_normal,z)) { Kill_Read };
+
+            // 速度与角速度
+            if (!read_dpm(file, in, "vel", iterator.inj->vel,x)) { Kill_Read };
+            if (!read_dpm(file, in, "vel2", iterator.inj->vel2,x)) { Kill_Read };
+            if (!read_dpm(file, in, "vel", iterator.inj->vel,y)) { Kill_Read };
+            if (!read_dpm(file, in, "vel2", iterator.inj->vel2,y)) { Kill_Read };
+            if (!read_dpm(file, in, "vel", iterator.inj->vel,z)) { Kill_Read };
+            if (!read_dpm(file, in, "vel2", iterator.inj->vel2,z)) { Kill_Read };
+            if (!read_dpm(file, in, "ang-vel", iterator.inj->ang_vel,x)) { Kill_Read };
+            if (!read_dpm(file, in, "ang-vel2", iterator.inj->ang_vel2,x)) { Kill_Read };
+            if (!read_dpm(file, in, "ang-vel", iterator.inj->ang_vel,y)) { Kill_Read };
+            if (!read_dpm(file, in, "ang-vel2", iterator.inj->ang_vel2,y)) { Kill_Read };
+            if (!read_dpm(file, in, "ang-vel", iterator.inj->ang_vel,z)) { Kill_Read };
+            if (!read_dpm(file, in, "ang-vel2", iterator.inj->ang_vel2,z)) { Kill_Read };
+
+            // 雾化器与几何参数
+            if (!read_dpm(file, in, "atomizer-x-axis", iterator.inj->atomizer_axis,x)) { Kill_Read };
+            if (!read_dpm(file, in, "atomizer-y-axis", iterator.inj->atomizer_axis,y)) { Kill_Read };
+            if (!read_dpm(file, in, "atomizer-z-axis", iterator.inj->atomizer_axis,z)) { Kill_Read };
+            if (!read_dpm(file, in, "diameter", iterator.inj->diameter)) { Kill_Read };
+            if (!read_dpm(file, in, "diameter2", iterator.inj->diameter2)) { Kill_Read };
+            if (!read_dpm(file, in, "temperature", iterator.inj->temperature)) { Kill_Read };
+            if (!read_dpm(file, in, "temperature2", iterator.inj->temperature2)) { Kill_Read };
+            if (!read_dpm(file, in, "flow-rate", iterator.inj->flow_rate)) { Kill_Read };
+            if (!read_dpm(file, in, "flow-rate2", iterator.inj->flow_rate2)) { Kill_Read };
+
+            // 非稳态参数
+            if (!read_dpm(file, in, "unsteady-start", iterator.inj->unsteady_start)) { Kill_Read };
+            if (!read_dpm(file, in, "unsteady-stop", iterator.inj->unsteady_stop)) { Kill_Read };
+            if (!read_dpm(file, in, "start-at-flow-time-in-unsteady-inj-file", iterator.inj->start_at_flow_time_in_unsteady_inj_file)) { Kill_Read };
+            if (!read_dpm(file, in, "interval-to-repeat-in-unsteady-inj-file", iterator.inj->interval_to_repeat_in_unsteady_inj_file)) { Kill_Read };
+            if (!read_dpm(file, in, "unsteady-ca-start", iterator.inj->unsteady_ca_start)) { Kill_Read };
+            if (!read_dpm(file, in, "unsteady-ca-stop", iterator.inj->unsteady_ca_stop)) { Kill_Read };
+
+            // 物性参数
+            if (!read_dpm(file, in, "vapor-pressure", iterator.inj->vapor_pressure)) { Kill_Read };
+            if (!read_dpm(file, in, "inner-diameter", iterator.inj->inner_diameter)) { Kill_Read };
+            if (!read_dpm(file, in, "outer-diameter", iterator.inj->outer_diameter)) { Kill_Read };
+            if (!read_dpm(file, in, "half-angle", iterator.inj->half_angle)) { Kill_Read };
+            if (!read_dpm(file, in, "plain-length", iterator.inj->plain_length)) { Kill_Read };
+            if (!read_dpm(file, in, "plain-corner-size", iterator.inj->plain_corner_size)) { Kill_Read };
+            if (!read_dpm(file, in, "plain-const-a", iterator.inj->plain_const_a)) { Kill_Read };
+            if (!read_dpm(file, in, "pswirl-inj-press", iterator.inj->pswirl_inj_press)) { Kill_Read };
+            if (!read_dpm(file, in, "airbl-rel-vel", iterator.inj->airbl_rel_vel)) { Kill_Read };
+            if (!read_dpm(file, in, "effer-quality", iterator.inj->effer_quality)) { Kill_Read };
+            if (!read_dpm(file, in, "effer-t-sat", iterator.inj->effer_t_sat)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-orifice-width", iterator.inj->ff_oriface_width)) { Kill_Read };
+            if (!read_dpm(file, in, "phi-start", iterator.inj->phi_start)) { Kill_Read };
+            if (!read_dpm(file, in, "phi-stop", iterator.inj->phi_stop)) { Kill_Read };
+            if (!read_dpm(file, in, "sheet-const", iterator.inj->sheet_const)) { Kill_Read };
+            if (!read_dpm(file, in, "lig-const", iterator.inj->lig_const)) { Kill_Read };
+            if (!read_dpm(file, in, "effer-const", iterator.inj->effer_const)) { Kill_Read };
+            if (!read_dpm(file, in, "effer-half-angle-max", iterator.inj->effer_half_angle_max)) { Kill_Read };
+            if (!read_dpm(file, in, "ff-sheet-const", iterator.inj->ff_sheet_const)) { Kill_Read };
+            if (!read_dpm(file, in, "atomizer-disp-angle", iterator.inj->atomizer_disp_angle)) { Kill_Read };
+
+            // 轴与速度参数
+            if (!read_dpm(file, in, "axis", iterator.inj->axis,x)) { Kill_Read };
+            if (!read_dpm(file, in, "axis", iterator.inj->axis,y)) { Kill_Read };
+            if (!read_dpm(file, in, "axis", iterator.inj->axis,z)) { Kill_Read };
+            if (!read_dpm(file, in, "vel-mag", iterator.inj->vel_mag)) { Kill_Read };
+            if (!read_dpm(file, in, "ang-vel-mag", iterator.inj->ang_vel_mag)) { Kill_Read };
+            if (!read_dpm(file, in, "cone-angle", iterator.inj->cone_angle)) { Kill_Read };
+            if (!read_dpm(file, in, "inner-radius", iterator.inj->inner_radius)) { Kill_Read };
+            if (!read_dpm(file, in, "radius", iterator.inj->radius)) { Kill_Read };
+            if (!read_dpm(file, in, "swirl-frac", iterator.inj->swirl_frac)) { Kill_Read };
+
+            // 流量与质量
+            if (!read_dpm(file, in, "total-flow-rate", iterator.inj->total_flow_rate)) { Kill_Read };
+            if (!read_dpm(file, in, "total-mass", iterator.inj->total_mass)) { Kill_Read };
+            if (!read_dpm(file, in, "volume-fraction", iterator.inj->volume_fraction)) { Kill_Read };
+
+            // RR分布参数
+            if (!read_dpm(file, in, "rr-min", iterator.inj->rr_min)) { Kill_Read };
+            if (!read_dpm(file, in, "rr-max", iterator.inj->rr_max)) { Kill_Read };
+            if (!read_dpm(file, in, "rr-mean", iterator.inj->rr_mean)) { Kill_Read };
+            if (!read_dpm(file, in, "rr-spread", iterator.inj->rr_spread)) { Kill_Read };
+            if (!read_dpm(file, in, "rr-numdia", iterator.inj->rr_numdia)) { Kill_Read };
+            if (!read_dpm(file, in, "posr", iterator.inj->posr,x)) { Kill_Read };
+            if (!read_dpm(file, in, "posr", iterator.inj->posr,y)) { Kill_Read };
+            if (!read_dpm(file, in, "posr", iterator.inj->posr,z)) { Kill_Read };
+            if (!read_dpm(file, in, "posu", iterator.inj->posu,x)) { Kill_Read };
+            if (!read_dpm(file, in, "posu", iterator.inj->posu,y)) { Kill_Read };
+            if (!read_dpm(file, in, "posu", iterator.inj->posu,z)) { Kill_Read };
+
+
 
             //unit.push_back(iterator);
             break;

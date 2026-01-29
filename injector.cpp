@@ -66,9 +66,9 @@ Injector::Injector()
     seco_breakup_madabushi_ligament_factor(0),
     seco_breakup_madabushi_jet_diameter(0),
     seco_breakup_schmehl_np(0),
-    swit("\"Default\""),
-    udf_inject_init("\"none\""),
-    udf_heat_mass("none"),
+    //swit("\"Default\""),
+    //udf_inject_init("\"none\""),
+    //udf_heat_mass("none"),
     volume_specification(zone),
     volume_streams_spec(total_parcel_count),
     volume_streams_total(0),
@@ -147,10 +147,7 @@ Injector::Injector()
     posr(0, 0, 0),
     posu(0, 0, 0)
 {
-    // Initialize laws array
-    for (int i = 0; i < 10; ++i) {
-        laws[i] = "";
-    }
+
 }
 
 Injector::~Injector()
