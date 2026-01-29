@@ -15,16 +15,16 @@ enum Unit_Type
 class Unit
 {
 public:
-    Injector *inj;
+    Injector inj;
 
     Unit()
     {
-        inj=new Injector();
+
     }
 
     ~Unit()
     {
-        delete(inj);
+
     }
 };
 

@@ -103,7 +103,7 @@ class Injector
 public:
 
     Injector();
-    ~Injector();
+    //~Injector();
     QString unit_type="injector";
 
 

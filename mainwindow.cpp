@@ -25,10 +25,13 @@ void MainWindow::on_actionRead_triggered()
     bool *ok=new bool();
     *ok= false;
     temp=read_single_dpm_file(ok);
+    qDebug()<<"4";
     if(*ok)
     {
         units.clear();
         units=temp;
+        //qDebug()<<"5";
+        //qDebug()<<units[1].inj.temperature;
     }
 }
 
