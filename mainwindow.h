@@ -7,6 +7,7 @@
 
 #include "unit.h"
 
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -21,7 +22,11 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+
     QList<Unit> units;
+
+public:
+
 
 private slots:
     void on_actionRead_triggered();

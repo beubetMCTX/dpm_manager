@@ -14,6 +14,13 @@
 
 #include "unit.h"
 
+#include <AIS_InteractiveContext.hxx>
+#include <OpenGl_GraphicDriver.hxx>
+#include <V3d_View.hxx>
+#include <Aspect_Handle.hxx>
+#include <Aspect_DisplayConnection.hxx>
+#include <Graphic3d_GraphicDriver.hxx>
+
 
 enum Coord
 {

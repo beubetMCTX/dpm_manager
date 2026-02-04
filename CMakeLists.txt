@@ -9,8 +9,36 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(OpenCASCADE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/cmake")
+set(OpenCASCADE_INCLUDE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/inc")
+set(OpenCASCADE_LINK_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14")
+
+find_package(OpenCASCADE CONFIG)
+
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools)
+find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(OpenGL REQUIRED)
+find_package(GLEW REQUIRED)
+
+add_definitions(-DWNT)
+
+
+find_package(VTK COMPONENTS
+CommonCore
+CommonDataModel
+FiltersCore
+FiltersGeneral
+GUISupportQt
+RenderingQt
+RenderingCore
+RenderingOpenGL2
+InteractionStyle)
+#find_package(OpenCASCADE CONFIG REQUIRED)
+
+
+
 
 set(TS_FILES dpm_manager_zh_CN.ts)
 
@@ -29,6 +57,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         injector.h injector.cpp
         dpm_file_io.h dpm_file_io.cpp
         unit.h
+
 
     )
 # Define target properties for Android with Qt 6 as:
@@ -54,6 +83,13 @@ else()
 endif()
 
 target_link_libraries(dpm_manager PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(dpm_manager PRIVATE ${GLEW_LIBRARIES})
+target_link_libraries(dpm_manager PRIVATE glfw)
+target_link_libraries(dpm_manager PRIVATE OpenGL::GL)
+target_link_libraries(dpm_manager PRIVATE Qt6::OpenGLWidgets)
+include_directories(${OpenCASCADE_INCLUDE_DIR})
+
+target_link_libraries(dpm_manager PRIVATE ${OpenCASCADE_LIBRARIES})
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
