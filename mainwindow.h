@@ -5,6 +5,12 @@
 #include <qvector.h>
 #include <QList>
 
+#include <QFileDialog>
+#include <QMessageBox>
+
+#include <TopTools_HSequenceOfShape.hxx>
+
+#include "occtwidget.h"
 #include "unit.h"
 
 
@@ -22,7 +28,7 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-
+    OCCTWidget* m_3d_widget;
     QList<Unit> units;
 
 public:

@@ -11,9 +11,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(OpenCASCADE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/cmake")
 set(OpenCASCADE_INCLUDE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/inc")
-set(OpenCASCADE_LINK_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14")
+set(OpenCASCADE_LIB_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/lib")
+set(OpenCASCADE_BIN_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/bin")
 
-find_package(OpenCASCADE CONFIG)
+set(VTK_INCLUDEDIRS "D:/vcpkg/VTK/VTK-Install/include/vtk-9.5")
+set(VTK_DIR "D:/vcpkg/VTK/VTK-Install/lib/cmake/vtk-9.5")
+set(VTK_BIN_DIR "D:/vcpkg/VTK/VTK-Install/bin")
+
+option(USE_QT "Use Qt with VTK" ON)
+add_definitions(-DWNT)
+
+
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools)
@@ -21,23 +29,44 @@ find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
-
-add_definitions(-DWNT)
-
-
 find_package(VTK COMPONENTS
-CommonCore
-CommonDataModel
-FiltersCore
-FiltersGeneral
-GUISupportQt
-RenderingQt
-RenderingCore
-RenderingOpenGL2
-InteractionStyle)
-#find_package(OpenCASCADE CONFIG REQUIRED)
+    CommonCore
+    CommonDataModel
+    FiltersCore
+    FiltersGeneral
+    GUISupportQt
+    RenderingQt
+    RenderingCore
+    RenderingOpenGL2
+    InteractionStyle
+)
 
+find_package(OpenCASCADE COMPONENTS
+    FoundationClasses
+    ModelingData
+    ModelingAlgorithms
+    Visualization
+    DataExchange
+    ApplicationFramework
+    DETools
+    Draw
+)
 
+# function(copy_dlls TARGET_NAME DLL_DIRS)
+#     foreach(DLL_DIR ${DLL_DIRS})
+#         if(EXISTS ${DLL_DIR})
+#             file(GLOB DLL_FILES "${DLL_DIR}/*.dll")
+#             foreach(DLL_FILE ${DLL_FILES})
+#                 add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+#                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+#                         "${DLL_FILE}"
+#                         $<TARGET_FILE_DIR:${TARGET_NAME}>
+#                     COMMENT "Copying ${DLL_FILE} to output directory"
+#                 )
+#             endforeach()
+#         endif()
+#     endforeach()
+# endfunction()
 
 
 set(TS_FILES dpm_manager_zh_CN.ts)
@@ -57,6 +86,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         injector.h injector.cpp
         dpm_file_io.h dpm_file_io.cpp
         unit.h
+        occtwidget.h occtwidget.cpp
 
 
     )
@@ -87,8 +117,8 @@ target_link_libraries(dpm_manager PRIVATE ${GLEW_LIBRARIES})
 target_link_libraries(dpm_manager PRIVATE glfw)
 target_link_libraries(dpm_manager PRIVATE OpenGL::GL)
 target_link_libraries(dpm_manager PRIVATE Qt6::OpenGLWidgets)
-include_directories(${OpenCASCADE_INCLUDE_DIR})
 
+include_directories(${OpenCASCADE_INCLUDE_DIR})
 target_link_libraries(dpm_manager PRIVATE ${OpenCASCADE_LIBRARIES})
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -115,3 +145,12 @@ install(TARGETS dpm_manager
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(dpm_manager)
 endif()
+
+
+# add_custom_command(TARGET dpm_manager POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy
+#         "${OpenCASCADE_BIN_DIR}TKernel.dll"
+#         "${OpenCASCADE_BIN_DIR}TKService.dll"
+#         # 添加其他实际需要的OCCT DLL
+#         $<TARGET_FILE_DIR:dpm_manager>
+# )

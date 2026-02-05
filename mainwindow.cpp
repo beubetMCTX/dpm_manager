@@ -8,10 +8,10 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    m_3d_widget = new OCCTWidget(this);
+    this->setCentralWidget(m_3d_widget);
 
-
-
-
+    m_3d_widget->create_cube(2,2,2);
 
 }
 
