@@ -8,10 +8,15 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    //tab_widget = new QTabWidget();
+
+    //this->setCentralWidget(m_3d_widget);
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
 
-    m_3d_widget->create_cube(2,2,2);
+    // m_3d_widget->create_cube(2,2,2);
+    // m_3d_widget->create_sphere(2);
 
 }
 
@@ -36,4 +41,23 @@ void MainWindow::on_actionRead_triggered()
         //qDebug()<<units[1].inj.temperature;
     }
 }
+
+
+
+void MainWindow::on_actionRead_Reference_Geometry_triggered()
+{
+    bool ok=false;
+    ok=m_3d_widget->geometry.Read_Geometry_Dialog();
+    if(ok) qDebug()<<"true";
+    m_3d_widget->add_readed_geometry();
+}
+
+
+
+
+
+// void MainWindow::on_actionNew_triggered()
+// {
+
+// }
 

@@ -11,57 +11,51 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
     {
         m_initialize_context(); // 初始化交互环境
     }
-    // 创建一个立方体作测试
-    //    TopoDS_Shape t_topo_bottle = MakeBottle(70.0, 50.0, 30.0);
-    //    Handle(AIS_Shape) t_ais_bottle = new AIS_Shape(t_topo_bottle);
-    //    m_context->Display(t_ais_bottle, Standard_True);
-    //    m_view->FitAll();
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
     setFocusPolicy(Qt::StrongFocus);
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
+
+
 }
 
-void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
-{
-    TopoDS_Shape t_topo_box = BRepPrimAPI_MakeBox(_dx, _dy, _dz).Shape();
-    Handle(AIS_Shape) t_ais_box = new AIS_Shape(t_topo_box);
-    m_context->Display(t_ais_box, Standard_True);
-    m_view->FitAll();
-}
-
-// void OCCTWidget::create_cylinder(Standard_Real _R, Standard_Real _H)
+// void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
 // {
-//     TopoDS_Shape t_topo_cylinder = BRepPrimAPI_ma    (_R , _H).Shape();
-//     Handle(AIS_Shape) t_ais_cylinder = new AIS_Shape(t_topo_cylinder);
-//     m_context->Display(t_ais_cylinder, Standard_True);
+
+//     TopoDS_Shape t_topo_box = BRepPrimAPI_MakeBox(_dx, _dy, _dz).Shape();
+//     builder.Add(compound,t_topo_box);
+//     Handle(AIS_Shape) view_cube = new AIS_Shape(compound);
+//     //t_ais_box->SetTransparency(0.8);
+//     view_cube->SetColor(Quantity_Color(0.55,0.77,0.73,Quantity_TOC_RGB));
+//     m_context->Display(view_cube, Standard_True);
 //     m_view->FitAll();
+
 // }
 
-void OCCTWidget::create_sphere(Standard_Real _R)
+Standard_Real OCCTWidget::get_trihedron_size()
 {
-    TopoDS_Shape t_topo_sphere = BRepPrimAPI_MakeSphere(_R).Shape();
-    Handle(AIS_Shape) t_ais_sphere = new AIS_Shape(t_topo_sphere);
-    m_context->Display(t_ais_sphere, Standard_True);
-    m_view->FitAll();
+    return cbrt(geometry.xyz_length.x()*geometry.xyz_length.y()*geometry.xyz_length.z())/10;
 }
 
-void OCCTWidget::create_cone(Standard_Real _R1, Standard_Real _R2, Standard_Real _H)
+void OCCTWidget::add_readed_geometry()
 {
-    TopoDS_Shape t_topo_cone = BRepPrimAPI_MakeCone(_R1,_R2,_H).Shape();
-    Handle(AIS_Shape) t_ais_cone = new AIS_Shape(t_topo_cone);
-    m_context->Display(t_ais_cone, Standard_True);
+    builder.Remove(compound,ref_geom);
+    ref_geom=geometry.getShape();
+    builder.Add(compound,ref_geom);
+
+    view_cube->Set(compound);
+
+    m_context->Redisplay(view_cube, Standard_True);
     m_view->FitAll();
+
+    trihedron_main->SetSize(get_trihedron_size());
+    m_context->Redisplay(trihedron_main, Standard_True);
+
+    builded=true;
+
 }
 
-void OCCTWidget::create_torus(Standard_Real _R1, Standard_Real _R2)
-{
-    TopoDS_Shape t_topo_torus = BRepPrimAPI_MakeTorus(_R1 ,_R2).Shape();
-    Handle(AIS_Shape) t_ais_torus = new AIS_Shape(t_topo_torus);
-    m_context->Display(t_ais_torus, Standard_True);
-    m_view->FitAll();
-}
 
 void OCCTWidget::m_initialize_context()
 {
@@ -95,24 +89,56 @@ void OCCTWidget::m_initialize_context()
             wind->Map();
         }
         m_context = new AIS_InteractiveContext(m_viewer);  //创建交互式上下文
-        //配置查看器的光照
+
         m_viewer->SetDefaultLights();
         m_viewer->SetLightOn();
-        //设置视图的背景颜色为灰色
+
         m_view->SetBackgroundColor(Quantity_NOC_BLACK);
         m_view->MustBeResized();
-        //显示视方体
-        auto view_cube = new AIS_ViewCube();
-        auto transform_pers = new Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers,
-                                                          Aspect_TOTP_LEFT_LOWER,
-                                                          Graphic3d_Vec2i(0, 0));
-        view_cube->SetTransformPersistence(transform_pers);
+
+        gp_Ax2 coordinate_system_main(gp::Origin(), gp::DZ(), gp::DX());
+        axis_placement_main = new Geom_Axis2Placement(coordinate_system_main);
+        trihedron_main = new AIS_Trihedron(axis_placement_main);
+        Handle(Prs3d_Drawer) drawer_main = trihedron_main->Attributes();
+
+        trihedron_main->SetDatumPartColor(Prs3d_DP_XAxis, Quantity_NOC_RED);      // X轴轴线红色
+        trihedron_main->SetDatumPartColor(Prs3d_DP_XArrow, Quantity_NOC_RED);     // X轴箭头红色
+
+        trihedron_main->SetDatumPartColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);      // Y轴轴线绿色
+        trihedron_main->SetDatumPartColor(Prs3d_DP_YArrow, Quantity_NOC_GREEN);   // Y轴箭头绿色
+
+        trihedron_main->SetDatumPartColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);      // Z轴轴线蓝色
+        trihedron_main->SetDatumPartColor(Prs3d_DP_ZArrow, Quantity_NOC_BLUE);     // Z轴箭头蓝色
+
+        trihedron_main->SetTextColor(Prs3d_DP_XAxis, Quantity_NOC_RED);           // X标签红色
+        trihedron_main->SetTextColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);         // Y标签绿色
+        trihedron_main->SetTextColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
+
+        trihedron_main->SetSize(10.0);
+        trihedron_main->SetDatumDisplayMode(Prs3d_DM_Shaded);
+
+
+
+        m_context->Display(trihedron_main, Standard_True);
+
+
+        builder.MakeCompound(compound);
+        view_cube = new AIS_Shape(compound);
+
+        // auto transform_pers = new Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers,
+        //                                                   Aspect_TOTP_LEFT_LOWER,
+        //                                                   Graphic3d_Vec2i(85, 85));
+        // view_cube->SetTransformPersistence(transform_pers);
+
+
+        view_cube->SetTransparency(0.8);
+        view_cube->SetColor(Quantity_Color(0.6,0.6,0.6,Quantity_TOC_RGB));
+
+        m_context->SetDisplayMode(AIS_Shaded, Standard_True);
         m_context->Display(view_cube, Standard_True);
 
-        //设置显示模式
-        m_context->SetDisplayMode(AIS_Shaded, Standard_True);
-
-
+        m_context->Deactivate(view_cube, TopAbs_SHAPE);
+        m_context->Activate(view_cube, TopAbs_FACE, Standard_True);
 
         // 设置模型高亮的风格
         Handle(Prs3d_Drawer) t_hilight_style = m_context->HighlightStyle(); // 获取高亮风格
@@ -131,9 +157,11 @@ void OCCTWidget::m_initialize_context()
         m_view->SetZoom(100);   // 放大
 
         // 激活二维网格
-        m_viewer->SetRectangularGridValues(0,0,1,1,0);
-        m_viewer->SetRectangularGridGraphicValues(10.01,10.01,0);
-        m_viewer->ActivateGrid(Aspect_GT_Rectangular,Aspect_GDM_Lines);
+        // m_viewer->SetRectangularGridValues(0,0,1,1,0);
+        // m_viewer->SetRectangularGridGraphicValues(10.01,0,10.01);
+        // m_viewer->ActivateGrid(Aspect_GT_Rectangular,Aspect_GDM_Lines);
+
+        m_view->SetProj(V3d_Zpos);
     }
 }
 
@@ -227,3 +255,6 @@ void OCCTWidget::wheelEvent(QWheelEvent *event)
     m_view->ZoomAtPoint(0, 0, 0.15*event->angleDelta().x(), 0.15*event->angleDelta().y()); //执行缩放
 
 }
+
+
+

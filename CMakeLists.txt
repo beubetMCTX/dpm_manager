@@ -27,6 +27,7 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets)
 find_package(glfw3 CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(VTK COMPONENTS
@@ -41,32 +42,8 @@ find_package(VTK COMPONENTS
     InteractionStyle
 )
 
-find_package(OpenCASCADE COMPONENTS
-    FoundationClasses
-    ModelingData
-    ModelingAlgorithms
-    Visualization
-    DataExchange
-    ApplicationFramework
-    DETools
-    Draw
-)
+find_package(OpenCASCADE COMPONENTS REQUIRED)
 
-# function(copy_dlls TARGET_NAME DLL_DIRS)
-#     foreach(DLL_DIR ${DLL_DIRS})
-#         if(EXISTS ${DLL_DIR})
-#             file(GLOB DLL_FILES "${DLL_DIR}/*.dll")
-#             foreach(DLL_FILE ${DLL_FILES})
-#                 add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-#                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#                         "${DLL_FILE}"
-#                         $<TARGET_FILE_DIR:${TARGET_NAME}>
-#                     COMMENT "Copying ${DLL_FILE} to output directory"
-#                 )
-#             endforeach()
-#         endif()
-#     endforeach()
-# endfunction()
 
 
 set(TS_FILES dpm_manager_zh_CN.ts)
@@ -87,6 +64,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         dpm_file_io.h dpm_file_io.cpp
         unit.h
         occtwidget.h occtwidget.cpp
+        ref_geom_read.h ref_geom_read.cpp
 
 
     )
@@ -115,11 +93,11 @@ endif()
 target_link_libraries(dpm_manager PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(dpm_manager PRIVATE ${GLEW_LIBRARIES})
 target_link_libraries(dpm_manager PRIVATE glfw)
+target_link_libraries(dpm_manager PRIVATE assimp::assimp)
 target_link_libraries(dpm_manager PRIVATE OpenGL::GL)
 target_link_libraries(dpm_manager PRIVATE Qt6::OpenGLWidgets)
-
-include_directories(${OpenCASCADE_INCLUDE_DIR})
 target_link_libraries(dpm_manager PRIVATE ${OpenCASCADE_LIBRARIES})
+#target_link_libraries(dpm_manager PRIVATE TKernel;TKMath;TKG2d;TKG3d;TKGeomBase;TKBRep;TKGeomAlgo;TKTopAlgo;TKPrim;TKBO;TKShHealing;TKBool;TKHLR;TKFillet;TKOffset;TKFeat;TKMesh;TKXMesh;TKService;TKV3d;TKOpenGl;TKMeshVS;TKIVtk;TKCDF;TKLCAF;TKCAF;TKBinL;TKXmlL;TKBin;TKXml;TKStdL;TKStd;TKTObj;TKBinTObj;TKXmlTObj;TKVCAF;TKDE;TKXSBase;TKDESTEP;TKXCAF;TKDEIGES;TKDESTL;TKDEVRML;TKRWMesh;TKDECascade;TKBinXCAF;TKXmlXCAF;TKDEOBJ;TKDEGLTF;TKDEPLY;TKExpress;TKDraw;TKTopTest;TKOpenGlTest;TKViewerTest;TKXSDRAW;TKDCAF;TKXDEDRAW;TKTObjDRAW;TKQADraw;TKIVtkDraw;TKXSDRAWDE;TKXSDRAWGLTF;TKXSDRAWIGES;TKXSDRAWOBJ;TKXSDRAWPLY;TKXSDRAWSTEP;TKXSDRAWSTL;TKXSDRAWVRML)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
@@ -147,10 +125,4 @@ if(QT_VERSION_MAJOR EQUAL 6)
 endif()
 
 
-# add_custom_command(TARGET dpm_manager POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy
-#         "${OpenCASCADE_BIN_DIR}TKernel.dll"
-#         "${OpenCASCADE_BIN_DIR}TKService.dll"
-#         # 添加其他实际需要的OCCT DLL
-#         $<TARGET_FILE_DIR:dpm_manager>
-# )
+

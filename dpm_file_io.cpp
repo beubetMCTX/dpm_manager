@@ -561,7 +561,7 @@ QList<Unit> read_single_dpm_file(bool *ok)
     QFile *file=new QFile(Read_File_Dialog());
     QList<Unit> unit;
     if (!file->open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QMessageBox::critical(nullptr, "错误", "无法打开文件: " + file->errorString());
+        //QMessageBox::critical(nullptr, "错误", "无法打开文件: " + file->errorString());
         *ok=false;
         delete(file);
         return unit;

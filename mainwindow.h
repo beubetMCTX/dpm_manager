@@ -30,12 +30,16 @@ public:
 
     OCCTWidget* m_3d_widget;
     QList<Unit> units;
+    QTabWidget* tab_widget;
 
 public:
 
 
 private slots:
     void on_actionRead_triggered();
+    void on_actionRead_Reference_Geometry_triggered();
+
+    //void on_actionNew_triggered();
 
 private:
     Ui::MainWindow *ui;

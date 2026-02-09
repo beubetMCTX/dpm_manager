@@ -32,6 +32,15 @@
 #include <AIS_Shape.hxx>
 #include <AIS_ViewCube.hxx>
 
+#include <gp_Ax2.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+
+#include <AIS_Trihedron.hxx>
+#include <Geom_Axis2Placement.hxx>
+
+#include "ref_geom_read.h"
+
 
 class OCCTWidget : public QWidget
 {
@@ -54,6 +63,10 @@ public:
     void create_cone(Standard_Real _R1 = 1.0, Standard_Real _R2 = 0.0, Standard_Real _H = 2.0);
 
     void create_torus(Standard_Real _R1 =2.0, Standard_Real _R2 = 0.5);
+
+    Ref_Geom_Read geometry;
+
+    void add_readed_geometry();
 private:
 
     //!初始化交互环境
@@ -67,19 +80,23 @@ private:
     //!创建3d接口定义图形驱动程序
     Handle(Graphic3d_GraphicDriver) m_graphic_driver;
 
+    Standard_Real get_trihedron_size();
+
 protected:
-    //!覆写绘图事件
+
     void paintEvent(QPaintEvent *) override;
-    //!覆写窗口尺寸变化事件
+
     void resizeEvent(QResizeEvent *) override;
-    //!覆写鼠标按键按下事件
+
     void mousePressEvent(QMouseEvent *event) override;
-    //!覆写鼠标按键释放事件
+
     void mouseReleaseEvent(QMouseEvent *event) override;
-    //!覆写鼠标移动事件
+
     void mouseMoveEvent(QMouseEvent *event) override;
-    //!覆写鼠标滚轮事件
+
     void wheelEvent(QWheelEvent *event) override;
+
+    //void mouseDoubleClickEvent(QMouseEvent* event) override;
 
     //! 返回窗口的绘制引擎
     QPaintEngine *paintEngine() const override
@@ -96,11 +113,27 @@ protected:
         CurAction3d_DynamicRotation //旋转
     };
 private:
+    BRep_Builder builder;
+    TopoDS_Compound compound;
+
+    Handle(AIS_Shape) view_cube;
+    TopoDS_Shape ref_geom;
+    bool builded=false;
+
     Standard_Integer m_x_max;    //!记录鼠标平移坐标X
     Standard_Integer m_y_max;    //!记录鼠标平移坐标Y
     CurrentAction3d m_current_mode; //!三维场景转换模式
+
     bool mouse_middle_mod;
     Standard_Real m_dpi_scale;
+
+    gp_Ax2 coordinate_system_main;
+    Handle(Geom_Axis2Placement) axis_placement_main;
+    Handle(AIS_Trihedron) trihedron_main;
+    Handle(Prs3d_Drawer) drawer_main;
+
+
+
 
 };
 
