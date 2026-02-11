@@ -1,6 +1,6 @@
-#include "ref_geom_read.h"
+#include "base_geom_read.h"
 
-Ref_Geom_Read::Ref_Geom_Read(QObject *parent)
+Base_Geom_Read::Base_Geom_Read(QObject *parent)
     : QObject(parent)
     , m_hasAssembly(false)
     , m_rootShapesCount(0)
@@ -9,12 +9,12 @@ Ref_Geom_Read::Ref_Geom_Read(QObject *parent)
 
 }
 
-Ref_Geom_Read::~Ref_Geom_Read()
+Base_Geom_Read::~Base_Geom_Read()
 {
 
 }
 
-QString Ref_Geom_Read::getSupportedFormatsFilter()
+QString Base_Geom_Read::getSupportedFormatsFilter()
 {
     return QStringLiteral(
         "所有支持格式 (*.step *.stp *.iges *.igs *.stl *.brep);;"
@@ -25,7 +25,7 @@ QString Ref_Geom_Read::getSupportedFormatsFilter()
         );
 }
 
-bool Ref_Geom_Read::Read_Geometry_Dialog()
+bool Base_Geom_Read::Read_Geometry_Dialog()
 {
     bool ok=false;
     QString file_path=QFileDialog::getOpenFileName(nullptr, "选择文件", ".","所有文件 (*.*)");
@@ -34,7 +34,7 @@ bool Ref_Geom_Read::Read_Geometry_Dialog()
     return ok;
 }
 
-bool Ref_Geom_Read::readFile(QString& filePath)
+bool Base_Geom_Read::readFile(QString& filePath)
 {
     if (filePath.isEmpty()) {
         emit fileReadError("文件路径为空");
@@ -93,7 +93,7 @@ bool Ref_Geom_Read::readFile(QString& filePath)
     return false;
 }
 
-bool Ref_Geom_Read::readSTEPFile(const QString& filePath)
+bool Base_Geom_Read::readSTEPFile(const QString& filePath)
 {
     STEPControl_Reader reader;
 
@@ -132,7 +132,7 @@ bool Ref_Geom_Read::readSTEPFile(const QString& filePath)
 }
 
 
-bool Ref_Geom_Read::readIGESFile(const QString& filePath)
+bool Base_Geom_Read::readIGESFile(const QString& filePath)
 {
 
     IGESControl_Reader reader;
@@ -167,7 +167,7 @@ bool Ref_Geom_Read::readIGESFile(const QString& filePath)
     return true;
 }
 
-bool Ref_Geom_Read::readSTLFile(const QString& filePath)
+bool Base_Geom_Read::readSTLFile(const QString& filePath)
 {
     StlAPI_Reader reader;
 
@@ -190,7 +190,7 @@ bool Ref_Geom_Read::readSTLFile(const QString& filePath)
     return true;
 }
 
-bool Ref_Geom_Read::readBREPFile(const QString& filePath)
+bool Base_Geom_Read::readBREPFile(const QString& filePath)
 {
     BRep_Builder builder;
 
@@ -211,7 +211,7 @@ bool Ref_Geom_Read::readBREPFile(const QString& filePath)
     return true;
 }
 
-void Ref_Geom_Read::get_bounding_box()
+void Base_Geom_Read::get_bounding_box()
 {
     BRepBndLib::Add(m_shape,bounding_box);
     if (bounding_box.IsVoid())

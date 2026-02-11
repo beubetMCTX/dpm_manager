@@ -1,5 +1,5 @@
-#ifndef REF_GEOM_READ_H
-#define REF_GEOM_READ_H
+#ifndef BASE_GEOM_READ_H
+#define BASE_GEOM_READ_H
 
 #include <QObject>
 #include <QString>
@@ -28,12 +28,12 @@
 
 //using namespace Assimp;
 
-class Ref_Geom_Read: public QObject
+class Base_Geom_Read: public QObject
 {
     Q_OBJECT
 public:
-    explicit Ref_Geom_Read(QObject *parent = nullptr);
-    ~Ref_Geom_Read();
+    explicit Base_Geom_Read(QObject *parent = nullptr);
+    ~Base_Geom_Read();
 
     // 文件读取功能
     bool readFile(QString& filePath);
@@ -77,4 +77,4 @@ private:
 
 };
 
-#endif // REF_GEOM_READ_H
+#endif // BASE_GEOM_READ_H

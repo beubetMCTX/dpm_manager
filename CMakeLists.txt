@@ -64,7 +64,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         dpm_file_io.h dpm_file_io.cpp
         unit.h
         occtwidget.h occtwidget.cpp
-        ref_geom_read.h ref_geom_read.cpp
+        base_geom_read.h base_geom_read.cpp
+
 
 
     )

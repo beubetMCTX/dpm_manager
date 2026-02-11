@@ -15,8 +15,10 @@ MainWindow::MainWindow(QWidget *parent)
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
 
-    // m_3d_widget->create_cube(2,2,2);
+     m_3d_widget->create_cube(2,2,2);
     // m_3d_widget->create_sphere(2);
+
+    //arrow_density=10;
 
 }
 
@@ -44,7 +46,7 @@ void MainWindow::on_actionRead_triggered()
 
 
 
-void MainWindow::on_actionRead_Reference_Geometry_triggered()
+void MainWindow::on_actionRead_Base_Geometry_triggered()
 {
     bool ok=false;
     ok=m_3d_widget->geometry.Read_Geometry_Dialog();

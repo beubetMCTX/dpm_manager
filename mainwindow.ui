@@ -28,7 +28,7 @@
      <string>File</string>
     </property>
     <addaction name="actionRead"/>
-    <addaction name="actionRead_Reference_Geometry"/>
+    <addaction name="actionRead_Base_Geometry"/>
    </widget>
    <addaction name="menureaddile"/>
   </widget>
@@ -38,9 +38,9 @@
     <string>Read...</string>
    </property>
   </action>
-  <action name="actionRead_Reference_Geometry">
+  <action name="actionRead_Base_Geometry">
    <property name="text">
-    <string>Read Reference Geometry</string>
+    <string>Read Base Geometry</string>
    </property>
   </action>
  </widget>

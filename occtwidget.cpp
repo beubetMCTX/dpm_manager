@@ -1,6 +1,8 @@
 #include "occtwidget.h"
 #include <AIS_ViewCube.hxx>
 
+
+
 OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->devicePixelRatioF())
 {
     //配置QWidget
@@ -20,18 +22,22 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
 
 }
 
-// void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
-// {
+void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
+{
+    Unit unit;
+    unit_hash.insert(unit.inj.uuid,unit);
 
-//     TopoDS_Shape t_topo_box = BRepPrimAPI_MakeBox(_dx, _dy, _dz).Shape();
-//     builder.Add(compound,t_topo_box);
-//     Handle(AIS_Shape) view_cube = new AIS_Shape(compound);
-//     //t_ais_box->SetTransparency(0.8);
-//     view_cube->SetColor(Quantity_Color(0.55,0.77,0.73,Quantity_TOC_RGB));
-//     m_context->Display(view_cube, Standard_True);
-//     m_view->FitAll();
+    //unit_hash[unit.inj.uuid].ais_display->Set(unit_hash[unit.inj.uuid].inj.shape);
 
-// }
+    m_context->Activate(unit_hash[unit.inj.uuid].ais_display, TopAbs_SHAPE, Standard_True);
+
+    // unit_hash[unit.inj.uuid].ais_display->SetTransparency(0.8);
+    // unit_hash[unit.inj.uuid].ais_display->SetColor(Quantity_Color(0.6,0.6,0.6,Quantity_TOC_RGB));
+
+    m_context->Display(unit_hash[unit.inj.uuid].ais_display, Standard_True);
+
+    //m_view->FitAll();
+}
 
 Standard_Real OCCTWidget::get_trihedron_size()
 {
@@ -44,9 +50,9 @@ void OCCTWidget::add_readed_geometry()
     ref_geom=geometry.getShape();
     builder.Add(compound,ref_geom);
 
-    view_cube->Set(compound);
+    base_geometry->Set(compound);
 
-    m_context->Redisplay(view_cube, Standard_True);
+    m_context->Redisplay(base_geometry, Standard_True);
     m_view->FitAll();
 
     trihedron_main->SetSize(get_trihedron_size());
@@ -114,7 +120,7 @@ void OCCTWidget::m_initialize_context()
         trihedron_main->SetTextColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);         // Y标签绿色
         trihedron_main->SetTextColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
 
-        trihedron_main->SetSize(10.0);
+        trihedron_main->SetSize(2.0);
         trihedron_main->SetDatumDisplayMode(Prs3d_DM_Shaded);
 
 
@@ -123,7 +129,8 @@ void OCCTWidget::m_initialize_context()
 
 
         builder.MakeCompound(compound);
-        view_cube = new AIS_Shape(compound);
+
+        base_geometry = new AIS_Shape(compound);
 
         // auto transform_pers = new Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers,
         //                                                   Aspect_TOTP_LEFT_LOWER,
@@ -131,14 +138,15 @@ void OCCTWidget::m_initialize_context()
         // view_cube->SetTransformPersistence(transform_pers);
 
 
-        view_cube->SetTransparency(0.8);
-        view_cube->SetColor(Quantity_Color(0.6,0.6,0.6,Quantity_TOC_RGB));
+        base_geometry->SetTransparency(0.8);
+        base_geometry->SetColor(Quantity_Color(0.6,0.6,0.6,Quantity_TOC_RGB));
 
         m_context->SetDisplayMode(AIS_Shaded, Standard_True);
-        m_context->Display(view_cube, Standard_True);
+        m_context->Display(base_geometry, Standard_True);
 
-        m_context->Deactivate(view_cube, TopAbs_SHAPE);
-        m_context->Activate(view_cube, TopAbs_FACE, Standard_True);
+        m_context->Deactivate(base_geometry, TopAbs_SHAPE);
+        m_context->Activate(base_geometry, TopAbs_FACE, Standard_True);
+
 
         // 设置模型高亮的风格
         Handle(Prs3d_Drawer) t_hilight_style = m_context->HighlightStyle(); // 获取高亮风格
@@ -156,10 +164,10 @@ void OCCTWidget::m_initialize_context()
 
         m_view->SetZoom(100);   // 放大
 
-        // 激活二维网格
-        // m_viewer->SetRectangularGridValues(0,0,1,1,0);
-        // m_viewer->SetRectangularGridGraphicValues(10.01,0,10.01);
-        // m_viewer->ActivateGrid(Aspect_GT_Rectangular,Aspect_GDM_Lines);
+        //激活二维网格
+        m_viewer->SetRectangularGridValues(0,0,1,1,0);
+        m_viewer->SetRectangularGridGraphicValues(10.01,0,10.01);
+        m_viewer->ActivateGrid(Aspect_GT_Rectangular,Aspect_GDM_Lines);
 
         m_view->SetProj(V3d_Zpos);
     }

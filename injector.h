@@ -1,12 +1,48 @@
 #ifndef INJECTOR_H
 #define INJECTOR_H
+
+#include <Standard_GUID.hxx>
 #pragma once
 ;
-#pragma pack(push, 4)
+#pragma pack(push, 8)
 
 #include <QString>
 #include <qvector.h>
 #include <QVector3D>
+
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
+#include <BRepPrimAPI_MakeCone.hxx>
+#include <BRepPrimAPI_MakeTorus.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
+
+#include <Prs3d_Arrow.hxx>
+
+#include <BRepAlgoAPI_Cut.hxx>
+
+#include <TFunction_Driver.hxx>
+#include <TFunction_Logbook.hxx>
+#include <TNaming_Builder.hxx>
+
+
+#include <TDocStd_Document.hxx>
+#include <TDF_Label.hxx>
+#include <TDataStd_Real.hxx>
+#include <TDataStd_Name.hxx>
+#include <TNaming_Builder.hxx>
+#include <TDocStd_Application.hxx>
+
+#include <AIS_InteractiveObject.hxx>
+
+
+#include <XCAFApp_Application.hxx>
+
+#include <gp_Ax2.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+
+#include <QUuid>
 
 
 
@@ -108,7 +144,8 @@ public:
 
     Injector();
     //~Injector();
-    QString unit_type="injector";
+
+
 
 
 public:
@@ -343,6 +380,82 @@ private:
 
 
 };
+
+class Injector_OCCT
+{
+public:
+
+    Injector_OCCT();
+
+    ~Injector_OCCT();
+
+    bool initialize_OCAF();
+
+    bool create_injector();
+
+    bool edit_injector();
+
+    bool update_injector_parameters();
+
+    //bool create_geometry(TopoDS_Shape &shape);
+
+    //const Unit_Type type = injector;
+
+    bool edit_mode;
+
+    //TopoDS_Compound get_shape() {return shape;}
+
+public:
+
+    QUuid uuid = QUuid::createUuid();
+
+    Injector injector_data;
+
+    TopoDS_Compound shape;
+
+private:
+    TopoDS_Compound create_arrow(gp_Ax2 ax2,Standard_Real cyli_diameter,Standard_Real cyli_length,Standard_Real cone_diameter,Standard_Real cone_length);
+    bool create_geometry_single();
+    bool create_geometry_group(TopoDS_Shape &shape);
+    bool create_geometry_cone(TopoDS_Shape &shape);
+    bool create_geometry_volume(TopoDS_Shape &shape);
+    bool create_geometry_p_o_a(TopoDS_Shape &shape);
+    bool create_geometry_p_s_a(TopoDS_Shape &shape);
+    bool create_geometry_a_b_a(TopoDS_Shape &shape);
+    bool create_geometry_f_f_a(TopoDS_Shape &shape);
+    bool create_geometry_e_a(TopoDS_Shape &shape);
+    bool create_geometry_condensate(TopoDS_Shape &shape);
+
+
+
+private:
+
+    Handle(TDocStd_Document) m_document;
+    TDF_Label m_geometryLabel; // 存储几何体标签
+
+     //=BRepPrimAPI_MakeCone(5,3,1);
+
+    BRep_Builder builder;
+
+    TopoDS_Compound inj;
+
+
+    //Handle(AIS_InteractiveObject) m_aisShape; // 显示对象
+
+    // 创建圆柱体几何体
+    //TopoDS_Shape createCylinder(const gp_Ax2& axis, double diameter, double height);
+
+    // 设置几何属性到OCAF标签
+    // bool setGeometryAttributes(const TDF_Label& label,
+    //                            const TopoDS_Shape& shape);
+
+
+};
+
+
+
+
+
 
 
 #pragma pack(pop)

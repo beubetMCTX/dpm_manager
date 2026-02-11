@@ -37,9 +37,8 @@ public:
 
 private slots:
     void on_actionRead_triggered();
-    void on_actionRead_Reference_Geometry_triggered();
 
-    //void on_actionNew_triggered();
+    void on_actionRead_Base_Geometry_triggered();
 
 private:
     Ui::MainWindow *ui;

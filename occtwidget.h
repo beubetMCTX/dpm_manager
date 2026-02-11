@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QHash>
 
 #include <QApplication>
 
@@ -24,11 +25,16 @@
 #include <Xw_Window.hxx>
 #endif
 
+#include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeTorus.hxx>
+#include <BRepPrimAPI_MakeCylinder.hxx>
 
-#include <BRepPrimAPI_MakeBox.hxx>
+#include <Prs3d_Arrow.hxx>
+
+#include <BRepAlgoAPI_Cut.hxx>
+
 #include <AIS_Shape.hxx>
 #include <AIS_ViewCube.hxx>
 
@@ -39,7 +45,8 @@
 #include <AIS_Trihedron.hxx>
 #include <Geom_Axis2Placement.hxx>
 
-#include "ref_geom_read.h"
+#include "base_geom_read.h"
+#include "unit.h"
 
 
 class OCCTWidget : public QWidget
@@ -64,9 +71,11 @@ public:
 
     void create_torus(Standard_Real _R1 =2.0, Standard_Real _R2 = 0.5);
 
-    Ref_Geom_Read geometry;
+    Base_Geom_Read geometry;
 
     void add_readed_geometry();
+
+    QHash<QUuid,Unit> unit_hash;
 private:
 
     //!初始化交互环境
@@ -116,7 +125,9 @@ private:
     BRep_Builder builder;
     TopoDS_Compound compound;
 
-    Handle(AIS_Shape) view_cube;
+    Handle(AIS_Shape) base_geometry;
+
+    Handle(AIS_Shape) reference_geometry;
     TopoDS_Shape ref_geom;
     bool builded=false;
 
@@ -131,6 +142,9 @@ private:
     Handle(Geom_Axis2Placement) axis_placement_main;
     Handle(AIS_Trihedron) trihedron_main;
     Handle(Prs3d_Drawer) drawer_main;
+
+
+
 
 
 
