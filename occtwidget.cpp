@@ -27,22 +27,26 @@ void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real
     Unit unit;
     unit_hash.insert(unit.inj.uuid,unit);
 
-    //unit_hash[unit.inj.uuid].ais_display->Set(unit_hash[unit.inj.uuid].inj.shape);
+    unit_hash[unit.inj.uuid].ais_display->Set(unit_hash[unit.inj.uuid].inj.shape);
+
+    unit_hash[unit.inj.uuid].inj.injector_data.name="inj2";
+
+    unit_hash[unit.inj.uuid].ais_display->SetColor(Quantity_Color(0.2,0.3,0.9,Quantity_TOC_RGB));
 
     m_context->Activate(unit_hash[unit.inj.uuid].ais_display, TopAbs_SHAPE, Standard_True);
 
-    // unit_hash[unit.inj.uuid].ais_display->SetTransparency(0.8);
-    // unit_hash[unit.inj.uuid].ais_display->SetColor(Quantity_Color(0.6,0.6,0.6,Quantity_TOC_RGB));
-
     m_context->Display(unit_hash[unit.inj.uuid].ais_display, Standard_True);
 
-    //m_view->FitAll();
+
 }
 
 Standard_Real OCCTWidget::get_trihedron_size()
 {
     return cbrt(geometry.xyz_length.x()*geometry.xyz_length.y()*geometry.xyz_length.z())/10;
 }
+
+
+
 
 void OCCTWidget::add_readed_geometry()
 {
@@ -148,26 +152,29 @@ void OCCTWidget::m_initialize_context()
         m_context->Activate(base_geometry, TopAbs_FACE, Standard_True);
 
 
+
+
         // 设置模型高亮的风格
         Handle(Prs3d_Drawer) t_hilight_style = m_context->HighlightStyle(); // 获取高亮风格
         t_hilight_style->SetMethod(Aspect_TOHM_COLOR);  // 颜色显示方式
         t_hilight_style->SetColor(Quantity_NOC_LIGHTBLUE);    // 设置高亮颜色
         t_hilight_style->SetDisplayMode(AIS_Shaded); // 整体高亮
-        t_hilight_style->SetTransparency(0.9f); // 设置透明度
+        t_hilight_style->SetTransparency(0.5f); // 设置透明度
 
         // 设置选择模型的风格
         Handle(Prs3d_Drawer) t_select_style = m_context->SelectionStyle();  // 获取选择风格
         t_select_style->SetMethod(Aspect_TOHM_COLOR);  // 颜色显示方式
-        t_select_style->SetColor(Quantity_NOC_LIGHTSEAGREEN);   // 设置选择后颜色
-        t_select_style->SetDisplayMode(1); // 整体高亮
-        t_select_style->SetTransparency(0.99f); // 设置透明度
+        //t_select_style->SetColor(selc);   // 设置选择后颜色
+        t_select_style->SetDisplayMode(AIS_Shaded); // 整体高亮
+        t_select_style->SetTransparency(0.6f); // 设置透明度
+
 
         m_view->SetZoom(100);   // 放大
 
-        //激活二维网格
-        m_viewer->SetRectangularGridValues(0,0,1,1,0);
-        m_viewer->SetRectangularGridGraphicValues(10.01,0,10.01);
-        m_viewer->ActivateGrid(Aspect_GT_Rectangular,Aspect_GDM_Lines);
+        // //激活二维网格
+        // m_viewer->SetRectangularGridValues(0,0,1,1,0);
+        // m_viewer->SetRectangularGridGraphicValues(10.01,0,10.01);
+        // m_viewer->ActivateGrid(Aspect_GT_Rectangular,Aspect_GDM_Lines);
 
         m_view->SetProj(V3d_Zpos);
     }
@@ -194,15 +201,17 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
     if((event->buttons()&Qt::LeftButton))
     {
-        // 鼠标左键按下：初始化平移
+        myIsDragging = true;
         m_x_max=pos.x();
         m_y_max=pos.y();
+        m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
+        select();
     }
     else if(event->buttons()&Qt::RightButton)
     {
-
-        // 鼠标右键按下：初始化旋转
-        m_view->StartRotation(pos.x(),pos.y());
+        // 鼠标左键按下：初始化平移
+        m_x_max=pos.x();
+        m_y_max=pos.y();
     }
     else if(event->buttons()&Qt::MiddleButton)
     {
@@ -222,7 +231,52 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
     pos.setY(pos.y()*m_dpi_scale);
     // 将鼠标位置传递到交互环境
     m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
+    if(myIsDragging)
+    {
+        myIsDragging=false;
+        m_context->ClearSelected(true);
+        m_view->Update();
+    }
 
+}
+
+
+gp_Pln OCCTWidget::get_moving_base_plane(opencascade::handle<AIS_Shape> moving_shape)
+{
+    gp_Pnt oripnt(0,0,0);
+    TopLoc_Location location;
+    gp_Dir oridir=m_view->Camera()->Direction();
+    return gp_Pln(oripnt,oridir);
+
+}
+
+bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
+{
+    m_context->Activate(select_mode);
+    if(m_context->HasDetected())
+    {
+        Handle(AIS_InteractiveObject) obj;
+        obj=m_context->DetectedInteractive();
+        moving_shape=Handle(AIS_Shape)::DownCast(obj);
+        m_view->Update();
+
+        if(moving_shape->HasColor())
+        {
+            Handle(Prs3d_Drawer) t_select_style = m_context->SelectionStyle();  // 获取选择风格
+            Quantity_Color color;
+            moving_shape->Color(color);
+            t_select_style->SetMethod(Aspect_TOHM_COLOR);  // 颜色显示方式
+            t_select_style->SetColor(color);   // 设置选择后颜色
+            t_select_style->SetDisplayMode(AIS_Shaded); // 整体高亮
+            t_select_style->SetTransparency(0.8f); // 设置透明度 // 设置选择后颜色
+        }
+
+        m_context->SelectDetected();
+        m_view->Update();
+        //qDebug()<<moving_shape->Shape().Orientation();
+        return true;
+    }
+    return false;
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
@@ -233,13 +287,46 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
 
     if((event->buttons()&Qt::LeftButton))
     {
-        m_view->Pan(pos.x()-m_x_max,m_y_max-pos.y());
-        m_x_max=pos.x();
-        m_y_max=pos.y();
+        Standard_Real occt_x1,occt_y1,occt_z1;
+        Standard_Real occt_x2,occt_y2,occt_z2;
+
+        m_view->Convert(pos.x(),pos.y(),occt_x1,occt_y1,occt_z1);
+        m_view->Convert(m_x_max,m_y_max,occt_x2,occt_y2,occt_z2);
+
+        gp_Pln ref_pln =get_moving_base_plane(moving_shape);
+
+        gp_Pnt2d converted_pnt_pln  = ProjLib::Project(ref_pln,gp_Pnt(occt_x1,occt_y1,occt_z1));
+        gp_Pnt2d converted_pnt_pln2 = ProjLib::Project(ref_pln,gp_Pnt(occt_x2,occt_y2,occt_z2));
+
+        gp_Pnt ResultPoint = ElSLib::Value(converted_pnt_pln.X()-converted_pnt_pln2.X(),
+                                           converted_pnt_pln.Y()-converted_pnt_pln2.Y(),
+                                           ref_pln);
+        gp_Trsf trsf;
+
+        trsf.SetTranslation(gp_Vec(ResultPoint.X(),ResultPoint.Y(),ResultPoint.Z()));
+        moving_shape->SetLocalTransformation(trsf * moving_shape->LocalTransformation());
+
+
+        m_context->Update(moving_shape, Standard_True);
+
+        // 更新起始位置
+        m_x_max = pos.x();
+        m_y_max = pos.y();
+
+        // 重绘视图
+        m_view->Update();
+
+
+
+        //qDebug()<<ResultPoint.X()<<ResultPoint.Y()<<ResultPoint.Z();
+
+        //qDebug()<<occt_x1-occt_x2<<occt_y1-occt_y2<<occt_z1-occt_z1;
     }
     else if(event->buttons()&Qt::RightButton)
     {
-        m_view->Rotation(pos.x(),pos.y());
+        m_view->Pan(pos.x()-m_x_max,m_y_max-pos.y());
+        m_x_max=pos.x();
+        m_y_max=pos.y();
     }
     else if(event->buttons()&Qt::MiddleButton)
     {

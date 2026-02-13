@@ -24,16 +24,18 @@
 #include <TFunction_Driver.hxx>
 #include <TFunction_Logbook.hxx>
 #include <TNaming_Builder.hxx>
-
-
+#include <TNaming_NamedShape.hxx>
 #include <TDocStd_Document.hxx>
 #include <TDF_Label.hxx>
 #include <TDataStd_Real.hxx>
 #include <TDataStd_Name.hxx>
+#include <TDataXtd_Shape.hxx>
+#include <XCAFDoc_Color.hxx>
 #include <TNaming_Builder.hxx>
 #include <TDocStd_Application.hxx>
 
 #include <AIS_InteractiveObject.hxx>
+#include <AIS_Shape.hxx>
 
 
 #include <XCAFApp_Application.hxx>
@@ -298,7 +300,7 @@ public:
         ang_vel,
         ang_vel2;
     QVector3D
-        atomizer_axis;
+        atomizer_axis;//p_o_a,p_s_a,a_b_a,ff,effer等扩散器轴朝向
     double//雾化直径
         diameter,
         diameter2;
@@ -350,7 +352,7 @@ public:
 
     double atomizer_disp_angle;//p_s_a雾化器扩散角(角度制)
 
-    QVector3D axis;//cone,p_o_a,p_s_a,a_b_a,ff,effer等扩散器轴朝向
+    QVector3D axis;//cone
     double vel_mag;//无速度矢量的喷注器喷注速度
     double ang_vel_mag;//无速度矢量的喷注器喷注角速度
     double cone_angle;//锥角
@@ -399,7 +401,8 @@ public:
 
     //bool create_geometry(TopoDS_Shape &shape);
 
-    //const Unit_Type type = injector;
+    TDF_Label get_label(){return m_label;}
+
 
     bool edit_mode;
 
@@ -412,6 +415,8 @@ public:
     Injector injector_data;
 
     TopoDS_Compound shape;
+
+
 
 private:
     TopoDS_Compound create_arrow(gp_Ax2 ax2,Standard_Real cyli_diameter,Standard_Real cyli_length,Standard_Real cone_diameter,Standard_Real cone_length);
@@ -431,14 +436,29 @@ private:
 private:
 
     Handle(TDocStd_Document) m_document;
-    TDF_Label m_geometryLabel; // 存储几何体标签
+    TDF_Label m_label; // 存储几何体标签
+    TDF_Label uuid_label;
+    TDF_Label name_label;
+    TDF_Label geometry_label;
+    TDF_Label position_label;
+    TDF_Label position2_label;
+    TDF_Label velocity_label;
+    TDF_Label velocity2_label;
+    //TDF_Label angvel_label;
+    //TDF_Label angvel2_label;
+    TDF_Label axis_label;
+    TDF_Label atomizer_axis_label;
+    TDF_Label material_label;
+    TDF_Label color_label;
+
+    // TDF_Label ff_center_label,
+    // TDF_Label ff_virtual_origin_label,
+    // TDF_Label ff_normal_label;
+
 
      //=BRepPrimAPI_MakeCone(5,3,1);
 
     BRep_Builder builder;
-
-    TopoDS_Compound inj;
-
 
     //Handle(AIS_InteractiveObject) m_aisShape; // 显示对象
 

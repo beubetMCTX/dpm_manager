@@ -38,12 +38,21 @@
 #include <AIS_Shape.hxx>
 #include <AIS_ViewCube.hxx>
 
+#include <TNaming_Tool.hxx>
+#include <TDF_Tool.hxx>
+
 #include <gp_Ax2.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
 
 #include <AIS_Trihedron.hxx>
 #include <Geom_Axis2Placement.hxx>
+
+#include <ProjLib.hxx>
+
+#include <ElSLib.hxx>
+
+#include <AIS_TextLabel.hxx>//ShapeLabelExtension.hxx>
 
 #include "base_geom_read.h"
 #include "unit.h"
@@ -90,6 +99,10 @@ private:
     Handle(Graphic3d_GraphicDriver) m_graphic_driver;
 
     Standard_Real get_trihedron_size();
+
+    gp_Pln get_moving_base_plane(Handle(AIS_Shape) moving_shape);
+
+    bool select(TopAbs_ShapeEnum select_mode=TopAbs_COMPOUND);
 
 protected:
 
@@ -143,10 +156,11 @@ private:
     Handle(AIS_Trihedron) trihedron_main;
     Handle(Prs3d_Drawer) drawer_main;
 
+    Standard_Boolean myIsDragging = false;
 
+    Handle(AIS_Shape) moving_shape;
 
-
-
+    TopoDS_Face selected_face;
 
 
 };
