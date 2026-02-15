@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>unit_edit_dialog</class>
+ <widget class="QDialog" name="unit_edit_dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>900</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_frame" stretch="0,0">
+   <item>
+    <layout class="QHBoxLayout" name="unit_type_layout" stretch="0,0,0">
+     <property name="sizeConstraint">
+      <enum>QLayout::SizeConstraint::SetMinimumSize</enum>
+     </property>
+     <property name="leftMargin">
+      <number>20</number>
+     </property>
+     <property name="rightMargin">
+      <number>20</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>unit_type:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="comboBox"/>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QStackedWidget" name="stackedWidget">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="page_injection">
+      <layout class="QVBoxLayout" name="verticalLayout_page_injection">
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_injecton_title" stretch="3,3,1">
+         <property name="sizeConstraint">
+          <enum>QLayout::SizeConstraint::SetMinimumSize</enum>
+         </property>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_injection_name">
+           <property name="sizeConstraint">
+            <enum>QLayout::SizeConstraint::SetMinimumSize</enum>
+           </property>
+           <item>
+            <widget class="QLabel" name="label_injection_name">
+             <property name="text">
+              <string>Injection Name</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLineEdit" name="lineEdit_injection_name"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_injecton_type">
+           <property name="sizeConstraint">
+            <enum>QLayout::SizeConstraint::SetMinimumSize</enum>
+           </property>
+           <item>
+            <widget class="QLabel" name="label_injection_type">
+             <property name="text">
+              <string>Injection Type</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="comboBox_injection_type"/>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QVBoxLayout" name="verticalLayout_number_of_stream">
+           <property name="sizeConstraint">
+            <enum>QLayout::SizeConstraint::SetMinimumSize</enum>
+           </property>
+           <item>
+            <widget class="QLabel" name="label_number_of_stream">
+             <property name="text">
+              <string>Number of Stream</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="spinBox_number_of_stream">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="maximum">
+              <number>100000</number>
+             </property>
+             <property name="value">
+              <number>1</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_particle_type">
+         <item>
+          <widget class="QGroupBox" name="groupBox_partical_type">
+           <property name="title">
+            <string>Particle Type</string>
+           </property>
+           <layout class="QHBoxLayout" name="horizontalLayout_2">
+            <item>
+             <layout class="QHBoxLayout" name="horizontalLayout_partical_type">
+              <item>
+               <widget class="QRadioButton" name="radioButton_particle_massless">
+                <property name="text">
+                 <string>Massless</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioButton_particle_Inert">
+                <property name="text">
+                 <string>Inert</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioButton_particle_droplet">
+                <property name="text">
+                 <string>Droplet</string>
+                </property>
+               </widget>
+              </item>
+              <item>
+               <widget class="QRadioButton" name="radioButton_particle_combusting">
+                <property name="text">
+                 <string>Combusting</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <spacer name="horizontalSpacer_2">
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,0,0,0" columnstretch="0,0,0,0">
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_material">
+           <property name="text">
+            <string>Material</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QComboBox" name="comboBox_2"/>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLabel" name="label_diameter_distribution">
+           <property name="text">
+            <string>Diameter Distribution</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="3">
+          <widget class="QLabel" name="label_discrete_phase_domain">
+           <property name="text">
+            <string>Discrete Phase Domain</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QLabel" name="label_devolatilizing_species">
+           <property name="text">
+            <string>Devolatilizing Species</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="1">
+          <widget class="QComboBox" name="comboBox_6"/>
+         </item>
+         <item row="2" column="3">
+          <widget class="QComboBox" name="comboBox_8"/>
+         </item>
+         <item row="2" column="2">
+          <widget class="QComboBox" name="comboBox_5"/>
+         </item>
+         <item row="2" column="1">
+          <widget class="QComboBox" name="comboBox_4"/>
+         </item>
+         <item row="4" column="0">
+          <widget class="QComboBox" name="comboBox_3"/>
+         </item>
+         <item row="3" column="2">
+          <widget class="QLabel" name="label_product_species">
+           <property name="text">
+            <string>Product Species</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="2">
+          <widget class="QComboBox" name="comboBox_7"/>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="label_evaporating_species">
+           <property name="text">
+            <string>Evaporating Sepcies</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QLabel" name="label_oxidizing_species">
+           <property name="text">
+            <string>Oxidizing Species</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_injection_tabwidget">
+         <item>
+          <widget class="QTabWidget" name="tabWidget_injection">
+           <property name="autoFillBackground">
+            <bool>false</bool>
+           </property>
+           <property name="styleSheet">
+            <string notr="true"> QTabBar::tab{ 
+
+        width: 110%; /* 或者使用固定宽度 */
+        min-width: 10px;
+        max-width: 3000px;
+ }
+
+</string>
+           </property>
+           <property name="tabPosition">
+            <enum>QTabWidget::TabPosition::North</enum>
+           </property>
+           <property name="tabShape">
+            <enum>QTabWidget::TabShape::Rounded</enum>
+           </property>
+           <property name="currentIndex">
+            <number>3</number>
+           </property>
+           <property name="elideMode">
+            <enum>Qt::TextElideMode::ElideMiddle</enum>
+           </property>
+           <property name="usesScrollButtons">
+            <bool>false</bool>
+           </property>
+           <property name="documentMode">
+            <bool>true</bool>
+           </property>
+           <property name="tabsClosable">
+            <bool>false</bool>
+           </property>
+           <property name="tabBarAutoHide">
+            <bool>false</bool>
+           </property>
+           <widget class="QWidget" name="tab_point_properties">
+            <attribute name="title">
+             <string>Point Properties</string>
+            </attribute>
+           </widget>
+           <widget class="QWidget" name="tab_physical_models">
+            <attribute name="title">
+             <string>Physical Models</string>
+            </attribute>
+           </widget>
+           <widget class="QWidget" name="tab_turbulent_dispersion">
+            <attribute name="title">
+             <string>Turbulent Dispersion</string>
+            </attribute>
+           </widget>
+           <widget class="QWidget" name="tab_parcel">
+            <attribute name="title">
+             <string>Parcel</string>
+            </attribute>
+           </widget>
+           <widget class="QWidget" name="tab_wet_combustion">
+            <attribute name="title">
+             <string>Wet Combustion</string>
+            </attribute>
+           </widget>
+           <widget class="QWidget" name="tab_components">
+            <attribute name="title">
+             <string>Components</string>
+            </attribute>
+           </widget>
+           <widget class="QWidget" name="tab_udf">
+            <attribute name="title">
+             <string>UDF</string>
+            </attribute>
+           </widget>
+           <widget class="QWidget" name="tab_multiple_reactions">
+            <attribute name="title">
+             <string>Multiple Reactions</string>
+            </attribute>
+           </widget>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="page_4"/>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

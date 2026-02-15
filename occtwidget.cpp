@@ -3,6 +3,7 @@
 
 
 
+
 OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->devicePixelRatioF())
 {
     //配置QWidget
@@ -19,7 +20,7 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
     setAttribute(Qt::WA_PaintOnScreen);
     setAttribute(Qt::WA_NoSystemBackground);
 
-
+    setContextMenuPolicy(Qt::DefaultContextMenu);
 }
 
 void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
@@ -28,6 +29,12 @@ void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real
     unit_hash.insert(unit.inj.uuid,unit);
 
     unit_hash[unit.inj.uuid].ais_display->Set(unit_hash[unit.inj.uuid].inj.shape);
+
+    unit_hash[unit.inj.uuid].u_owner->set_unit(&unit_hash[unit.inj.uuid]);
+
+    qDebug()<<&unit_hash[unit.inj.uuid];
+
+    unit_hash[unit.inj.uuid].ais_display->SetOwner(unit_hash[unit.inj.uuid].u_owner);
 
     unit_hash[unit.inj.uuid].inj.injector_data.name="inj2";
 
@@ -207,12 +214,12 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
         select();
     }
-    else if(event->buttons()&Qt::RightButton)
-    {
-        // 鼠标左键按下：初始化平移
-        m_x_max=pos.x();
-        m_y_max=pos.y();
-    }
+    // else if(event->buttons()&Qt::RightButton)
+    // {
+    //     // 鼠标左键按下：初始化平移
+    //     m_x_max=pos.x();
+    //     m_y_max=pos.y();
+    // }
     else if(event->buttons()&Qt::MiddleButton)
     {
         {
@@ -226,18 +233,20 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
 void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-    QPoint pos = event->pos();
-    pos.setX(pos.x()*m_dpi_scale);
-    pos.setY(pos.y()*m_dpi_scale);
-    // 将鼠标位置传递到交互环境
-    m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
-    if(myIsDragging)
+    if(event->buttons()&Qt::LeftButton)
     {
-        myIsDragging=false;
-        m_context->ClearSelected(true);
-        m_view->Update();
+        QPoint pos = event->pos();
+        pos.setX(pos.x()*m_dpi_scale);
+        pos.setY(pos.y()*m_dpi_scale);
+        // 将鼠标位置传递到交互环境
+        m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
+        if(myIsDragging)
+        {
+            myIsDragging=false;
+            m_context->ClearSelected(true);
+            m_view->Update();
+        }
     }
-
 }
 
 
@@ -253,30 +262,52 @@ gp_Pln OCCTWidget::get_moving_base_plane(opencascade::handle<AIS_Shape> moving_s
 bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
 {
     m_context->Activate(select_mode);
-    if(m_context->HasDetected())
+    if(m_context->HasDetected()&&m_context->DetectedInteractive()->Type()!=1)
     {
+        //qDebug()<<m_context->DetectedInteractive()->Type();
         Handle(AIS_InteractiveObject) obj;
         obj=m_context->DetectedInteractive();
-        moving_shape=Handle(AIS_Shape)::DownCast(obj);
+        selected_shape=Handle(AIS_Shape)::DownCast(obj);
         m_view->Update();
 
-        if(moving_shape->HasColor())
+        if(selected_shape->HasColor())
         {
             Handle(Prs3d_Drawer) t_select_style = m_context->SelectionStyle();  // 获取选择风格
             Quantity_Color color;
-            moving_shape->Color(color);
+            selected_shape->Color(color);
             t_select_style->SetMethod(Aspect_TOHM_COLOR);  // 颜色显示方式
             t_select_style->SetColor(color);   // 设置选择后颜色
             t_select_style->SetDisplayMode(AIS_Shaded); // 整体高亮
             t_select_style->SetTransparency(0.8f); // 设置透明度 // 设置选择后颜色
         }
-
-        m_context->SelectDetected();
+        if(m_context->HasDetected()) m_context->SelectDetected();
         m_view->Update();
-        //qDebug()<<moving_shape->Shape().Orientation();
+
+        //get_unit(selected_shape)->test();
+
         return true;
     }
     return false;
+}
+
+Unit *OCCTWidget::get_unit(Handle(AIS_Shape) shape)
+{
+    if(selected_shape->HasOwner())
+    {
+        Handle(Unit_Owner) owner = Handle(Unit_Owner)::DownCast(shape->GetOwner());
+        if(owner->IsValid())
+        {
+            return owner->get_unit();
+        }
+        else return nullptr;
+    }
+    else return nullptr;
+}
+
+void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
+{
+    unit_edit_dialog* inj_edit_dialog =new unit_edit_dialog(get_unit(shape));
+    inj_edit_dialog->show();
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
@@ -293,7 +324,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         m_view->Convert(pos.x(),pos.y(),occt_x1,occt_y1,occt_z1);
         m_view->Convert(m_x_max,m_y_max,occt_x2,occt_y2,occt_z2);
 
-        gp_Pln ref_pln =get_moving_base_plane(moving_shape);
+        gp_Pln ref_pln =get_moving_base_plane(selected_shape);
 
         gp_Pnt2d converted_pnt_pln  = ProjLib::Project(ref_pln,gp_Pnt(occt_x1,occt_y1,occt_z1));
         gp_Pnt2d converted_pnt_pln2 = ProjLib::Project(ref_pln,gp_Pnt(occt_x2,occt_y2,occt_z2));
@@ -304,10 +335,10 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         gp_Trsf trsf;
 
         trsf.SetTranslation(gp_Vec(ResultPoint.X(),ResultPoint.Y(),ResultPoint.Z()));
-        moving_shape->SetLocalTransformation(trsf * moving_shape->LocalTransformation());
+        selected_shape->SetLocalTransformation(trsf * selected_shape->LocalTransformation());
 
 
-        m_context->Update(moving_shape, Standard_True);
+        m_context->Update(selected_shape, Standard_True);
 
         // 更新起始位置
         m_x_max = pos.x();
@@ -322,12 +353,12 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
 
         //qDebug()<<occt_x1-occt_x2<<occt_y1-occt_y2<<occt_z1-occt_z1;
     }
-    else if(event->buttons()&Qt::RightButton)
-    {
-        m_view->Pan(pos.x()-m_x_max,m_y_max-pos.y());
-        m_x_max=pos.x();
-        m_y_max=pos.y();
-    }
+    // else if(event->buttons()&Qt::RightButton)
+    // {
+    //     m_view->Pan(pos.x()-m_x_max,m_y_max-pos.y());
+    //     m_x_max=pos.x();
+    //     m_y_max=pos.y();
+    // }
     else if(event->buttons()&Qt::MiddleButton)
     {
         // 鼠标滚轮键：执行旋转
@@ -349,6 +380,70 @@ void OCCTWidget::wheelEvent(QWheelEvent *event)
     m_view->StartZoomAtPoint(pos.x(),pos.y());
     m_view->ZoomAtPoint(0, 0, 0.15*event->angleDelta().x(), 0.15*event->angleDelta().y()); //执行缩放
 
+}
+
+void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
+{
+    if(1)
+    {
+        QPoint pos = event->pos();
+        pos.setX(pos.x()*m_dpi_scale);
+        pos.setY(pos.y()*m_dpi_scale);
+
+        m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
+        if(!select()) return;
+
+        if(get_unit(selected_shape)==nullptr)
+        {
+            qDebug()<<"1!";
+        }
+        else if(get_unit(selected_shape)->type==injector)
+        {
+            QMenu menu;
+            QString label_edit=("Edit");
+            QString label_copy=("Copy");
+            QString label_paste=("Paste to replace");
+            QString label_delete=("Delete");
+
+            QAction *headerAction = new QAction(get_unit(selected_shape)->inj.injector_data.name, &menu);
+            //QAction *headerAction = new QAction("test");
+            headerAction->setEnabled(false);  // 禁用点击
+
+            // 设置表头样式
+            QFont headerFont = headerAction->font();
+            headerFont.setBold(true);
+            headerFont.setPointSize(headerFont.pointSize() + 1);
+            headerAction->setFont(headerFont);
+
+            menu.addAction(headerAction);
+            menu.addSeparator();  // 分隔线
+
+            QAction* act_edit  = menu.addAction(label_edit  );
+            QAction* act_copy  = menu.addAction(label_copy  );
+            QAction* act_paste = menu.addAction(label_paste );
+            QAction* act_delte = menu.addAction(label_delete);
+
+
+            connect(act_edit, &QAction::triggered, this, [this](){ open_edit_widget(selected_shape);});
+
+
+            QAction *selected_action =menu.exec(QCursor::pos());	// 右键菜单被模态显示出来了
+            if(selected_action==nullptr)
+            {
+                on_menu_closed();
+            }
+
+
+        }
+    }
+
+}
+
+void OCCTWidget::on_menu_closed()
+{
+    qDebug() << "菜单已关闭";
+    m_context->ClearSelected(true);
+    m_view->Update();
 }
 
 

@@ -6,6 +6,7 @@
 #include <QWheelEvent>
 #include <QKeyEvent>
 #include <QHash>
+#include <QMenu>
 
 #include <QApplication>
 
@@ -56,6 +57,7 @@
 
 #include "base_geom_read.h"
 #include "unit.h"
+#include "unit_edit_dialog.h"
 
 
 class OCCTWidget : public QWidget
@@ -104,6 +106,10 @@ private:
 
     bool select(TopAbs_ShapeEnum select_mode=TopAbs_COMPOUND);
 
+    Unit* get_unit(Handle(AIS_Shape) shape);
+
+    void open_edit_widget(Handle(AIS_Shape) shape);
+
 protected:
 
     void paintEvent(QPaintEvent *) override;
@@ -117,6 +123,10 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
 
     void wheelEvent(QWheelEvent *event) override;
+
+    void contextMenuEvent(QContextMenuEvent *event) override;
+
+    void on_menu_closed();
 
     //void mouseDoubleClickEvent(QMouseEvent* event) override;
 
@@ -158,7 +168,7 @@ private:
 
     Standard_Boolean myIsDragging = false;
 
-    Handle(AIS_Shape) moving_shape;
+    Handle(AIS_Shape) selected_shape;
 
     TopoDS_Face selected_face;
 

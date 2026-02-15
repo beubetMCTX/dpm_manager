@@ -65,6 +65,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         unit.h
         occtwidget.h occtwidget.cpp
         base_geom_read.h base_geom_read.cpp
+        global_functions.h
+        unit_edit_dialog.h unit_edit_dialog.cpp unit_edit_dialog.ui
+
 
 
 
