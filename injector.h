@@ -148,8 +148,6 @@ public:
     //~Injector();
 
 
-
-
 public:
 
     QString name="injector"; //名字
@@ -421,6 +419,7 @@ public:
 private:
     TopoDS_Compound create_arrow(gp_Ax2 ax2,Standard_Real cyli_diameter,Standard_Real cyli_length,Standard_Real cone_diameter,Standard_Real cone_length);
     bool create_geometry_single();
+    bool create_geometry_ring();
     bool create_geometry_group(TopoDS_Shape &shape);
     bool create_geometry_cone(TopoDS_Shape &shape);
     bool create_geometry_volume(TopoDS_Shape &shape);

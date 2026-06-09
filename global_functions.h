@@ -2,7 +2,21 @@
 #define GLOBAL_FUNCTIONS_H
 
 
-#include <QWidget>
+#include <QObject>
+
+enum measure_unit_type
+{
+    dimensionless,
+    mass,
+    length,
+    angle
+};
+
+
+class measure_unit
+{
+
+};
 
 
 #endif // GLOBAL_FUNCTIONS_H

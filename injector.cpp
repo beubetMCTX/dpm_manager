@@ -1,6 +1,7 @@
 #include "injector.h"
 
 #include <qdebug.h>
+#include <cmath>
 
 
 
@@ -103,8 +104,8 @@ Injector::Injector():
     ang_vel(100, 0, 0),
     ang_vel2(100, 0, 0),
     atomizer_axis(1, 0, 0),
-    diameter(0),
-    diameter2(0),
+    diameter(10),
+    diameter2(5),
     temperature(0),
     temperature2(0),
     flow_rate(0.0),
@@ -138,9 +139,9 @@ Injector::Injector():
     axis(1, 0, 0),
     vel_mag(0),
     ang_vel_mag(0),
-    cone_angle(0),
-    inner_radius(0),
-    radius(0),
+    cone_angle(15),
+    inner_radius(5),
+    radius(10),
     swirl_frac(0),
     total_flow_rate(0.3),
     total_mass(0),
@@ -168,7 +169,8 @@ Injector_OCCT::Injector_OCCT()
 
     m_document.Nullify();
 
-    create_geometry_single();
+    //create_geometry_single();
+    create_geometry_ring();
 
     initialize_OCAF();
 
@@ -393,6 +395,80 @@ bool Injector_OCCT::create_geometry_single()
         return false;
     }
         return true;
+}
+
+bool Injector_OCCT::create_geometry_ring()
+{
+    try
+    {
+        builder.MakeCompound(shape);
+        qDebug()<<"ring1";
+
+        if (injector_data.atomizer_axis.length() <= 0 ||
+            injector_data.radius <= injector_data.inner_radius ||
+            injector_data.inner_radius < 0 ||
+            injector_data.vel.length() <= 0)
+        {
+            return false;
+            qDebug()<<"ringfail";
+        }
+
+        constexpr Standard_Integer arrow_count = 8;
+        constexpr Standard_Real base_thickness = 0.01;
+        constexpr double pi = 3.14159265358979323846;
+
+        QVector3D axis_vec = injector_data.axis.normalized();
+        QVector3D ref_vec(1.0f, 0.0f, 0.0f);
+        if (std::abs(QVector3D::dotProduct(axis_vec, ref_vec)) > 0.99f)
+        {
+            ref_vec = QVector3D(0.0f, 1.0f, 0.0f);
+        }
+
+        QVector3D tangent_vec = QVector3D::crossProduct(axis_vec, ref_vec).normalized();
+        QVector3D bitangent_vec = QVector3D::crossProduct(axis_vec, tangent_vec).normalized();
+
+        gp_Pnt base_pnt(injector_data.pos.x(), injector_data.pos.y(), injector_data.pos.z());
+        gp_Dir axis_dir(axis_vec.x(), axis_vec.y(), axis_vec.z());
+        gp_Ax2 base_ax2(base_pnt, axis_dir);
+
+        TopoDS_Shape outer_base = BRepPrimAPI_MakeCylinder(base_ax2, injector_data.radius, base_thickness);
+        TopoDS_Shape ring_base = outer_base;
+        if (injector_data.inner_radius > 0)
+        {
+            TopoDS_Shape inner_base = BRepPrimAPI_MakeCylinder(base_ax2, injector_data.inner_radius, base_thickness);
+            ring_base = BRepAlgoAPI_Cut(outer_base, inner_base).Shape();
+        }
+
+        builder.Add(shape, ring_base);
+
+        Standard_Real cyl_l = std::sqrt(injector_data.vel.length());
+        Standard_Real cyl_d = 3 * std::sqrt(injector_data.total_flow_rate / injector_data.vel.length());
+        Standard_Real half_angle = 0.5 * injector_data.cone_angle * pi / 180.0;
+        Standard_Real mid_r = 0.5 * (injector_data.inner_radius + injector_data.radius);
+
+        for (Standard_Integer i = 0; i < arrow_count; ++i)
+        {
+            double theta = 2.0 * pi * i / arrow_count;
+            QVector3D radial_vec = tangent_vec * static_cast<float>(std::cos(theta)) +
+                                   bitangent_vec * static_cast<float>(std::sin(theta));
+            QVector3D start_vec = injector_data.pos + radial_vec * static_cast<float>(mid_r);
+            QVector3D dir_vec = axis_vec * static_cast<float>(std::cos(half_angle)) +
+                                radial_vec * static_cast<float>(std::sin(half_angle));
+            dir_vec.normalize();
+
+            gp_Pnt arrow_pnt(start_vec.x(), start_vec.y(), start_vec.z());
+            gp_Dir arrow_dir(dir_vec.x(), dir_vec.y(), dir_vec.z());
+            gp_Ax2 arrow_ax2(arrow_pnt, arrow_dir);
+
+            TopoDS_Compound arrow = create_arrow(arrow_ax2, cyl_d, cyl_l, 2 * cyl_d, 0.25 * cyl_l);
+            builder.Add(shape, arrow);
+        }
+    }
+    catch (...)
+    {
+        return false;
+    }
+    return true;
 }
 
 
