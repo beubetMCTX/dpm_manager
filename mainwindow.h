@@ -41,6 +41,8 @@ private slots:
     void on_actionRead_Base_Geometry_triggered();
 
 private:
+    QList<Unit> build_test_injector_units() const;
+
     Ui::MainWindow *ui;
 };
 #endif // MAINWINDOW_H

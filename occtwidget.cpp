@@ -47,6 +47,52 @@ void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real
 
 }
 
+void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
+{
+    if (m_context.IsNull())
+    {
+        return;
+    }
+
+    if (clear_existing)
+    {
+        for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
+        {
+            m_context->Remove(it.value().ais_display, Standard_False);
+        }
+        unit_hash.clear();
+    }
+
+    static const Quantity_Color palette[] = {
+        Quantity_Color(0.90, 0.30, 0.25, Quantity_TOC_RGB),
+        Quantity_Color(0.15, 0.55, 0.90, Quantity_TOC_RGB),
+        Quantity_Color(0.25, 0.70, 0.35, Quantity_TOC_RGB),
+        Quantity_Color(0.90, 0.65, 0.20, Quantity_TOC_RGB),
+        Quantity_Color(0.60, 0.40, 0.90, Quantity_TOC_RGB),
+        Quantity_Color(0.15, 0.70, 0.70, Quantity_TOC_RGB)
+    };
+
+    for (int i = 0; i < units.size(); ++i)
+    {
+        Unit unit = units[i];
+        unit_hash.insert(unit.inj.uuid, unit);
+
+        Unit &stored_unit = unit_hash[unit.inj.uuid];
+        stored_unit.ais_display->Set(stored_unit.inj.shape);
+        stored_unit.u_owner->set_unit(&stored_unit);
+        stored_unit.ais_display->SetOwner(stored_unit.u_owner);
+        stored_unit.ais_display->SetColor(palette[i % (sizeof(palette) / sizeof(palette[0]))]);
+        stored_unit.ais_display->SetTransparency(
+            stored_unit.inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+
+        m_context->Activate(stored_unit.ais_display, TopAbs_SHAPE, Standard_True);
+        m_context->Display(stored_unit.ais_display, Standard_False);
+    }
+
+    m_view->FitAll();
+    m_view->Redraw();
+}
+
 Standard_Real OCCTWidget::get_trihedron_size()
 {
     return cbrt(geometry.xyz_length.x()*geometry.xyz_length.y()*geometry.xyz_length.z())/10;

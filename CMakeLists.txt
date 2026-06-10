@@ -28,6 +28,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets LinguistTools)
 find_package(Qt6 REQUIRED COMPONENTS OpenGLWidgets)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
+find_package(unofficial-tinyexpr CONFIG REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(VTK COMPONENTS
@@ -66,6 +67,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         occtwidget.h occtwidget.cpp
         base_geom_read.h base_geom_read.cpp
         global_functions.h
+        qUI_components.h qUI_components.cpp
         unit_edit_dialog.h unit_edit_dialog.cpp unit_edit_dialog.ui
 
 
@@ -98,6 +100,7 @@ target_link_libraries(dpm_manager PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(dpm_manager PRIVATE ${GLEW_LIBRARIES})
 target_link_libraries(dpm_manager PRIVATE glfw)
 target_link_libraries(dpm_manager PRIVATE assimp::assimp)
+target_link_libraries(dpm_manager PRIVATE unofficial::tinyexpr::tinyexpr)
 target_link_libraries(dpm_manager PRIVATE OpenGL::GL)
 target_link_libraries(dpm_manager PRIVATE Qt6::OpenGLWidgets)
 target_link_libraries(dpm_manager PRIVATE ${OpenCASCADE_LIBRARIES})

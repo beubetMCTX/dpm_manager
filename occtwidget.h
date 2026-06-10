@@ -6,6 +6,7 @@
 #include <QWheelEvent>
 #include <QKeyEvent>
 #include <QHash>
+#include <QList>
 #include <QMenu>
 
 #include <QApplication>
@@ -85,6 +86,8 @@ public:
     Base_Geom_Read geometry;
 
     void add_readed_geometry();
+
+    void display_units(const QList<Unit> &units, bool clear_existing = true);
 
     QHash<QUuid,Unit> unit_hash;
 private:
