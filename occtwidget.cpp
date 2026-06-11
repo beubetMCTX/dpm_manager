@@ -1,6 +1,16 @@
 #include "occtwidget.h"
 #include <AIS_ViewCube.hxx>
 
+namespace
+{
+QVector3D to_qvector3d(const gp_Pnt &point)
+{
+    return QVector3D(static_cast<float>(point.X()),
+                     static_cast<float>(point.Y()),
+                     static_cast<float>(point.Z()));
+}
+}
+
 
 
 
@@ -9,40 +19,71 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
     //配置QWidget
     setBackgroundRole( QPalette::NoRole );  //无背景
     setMouseTracking( true );   //开启鼠标位置追踪
+    setAttribute(Qt::WA_PaintOnScreen);
+    setAttribute(Qt::WA_NoSystemBackground);
+    setAttribute(Qt::WA_NativeWindow);
+    setFocusPolicy(Qt::StrongFocus);
+    setContextMenuPolicy(Qt::DefaultContextMenu);
 
     if (m_context.IsNull()) // 若未定义交互环境
     {
         m_initialize_context(); // 初始化交互环境
     }
-    setAttribute(Qt::WA_PaintOnScreen);
-    setAttribute(Qt::WA_NoSystemBackground);
-    setFocusPolicy(Qt::StrongFocus);
-    setAttribute(Qt::WA_PaintOnScreen);
-    setAttribute(Qt::WA_NoSystemBackground);
+}
 
-    setContextMenuPolicy(Qt::DefaultContextMenu);
+OCCTWidget::~OCCTWidget()
+{
+    try
+    {
+        selected_shape.Nullify();
+
+        if (!m_context.IsNull())
+        {
+            m_context->ClearSelected(Standard_False);
+            m_context->RemoveAll(Standard_False);
+            m_context.Nullify();
+        }
+
+        if (!m_view.IsNull())
+        {
+            m_view->Remove();
+            m_view.Nullify();
+        }
+    }
+    catch (...)
+    {
+    }
+
+    unit_hash.clear();
+    reference_geometry.Nullify();
+    base_geometry.Nullify();
+    trihedron_main.Nullify();
+    axis_placement_main.Nullify();
+    m_viewer.Nullify();
+    m_graphic_driver.Nullify();
 }
 
 void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
 {
     Unit unit;
-    unit_hash.insert(unit.inj.uuid,unit);
+    const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
+    unit_hash.insert(stored_unit->inj.uuid, stored_unit);
 
-    unit_hash[unit.inj.uuid].ais_display->Set(unit_hash[unit.inj.uuid].inj.shape);
+    stored_unit->ais_display->Set(stored_unit->inj.shape);
 
-    unit_hash[unit.inj.uuid].u_owner->set_unit(&unit_hash[unit.inj.uuid]);
+    stored_unit->u_owner->set_unit(stored_unit.get());
 
-    qDebug()<<&unit_hash[unit.inj.uuid];
+    qDebug() << stored_unit.get();
 
-    unit_hash[unit.inj.uuid].ais_display->SetOwner(unit_hash[unit.inj.uuid].u_owner);
+    stored_unit->ais_display->SetOwner(stored_unit->u_owner);
 
-    unit_hash[unit.inj.uuid].inj.injector_data.name="inj2";
+    stored_unit->inj.injector_data.name="inj2";
 
-    unit_hash[unit.inj.uuid].ais_display->SetColor(Quantity_Color(0.2,0.3,0.9,Quantity_TOC_RGB));
+    stored_unit->ais_display->SetColor(Quantity_Color(0.2,0.3,0.9,Quantity_TOC_RGB));
 
-    m_context->Activate(unit_hash[unit.inj.uuid].ais_display, TopAbs_SHAPE, Standard_True);
+    m_context->Activate(stored_unit->ais_display, TopAbs_SHAPE, Standard_True);
 
-    m_context->Display(unit_hash[unit.inj.uuid].ais_display, Standard_True);
+    m_context->Display(stored_unit->ais_display, Standard_True);
 
 
 }
@@ -58,7 +99,10 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
     {
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
         {
-            m_context->Remove(it.value().ais_display, Standard_False);
+            if (it.value() != nullptr && !it.value()->ais_display.IsNull())
+            {
+                m_context->Remove(it.value()->ais_display, Standard_False);
+            }
         }
         unit_hash.clear();
     }
@@ -74,23 +118,28 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
 
     for (int i = 0; i < units.size(); ++i)
     {
-        Unit unit = units[i];
-        unit_hash.insert(unit.inj.uuid, unit);
+        const Unit &unit = units[i];
+        const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
+        unit_hash.insert(stored_unit->inj.uuid, stored_unit);
 
-        Unit &stored_unit = unit_hash[unit.inj.uuid];
-        stored_unit.ais_display->Set(stored_unit.inj.shape);
-        stored_unit.u_owner->set_unit(&stored_unit);
-        stored_unit.ais_display->SetOwner(stored_unit.u_owner);
-        stored_unit.ais_display->SetColor(palette[i % (sizeof(palette) / sizeof(palette[0]))]);
-        stored_unit.ais_display->SetTransparency(
-            stored_unit.inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        stored_unit->ais_display->Set(stored_unit->inj.shape);
+        stored_unit->u_owner->set_unit(stored_unit.get());
+        stored_unit->ais_display->SetOwner(stored_unit->u_owner);
+        stored_unit->ais_display->SetColor(palette[i % (sizeof(palette) / sizeof(palette[0]))]);
+        stored_unit->ais_display->SetTransparency(
+            stored_unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
 
-        m_context->Activate(stored_unit.ais_display, TopAbs_SHAPE, Standard_True);
-        m_context->Display(stored_unit.ais_display, Standard_False);
+        m_context->Activate(stored_unit->ais_display, TopAbs_SHAPE, Standard_True);
+        m_context->Display(stored_unit->ais_display, Standard_False);
     }
 
     m_view->FitAll();
     m_view->Redraw();
+}
+
+void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
+{
+    m_chemkin_species_names = species_names;
 }
 
 Standard_Real OCCTWidget::get_trihedron_size()
@@ -252,13 +301,16 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);
 
-    if((event->buttons()&Qt::LeftButton))
+    if (event->button() == Qt::LeftButton)
     {
-        myIsDragging = true;
         m_x_max=pos.x();
         m_y_max=pos.y();
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
-        select();
+        myIsDragging = select() && !selected_shape.IsNull() && get_unit(selected_shape) != nullptr;
+        if (!myIsDragging)
+        {
+            selected_shape.Nullify();
+        }
     }
     // else if(event->buttons()&Qt::RightButton)
     // {
@@ -279,7 +331,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
 void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
 {
-    if(event->buttons()&Qt::LeftButton)
+    if (event->button() == Qt::LeftButton)
     {
         QPoint pos = event->pos();
         pos.setX(pos.x()*m_dpi_scale);
@@ -292,6 +344,7 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
             m_context->ClearSelected(true);
             m_view->Update();
         }
+        selected_shape.Nullify();
     }
 }
 
@@ -314,6 +367,10 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
         Handle(AIS_InteractiveObject) obj;
         obj=m_context->DetectedInteractive();
         selected_shape=Handle(AIS_Shape)::DownCast(obj);
+        if (selected_shape.IsNull())
+        {
+            return false;
+        }
         m_view->Update();
 
         if(selected_shape->HasColor())
@@ -338,22 +395,57 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
 
 Unit *OCCTWidget::get_unit(Handle(AIS_Shape) shape)
 {
-    if(selected_shape->HasOwner())
+    if(shape.IsNull() || !shape->HasOwner())
     {
-        Handle(Unit_Owner) owner = Handle(Unit_Owner)::DownCast(shape->GetOwner());
-        if(owner->IsValid())
-        {
-            return owner->get_unit();
-        }
-        else return nullptr;
+        return nullptr;
     }
-    else return nullptr;
+
+    Handle(Unit_Owner) owner = Handle(Unit_Owner)::DownCast(shape->GetOwner());
+    if(owner.IsNull() || !owner->IsValid())
+    {
+        return nullptr;
+    }
+
+    return owner->get_unit();
 }
 
 void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
 {
-    unit_edit_dialog* inj_edit_dialog =new unit_edit_dialog(get_unit(shape));
+    Unit *unit = get_unit(shape);
+    if (unit == nullptr)
+    {
+        return;
+    }
+
+    unit_edit_dialog* inj_edit_dialog = new unit_edit_dialog(unit, m_chemkin_species_names, this);
+    inj_edit_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this, [this](Unit *changed_unit)
+    {
+        refresh_unit_visual(changed_unit);
+    });
+    connect(this, &OCCTWidget::unit_data_updated, inj_edit_dialog, &unit_edit_dialog::refresh_from_unit_data);
     inj_edit_dialog->show();
+}
+
+void OCCTWidget::refresh_unit_visual(Unit *unit)
+{
+    if (unit == nullptr || m_context.IsNull())
+    {
+        return;
+    }
+
+    if (!unit->inj.create_injector())
+    {
+        qDebug() << "Failed to rebuild injector geometry for" << unit->inj.injector_data.name;
+        return;
+    }
+
+    unit->ais_display->SetLocalTransformation(gp_Trsf());
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(
+        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    m_view->Redraw();
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
@@ -362,7 +454,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);
 
-    if((event->buttons()&Qt::LeftButton))
+    if((event->buttons()&Qt::LeftButton) && myIsDragging && !selected_shape.IsNull())
     {
         Standard_Real occt_x1,occt_y1,occt_z1;
         Standard_Real occt_x2,occt_y2,occt_z2;
@@ -379,9 +471,22 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
                                            converted_pnt_pln.Y()-converted_pnt_pln2.Y(),
                                            ref_pln);
         gp_Trsf trsf;
+        const QVector3D delta_vec = to_qvector3d(ResultPoint);
 
         trsf.SetTranslation(gp_Vec(ResultPoint.X(),ResultPoint.Y(),ResultPoint.Z()));
         selected_shape->SetLocalTransformation(trsf * selected_shape->LocalTransformation());
+
+        if (Unit *unit = get_unit(selected_shape))
+        {
+            Injector &injector = unit->inj.injector_data;
+            injector.pos += delta_vec;
+            injector.pos2 += delta_vec;
+            injector.ff_center += delta_vec;
+            injector.ff_virtual_origin += delta_vec;
+            injector.volume_bgeom_min += delta_vec;
+            injector.volume_bgeom_max += delta_vec;
+            emit unit_data_updated(unit);
+        }
 
 
         m_context->Update(selected_shape, Standard_True);

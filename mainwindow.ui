@@ -33,17 +33,47 @@
     <addaction name="actionRead"/>
     <addaction name="actionRead_Base_Geometry"/>
    </widget>
+   <widget class="QMenu" name="menuSpecies">
+    <property name="title">
+     <string>Species</string>
+    </property>
+    <addaction name="actionRead_Chemkin_Files"/>
+   </widget>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+    <addaction name="actionUnit_of_Measurement"/>
+    <addaction name="actionLanguage"/>
+   </widget>
    <addaction name="menureaddile"/>
+   <addaction name="menuSpecies"/>
+   <addaction name="menuSettings"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionRead">
    <property name="text">
-    <string>Read...</string>
+    <string>Read dpm files</string>
    </property>
   </action>
   <action name="actionRead_Base_Geometry">
    <property name="text">
     <string>Read Base Geometry</string>
+   </property>
+  </action>
+  <action name="actionRead_Chemkin_Files">
+   <property name="text">
+    <string>Read Chemkin Files</string>
+   </property>
+  </action>
+  <action name="actionUnit_of_Measurement">
+   <property name="text">
+    <string>Unit of Measurement</string>
+   </property>
+  </action>
+  <action name="actionLanguage">
+   <property name="text">
+    <string>Language</string>
    </property>
   </action>
  </widget>

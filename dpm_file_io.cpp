@@ -1,7 +1,6 @@
 #include "dpm_file_io.h"
 
 #include <QRegularExpression>
-
 #define  Kill_Read  *ok=false;delete(in);delete(file);return unit;
 
 dpm_file_io::dpm_file_io() {}

@@ -8,8 +8,10 @@
 #include <QHash>
 #include <QList>
 #include <QMenu>
+#include <QStringList>
 
 #include <QApplication>
+#include <memory>
 
 #include <AIS_InteractiveContext.hxx>
 #include <OpenGl_GraphicDriver.hxx>
@@ -67,6 +69,7 @@ class OCCTWidget : public QWidget
 
 public:
     OCCTWidget(QWidget *parent);
+    ~OCCTWidget() override;
     //! 获取三维环境交互对象
     Handle(AIS_InteractiveContext) m_get_context(){return m_context;}
 
@@ -88,8 +91,13 @@ public:
     void add_readed_geometry();
 
     void display_units(const QList<Unit> &units, bool clear_existing = true);
+    void set_chemkin_species_names(const QStringList &species_names);
 
-    QHash<QUuid,Unit> unit_hash;
+    QHash<QUuid, std::shared_ptr<Unit>> unit_hash;
+
+signals:
+    void unit_data_updated(Unit *unit);
+
 private:
 
     //!初始化交互环境
@@ -110,6 +118,7 @@ private:
     bool select(TopAbs_ShapeEnum select_mode=TopAbs_COMPOUND);
 
     Unit* get_unit(Handle(AIS_Shape) shape);
+    void refresh_unit_visual(Unit *unit);
 
     void open_edit_widget(Handle(AIS_Shape) shape);
 
@@ -174,6 +183,8 @@ private:
     Handle(AIS_Shape) selected_shape;
 
     TopoDS_Face selected_face;
+
+    QStringList m_chemkin_species_names;
 
 
 };

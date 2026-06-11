@@ -2,8 +2,12 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QLineEdit>
 #include <qvector.h>
 #include <QList>
+#include <QLabel>
+#include <QStringList>
+#include <QToolBar>
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -40,9 +44,17 @@ private slots:
 
     void on_actionRead_Base_Geometry_triggered();
 
+    void on_actionRead_Chemkin_Files_triggered();
+
 private:
     QList<Unit> build_test_injector_units() const;
+    void update_chemkin_status();
 
     Ui::MainWindow *ui;
+    QStringList m_chemkin_species_names;
+    QString m_chemkin_file_path;
+    QToolBar *m_chemkin_toolbar = nullptr;
+    QLabel *m_chemkin_status_label = nullptr;
+    QLineEdit *m_chemkin_path_edit = nullptr;
 };
 #endif // MAINWINDOW_H

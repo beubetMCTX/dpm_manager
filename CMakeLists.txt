@@ -63,6 +63,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${PROJECT_SOURCES}
         injector.h injector.cpp
         dpm_file_io.h dpm_file_io.cpp
+        chemkin_io.h chemkin_io.cpp
         unit.h
         occtwidget.h occtwidget.cpp
         base_geom_read.h base_geom_read.cpp

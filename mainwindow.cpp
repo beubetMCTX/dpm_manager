@@ -1,6 +1,9 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "chemkin_io.h"
 #include "dpm_file_io.h"
+#include <QFileInfo>
+#include <QSizePolicy>
 #include <QtMath>
 #include <QDebug>
 
@@ -80,6 +83,24 @@ MainWindow::MainWindow(QWidget *parent)
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
 
+    m_chemkin_toolbar = new QToolBar("Chemkin Status", this);
+    m_chemkin_toolbar->setMovable(false);
+    m_chemkin_toolbar->setFloatable(false);
+    addToolBar(Qt::TopToolBarArea, m_chemkin_toolbar);
+
+    m_chemkin_status_label = new QLabel(m_chemkin_toolbar);
+    m_chemkin_status_label->setMinimumWidth(170);
+    m_chemkin_toolbar->addWidget(m_chemkin_status_label);
+
+    m_chemkin_path_edit = new QLineEdit(m_chemkin_toolbar);
+    m_chemkin_path_edit->setReadOnly(true);
+    m_chemkin_path_edit->setClearButtonEnabled(false);
+    m_chemkin_path_edit->setMinimumWidth(360);
+    m_chemkin_path_edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    m_chemkin_toolbar->addWidget(m_chemkin_path_edit);
+
+    update_chemkin_status();
+
 #if defined(QT_DEBUG)
     units = build_test_injector_units();
     m_3d_widget->display_units(units);
@@ -126,6 +147,80 @@ void MainWindow::on_actionRead_Base_Geometry_triggered()
     ok=m_3d_widget->geometry.Read_Geometry_Dialog();
     if(ok) qDebug()<<"true";
     m_3d_widget->add_readed_geometry();
+}
+
+void MainWindow::on_actionRead_Chemkin_Files_triggered()
+{
+    const QString file_path = Read_Chemkin_File_Dialog();
+    if (file_path.trimmed().isEmpty())
+    {
+        statusBar()->showMessage("Chemkin species import canceled", 5000);
+        return;
+    }
+
+    bool ok = false;
+    const QStringList species_names = read_chemkin_species_names(file_path, &ok);
+    if (!ok)
+    {
+        statusBar()->showMessage("Chemkin species import failed", 5000);
+        return;
+    }
+
+    m_chemkin_species_names = species_names;
+    m_chemkin_file_path = file_path;
+    m_3d_widget->set_chemkin_species_names(m_chemkin_species_names);
+    update_chemkin_status();
+
+    QString preview = m_chemkin_species_names.mid(0, 12).join(", ");
+    if (m_chemkin_species_names.size() > 12)
+    {
+        preview += ", ...";
+    }
+
+    QMessageBox::information(
+        this,
+        "Chemkin Species Imported",
+        QString("Imported %1 species.\n\n%2")
+            .arg(m_chemkin_species_names.size())
+            .arg(preview));
+
+    statusBar()->showMessage(
+        QString("Imported %1 species from Chemkin file").arg(m_chemkin_species_names.size()),
+        5000);
+}
+
+void MainWindow::update_chemkin_status()
+{
+    if (m_chemkin_status_label == nullptr)
+    {
+        return;
+    }
+
+    if (m_chemkin_file_path.trimmed().isEmpty())
+    {
+        m_chemkin_status_label->setText("Chemkin: Not Loaded");
+        m_chemkin_status_label->setToolTip("No Chemkin species file loaded.");
+        if (m_chemkin_path_edit != nullptr)
+        {
+            m_chemkin_path_edit->setText("No Chemkin file loaded.");
+            m_chemkin_path_edit->setToolTip("No Chemkin species file loaded.");
+            m_chemkin_path_edit->setCursorPosition(0);
+        }
+        return;
+    }
+
+    const QFileInfo file_info(m_chemkin_file_path);
+    m_chemkin_status_label->setText(
+        QString("Chemkin: %1 (%2 species)")
+            .arg(file_info.fileName())
+            .arg(m_chemkin_species_names.size()));
+    m_chemkin_status_label->setToolTip(m_chemkin_file_path);
+    if (m_chemkin_path_edit != nullptr)
+    {
+        m_chemkin_path_edit->setText(m_chemkin_file_path);
+        m_chemkin_path_edit->setToolTip(m_chemkin_file_path);
+        m_chemkin_path_edit->setCursorPosition(0);
+    }
 }
 
 QList<Unit> MainWindow::build_test_injector_units() const

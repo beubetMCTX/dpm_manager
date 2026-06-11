@@ -1,9 +1,18 @@
 #ifndef QUI_COMPONENTS_H
 #define QUI_COMPONENTS_H
 
+#include <QButtonGroup>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPushButton>
+#include <QRadioButton>
+#include <QSpinBox>
+#include <QStringList>
+#include <QVariant>
 #include <QWidget>
 #include <variant>
 
@@ -38,6 +47,7 @@ public:
     Value_Mode value_mode() const;
 
     void bind_value(int *value);
+    void bind_value(float *value);
     void bind_value(double *value);
     void bind_value(QString *value);
 
@@ -49,7 +59,7 @@ signals:
     void value_rejected(const QString &reason);
 
 private:
-    using Bound_Value = std::variant<std::monostate, int *, double *, QString *>;
+    using Bound_Value = std::variant<std::monostate, int *, float *, double *, QString *>;
 
     void initialize();
     void sync_from_binding();
@@ -107,6 +117,115 @@ private:
     QString m_unit_text;
     Layout_Mode m_layout_mode = Layout_Mode::SingleValue;
     bool m_show_secondary_editor = true;
+};
+
+class QUI_ComboBox : public QComboBox
+{
+    Q_OBJECT
+
+public:
+    explicit QUI_ComboBox(QWidget *parent = nullptr);
+
+    void set_options(const QStringList &options);
+    void add_option(const QString &text, const QVariant &data = QVariant());
+
+    void bind_current_index(int *value);
+    void bind_current_text(QString *value);
+    void sync_from_binding();
+
+signals:
+    void selection_committed();
+
+private:
+    void initialize();
+    void commit_binding();
+
+    std::variant<std::monostate, int *, QString *> m_bound_value;
+};
+
+class QUI_SpinBox : public QSpinBox
+{
+    Q_OBJECT
+
+public:
+    explicit QUI_SpinBox(QWidget *parent = nullptr);
+
+    void bind_value(int *value);
+    void sync_from_binding();
+
+signals:
+    void value_committed(int value);
+
+private:
+    void initialize();
+    void commit_binding(int value);
+
+    int *m_bound_value = nullptr;
+};
+
+class QUI_CheckBox : public QCheckBox
+{
+    Q_OBJECT
+
+public:
+    explicit QUI_CheckBox(const QString &text = QString(), QWidget *parent = nullptr);
+
+    void bind_value(bool *value);
+    void sync_from_binding();
+
+signals:
+    void value_committed(bool checked);
+
+private:
+    void initialize();
+    void commit_binding(bool checked);
+
+    bool *m_bound_value = nullptr;
+};
+
+class QUI_PushButton : public QPushButton
+{
+    Q_OBJECT
+
+public:
+    explicit QUI_PushButton(const QString &text = QString(), QWidget *parent = nullptr);
+
+    void set_accent_mode(bool enabled = true);
+
+private:
+    void initialize();
+    void update_style();
+
+    bool m_accent_mode = false;
+};
+
+class QUI_RadioGroup : public QGroupBox
+{
+    Q_OBJECT
+
+public:
+    explicit QUI_RadioGroup(const QString &title = QString(), QWidget *parent = nullptr);
+
+    void clear_options();
+    void set_options(const QStringList &options);
+    void add_option(const QString &text, int id = -1);
+
+    void bind_checked_id(int *value);
+    void sync_from_binding();
+    int checked_id() const;
+    void set_checked_id(int checked_id);
+
+signals:
+    void value_committed(int checked_id);
+
+private:
+    void initialize();
+    void commit_binding(int checked_id);
+
+    QHBoxLayout *m_layout = nullptr;
+    QButtonGroup *m_button_group = nullptr;
+    int *m_bound_checked_id = nullptr;
+    int m_next_option_id = 0;
 };
 
 #endif // QUI_COMPONENTS_H

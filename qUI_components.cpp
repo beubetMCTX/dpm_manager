@@ -3,6 +3,7 @@
 #include <QFont>
 #include <QSizePolicy>
 #include <QLocale>
+#include <QLayoutItem>
 
 #include <tinyexpr.h>
 
@@ -173,6 +174,9 @@ QString line_edit_style_sheet(bool invalid)
             "  border: 1px solid rgb(200, 70, 70);"
             "  border-radius: 6px;"
             "  background: rgb(255, 248, 248);"
+            "  color: rgb(32, 37, 43);"
+            "  selection-background-color: rgb(120, 156, 214);"
+            "  selection-color: white;"
             "  padding: 4px 8px;"
             "}");
     }
@@ -182,10 +186,140 @@ QString line_edit_style_sheet(bool invalid)
         "  border: 1px solid rgb(205, 211, 220);"
         "  border-radius: 6px;"
         "  background: white;"
+        "  color: rgb(32, 37, 43);"
+        "  selection-background-color: rgb(120, 156, 214);"
+        "  selection-color: white;"
         "  padding: 4px 8px;"
         "}"
         "QLineEdit:focus {"
         "  border: 1px solid rgb(120, 156, 214);"
+        "}");
+}
+
+QString combo_box_style_sheet()
+{
+    return QString(
+        "QComboBox {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 6px;"
+        "  background: white;"
+        "  color: rgb(32, 37, 43);"
+        "  selection-background-color: rgb(120, 156, 214);"
+        "  selection-color: white;"
+        "  padding: 4px 10px;"
+        "}"
+        "QComboBox:focus {"
+        "  border: 1px solid rgb(120, 156, 214);"
+        "}"
+        "QComboBox::drop-down {"
+        "  border: none;"
+        "  width: 24px;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "  background: white;"
+        "  color: rgb(32, 37, 43);"
+        "  selection-background-color: rgb(120, 156, 214);"
+        "  selection-color: white;"
+        "}");
+}
+
+QString spin_box_style_sheet()
+{
+    return QString(
+        "QSpinBox {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 6px;"
+        "  background: white;"
+        "  color: rgb(32, 37, 43);"
+        "  selection-background-color: rgb(120, 156, 214);"
+        "  selection-color: white;"
+        "  padding: 4px 26px 4px 8px;"
+        "}"
+        "QSpinBox:focus {"
+        "  border: 1px solid rgb(120, 156, 214);"
+        "}"
+        "QSpinBox::up-button {"
+        "  subcontrol-origin: border;"
+        "  subcontrol-position: top right;"
+        "  width: 18px;"
+        "  border-left: 1px solid rgb(220, 225, 233);"
+        "  border-top-right-radius: 5px;"
+        "  background: rgb(246, 248, 251);"
+        "}"
+        "QSpinBox::down-button {"
+        "  subcontrol-origin: border;"
+        "  subcontrol-position: bottom right;"
+        "  width: 18px;"
+        "  border-left: 1px solid rgb(220, 225, 233);"
+        "  border-top: 1px solid rgb(220, 225, 233);"
+        "  border-bottom-right-radius: 5px;"
+        "  background: rgb(246, 248, 251);"
+        "}"
+        "QSpinBox::up-button:hover,"
+        "QSpinBox::down-button:hover {"
+        "  background: rgb(234, 239, 247);"
+        "}"
+        "QSpinBox::up-button:pressed,"
+        "QSpinBox::down-button:pressed {"
+        "  background: rgb(220, 228, 240);"
+        "}"
+        "QSpinBox::up-arrow,"
+        "QSpinBox::down-arrow {"
+        "  width: 7px;"
+        "  height: 7px;"
+        "}");
+}
+
+QString check_box_style_sheet()
+{
+    return QString(
+        "QCheckBox {"
+        "  spacing: 6px;"
+        "}");
+}
+
+QString push_button_style_sheet(bool accent_mode)
+{
+    if (accent_mode)
+    {
+        return QString(
+            "QPushButton {"
+            "  border: 1px solid rgb(74, 125, 232);"
+            "  border-radius: 6px;"
+            "  background: rgb(74, 125, 232);"
+            "  color: white;"
+            "  padding: 6px 14px;"
+            "}"
+            "QPushButton:hover {"
+            "  background: rgb(62, 111, 216);"
+            "}");
+    }
+
+    return QString(
+        "QPushButton {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 6px;"
+        "  background: white;"
+        "  padding: 6px 14px;"
+        "}"
+        "QPushButton:hover {"
+        "  border: 1px solid rgb(120, 156, 214);"
+        "}");
+}
+
+QString group_box_style_sheet()
+{
+    return QString(
+        "QGroupBox {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 8px;"
+        "  margin-top: 10px;"
+        "  padding-top: 8px;"
+        "}"
+        "QGroupBox::title {"
+        "  subcontrol-origin: margin;"
+        "  left: 10px;"
+        "  padding: 0 4px;"
         "}");
 }
 }
@@ -268,6 +402,13 @@ void QUI_LineEdit::bind_value(int *value)
     sync_from_binding();
 }
 
+void QUI_LineEdit::bind_value(float *value)
+{
+    m_bound_value = value;
+    m_value_mode = Value_Mode::Double;
+    sync_from_binding();
+}
+
 void QUI_LineEdit::bind_value(double *value)
 {
     m_bound_value = value;
@@ -332,6 +473,10 @@ bool QUI_LineEdit::commit()
         {
             **bound_value = numeric_value;
         }
+        else if (auto *bound_value = std::get_if<float *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
+        {
+            **bound_value = static_cast<float>(numeric_value);
+        }
 
         normalized = format_double_value(numeric_value);
         break;
@@ -376,6 +521,12 @@ void QUI_LineEdit::sync_from_binding()
     if (auto *bound_value = std::get_if<int *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
         sync_text(QString::number(**bound_value));
+        return;
+    }
+
+    if (auto *bound_value = std::get_if<float *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
+    {
+        sync_text(format_double_value(static_cast<double>(**bound_value)));
         return;
     }
 
@@ -561,4 +712,292 @@ void QUI_FieldRow::update_layout_mode()
 {
     const bool is_range_mode = (m_layout_mode == Layout_Mode::RangeValue);
     m_secondary_editor->setVisible(is_range_mode && m_show_secondary_editor);
+}
+
+QUI_ComboBox::QUI_ComboBox(QWidget *parent)
+    : QComboBox(parent)
+{
+    initialize();
+}
+
+void QUI_ComboBox::set_options(const QStringList &options)
+{
+    clear();
+    addItems(options);
+    sync_from_binding();
+}
+
+void QUI_ComboBox::add_option(const QString &text, const QVariant &data)
+{
+    addItem(text, data);
+    sync_from_binding();
+}
+
+void QUI_ComboBox::bind_current_index(int *value)
+{
+    m_bound_value = value;
+    sync_from_binding();
+}
+
+void QUI_ComboBox::bind_current_text(QString *value)
+{
+    m_bound_value = value;
+    sync_from_binding();
+}
+
+void QUI_ComboBox::sync_from_binding()
+{
+    if (auto *bound_value = std::get_if<int *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
+    {
+        if (**bound_value >= 0 && **bound_value < count())
+        {
+            setCurrentIndex(**bound_value);
+        }
+        return;
+    }
+
+    if (auto *bound_value = std::get_if<QString *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
+    {
+        const int target_index = findText(**bound_value);
+        if (target_index >= 0)
+        {
+            setCurrentIndex(target_index);
+        }
+    }
+}
+
+void QUI_ComboBox::initialize()
+{
+    setMinimumHeight(30);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    setStyleSheet(combo_box_style_sheet());
+
+    connect(this,
+            QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this,
+            [this](int)
+            {
+                commit_binding();
+            });
+}
+
+void QUI_ComboBox::commit_binding()
+{
+    if (auto *bound_value = std::get_if<int *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
+    {
+        **bound_value = currentIndex();
+    }
+    else if (auto *bound_value = std::get_if<QString *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
+    {
+        **bound_value = currentText();
+    }
+
+    emit selection_committed();
+}
+
+QUI_SpinBox::QUI_SpinBox(QWidget *parent)
+    : QSpinBox(parent)
+{
+    initialize();
+}
+
+void QUI_SpinBox::bind_value(int *value)
+{
+    m_bound_value = value;
+    sync_from_binding();
+}
+
+void QUI_SpinBox::sync_from_binding()
+{
+    if (m_bound_value != nullptr)
+    {
+        setValue(*m_bound_value);
+    }
+}
+
+void QUI_SpinBox::initialize()
+{
+    setMinimumHeight(30);
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    setStyleSheet(spin_box_style_sheet());
+
+    connect(this,
+            QOverload<int>::of(&QSpinBox::valueChanged),
+            this,
+            [this](int value)
+            {
+                commit_binding(value);
+            });
+}
+
+void QUI_SpinBox::commit_binding(int value)
+{
+    if (m_bound_value != nullptr)
+    {
+        *m_bound_value = value;
+    }
+
+    emit value_committed(value);
+}
+
+QUI_CheckBox::QUI_CheckBox(const QString &text, QWidget *parent)
+    : QCheckBox(text, parent)
+{
+    initialize();
+}
+
+void QUI_CheckBox::bind_value(bool *value)
+{
+    m_bound_value = value;
+    sync_from_binding();
+}
+
+void QUI_CheckBox::sync_from_binding()
+{
+    if (m_bound_value != nullptr)
+    {
+        setChecked(*m_bound_value);
+    }
+}
+
+void QUI_CheckBox::initialize()
+{
+    setStyleSheet(check_box_style_sheet());
+    connect(this, &QCheckBox::toggled, this, [this](bool checked)
+    {
+        commit_binding(checked);
+    });
+}
+
+void QUI_CheckBox::commit_binding(bool checked)
+{
+    if (m_bound_value != nullptr)
+    {
+        *m_bound_value = checked;
+    }
+
+    emit value_committed(checked);
+}
+
+QUI_PushButton::QUI_PushButton(const QString &text, QWidget *parent)
+    : QPushButton(text, parent)
+{
+    initialize();
+}
+
+void QUI_PushButton::set_accent_mode(bool enabled)
+{
+    m_accent_mode = enabled;
+    update_style();
+}
+
+void QUI_PushButton::initialize()
+{
+    setMinimumHeight(32);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    update_style();
+}
+
+void QUI_PushButton::update_style()
+{
+    setStyleSheet(push_button_style_sheet(m_accent_mode));
+}
+
+QUI_RadioGroup::QUI_RadioGroup(const QString &title, QWidget *parent)
+    : QGroupBox(title, parent)
+{
+    initialize();
+}
+
+void QUI_RadioGroup::clear_options()
+{
+    m_next_option_id = 0;
+
+    const QList<QAbstractButton *> buttons = m_button_group->buttons();
+    for (QAbstractButton *button : buttons)
+    {
+        m_button_group->removeButton(button);
+        m_layout->removeWidget(button);
+        delete button;
+    }
+}
+
+void QUI_RadioGroup::set_options(const QStringList &options)
+{
+    clear_options();
+    for (const QString &option : options)
+    {
+        add_option(option);
+    }
+    sync_from_binding();
+}
+
+void QUI_RadioGroup::add_option(const QString &text, int id)
+{
+    const int final_id = (id >= 0) ? id : m_next_option_id;
+    auto *button = new QRadioButton(text, this);
+    m_button_group->addButton(button, final_id);
+    m_layout->addWidget(button);
+    ++m_next_option_id;
+}
+
+void QUI_RadioGroup::bind_checked_id(int *value)
+{
+    m_bound_checked_id = value;
+    sync_from_binding();
+}
+
+void QUI_RadioGroup::sync_from_binding()
+{
+    if (m_bound_checked_id == nullptr)
+    {
+        return;
+    }
+
+    if (QAbstractButton *button = m_button_group->button(*m_bound_checked_id))
+    {
+        button->setChecked(true);
+    }
+}
+
+int QUI_RadioGroup::checked_id() const
+{
+    return m_button_group->checkedId();
+}
+
+void QUI_RadioGroup::set_checked_id(int checked_id)
+{
+    if (QAbstractButton *button = m_button_group->button(checked_id))
+    {
+        button->setChecked(true);
+    }
+}
+
+void QUI_RadioGroup::initialize()
+{
+    m_layout = new QHBoxLayout(this);
+    m_button_group = new QButtonGroup(this);
+    m_button_group->setExclusive(true);
+
+    m_layout->setContentsMargins(12, 10, 12, 10);
+    m_layout->setSpacing(14);
+    setStyleSheet(group_box_style_sheet());
+
+    connect(m_button_group,
+            QOverload<int>::of(&QButtonGroup::idClicked),
+            this,
+            [this](int checked_id)
+            {
+                commit_binding(checked_id);
+            });
+}
+
+void QUI_RadioGroup::commit_binding(int checked_id)
+{
+    if (m_bound_checked_id != nullptr)
+    {
+        *m_bound_checked_id = checked_id;
+    }
+
+    emit value_committed(checked_id);
 }

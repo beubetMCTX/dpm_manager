@@ -8,6 +8,7 @@
 #include <SelectMgr_EntityOwner.hxx>
 
 #include <qdebug.h>
+#include <utility>
 
 #include "injector.h"
 
@@ -63,21 +64,64 @@ public:
 
     Injector_OCCT inj;
 
-    Handle(AIS_Shape) ais_display=new AIS_Shape(inj.shape);
+    Handle(AIS_Shape) ais_display;
 
-    Handle(Unit_Owner) u_owner=new Unit_Owner(this);
+    Handle(Unit_Owner) u_owner;
 
     Unit()
     {
-
+        initialize_runtime_handles();
     }
 
-    ~Unit()
+    Unit(const Unit &other)
     {
+        type = other.type;
+        inj = other.inj;
+        initialize_runtime_handles();
+    }
 
+    Unit &operator=(const Unit &other)
+    {
+        if (this == &other)
+        {
+            return *this;
+        }
+
+        type = other.type;
+        inj = other.inj;
+        initialize_runtime_handles();
+        return *this;
+    }
+
+    Unit(Unit &&other) noexcept
+    {
+        type = other.type;
+        inj = std::move(other.inj);
+        initialize_runtime_handles();
+    }
+
+    Unit &operator=(Unit &&other) noexcept
+    {
+        if (this == &other)
+        {
+            return *this;
+        }
+
+        type = other.type;
+        inj = std::move(other.inj);
+        initialize_runtime_handles();
+        return *this;
     }
 
     void test(){qDebug()<<inj.injector_data.name;}
+
+private:
+    void initialize_runtime_handles()
+    {
+        ais_display = new AIS_Shape(inj.shape);
+        u_owner = new Unit_Owner(this);
+        ais_display->SetOwner(u_owner);
+    }
 };
 
 
