@@ -1,7 +1,9 @@
 #include "unit_edit_dialog.h"
+#include "runtime_debug.h"
 #include "ui_unit_edit_dialog.h"
 
 #include <QComboBox>
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLayoutItem>
@@ -71,6 +73,148 @@ QString cone_type_display_name(Cone_Type type)
     return "point-cone";
 }
 
+QString dark_control_style_sheet()
+{
+    return QString(
+        "QComboBox, QLineEdit, QSpinBox {"
+        "  min-height: 30px;"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 6px;"
+        "  background: rgb(39, 39, 39);"
+        "  color: rgb(241, 241, 241);"
+        "  padding: 4px 30px 4px 10px;"
+        "}"
+        "QComboBox:focus, QLineEdit:focus, QSpinBox:focus {"
+        "  border: 1px solid rgb(118, 168, 255);"
+        "}"
+        "QComboBox:disabled, QLineEdit:disabled, QSpinBox:disabled {"
+        "  border: 1px solid rgb(68, 68, 68);"
+        "  background: rgb(31, 31, 31);"
+        "  color: rgb(130, 130, 130);"
+        "}"
+        "QComboBox::drop-down {"
+        "  subcontrol-origin: padding;"
+        "  subcontrol-position: top right;"
+        "  margin: 1px 1px 1px 0px;"
+        "  border: none;"
+        "  border-left: 1px solid rgb(205, 211, 220);"
+        "  border-top-right-radius: 5px;"
+        "  border-bottom-right-radius: 5px;"
+        "  width: 24px;"
+        "  background: rgb(54, 54, 54);"
+        "}"
+        "QComboBox::down-arrow {"
+        "  image: url(:/ui/icons/chevron-down.svg);"
+        "  width: 12px;"
+        "  height: 12px;"
+        "}"
+        "QComboBox QAbstractItemView {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 6px;"
+        "  background: rgb(39, 39, 39);"
+        "  color: rgb(241, 241, 241);"
+        "  padding: 4px 0px;"
+        "  outline: 0;"
+        "  selection-background-color: rgb(68, 103, 167);"
+        "  selection-color: white;"
+        "}"
+        "QComboBox QAbstractItemView::item {"
+        "  min-height: 24px;"
+        "  padding: 4px 10px;"
+        "}"
+        "QSpinBox::up-button {"
+        "  subcontrol-origin: padding;"
+        "  subcontrol-position: top right;"
+        "  width: 24px;"
+        "  height: 13px;"
+        "  margin: 1px 1px 0px 0px;"
+        "  border-left: 1px solid rgb(205, 211, 220);"
+        "  border-bottom: 1px solid rgb(205, 211, 220);"
+        "  border-top-right-radius: 5px;"
+        "  background: rgb(54, 54, 54);"
+        "}"
+        "QSpinBox::down-button {"
+        "  subcontrol-origin: padding;"
+        "  subcontrol-position: bottom right;"
+        "  width: 24px;"
+        "  height: 13px;"
+        "  margin: 0px 1px 1px 0px;"
+        "  border-left: 1px solid rgb(205, 211, 220);"
+        "  border-bottom-right-radius: 5px;"
+        "  background: rgb(54, 54, 54);"
+        "}"
+        "QSpinBox::up-button:hover, QSpinBox::down-button:hover {"
+        "  background: rgb(58, 58, 58);"
+        "}"
+        "QSpinBox::up-button:pressed, QSpinBox::down-button:pressed {"
+        "  background: rgb(68, 68, 68);"
+        "}"
+        "QSpinBox::up-arrow {"
+        "  image: url(:/ui/icons/chevron-up.svg);"
+        "  width: 10px;"
+        "  height: 10px;"
+        "}"
+        "QSpinBox::down-arrow {"
+        "  image: url(:/ui/icons/chevron-down.svg);"
+        "  width: 10px;"
+        "  height: 10px;"
+        "}");
+}
+
+QString dialog_label_style_sheet()
+{
+    return QString(
+        "QLabel {"
+        "  color: rgb(241, 241, 241);"
+        "}"
+        "QLabel:disabled {"
+        "  color: rgb(130, 130, 130);"
+        "}");
+}
+
+void apply_labeled_control_enabled(QWidget *editor, QWidget *label, bool enabled)
+{
+    if (editor != nullptr)
+    {
+        editor->setEnabled(enabled);
+    }
+
+    if (label != nullptr)
+    {
+        label->setEnabled(enabled);
+    }
+}
+
+bool particle_type_supports_material(DPM_Type type)
+{
+    switch (type)
+    {
+    case Droplet:
+    case Combusting:
+    case Multicomponent:
+        return true;
+    case Massless:
+    case Inert:
+    default:
+        return false;
+    }
+}
+
+bool particle_type_supports_evaporating_species(DPM_Type type)
+{
+    return type == Droplet;
+}
+
+bool particle_type_supports_devolatilizing_species(DPM_Type type)
+{
+    return type == Combusting;
+}
+
+bool particle_type_supports_diameter_distribution(DPM_Type type)
+{
+    return type == Droplet;
+}
+
 QWidget *create_property_header(QWidget *parent,
                                 const QString &left_title,
                                 const QString &middle_title,
@@ -102,6 +246,23 @@ QWidget *create_property_header(QWidget *parent,
     }
 
     return header;
+}
+
+QLabel *create_group_title_label(const QString &text, QWidget *parent)
+{
+    QLabel *label = new QLabel(text, parent);
+    QFont label_font = label->font();
+    label_font.setPointSizeF(label_font.pointSizeF() + 1.0);
+    label->setFont(label_font);
+    label->setStyleSheet(
+        "QLabel {"
+        "  color: rgb(241, 241, 241);"
+        "  background: transparent;"
+        "  padding: 0px;"
+        "  margin: 0px;"
+        "}");
+    label->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    return label;
 }
 
 float vector_component_value(const QVector3D &vector, int component)
@@ -138,12 +299,12 @@ void append_unique_option(QStringList &options, const QString &value)
     }
 }
 
-QStringList material_options_for(const QStringList &chemkin_species_names)
+QStringList material_options_for(const QStringList &material_names)
 {
     QStringList options;
-    for (const QString &species_name : chemkin_species_names)
+    for (const QString &material_name : material_names)
     {
-        append_unique_option(options, species_name);
+        append_unique_option(options, material_name);
     }
     return options;
 }
@@ -337,13 +498,16 @@ QString property_layout_key_for(const Injector &injector)
 
 unit_edit_dialog::unit_edit_dialog(Unit* control_unit,
                                    const QStringList &chemkin_species_names,
+                                   const QStringList &material_names,
                                    QWidget *parent)
     : QDialog(parent)
     , ui(new Ui::unit_edit_dialog)
     , control_unit(control_unit)
     , m_chemkin_species_names(chemkin_species_names)
+    , m_material_names(material_names)
 {
     ui->setupUi(this);
+    setAttribute(Qt::WA_DeleteOnClose, true);
     initialize();
 
     // for(auto i =0;i<ui->verticalLayout_number_of_stream->count();i++)
@@ -367,7 +531,17 @@ unit_edit_dialog::unit_edit_dialog(Unit* control_unit,
 
 unit_edit_dialog::~unit_edit_dialog()
 {
+    runtime_debug::trace(
+        QString("unit_edit_dialog destructor begin for %1")
+            .arg(control_unit != nullptr ? control_unit->inj.injector_data.name : QString("<null>")));
     delete ui;
+    runtime_debug::trace("unit_edit_dialog destructor end");
+}
+
+void unit_edit_dialog::closeEvent(QCloseEvent *event)
+{
+    emit dialog_closed(control_unit);
+    QDialog::closeEvent(event);
 }
 
 void unit_edit_dialog::refresh_from_unit_data(Unit *unit)
@@ -399,6 +573,7 @@ void unit_edit_dialog::refresh_from_unit_data(Unit *unit)
     sync_cone_type_combo();
     sync_stagger_controls();
     sync_auxiliary_panels();
+    sync_particle_type_dependent_controls();
 
     const QString layout_key = current_property_layout_key();
     if (layout_key != m_property_layout_key)
@@ -408,6 +583,17 @@ void unit_edit_dialog::refresh_from_unit_data(Unit *unit)
     }
 
     sync_point_property_rows();
+}
+
+void unit_edit_dialog::set_material_names(const QStringList &material_names)
+{
+    if (m_material_names == material_names)
+    {
+        return;
+    }
+
+    m_material_names = material_names;
+    sync_material_combo();
 }
 
 inline bool unit_edit_dialog::initialize()
@@ -438,6 +624,7 @@ inline bool unit_edit_dialog::initialize()
     initialize_stagger_controls();
     sync_stagger_controls();
     sync_auxiliary_panels();
+    sync_particle_type_dependent_controls();
     build_point_property_rows();
     return true;
 }
@@ -446,9 +633,70 @@ void unit_edit_dialog::setup_custom_controls()
 {
     if (ui->label_material != nullptr)
     {
-        ui->label_material->setText("Material (Chemkin Species)");
+        ui->label_material->setText("Material");
         ui->label_material->setToolTip(
-            "This material selector is driven by the loaded Chemkin species list.");
+            "Selectable values come from the Materials table.");
+        ui->label_material->setStyleSheet(dialog_label_style_sheet());
+    }
+    if (ui->label_diameter_distribution != nullptr) ui->label_diameter_distribution->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_oxidizing_species != nullptr) ui->label_oxidizing_species->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_evaporating_species != nullptr) ui->label_evaporating_species->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_devolatilizing_species != nullptr) ui->label_devolatilizing_species->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_product_species != nullptr) ui->label_product_species->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_discrete_phase_domain != nullptr) ui->label_discrete_phase_domain->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_conetype != nullptr) ui->label_conetype->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_stagger != nullptr) ui->label_stagger->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_injection_name != nullptr) ui->label_injection_name->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_injection_type != nullptr) ui->label_injection_type->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_number_of_stream != nullptr) ui->label_number_of_stream->setStyleSheet(dialog_label_style_sheet());
+    if (ui->label_unit != nullptr) ui->label_unit->setStyleSheet(dialog_label_style_sheet());
+    if (ui->tabWidget_injection != nullptr) ui->tabWidget_injection->setStyleSheet(qui_tab_widget_style_sheet());
+    const QString tab_page_style = "background: rgb(24, 24, 24);";
+    if (ui->tab_point_properties != nullptr) ui->tab_point_properties->setStyleSheet(tab_page_style);
+    if (ui->tab_physical_models != nullptr) ui->tab_physical_models->setStyleSheet(tab_page_style);
+    if (ui->tab_turbulent_dispersion != nullptr) ui->tab_turbulent_dispersion->setStyleSheet(tab_page_style);
+    if (ui->tab_parcel != nullptr) ui->tab_parcel->setStyleSheet(tab_page_style);
+    if (ui->tab_wet_combustion != nullptr) ui->tab_wet_combustion->setStyleSheet(tab_page_style);
+    if (ui->scrollArea != nullptr)
+    {
+        ui->scrollArea->setFrameShape(QFrame::NoFrame);
+        ui->scrollArea->setStyleSheet(qui_scroll_area_style_sheet());
+        if (ui->scrollArea->viewport() != nullptr)
+        {
+            ui->scrollArea->viewport()->setStyleSheet("background: rgb(29, 29, 29); border-radius: 0px;");
+        }
+    }
+    if (ui->scrollarea_properties != nullptr) ui->scrollarea_properties->setStyleSheet("background: rgb(29, 29, 29);");
+    if (ui->cone_parameter_layout != nullptr)
+    {
+        ui->cone_parameter_layout->setTitle(QString());
+        ui->cone_parameter_layout->setStyleSheet(qui_group_box_body_style_sheet());
+    }
+    if (ui->stagger_layout != nullptr)
+    {
+        ui->stagger_layout->setTitle(QString());
+        ui->stagger_layout->setStyleSheet(qui_group_box_body_style_sheet());
+    }
+    if (ui->layout_cone_parameters != nullptr)
+    {
+        ui->layout_cone_parameters->setSpacing(1);
+        ui->layout_cone_parameters->insertWidget(0, create_group_title_label("Cone Injector Parameters", this));
+    }
+    if (ui->layout_stagger_position != nullptr)
+    {
+        ui->layout_stagger_position->setSpacing(1);
+        ui->layout_stagger_position->insertWidget(0, create_group_title_label("Stagger Options", this));
+    }
+    if (ui->cone_parameter_layout != nullptr)
+    {
+        ui->cone_parameter_layout->setMinimumWidth(240);
+        ui->cone_parameter_layout->setMaximumWidth(260);
+        ui->cone_parameter_layout->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    }
+    if (ui->stagger_layout != nullptr)
+    {
+        ui->stagger_layout->setMinimumWidth(180);
+        ui->stagger_layout->setMaximumWidth(190);
     }
 
     m_unit_type_combo = new QUI_ComboBox(this);
@@ -472,8 +720,15 @@ void unit_edit_dialog::setup_custom_controls()
     ui->verticalLayout_number_of_stream->addWidget(m_number_of_stream_spin);
     ui->spinBox_number_of_stream->hide();
 
-    m_particle_type_group = new QUI_RadioGroup("Particle Type", this);
-    ui->horizontalLayout_particle_type->insertWidget(0, m_particle_type_group);
+    QWidget *particle_type_panel = new QWidget(this);
+    auto *particle_type_panel_layout = new QVBoxLayout(particle_type_panel);
+    particle_type_panel_layout->setContentsMargins(0, 0, 0, 0);
+    particle_type_panel_layout->setSpacing(1);
+    particle_type_panel_layout->addWidget(create_group_title_label("Particle Type", particle_type_panel));
+
+    m_particle_type_group = new QUI_RadioGroup(QString(), particle_type_panel);
+    particle_type_panel_layout->addWidget(m_particle_type_group);
+    ui->horizontalLayout_particle_type->insertWidget(0, particle_type_panel);
     ui->groupBox_partical_type->hide();
 
     m_material_combo = new QUI_ComboBox(this);
@@ -484,7 +739,7 @@ void unit_edit_dialog::setup_custom_controls()
         m_material_combo->lineEdit()->setReadOnly(true);
     }
     m_material_combo->setToolTip(
-        "Selectable values come from the loaded Chemkin species list.");
+        "Selectable values come from the Materials table.");
     ui->comboBox_material->hide();
 
     m_diameter_distribution_combo = new QUI_ComboBox(this);
@@ -513,6 +768,9 @@ void unit_edit_dialog::setup_custom_controls()
 
     if (ui->cone_parameter_layout != nullptr)
     {
+        ui->cone_parameter_layout->setMinimumWidth(240);
+        ui->cone_parameter_layout->setMaximumWidth(260);
+        ui->cone_parameter_layout->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
         ui->cone_parameter_layout->hide();
     }
 
@@ -523,11 +781,20 @@ void unit_edit_dialog::setup_custom_controls()
     m_stagger_radius_edit = new QUI_LineEdit(ui->stagger_layout);
     m_stagger_radius_edit->set_double_mode();
     m_stagger_radius_edit->bind_value(&control_unit->inj.injector_data.stagger_radius);
-    ui->verticalLayout_4->insertWidget(2, m_stagger_radius_edit);
+    ui->verticalLayout_4->insertWidget(3, m_stagger_radius_edit);
     ui->lineEdit_stagger->hide();
     ui->stagger_layout->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    ui->stagger_layout->setMinimumWidth(220);
+    ui->stagger_layout->setMinimumWidth(180);
+    ui->stagger_layout->setMaximumWidth(190);
     ui->stagger_layout->hide();
+
+    if (ui->comboBox_conetype != nullptr)
+    {
+        ui->comboBox_conetype->setStyleSheet(dark_control_style_sheet());
+        ui->comboBox_conetype->setMinimumHeight(30);
+        ui->comboBox_conetype->setMaximumHeight(30);
+        ui->comboBox_conetype->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    }
 
     connect(m_injection_name_edit, &QUI_LineEdit::value_committed, this, [this]()
     {
@@ -647,6 +914,7 @@ void unit_edit_dialog::initialize_particle_type_group()
         }
 
         control_unit->inj.injector_data.type = static_cast<DPM_Type>(checked_id);
+        sync_particle_type_dependent_controls();
         notify_injector_data_changed();
     });
 }
@@ -795,6 +1063,10 @@ void unit_edit_dialog::initialize_stagger_controls()
     m_stagger_radius_edit->bind_value(&control_unit->inj.injector_data.stagger_radius);
     connect(m_stagger_check, &QUI_CheckBox::value_committed, this, [this](bool)
     {
+        apply_labeled_control_enabled(
+            m_stagger_radius_edit,
+            ui != nullptr ? static_cast<QWidget *>(ui->label_stagger) : nullptr,
+            m_stagger_check != nullptr && m_stagger_check->isChecked());
         notify_injector_data_changed();
     });
     connect(m_stagger_radius_edit, &QUI_LineEdit::value_committed, this, [this]()
@@ -853,6 +1125,40 @@ void unit_edit_dialog::sync_particle_type_group()
     m_particle_type_group->set_checked_id(static_cast<int>(control_unit->inj.injector_data.type));
 }
 
+void unit_edit_dialog::sync_particle_type_dependent_controls()
+{
+    if (control_unit == nullptr)
+    {
+        return;
+    }
+
+    const DPM_Type particle_type = control_unit->inj.injector_data.type;
+    const bool enable_material = particle_type_supports_material(particle_type);
+    const bool enable_diameter_distribution = particle_type_supports_diameter_distribution(particle_type);
+    const bool enable_evaporating_species = particle_type_supports_evaporating_species(particle_type);
+    const bool enable_devolatilizing_species = particle_type_supports_devolatilizing_species(particle_type);
+
+    apply_labeled_control_enabled(m_material_combo, ui->label_material, enable_material);
+    apply_labeled_control_enabled(m_diameter_distribution_combo,
+                                  ui->label_diameter_distribution,
+                                  enable_diameter_distribution);
+    apply_labeled_control_enabled(m_discrete_phase_domain_combo,
+                                  ui->label_discrete_phase_domain,
+                                  false);
+    apply_labeled_control_enabled(m_oxidizing_species_combo,
+                                  ui->label_oxidizing_species,
+                                  false);
+    apply_labeled_control_enabled(m_evaporating_species_combo,
+                                  ui->label_evaporating_species,
+                                  enable_evaporating_species);
+    apply_labeled_control_enabled(m_devolatilizing_species_combo,
+                                  ui->label_devolatilizing_species,
+                                  enable_devolatilizing_species);
+    apply_labeled_control_enabled(m_product_species_combo,
+                                  ui->label_product_species,
+                                  false);
+}
+
 void unit_edit_dialog::sync_material_combo()
 {
     if (m_material_combo == nullptr || control_unit == nullptr)
@@ -861,14 +1167,14 @@ void unit_edit_dialog::sync_material_combo()
     }
 
     QSignalBlocker blocker(m_material_combo);
-    const QStringList options = material_options_for(m_chemkin_species_names);
+    const QStringList options = material_options_for(m_material_names);
     m_material_combo->set_options(options);
 
     const QString current_material = control_unit->inj.injector_data.material;
-    if (m_chemkin_species_names.isEmpty())
+    if (m_material_names.isEmpty())
     {
         m_material_combo->setCurrentIndex(-1);
-        m_material_combo->setEditText(QString());
+        m_material_combo->setEditText(current_material);
         return;
     }
 
@@ -1003,6 +1309,10 @@ void unit_edit_dialog::sync_stagger_controls()
     m_stagger_check->bind_value(stagger_flag);
     m_stagger_check->sync_from_binding();
     m_stagger_radius_edit->bind_value(&control_unit->inj.injector_data.stagger_radius);
+    apply_labeled_control_enabled(
+        m_stagger_radius_edit,
+        ui != nullptr ? static_cast<QWidget *>(ui->label_stagger) : nullptr,
+        *stagger_flag);
 }
 
 void unit_edit_dialog::sync_auxiliary_panels()

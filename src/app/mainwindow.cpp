@@ -1,7 +1,11 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "app_config.h"
 #include "chemkin_io.h"
 #include "dpm_file_io.h"
+#include "runtime_debug.h"
+#include "species_color_dialog.h"
+#include "species_material_dialog.h"
 #include <QFileInfo>
 #include <QSizePolicy>
 #include <QtMath>
@@ -11,6 +15,25 @@ namespace
 {
 // Match injector.cpp: advanced atomizer previews are intentionally hidden for now.
 constexpr bool kEnableAdvancedAtomizerPreview = false;
+
+bool material_entries_equal(const QList<MaterialConfigEntry> &lhs,
+                            const QList<MaterialConfigEntry> &rhs)
+{
+    if (lhs.size() != rhs.size())
+    {
+        return false;
+    }
+
+    for (int i = 0; i < lhs.size(); ++i)
+    {
+        if (lhs[i].name != rhs[i].name || lhs[i].density != rhs[i].density)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 void configure_common_injector(Unit &unit, const QString &name, const QVector3D &pos)
 {
@@ -75,13 +98,16 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    runtime_debug::trace("MainWindow constructor begin");
     ui->setupUi(this);
+    runtime_debug::trace("MainWindow ui->setupUi finished");
 
     //tab_widget = new QTabWidget();
 
     //this->setCentralWidget(m_3d_widget);
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
+    runtime_debug::trace("MainWindow OCCTWidget created");
 
     m_chemkin_toolbar = new QToolBar("Chemkin Status", this);
     m_chemkin_toolbar->setMovable(false);
@@ -98,31 +124,70 @@ MainWindow::MainWindow(QWidget *parent)
     m_chemkin_path_edit->setMinimumWidth(360);
     m_chemkin_path_edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_chemkin_toolbar->addWidget(m_chemkin_path_edit);
+    runtime_debug::trace("MainWindow toolbar initialized");
 
     update_chemkin_status();
+    runtime_debug::trace("MainWindow chemkin status initialized");
 
 #if defined(QT_DEBUG)
+    runtime_debug::trace("MainWindow building debug injector units");
     units = build_test_injector_units();
+    runtime_debug::trace(QString("MainWindow built %1 debug injector units").arg(units.size()));
     m_3d_widget->display_units(units);
+    runtime_debug::trace("MainWindow displayed debug injector units");
     statusBar()->showMessage(
         QString("Loaded %1 debug injector units").arg(units.size()), 5000);
 #endif
+
+    restore_material_table();
+    runtime_debug::trace("MainWindow material table restored");
+    restore_last_chemkin_file();
+    runtime_debug::trace("MainWindow chemkin file restore finished");
+    runtime_debug::trace("MainWindow constructor end");
 
 }
 
 MainWindow::~MainWindow()
 {
+    runtime_debug::trace("MainWindow destructor begin");
     delete ui;
+    runtime_debug::trace("MainWindow destructor end");
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    runtime_debug::trace("MainWindow closeEvent begin");
+
+    if (m_species_color_dialog != nullptr)
+    {
+        runtime_debug::trace("Closing SpeciesColorDialog from MainWindow closeEvent");
+        m_species_color_dialog->close();
+        m_species_color_dialog = nullptr;
+    }
+
+    if (m_species_material_dialog != nullptr)
+    {
+        runtime_debug::trace("Closing SpeciesMaterialDialog from MainWindow closeEvent");
+        m_species_material_dialog->close();
+        m_species_material_dialog = nullptr;
+    }
+
+    if (m_3d_widget != nullptr)
+    {
+        runtime_debug::trace("Closing OCCT auxiliary dialogs from MainWindow closeEvent");
+        m_3d_widget->close_auxiliary_dialogs();
+    }
+
+    QMainWindow::closeEvent(event);
+    runtime_debug::trace("MainWindow closeEvent end");
 }
 
 
 void MainWindow::on_actionRead_triggered()
 {
-    QList<Unit> temp;
-    bool *ok=new bool();
-    *ok= false;
-    temp=read_single_dpm_file_regex(ok);
-    if(*ok)
+    bool ok = false;
+    const QList<Unit> temp = read_single_dpm_file_regex(&ok);
+    if (ok)
     {
         units.clear();
         units=temp;
@@ -137,16 +202,27 @@ void MainWindow::on_actionRead_triggered()
         statusBar()->showMessage(
             QString("Loaded %1 injectors from DPM file").arg(units.size()), 5000);
     }
+    else
+    {
+        statusBar()->showMessage("DPM file import failed", 5000);
+    }
 }
 
 
 
 void MainWindow::on_actionRead_Base_Geometry_triggered()
 {
-    bool ok=false;
-    ok=m_3d_widget->geometry.Read_Geometry_Dialog();
-    if(ok) qDebug()<<"true";
-    m_3d_widget->add_readed_geometry();
+    const bool ok = m_3d_widget->geometry.Read_Geometry_Dialog();
+    if (ok)
+    {
+        qDebug() << "true";
+        m_3d_widget->add_readed_geometry();
+        statusBar()->showMessage("Base geometry loaded successfully", 5000);
+    }
+    else
+    {
+        statusBar()->showMessage("Base geometry import failed or was canceled", 5000);
+    }
 }
 
 void MainWindow::on_actionRead_Chemkin_Files_triggered()
@@ -158,35 +234,212 @@ void MainWindow::on_actionRead_Chemkin_Files_triggered()
         return;
     }
 
+    load_chemkin_file(file_path, true, true);
+}
+
+void MainWindow::on_actionSpecies_Colors_triggered()
+{
+    if (m_species_color_dialog == nullptr)
+    {
+        m_species_color_dialog = new SpeciesColorDialog(this);
+        connect(m_species_color_dialog, &QObject::destroyed, this, [this]()
+        {
+            m_species_color_dialog = nullptr;
+        });
+        connect(m_species_color_dialog, &SpeciesColorDialog::warning_message_requested, this,
+                [this](const QString &message)
+        {
+            statusBar()->showMessage(message, 8000);
+        });
+    }
+
+    m_species_color_dialog->set_chemkin_context(m_chemkin_file_path, m_chemkin_species_names);
+    m_species_color_dialog->show();
+    m_species_color_dialog->raise();
+    m_species_color_dialog->activateWindow();
+}
+
+void MainWindow::on_actionSpecies_Materials_triggered()
+{
+    if (m_species_material_dialog == nullptr)
+    {
+        runtime_debug::trace("Creating SpeciesMaterialDialog");
+        m_species_material_dialog = new SpeciesMaterialDialog(this);
+        m_species_material_dialog->set_material_entries(m_material_entries);
+        connect(m_species_material_dialog, &SpeciesMaterialDialog::materials_changed, this, [this]()
+        {
+            if (m_species_material_dialog == nullptr)
+            {
+                return;
+            }
+
+            apply_material_entries(m_species_material_dialog->material_entries(), true, true);
+        });
+        connect(m_species_material_dialog, &QObject::destroyed, this, [this]()
+        {
+            runtime_debug::trace("SpeciesMaterialDialog destroyed signal received in MainWindow");
+            m_species_material_dialog = nullptr;
+        });
+    }
+    else
+    {
+        runtime_debug::trace("Reusing existing SpeciesMaterialDialog");
+    }
+
+    m_species_material_dialog->set_material_entries(m_material_entries);
+    runtime_debug::trace(
+        QString("Showing SpeciesMaterialDialog %1")
+            .arg(reinterpret_cast<quintptr>(m_species_material_dialog.data()), 0, 16));
+    m_species_material_dialog->show();
+    m_species_material_dialog->raise();
+    m_species_material_dialog->activateWindow();
+}
+
+bool MainWindow::load_chemkin_file(const QString &file_path,
+                                   bool show_error_message_box,
+                                   bool show_success_feedback)
+{
+    QString error_message;
     bool ok = false;
-    const QStringList species_names = read_chemkin_species_names(file_path, &ok);
+    const QStringList species_names = read_chemkin_species_names(file_path,
+                                                                 &ok,
+                                                                 &error_message,
+                                                                 show_error_message_box);
     if (!ok)
     {
-        statusBar()->showMessage("Chemkin species import failed", 5000);
-        return;
+        if (error_message.trimmed().isEmpty())
+        {
+            error_message = QString("Chemkin species import failed: %1").arg(file_path);
+        }
+        qWarning() << error_message;
+        statusBar()->showMessage(error_message, 8000);
+        return false;
     }
 
     m_chemkin_species_names = species_names;
-    m_chemkin_file_path = file_path;
+    m_chemkin_file_path = QFileInfo(file_path).absoluteFilePath();
     m_3d_widget->set_chemkin_species_names(m_chemkin_species_names);
+    if (m_species_color_dialog != nullptr)
+    {
+        m_species_color_dialog->set_chemkin_context(m_chemkin_file_path, m_chemkin_species_names);
+    }
     update_chemkin_status();
 
-    QString preview = m_chemkin_species_names.mid(0, 12).join(", ");
-    if (m_chemkin_species_names.size() > 12)
+    QString config_error_message;
+    if (!save_last_chemkin_file_path(m_chemkin_file_path, &config_error_message) &&
+        !config_error_message.trimmed().isEmpty())
     {
-        preview += ", ...";
+        qWarning() << config_error_message;
+        statusBar()->showMessage(config_error_message, 8000);
     }
 
-    QMessageBox::information(
-        this,
-        "Chemkin Species Imported",
-        QString("Imported %1 species.\n\n%2")
-            .arg(m_chemkin_species_names.size())
-            .arg(preview));
+    if (show_success_feedback)
+    {
+        QString preview = m_chemkin_species_names.mid(0, 12).join(", ");
+        if (m_chemkin_species_names.size() > 12)
+        {
+            preview += ", ...";
+        }
+
+        QMessageBox::information(
+            this,
+            "Chemkin Species Imported",
+            QString("Imported %1 species.\n\n%2")
+                .arg(m_chemkin_species_names.size())
+                .arg(preview));
+    }
 
     statusBar()->showMessage(
         QString("Imported %1 species from Chemkin file").arg(m_chemkin_species_names.size()),
         5000);
+    return true;
+}
+
+void MainWindow::restore_last_chemkin_file()
+{
+    QString saved_file_path;
+    QString error_message;
+    if (!load_last_chemkin_file_path(&saved_file_path, &error_message))
+    {
+        if (!error_message.trimmed().isEmpty())
+        {
+            qWarning() << error_message;
+            statusBar()->showMessage(error_message, 8000);
+        }
+        return;
+    }
+
+    if (saved_file_path.trimmed().isEmpty())
+    {
+        return;
+    }
+
+    if (!QFileInfo::exists(saved_file_path))
+    {
+        const QString message = QString("Last Chemkin file was not found: %1").arg(saved_file_path);
+        qWarning() << message;
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    if (load_chemkin_file(saved_file_path, false, false))
+    {
+        statusBar()->showMessage(
+            QString("Restored Chemkin species from %1").arg(saved_file_path),
+            5000);
+    }
+}
+
+void MainWindow::restore_material_table()
+{
+    QList<MaterialConfigEntry> entries;
+    QString error_message;
+    if (!load_material_table_config(&entries, &error_message))
+    {
+        if (!error_message.trimmed().isEmpty())
+        {
+            qWarning() << error_message;
+            statusBar()->showMessage(error_message, 8000);
+        }
+        apply_material_entries({}, false, false);
+        return;
+    }
+
+    apply_material_entries(entries, false, false);
+}
+
+void MainWindow::apply_material_entries(const QList<MaterialConfigEntry> &entries,
+                                        bool save_to_config,
+                                        bool show_status_feedback)
+{
+    m_material_entries = entries;
+    m_3d_widget->set_material_names(material_names_from_entries(m_material_entries));
+
+    if (m_species_material_dialog != nullptr &&
+        !material_entries_equal(m_species_material_dialog->material_entries(), m_material_entries))
+    {
+        m_species_material_dialog->set_material_entries(m_material_entries);
+    }
+
+    if (save_to_config)
+    {
+        QString error_message;
+        if (!save_material_table_config(m_material_entries, &error_message))
+        {
+            if (!error_message.trimmed().isEmpty())
+            {
+                qWarning() << error_message;
+                statusBar()->showMessage(error_message, 8000);
+            }
+        }
+    }
+
+    if (show_status_feedback)
+    {
+        statusBar()->showMessage(
+            QString("Saved %1 materials").arg(material_names_from_entries(m_material_entries).size()),
+            4000);
+    }
 }
 
 void MainWindow::update_chemkin_status()

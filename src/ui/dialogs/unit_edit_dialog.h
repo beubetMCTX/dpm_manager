@@ -2,6 +2,7 @@
 #define UNIT_EDIT_DIALOG_H
 
 #include <QDialog>
+#include <QCloseEvent>
 #include <QGroupBox>
 #include <QLayout>
 #include <QString>
@@ -25,14 +26,17 @@ class unit_edit_dialog : public QDialog
 public:
     explicit unit_edit_dialog(Unit* control_unit,
                               const QStringList &chemkin_species_names = {},
+                              const QStringList &material_names = {},
                               QWidget *parent = nullptr);
 
     ~unit_edit_dialog();
 
     void refresh_from_unit_data(Unit *unit);
+    void set_material_names(const QStringList &material_names);
 
 signals:
     void injector_data_changed(Unit *unit);
+    void dialog_closed(Unit *unit);
 
 protected:
     // 可以重写 resizeEvent！
@@ -41,6 +45,7 @@ protected:
         // 先调用基类实现
         QDialog::resizeEvent(event);
     }
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
 
@@ -64,6 +69,7 @@ private:
     QUI_LineEdit *m_stagger_radius_edit = nullptr;
     QString m_property_layout_key;
     QStringList m_chemkin_species_names;
+    QStringList m_material_names;
     std::vector<std::function<void()>> m_property_row_syncers;
 
     inline bool initialize();
@@ -80,6 +86,7 @@ private:
     void sync_unit_type_combo();
     void sync_injection_type_combo();
     void sync_particle_type_group();
+    void sync_particle_type_dependent_controls();
     void sync_material_combo();
     void sync_diameter_distribution_combo();
     void sync_discrete_phase_domain_combo();

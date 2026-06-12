@@ -18,5 +18,9 @@ public:
 QString Read_Chemkin_File_Dialog();
 QStringList read_chemkin_species_names(bool *ok);
 QStringList read_chemkin_species_names(const QString& file_path, bool *ok = nullptr);
+QStringList read_chemkin_species_names(const QString& file_path,
+                                       bool *ok,
+                                       QString *error_message,
+                                       bool show_message_box);
 
 #endif // CHEMKIN_IO_H

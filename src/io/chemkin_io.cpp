@@ -1,5 +1,6 @@
 #include "chemkin_io.h"
 
+#include <QFileInfo>
 #include <QRegularExpression>
 #include <QSet>
 
@@ -41,9 +42,21 @@ QStringList read_chemkin_species_names(bool *ok)
 
 QStringList read_chemkin_species_names(const QString& file_path, bool *ok)
 {
+    return read_chemkin_species_names(file_path, ok, nullptr, true);
+}
+
+QStringList read_chemkin_species_names(const QString& file_path,
+                                       bool *ok,
+                                       QString *error_message,
+                                       bool show_message_box)
+{
     if (ok != nullptr)
     {
         *ok = false;
+    }
+    if (error_message != nullptr)
+    {
+        error_message->clear();
     }
 
     if (file_path.trimmed().isEmpty())
@@ -51,12 +64,48 @@ QStringList read_chemkin_species_names(const QString& file_path, bool *ok)
         return {};
     }
 
+    const QFileInfo file_info(file_path);
+    if (!file_info.exists() || !file_info.isFile())
+    {
+        const QString message = QString("Chemkin file does not exist or is not a regular file: %1")
+                                    .arg(file_path);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_message_box)
+        {
+            QMessageBox::critical(nullptr, "Chemkin Parse Error", message);
+        }
+        return {};
+    }
+
+    if (file_info.size() <= 0)
+    {
+        const QString message = QString("Chemkin file is empty: %1").arg(file_path);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_message_box)
+        {
+            QMessageBox::critical(nullptr, "Chemkin Parse Error", message);
+        }
+        return {};
+    }
+
     QFile file(file_path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
     {
-        QMessageBox::critical(nullptr,
-                              "Chemkin Parse Error",
-                              QString("Unable to open Chemkin file: %1").arg(file_path));
+        const QString message = QString("Unable to open Chemkin file: %1").arg(file_path);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_message_box)
+        {
+            QMessageBox::critical(nullptr, "Chemkin Parse Error", message);
+        }
         return {};
     }
 
@@ -118,14 +167,26 @@ QStringList read_chemkin_species_names(const QString& file_path, bool *ok)
 
     if (!found_species_section)
     {
-        QMessageBox::critical(nullptr,
-                              "Chemkin Parse Error",
-                              QString("No SPECIES section found in Chemkin file: %1").arg(file_path));
+        const QString message = QString("No SPECIES section found in Chemkin file: %1").arg(file_path);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_message_box)
+        {
+            QMessageBox::critical(nullptr, "Chemkin Parse Error", message);
+        }
         return {};
     }
 
-    QMessageBox::critical(nullptr,
-                          "Chemkin Parse Error",
-                          QString("SPECIES section in Chemkin file is missing END: %1").arg(file_path));
+    const QString message = QString("SPECIES section in Chemkin file is missing END: %1").arg(file_path);
+    if (error_message != nullptr)
+    {
+        *error_message = message;
+    }
+    if (show_message_box)
+    {
+        QMessageBox::critical(nullptr, "Chemkin Parse Error", message);
+    }
     return {};
 }

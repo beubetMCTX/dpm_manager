@@ -1,4 +1,5 @@
 #include "occtwidget.h"
+#include "runtime_debug.h"
 #include <AIS_ViewCube.hxx>
 
 namespace
@@ -33,6 +34,9 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
 
 OCCTWidget::~OCCTWidget()
 {
+    runtime_debug::trace("OCCTWidget destructor begin");
+    close_auxiliary_dialogs();
+
     try
     {
         selected_shape.Nullify();
@@ -61,6 +65,29 @@ OCCTWidget::~OCCTWidget()
     axis_placement_main.Nullify();
     m_viewer.Nullify();
     m_graphic_driver.Nullify();
+    runtime_debug::trace("OCCTWidget destructor end");
+}
+
+void OCCTWidget::close_auxiliary_dialogs()
+{
+    runtime_debug::trace(
+        QString("OCCTWidget::close_auxiliary_dialogs begin, count=%1").arg(m_open_edit_dialogs.size()));
+    const QList<QPointer<unit_edit_dialog>> dialogs = m_open_edit_dialogs;
+    m_open_edit_dialogs.clear();
+
+    for (const QPointer<unit_edit_dialog> &dialog : dialogs)
+    {
+        if (dialog == nullptr)
+        {
+            continue;
+        }
+
+        runtime_debug::trace(
+            QString("Closing unit_edit_dialog %1")
+                .arg(reinterpret_cast<quintptr>(dialog.data()), 0, 16));
+        dialog->close();
+    }
+    runtime_debug::trace("OCCTWidget::close_auxiliary_dialogs end");
 }
 
 void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
@@ -140,6 +167,19 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;
+}
+
+void OCCTWidget::set_material_names(const QStringList &material_names)
+{
+    m_material_names = material_names;
+
+    for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
+    {
+        if (dialog != nullptr)
+        {
+            dialog->set_material_names(m_material_names);
+        }
+    }
 }
 
 Standard_Real OCCTWidget::get_trihedron_size()
@@ -417,8 +457,54 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
         return;
     }
 
-    unit_edit_dialog* inj_edit_dialog = new unit_edit_dialog(unit, m_chemkin_species_names, this);
-    inj_edit_dialog->setAttribute(Qt::WA_DeleteOnClose);
+    const quintptr target_unit_ptr = reinterpret_cast<quintptr>(unit);
+    for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
+    {
+        if (dialog == nullptr)
+        {
+            continue;
+        }
+
+        if (dialog->property("unit_ptr").value<quintptr>() == target_unit_ptr)
+        {
+            dialog->raise();
+            dialog->activateWindow();
+            return;
+        }
+    }
+
+    unit_edit_dialog* inj_edit_dialog = new unit_edit_dialog(unit,
+                                                             m_chemkin_species_names,
+                                                             m_material_names,
+                                                             this);
+    inj_edit_dialog->setProperty("unit_ptr", QVariant::fromValue(target_unit_ptr));
+    m_open_edit_dialogs.append(inj_edit_dialog);
+    connect(inj_edit_dialog, &QObject::destroyed, this, [this, inj_edit_dialog]()
+    {
+        m_open_edit_dialogs.removeAll(inj_edit_dialog);
+    });
+    connect(inj_edit_dialog, &unit_edit_dialog::dialog_closed, this, [this](Unit *closed_unit)
+    {
+        if (closed_unit == nullptr)
+        {
+            return;
+        }
+
+        if (!selected_shape.IsNull() && get_unit(selected_shape) == closed_unit)
+        {
+            selected_shape.Nullify();
+        }
+
+        if (!m_context.IsNull())
+        {
+            m_context->ClearSelected(Standard_True);
+        }
+
+        if (!m_view.IsNull())
+        {
+            m_view->Update();
+        }
+    });
     connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this, [this](Unit *changed_unit)
     {
         refresh_unit_visual(changed_unit);

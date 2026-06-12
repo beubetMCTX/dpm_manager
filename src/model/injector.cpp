@@ -1,4 +1,5 @@
 #include "injector.h"
+#include "runtime_debug.h"
 
 #include <qdebug.h>
 #include <algorithm>
@@ -370,16 +371,47 @@ Injector::Injector():
 
 Injector_OCCT::Injector_OCCT()
 {
-    qDebug()<<uuid;
+    if (runtime_debug::verbose_debug_enabled())
+    {
+        qDebug() << "Injector_OCCT created with uuid" << uuid;
+    }
+    rebuild_runtime_state();
+}
 
-    builder.MakeCompound(shape);
+Injector_OCCT::Injector_OCCT(const Injector_OCCT &other)
+{
+    copy_persistent_state_from(other);
+    rebuild_runtime_state();
+}
 
-    m_document.Nullify();
+Injector_OCCT &Injector_OCCT::operator=(const Injector_OCCT &other)
+{
+    if (this == &other)
+    {
+        return *this;
+    }
 
-    create_injector();
+    copy_persistent_state_from(other);
+    rebuild_runtime_state();
+    return *this;
+}
 
-    initialize_OCAF();
+Injector_OCCT::Injector_OCCT(Injector_OCCT &&other) noexcept
+{
+    move_persistent_state_from(std::move(other));
+    rebuild_runtime_state();
+}
 
+Injector_OCCT &Injector_OCCT::operator=(Injector_OCCT &&other) noexcept
+{
+    if (this == &other)
+    {
+        return *this;
+    }
+
+    move_persistent_state_from(std::move(other));
+    rebuild_runtime_state();
+    return *this;
 }
 
 Injector_OCCT::~Injector_OCCT()
@@ -389,6 +421,52 @@ Injector_OCCT::~Injector_OCCT()
     //     Handle(XCAFApp_Application) app = XCAFApp_Application::GetApplication();
     //     app->Close(m_document);
     // }
+}
+
+void Injector_OCCT::reset_runtime_state()
+{
+    shape.Nullify();
+    builder.MakeCompound(shape);
+
+    m_document.Nullify();
+    m_label = TDF_Label();
+    uuid_label = TDF_Label();
+    name_label = TDF_Label();
+    geometry_label = TDF_Label();
+    position_label = TDF_Label();
+    position2_label = TDF_Label();
+    velocity_label = TDF_Label();
+    velocity2_label = TDF_Label();
+    axis_label = TDF_Label();
+    atomizer_axis_label = TDF_Label();
+    material_label = TDF_Label();
+    color_label = TDF_Label();
+}
+
+void Injector_OCCT::copy_persistent_state_from(const Injector_OCCT &other)
+{
+    uuid = other.uuid;
+    injector_data = other.injector_data;
+    edit_mode = other.edit_mode;
+}
+
+void Injector_OCCT::move_persistent_state_from(Injector_OCCT &&other)
+{
+    uuid = other.uuid;
+    injector_data = std::move(other.injector_data);
+    edit_mode = other.edit_mode;
+}
+
+bool Injector_OCCT::rebuild_runtime_state()
+{
+    reset_runtime_state();
+
+    if (!create_injector())
+    {
+        return false;
+    }
+
+    return initialize_OCAF();
 }
 
 

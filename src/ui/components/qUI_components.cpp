@@ -171,10 +171,10 @@ QString line_edit_style_sheet(bool invalid)
     {
         return QString(
             "QLineEdit {"
-            "  border: 1px solid rgb(200, 70, 70);"
+            "  border: 1px solid rgb(214, 92, 92);"
             "  border-radius: 6px;"
-            "  background: rgb(255, 248, 248);"
-            "  color: rgb(32, 37, 43);"
+            "  background: rgb(63, 36, 36);"
+            "  color: rgb(245, 245, 245);"
             "  selection-background-color: rgb(120, 156, 214);"
             "  selection-color: white;"
             "  padding: 4px 8px;"
@@ -185,14 +185,19 @@ QString line_edit_style_sheet(bool invalid)
         "QLineEdit {"
         "  border: 1px solid rgb(205, 211, 220);"
         "  border-radius: 6px;"
-        "  background: white;"
-        "  color: rgb(32, 37, 43);"
+        "  background: rgb(39, 39, 39);"
+        "  color: rgb(241, 241, 241);"
         "  selection-background-color: rgb(120, 156, 214);"
         "  selection-color: white;"
         "  padding: 4px 8px;"
         "}"
         "QLineEdit:focus {"
-        "  border: 1px solid rgb(120, 156, 214);"
+        "  border: 1px solid rgb(118, 168, 255);"
+        "}"
+        "QLineEdit:disabled {"
+        "  border: 1px solid rgb(68, 68, 68);"
+        "  background: rgb(31, 31, 31);"
+        "  color: rgb(130, 130, 130);"
         "}");
 }
 
@@ -202,24 +207,122 @@ QString combo_box_style_sheet()
         "QComboBox {"
         "  border: 1px solid rgb(205, 211, 220);"
         "  border-radius: 6px;"
-        "  background: white;"
-        "  color: rgb(32, 37, 43);"
+        "  background: rgb(39, 39, 39);"
+        "  color: rgb(241, 241, 241);"
         "  selection-background-color: rgb(120, 156, 214);"
         "  selection-color: white;"
-        "  padding: 4px 10px;"
+        "  padding: 4px 30px 4px 10px;"
         "}"
         "QComboBox:focus {"
-        "  border: 1px solid rgb(120, 156, 214);"
+        "  border: 1px solid rgb(118, 168, 255);"
+        "}"
+        "QComboBox:disabled {"
+        "  border: 1px solid rgb(68, 68, 68);"
+        "  background: rgb(31, 31, 31);"
+        "  color: rgb(130, 130, 130);"
         "}"
         "QComboBox::drop-down {"
+        "  subcontrol-origin: padding;"
+        "  subcontrol-position: top right;"
+        "  margin: 1px 1px 1px 0px;"
         "  border: none;"
+        "  border-left: 1px solid rgb(205, 211, 220);"
+        "  border-top-right-radius: 5px;"
+        "  border-bottom-right-radius: 5px;"
         "  width: 24px;"
+        "  background: rgb(54, 54, 54);"
+        "}"
+        "QComboBox::down-arrow {"
+        "  image: url(:/ui/icons/chevron-down.svg);"
+        "  width: 12px;"
+        "  height: 12px;"
         "}"
         "QComboBox QAbstractItemView {"
-        "  background: white;"
-        "  color: rgb(32, 37, 43);"
-        "  selection-background-color: rgb(120, 156, 214);"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 6px;"
+        "  background: rgb(39, 39, 39);"
+        "  color: rgb(241, 241, 241);"
+        "  padding: 4px 0px;"
+        "  outline: 0;"
+        "  selection-background-color: rgb(68, 103, 167);"
         "  selection-color: white;"
+        "}"
+        "QComboBox QAbstractItemView::item {"
+        "  min-height: 24px;"
+        "  padding: 4px 10px;"
+        "}");
+}
+
+QString scroll_bar_style_sheet()
+{
+    return QString(
+        "QScrollBar:vertical {"
+        "  background: rgb(30, 30, 30);"
+        "  width: 12px;"
+        "  margin: 12px 0px 12px 0px;"
+        "  border: none;"
+        "  border-radius: 6px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "  background: rgb(205, 211, 220);"
+        "  min-height: 28px;"
+        "  border-radius: 6px;"
+        "}"
+        "QScrollBar::handle:vertical:hover {"
+        "  background: rgb(221, 226, 233);"
+        "}"
+        "QScrollBar::handle:vertical:pressed {"
+        "  background: rgb(236, 240, 246);"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+        "  background: rgb(54, 54, 54);"
+        "  height: 12px;"
+        "  border: none;"
+        "}"
+        "QScrollBar::sub-line:vertical {"
+        "  border-top-left-radius: 6px;"
+        "  border-top-right-radius: 6px;"
+        "}"
+        "QScrollBar::add-line:vertical {"
+        "  border-bottom-left-radius: 6px;"
+        "  border-bottom-right-radius: 6px;"
+        "}"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {"
+        "  background: transparent;"
+        "}"
+        "QScrollBar:horizontal {"
+        "  background: rgb(30, 30, 30);"
+        "  height: 12px;"
+        "  margin: 0px 12px 0px 12px;"
+        "  border: none;"
+        "  border-radius: 6px;"
+        "}"
+        "QScrollBar::handle:horizontal {"
+        "  background: rgb(205, 211, 220);"
+        "  min-width: 28px;"
+        "  border-radius: 6px;"
+        "}"
+        "QScrollBar::handle:horizontal:hover {"
+        "  background: rgb(221, 226, 233);"
+        "}"
+        "QScrollBar::handle:horizontal:pressed {"
+        "  background: rgb(236, 240, 246);"
+        "}"
+        "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {"
+        "  background: rgb(54, 54, 54);"
+        "  width: 12px;"
+        "  border: none;"
+        "}"
+        "QScrollBar::sub-line:horizontal {"
+        "  border-top-left-radius: 6px;"
+        "  border-bottom-left-radius: 6px;"
+        "}"
+        "QScrollBar::add-line:horizontal {"
+        "  border-top-right-radius: 6px;"
+        "  border-bottom-right-radius: 6px;"
+        "}"
+        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {"
+        "  background: transparent;"
         "}");
 }
 
@@ -229,44 +332,58 @@ QString spin_box_style_sheet()
         "QSpinBox {"
         "  border: 1px solid rgb(205, 211, 220);"
         "  border-radius: 6px;"
-        "  background: white;"
-        "  color: rgb(32, 37, 43);"
+        "  background: rgb(39, 39, 39);"
+        "  color: rgb(241, 241, 241);"
         "  selection-background-color: rgb(120, 156, 214);"
         "  selection-color: white;"
-        "  padding: 4px 26px 4px 8px;"
+        "  padding: 4px 30px 4px 8px;"
         "}"
         "QSpinBox:focus {"
-        "  border: 1px solid rgb(120, 156, 214);"
+        "  border: 1px solid rgb(118, 168, 255);"
+        "}"
+        "QSpinBox:disabled {"
+        "  border: 1px solid rgb(68, 68, 68);"
+        "  background: rgb(31, 31, 31);"
+        "  color: rgb(130, 130, 130);"
         "}"
         "QSpinBox::up-button {"
-        "  subcontrol-origin: border;"
+        "  subcontrol-origin: padding;"
         "  subcontrol-position: top right;"
-        "  width: 18px;"
-        "  border-left: 1px solid rgb(220, 225, 233);"
+        "  width: 24px;"
+        "  height: 13px;"
+        "  margin: 1px 1px 0px 0px;"
+        "  border-left: 1px solid rgb(205, 211, 220);"
+        "  border-bottom: 1px solid rgb(205, 211, 220);"
         "  border-top-right-radius: 5px;"
-        "  background: rgb(246, 248, 251);"
+        "  background: rgb(54, 54, 54);"
         "}"
         "QSpinBox::down-button {"
-        "  subcontrol-origin: border;"
+        "  subcontrol-origin: padding;"
         "  subcontrol-position: bottom right;"
-        "  width: 18px;"
-        "  border-left: 1px solid rgb(220, 225, 233);"
-        "  border-top: 1px solid rgb(220, 225, 233);"
+        "  width: 24px;"
+        "  height: 13px;"
+        "  margin: 0px 1px 1px 0px;"
+        "  border-left: 1px solid rgb(205, 211, 220);"
         "  border-bottom-right-radius: 5px;"
-        "  background: rgb(246, 248, 251);"
+        "  background: rgb(54, 54, 54);"
         "}"
         "QSpinBox::up-button:hover,"
         "QSpinBox::down-button:hover {"
-        "  background: rgb(234, 239, 247);"
+        "  background: rgb(58, 58, 58);"
         "}"
         "QSpinBox::up-button:pressed,"
         "QSpinBox::down-button:pressed {"
-        "  background: rgb(220, 228, 240);"
+        "  background: rgb(68, 68, 68);"
         "}"
-        "QSpinBox::up-arrow,"
+        "QSpinBox::up-arrow {"
+        "  image: url(:/ui/icons/chevron-up.svg);"
+        "  width: 10px;"
+        "  height: 10px;"
+        "}"
         "QSpinBox::down-arrow {"
-        "  width: 7px;"
-        "  height: 7px;"
+        "  image: url(:/ui/icons/chevron-down.svg);"
+        "  width: 10px;"
+        "  height: 10px;"
         "}");
 }
 
@@ -307,21 +424,180 @@ QString push_button_style_sheet(bool accent_mode)
         "}");
 }
 
-QString group_box_style_sheet()
+QString radio_group_panel_style_sheet()
 {
+    return QString(
+        "QUI_RadioGroup {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 8px;"
+        "  background: rgb(29, 29, 29);"
+        "}"
+        "QUI_RadioGroup QRadioButton {"
+        "  background: transparent;"
+        "  color: rgb(241, 241, 241);"
+        "  padding: 0px;"
+        "  margin: 0px;"
+        "}"
+        "QUI_RadioGroup QLabel {"
+        "  background: transparent;"
+        "  color: rgb(241, 241, 241);"
+        "}");
+}
+
+QString group_box_style_sheet_impl(bool reserve_title_space)
+{
+    const QFont title_font = QFont();
+    const QString title_font_family = title_font.family();
+    const QString title_font_size = QLocale::c().toString(title_font.pointSizeF(), 'f', 1);
+    const QString title_margin_top = reserve_title_space ? "24px" : "0px";
+    const QString title_padding_top = reserve_title_space ? "6px" : "3px";
+    const QString title_rules = reserve_title_space
+        ? QString(
+              "QGroupBox::title {"
+              "  subcontrol-origin: margin;"
+              "  subcontrol-position: top left;"
+              "  left: 12px;"
+              "  top: 0px;"
+              "  padding: 0px;"
+              "  color: rgb(241, 241, 241);"
+              "  background: transparent;"
+              "  font-family: \"%1\";"
+              "  font-size: %2pt;"
+              "  font-weight: 400;"
+              "}")
+              .arg(title_font_family, title_font_size)
+        : QString();
+
     return QString(
         "QGroupBox {"
         "  border: 1px solid rgb(205, 211, 220);"
         "  border-radius: 8px;"
-        "  margin-top: 10px;"
-        "  padding-top: 8px;"
+        "  background: rgb(29, 29, 29);"
+        "  color: rgb(241, 241, 241);"
+        "  margin-top: %1;"
+        "  padding-top: %2;"
         "}"
-        "QGroupBox::title {"
-        "  subcontrol-origin: margin;"
-        "  left: 10px;"
-        "  padding: 0 4px;"
+        "QGroupBox QLabel,"
+        "QGroupBox QCheckBox,"
+        "QGroupBox QRadioButton {"
+        "  background: transparent;"
+        "  color: rgb(241, 241, 241);"
+        "}%3").arg(title_margin_top, title_padding_top, title_rules);
+}
+
+QString group_box_style_sheet()
+{
+    return group_box_style_sheet_impl(true);
+}
+}
+
+QString qui_group_box_style_sheet()
+{
+    return group_box_style_sheet();
+}
+
+QString qui_group_box_body_style_sheet()
+{
+    return group_box_style_sheet_impl(false);
+}
+
+QString qui_tab_widget_style_sheet()
+{
+    return QString(
+        "QTabBar {"
+        "  qproperty-expanding: true;"
+        "}"
+        "QTabWidget::tab-bar {"
+        "  left: 8px;"
+        "}"
+        "QTabWidget::pane {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 8px;"
+        "  background: rgb(33, 33, 33);"
+        "  top: -1px;"
+        "}"
+        "QTabBar::tab {"
+        "  background: rgb(48, 48, 48);"
+        "  color: rgb(215, 219, 226);"
+        "  border: 1px solid rgb(126, 134, 146);"
+        "  border-bottom: none;"
+        "  border-top-left-radius: 8px;"
+        "  border-top-right-radius: 8px;"
+        "  padding: 8px 14px;"
+        "  margin-right: 4px;"
+        "  margin-top: 3px;"
+        "}"
+        "QTabBar::tab:selected {"
+        "  background: rgb(33, 33, 33);"
+        "  color: rgb(241, 241, 241);"
+        "  border-color: rgb(205, 211, 220);"
+        "  border-bottom-color: rgb(33, 33, 33);"
+        "  margin-top: 0px;"
+        "  margin-bottom: -1px;"
+        "}"
+        "QTabBar::tab:hover:!selected {"
+        "  background: rgb(58, 58, 58);"
+        "  color: rgb(241, 241, 241);"
+        "}"
+        "QTabBar::tab:disabled {"
+        "  color: rgb(130, 130, 130);"
+        "  background: rgb(35, 35, 35);"
+        "  border-color: rgb(78, 78, 78);"
         "}");
 }
+
+QString qui_scroll_area_style_sheet()
+{
+    return QString(
+        "QScrollArea, QAbstractScrollArea {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 0px;"
+        "  background: rgb(29, 29, 29);"
+        "}"
+        "QScrollArea::viewport {"
+        "  background: rgb(29, 29, 29);"
+        "  border-radius: 0px;"
+        "}"
+        "QScrollArea > QWidget > QWidget {"
+        "  background: rgb(29, 29, 29);"
+        "}"
+        "QAbstractScrollArea::corner {"
+        "  background: rgb(29, 29, 29);"
+        "}"
+        + scroll_bar_style_sheet());
+}
+
+QString qui_table_widget_style_sheet()
+{
+    return QString(
+        "QTableWidget {"
+        "  border: 1px solid rgb(205, 211, 220);"
+        "  border-radius: 8px;"
+        "  background: rgb(33, 33, 33);"
+        "  alternate-background-color: rgb(39, 39, 39);"
+        "  color: rgb(241, 241, 241);"
+        "  gridline-color: rgb(70, 70, 70);"
+        "  selection-background-color: rgb(74, 108, 172);"
+        "  selection-color: white;"
+        "}"
+        "QTableWidget::item {"
+        "  padding: 4px 6px;"
+        "}"
+        "QTableWidget::item:selected {"
+        "  color: white;"
+        "}"
+        "QHeaderView::section {"
+        "  background: rgb(48, 48, 48);"
+        "  color: rgb(241, 241, 241);"
+        "  border: 1px solid rgb(88, 94, 104);"
+        "  padding: 6px 8px;"
+        "  font-weight: 600;"
+        "}"
+        "QTableCornerButton::section {"
+        "  background: rgb(48, 48, 48);"
+        "  border: 1px solid rgb(88, 94, 104);"
+        "}"
+        + scroll_bar_style_sheet());
 }
 
 QUI_Label::QUI_Label(const QString &text, QWidget *parent)
@@ -340,11 +616,11 @@ void QUI_Label::set_title_mode(bool enabled)
 {
     if (enabled)
     {
-        setStyleSheet("font-weight: 600;");
+        setStyleSheet("font-weight: 600; color: rgb(241, 241, 241);");
         return;
     }
 
-    setStyleSheet(QString());
+    setStyleSheet("color: rgb(241, 241, 241);");
 }
 
 QUI_LineEdit::QUI_LineEdit(QWidget *parent)
@@ -904,8 +1180,9 @@ void QUI_PushButton::update_style()
 }
 
 QUI_RadioGroup::QUI_RadioGroup(const QString &title, QWidget *parent)
-    : QGroupBox(title, parent)
+    : QWidget(parent)
 {
+    Q_UNUSED(title);
     initialize();
 }
 
@@ -979,9 +1256,11 @@ void QUI_RadioGroup::initialize()
     m_button_group = new QButtonGroup(this);
     m_button_group->setExclusive(true);
 
-    m_layout->setContentsMargins(12, 10, 12, 10);
-    m_layout->setSpacing(14);
-    setStyleSheet(group_box_style_sheet());
+    m_layout->setContentsMargins(12, 6, 12, 6);
+    m_layout->setSpacing(12);
+    setAttribute(Qt::WA_StyledBackground, true);
+    setStyleSheet(radio_group_panel_style_sheet());
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
     connect(m_button_group,
             QOverload<int>::of(&QButtonGroup::idClicked),

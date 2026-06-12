@@ -49,11 +49,20 @@ find_package(OpenCASCADE COMPONENTS REQUIRED)
 
 set(TS_FILES dpm_manager_zh_CN.ts)
 
+set(APP_DIR src/app)
+set(IO_DIR src/io)
+set(MODEL_DIR src/model)
+set(VIEW_DIR src/view)
+set(UI_COMPONENTS_DIR src/ui/components)
+set(UI_DIALOGS_DIR src/ui/dialogs)
+set(UI_RESOURCES_DIR src/ui/resources)
+set(COMMON_DIR src/common)
+
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
+        ${APP_DIR}/main.cpp
+        ${APP_DIR}/mainwindow.cpp
+        ${APP_DIR}/mainwindow.h
+        ${APP_DIR}/mainwindow.ui
         ${TS_FILES}
 )
 
@@ -61,15 +70,20 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(dpm_manager
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        injector.h injector.cpp
-        dpm_file_io.h dpm_file_io.cpp
-        chemkin_io.h chemkin_io.cpp
-        unit.h
-        occtwidget.h occtwidget.cpp
-        base_geom_read.h base_geom_read.cpp
-        global_functions.h
-        qUI_components.h qUI_components.cpp
-        unit_edit_dialog.h unit_edit_dialog.cpp unit_edit_dialog.ui
+        ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${IO_DIR}/dpm_file_io.h ${IO_DIR}/dpm_file_io.cpp
+        ${IO_DIR}/chemkin_io.h ${IO_DIR}/chemkin_io.cpp
+        ${MODEL_DIR}/unit.h
+        ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
+        ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
+        ${COMMON_DIR}/global_functions.h
+        ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+        ${UI_COMPONENTS_DIR}/qUI_components.h ${UI_COMPONENTS_DIR}/qUI_components.cpp
+        ${UI_DIALOGS_DIR}/unit_edit_dialog.h ${UI_DIALOGS_DIR}/unit_edit_dialog.cpp ${UI_DIALOGS_DIR}/unit_edit_dialog.ui
+        ${UI_DIALOGS_DIR}/species_color_dialog.h ${UI_DIALOGS_DIR}/species_color_dialog.cpp ${UI_DIALOGS_DIR}/species_color_dialog.ui
+        ${UI_DIALOGS_DIR}/species_material_dialog.h ${UI_DIALOGS_DIR}/species_material_dialog.cpp ${UI_DIALOGS_DIR}/species_material_dialog.ui
+        ${UI_RESOURCES_DIR}/ui_icons.qrc
 
 
 
@@ -96,6 +110,17 @@ else()
 
     qt5_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
 endif()
+
+target_include_directories(dpm_manager PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${APP_DIR}
+    ${IO_DIR}
+    ${MODEL_DIR}
+    ${VIEW_DIR}
+    ${UI_COMPONENTS_DIR}
+    ${UI_DIALOGS_DIR}
+    ${COMMON_DIR}
+)
 
 target_link_libraries(dpm_manager PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 target_link_libraries(dpm_manager PRIVATE ${GLEW_LIBRARIES})

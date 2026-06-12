@@ -38,6 +38,8 @@
      <string>Species</string>
     </property>
     <addaction name="actionRead_Chemkin_Files"/>
+    <addaction name="actionSpecies_Colors"/>
+    <addaction name="actionSpecies_Materials"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
@@ -74,6 +76,16 @@
   <action name="actionLanguage">
    <property name="text">
     <string>Language</string>
+   </property>
+  </action>
+  <action name="actionSpecies_Colors">
+   <property name="text">
+    <string>Species/Colors</string>
+   </property>
+  </action>
+  <action name="actionSpecies_Materials">
+   <property name="text">
+    <string>Materials</string>
    </property>
   </action>
  </widget>

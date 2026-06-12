@@ -14,6 +14,26 @@ Base_Geom_Read::~Base_Geom_Read()
 
 }
 
+bool Base_Geom_Read::report_error(const QString &message)
+{
+    m_last_error_message = message;
+    emit fileReadError(message);
+    return false;
+}
+
+void Base_Geom_Read::clear_loaded_state()
+{
+    m_shape.Nullify();
+    m_hasAssembly = false;
+    m_rootShapesCount = 0;
+    m_shapeNames.clear();
+    m_last_error_message.clear();
+    bounding_box.SetVoid();
+    xyz_min = QVector3D(0.0f, 0.0f, 0.0f);
+    xyz_max = QVector3D(0.0f, 0.0f, 0.0f);
+    xyz_length = QVector3D(0.0f, 0.0f, 0.0f);
+}
+
 QString Base_Geom_Read::getSupportedFormatsFilter()
 {
     return QStringLiteral(
@@ -27,34 +47,57 @@ QString Base_Geom_Read::getSupportedFormatsFilter()
 
 bool Base_Geom_Read::Read_Geometry_Dialog()
 {
-    bool ok=false;
-    QString file_path=QFileDialog::getOpenFileName(nullptr, "选择文件", ".","所有文件 (*.*)");
-    qDebug()<<file_path;
-    ok=readFile(file_path);
+    const QString file_path = QFileDialog::getOpenFileName(
+        nullptr,
+        "选择文件",
+        ".",
+        getSupportedFormatsFilter());
+    qDebug() << file_path;
+
+    if (file_path.trimmed().isEmpty())
+    {
+        return false;
+    }
+
+    QString mutable_path = file_path;
+    const bool ok = readFile(mutable_path);
+    if (!ok && !m_last_error_message.trimmed().isEmpty())
+    {
+        QMessageBox::warning(nullptr, "Geometry Read Error", m_last_error_message);
+    }
     return ok;
 }
 
 bool Base_Geom_Read::readFile(QString& filePath)
 {
-    if (filePath.isEmpty()) {
-        emit fileReadError("文件路径为空");
-        return false;
+    clear_loaded_state();
+
+    if (filePath.trimmed().isEmpty()) {
+        return report_error("文件路径为空");
     }
 
     QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists() || !fileInfo.isFile())
+    {
+        return report_error(QString("文件不存在或不是有效文件: %1").arg(filePath));
+    }
+
+    if (fileInfo.size() <= 0)
+    {
+        return report_error(QString("文件为空，无法读取: %1").arg(filePath));
+    }
+
     QString suffix = fileInfo.suffix().toLower();
+    if (suffix.isEmpty())
+    {
+        return report_error(QString("无法识别文件格式: %1").arg(filePath));
+    }
 
     bool result = false;
 
     try {
         if (suffix == "step" || suffix == "stp") {
-            // 先尝试用XCAF读取器获取完整结构信息
-            // if (readSTEPFileWithStructure(filePath)) {
-            //     result = true;
-            // } else {
-                // 如果XCAF读取失败，回退到基本STEP读取器
-                result = readSTEPFile(filePath);
-            //}
+            result = readSTEPFile(filePath);
         }
         else if (suffix == "iges" || suffix == "igs") {
             result = readIGESFile(filePath);
@@ -66,25 +109,20 @@ bool Base_Geom_Read::readFile(QString& filePath)
             result = readBREPFile(filePath);
         }
         else {
-            emit fileReadError("不支持的文件格式: " + suffix);
-            return false;
+            return report_error("不支持的文件格式: " + suffix);
         }
     }
     catch (const Standard_Failure& e) {
-        QString errorMsg = "OpenCASCADE异常: " +
-                           QString::fromLocal8Bit(e.GetMessageString());
-        emit fileReadError(errorMsg);
-        return false;
+        return report_error("OpenCASCADE异常: " +
+                            QString::fromLocal8Bit(e.GetMessageString()));
     }
     catch (...) {
-        emit fileReadError("未知异常发生");
-        return false;
+        return report_error("读取几何文件时发生未知异常");
     }
 
     if (result) {
         if (m_shape.IsNull()) {
-            emit fileReadError("成功读取文件但未获取到有效几何数据");
-            return false;
+            return report_error("成功读取文件但未获取到有效几何数据");
         }
         emit fileReadSuccess(fileInfo.fileName());
         return true;
@@ -101,8 +139,7 @@ bool Base_Geom_Read::readSTEPFile(const QString& filePath)
 
     IFSelect_ReturnStatus status = reader.ReadFile(filePath.toUtf8().constData());
     if (status != IFSelect_RetDone) {
-        emit fileReadError("STEP文件读取失败");
-        return false;
+        return report_error("STEP文件读取失败");
     }
 
     emit progressUpdate(50);
@@ -110,14 +147,12 @@ bool Base_Geom_Read::readSTEPFile(const QString& filePath)
     // 转换所有根实体
     int nbRoots = reader.NbRootsForTransfer();
     if (nbRoots == 0) {
-        emit fileReadError("STEP文件中没有可转换的根实体");
-        return false;
+        return report_error("STEP文件中没有可转换的根实体");
     }
 
     int nbTransferred = reader.TransferRoots();
     if (nbTransferred == 0) {
-        emit fileReadError("STEP文件实体转换失败");
-        return false;
+        return report_error("STEP文件实体转换失败");
     }
 
     emit progressUpdate(90);
@@ -144,8 +179,7 @@ bool Base_Geom_Read::readIGESFile(const QString& filePath)
     IFSelect_ReturnStatus status = reader.ReadFile(filePath.toUtf8().constData());
 
     if (status != IFSelect_RetDone) {
-        emit fileReadError("IGES文件读取失败");
-        return false;
+        return report_error("IGES文件读取失败");
     }
 
     emit progressUpdate(50);
@@ -157,8 +191,7 @@ bool Base_Geom_Read::readIGESFile(const QString& filePath)
     emit progressUpdate(100);
 
     if (m_shape.IsNull()) {
-        emit fileReadError("IGES文件转换后未获取到有效形状");
-        return false;
+        return report_error("IGES文件转换后未获取到有效形状");
     }
 
     m_hasAssembly = false;
@@ -180,8 +213,7 @@ bool Base_Geom_Read::readSTLFile(const QString& filePath)
     emit progressUpdate(100);
 
     if (!success || m_shape.IsNull()) {
-        emit fileReadError("STL文件读取失败");
-        return false;
+        return report_error("STL文件读取失败");
     }
 
     m_hasAssembly = false;
@@ -201,8 +233,7 @@ bool Base_Geom_Read::readBREPFile(const QString& filePath)
     emit progressUpdate(100);
 
     if (!success || m_shape.IsNull()) {
-        emit fileReadError("BREP文件读取失败");
-        return false;
+        return report_error("BREP文件读取失败");
     }
 
     m_hasAssembly = false;
@@ -213,11 +244,13 @@ bool Base_Geom_Read::readBREPFile(const QString& filePath)
 
 void Base_Geom_Read::get_bounding_box()
 {
+    bounding_box.SetVoid();
     BRepBndLib::Add(m_shape,bounding_box);
     if (bounding_box.IsVoid())
     {
         xyz_min={0,0,0};
         xyz_max={0,0,0};
+        xyz_length={0,0,0};
     }
     else
     {
@@ -237,5 +270,4 @@ void Base_Geom_Read::get_bounding_box()
         xyz_length.setZ(z_max-z_min);
 
     }
-
 }

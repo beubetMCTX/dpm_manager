@@ -386,6 +386,10 @@ class Injector_OCCT
 public:
 
     Injector_OCCT();
+    Injector_OCCT(const Injector_OCCT &other);
+    Injector_OCCT &operator=(const Injector_OCCT &other);
+    Injector_OCCT(Injector_OCCT &&other) noexcept;
+    Injector_OCCT &operator=(Injector_OCCT &&other) noexcept;
 
     ~Injector_OCCT();
 
@@ -417,6 +421,11 @@ public:
 
 
 private:
+    void reset_runtime_state();
+    void copy_persistent_state_from(const Injector_OCCT &other);
+    void move_persistent_state_from(Injector_OCCT &&other);
+    bool rebuild_runtime_state();
+
     TopoDS_Compound create_arrow(gp_Ax2 ax2,Standard_Real cyli_diameter,Standard_Real cyli_length,Standard_Real cone_diameter,Standard_Real cone_length);
     bool create_geometry_single();
     bool create_geometry_ring();

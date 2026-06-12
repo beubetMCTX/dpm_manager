@@ -1,5 +1,6 @@
 #include "dpm_file_io.h"
 
+#include <QFileInfo>
 #include <QRegularExpression>
 #define  Kill_Read  *ok=false;delete(in);delete(file);return unit;
 
@@ -16,6 +17,41 @@ bool show_parse_error(const QString& file_name, const QString& title, const QStr
 {
     QMessageBox::critical(nullptr, "DPM Parse Error", make_parse_error(file_name, title, detail));
     return false;
+}
+
+bool validate_dpm_file_path(const QString& file_path, QString* error_message)
+{
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+
+    if (file_path.trimmed().isEmpty())
+    {
+        return false;
+    }
+
+    const QFileInfo file_info(file_path);
+    if (!file_info.exists() || !file_info.isFile())
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QString("DPM file does not exist or is not a regular file: %1")
+                                 .arg(file_path);
+        }
+        return false;
+    }
+
+    if (file_info.size() <= 0)
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QString("DPM file is empty: %1").arg(file_path);
+        }
+        return false;
+    }
+
+    return true;
 }
 
 QString normalize_dpm_content(const QString& content)
@@ -1263,7 +1299,11 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
 
 QString Read_File_Dialog()
 {
-    QString file_path=QFileDialog::getOpenFileName(nullptr, "选择文件", ".","所有文件 (*.*)");
+    QString file_path = QFileDialog::getOpenFileName(
+        nullptr,
+        "选择文件",
+        ".",
+        "DPM Files (*.dpm);;Text Files (*.txt);;All Files (*.*)");
     qDebug()<<file_path;
     return file_path;
 }
@@ -1579,22 +1619,47 @@ QList<Unit> read_single_dpm_file(bool *ok)
 
 QList<Unit> read_single_dpm_file_regex(bool *ok)
 {
-    QFile file(Read_File_Dialog());
+    if (ok != nullptr)
+    {
+        *ok = false;
+    }
+
     QList<Unit> units;
+    const QString file_path = Read_File_Dialog();
+    QString validation_error;
+    if (!validate_dpm_file_path(file_path, &validation_error))
+    {
+        if (!file_path.trimmed().isEmpty() && !validation_error.trimmed().isEmpty())
+        {
+            QMessageBox::critical(nullptr, "DPM Parse Error", validation_error);
+        }
+        return units;
+    }
+
+    QFile file(file_path);
 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
     {
-        *ok = false;
+        QMessageBox::critical(nullptr,
+                              "DPM Parse Error",
+                              QString("Unable to open DPM file: %1").arg(file_path));
         return units;
     }
 
     const QString file_name = file.fileName();
     const QString content = QString::fromUtf8(file.readAll());
+    if (content.trimmed().isEmpty())
+    {
+        QMessageBox::critical(nullptr,
+                              "DPM Parse Error",
+                              QString("DPM file is empty: %1").arg(file_name));
+        return units;
+    }
+
     const QStringList blocks = split_dpm_blocks(content);
 
     if (blocks.isEmpty())
     {
-        *ok = false;
         QMessageBox::critical(nullptr, "DPM Parse Error",
                               QString("No top-level DPM block found in %1").arg(file_name));
         return units;
@@ -1605,12 +1670,14 @@ QList<Unit> read_single_dpm_file_regex(bool *ok)
         Unit unit;
         if (!parse_dpm_unit_block(block, unit, file_name))
         {
-            *ok = false;
             return QList<Unit>();
         }
         units.push_back(unit);
     }
 
-    *ok = true;
+    if (ok != nullptr)
+    {
+        *ok = true;
+    }
     return units;
 }

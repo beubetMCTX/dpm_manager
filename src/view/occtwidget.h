@@ -8,6 +8,7 @@
 #include <QHash>
 #include <QList>
 #include <QMenu>
+#include <QPointer>
 #include <QStringList>
 
 #include <QApplication>
@@ -92,6 +93,8 @@ public:
 
     void display_units(const QList<Unit> &units, bool clear_existing = true);
     void set_chemkin_species_names(const QStringList &species_names);
+    void set_material_names(const QStringList &material_names);
+    void close_auxiliary_dialogs();
 
     QHash<QUuid, std::shared_ptr<Unit>> unit_hash;
 
@@ -185,6 +188,8 @@ private:
     TopoDS_Face selected_face;
 
     QStringList m_chemkin_species_names;
+    QStringList m_material_names;
+    QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;
 
 
 };

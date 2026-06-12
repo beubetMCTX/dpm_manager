@@ -69,14 +69,16 @@ public:
     Handle(Unit_Owner) u_owner;
 
     Unit()
+        : type(injector)
+        , inj()
     {
         initialize_runtime_handles();
     }
 
     Unit(const Unit &other)
+        : type(other.type)
+        , inj(other.inj)
     {
-        type = other.type;
-        inj = other.inj;
         initialize_runtime_handles();
     }
 
@@ -94,9 +96,9 @@ public:
     }
 
     Unit(Unit &&other) noexcept
+        : type(other.type)
+        , inj(std::move(other.inj))
     {
-        type = other.type;
-        inj = std::move(other.inj);
         initialize_runtime_handles();
     }
 

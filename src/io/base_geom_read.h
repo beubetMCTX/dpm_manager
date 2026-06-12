@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QDebug>
 
@@ -43,6 +44,7 @@ public:
     bool hasAssemblyStructure() const { return m_hasAssembly; }
     int getNumberOfRootShapes() const { return m_rootShapesCount; }
     QStringList getShapeNames() const { return m_shapeNames; }
+    QString last_error_message() const { return m_last_error_message; }
     bool Read_Geometry_Dialog();
 
     // 支持的格式过滤器
@@ -58,6 +60,9 @@ signals:
     void progressUpdate(int percentage);
 
 private:
+    bool report_error(const QString &message);
+    void clear_loaded_state();
+
     // 具体格式读取实现
     bool readSTEPFile(const QString& filePath);
     bool readIGESFile(const QString& filePath);
@@ -71,6 +76,7 @@ private:
     bool m_hasAssembly;
     int m_rootShapesCount;
     QStringList m_shapeNames;
+    QString m_last_error_message;
 
     Bnd_Box bounding_box;
 

@@ -11,10 +11,17 @@
 #include <QPushButton>
 #include <QRadioButton>
 #include <QSpinBox>
+#include <QString>
 #include <QStringList>
 #include <QVariant>
 #include <QWidget>
 #include <variant>
+
+QString qui_tab_widget_style_sheet();
+QString qui_scroll_area_style_sheet();
+QString qui_table_widget_style_sheet();
+QString qui_group_box_style_sheet();
+QString qui_group_box_body_style_sheet();
 
 class QUI_Label : public QLabel
 {
@@ -199,7 +206,7 @@ private:
     bool m_accent_mode = false;
 };
 
-class QUI_RadioGroup : public QGroupBox
+class QUI_RadioGroup : public QWidget
 {
     Q_OBJECT
 
