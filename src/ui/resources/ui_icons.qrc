@@ -3,5 +3,6 @@
         <file>chevron-down.svg</file>
         <file>chevron-up.svg</file>
         <file>dpm_manager.svg</file>
+        <file>dpm_manager.ico</file>
     </qresource>
 </RCC>

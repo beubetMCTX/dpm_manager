@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
     {
         QApplication a(argc, argv);
-        a.setWindowIcon(QIcon(":/ui/icons/dpm_manager.svg"));
+        a.setWindowIcon(QIcon(":/ui/icons/dpm_manager.ico"));
         runtime_debug::install();
 
         QTranslator translator;
