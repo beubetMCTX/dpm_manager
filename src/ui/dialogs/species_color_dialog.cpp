@@ -61,7 +61,8 @@ SpeciesColorDialog::SpeciesColorDialog(QWidget *parent)
     , ui(new Ui::SpeciesColorDialog)
 {
     ui->setupUi(this);
-    setAttribute(Qt::WA_DeleteOnClose, true);
+    // Let the MainWindow own this reusable auxiliary dialog until shutdown.
+    setAttribute(Qt::WA_DeleteOnClose, false);
 
     ui->speciesTable->setEditTriggers(
         QAbstractItemView::DoubleClicked |

@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QGroupBox>
 #include <QLayout>
+#include <QVBoxLayout>
 #include <QString>
 
 #include <functional>
@@ -36,6 +37,7 @@ public:
 
 signals:
     void injector_data_changed(Unit *unit);
+    void injector_geometry_changed(Unit *unit);
     void dialog_closed(Unit *unit);
 
 protected:
@@ -68,9 +70,15 @@ private:
     QUI_CheckBox *m_stagger_check = nullptr;
     QUI_LineEdit *m_stagger_radius_edit = nullptr;
     QString m_property_layout_key;
+    QString m_model_layout_key;
     QStringList m_chemkin_species_names;
     QStringList m_material_names;
     std::vector<std::function<void()>> m_property_row_syncers;
+    std::vector<std::function<void()>> m_model_row_syncers;
+    QVBoxLayout *m_physical_models_layout = nullptr;
+    QVBoxLayout *m_turbulent_dispersion_layout = nullptr;
+    QVBoxLayout *m_parcel_layout = nullptr;
+    QVBoxLayout *m_wet_combustion_layout = nullptr;
 
     inline bool initialize();
     void setup_custom_controls();
@@ -95,10 +103,13 @@ private:
     void sync_stagger_controls();
     void sync_auxiliary_panels();
     QString current_property_layout_key() const;
+    QString current_model_layout_key() const;
     void build_point_property_rows();
     void sync_point_property_rows();
+    void build_model_property_rows();
+    void sync_model_property_rows();
     void clear_layout(QLayout *layout);
-    void notify_injector_data_changed();
+    void notify_injector_data_changed(bool geometry_changed = true);
 };
 
 #endif // UNIT_EDIT_DIALOG_H

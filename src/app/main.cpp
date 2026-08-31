@@ -2,6 +2,7 @@
 #include "runtime_debug.h"
 
 #include <QApplication>
+#include <QIcon>
 #include <QLocale>
 #include <QTranslator>
 #include <memory>
@@ -12,6 +13,7 @@ int main(int argc, char *argv[])
 
     {
         QApplication a(argc, argv);
+        a.setWindowIcon(QIcon(":/ui/icons/dpm_manager.svg"));
         runtime_debug::install();
 
         QTranslator translator;

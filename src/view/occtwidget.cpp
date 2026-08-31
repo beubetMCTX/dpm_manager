@@ -1,6 +1,7 @@
 #include "occtwidget.h"
 #include "runtime_debug.h"
 #include <AIS_ViewCube.hxx>
+#include <QTimer>
 
 namespace
 {
@@ -35,7 +36,7 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
 OCCTWidget::~OCCTWidget()
 {
     runtime_debug::trace("OCCTWidget destructor begin");
-    close_auxiliary_dialogs();
+    discard_auxiliary_dialogs();
 
     try
     {
@@ -90,6 +91,26 @@ void OCCTWidget::close_auxiliary_dialogs()
     runtime_debug::trace("OCCTWidget::close_auxiliary_dialogs end");
 }
 
+void OCCTWidget::discard_auxiliary_dialogs()
+{
+    runtime_debug::trace(
+        QString("OCCTWidget::discard_auxiliary_dialogs begin, count=%1").arg(m_open_edit_dialogs.size()));
+    const QList<QPointer<unit_edit_dialog>> dialogs = m_open_edit_dialogs;
+    m_open_edit_dialogs.clear();
+
+    for (const QPointer<unit_edit_dialog> &dialog : dialogs)
+    {
+        if (dialog == nullptr)
+        {
+            continue;
+        }
+
+        dialog->close();
+        delete dialog.data();
+    }
+    runtime_debug::trace("OCCTWidget::discard_auxiliary_dialogs end");
+}
+
 void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
 {
     Unit unit;
@@ -124,6 +145,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
 
     if (clear_existing)
     {
+        discard_auxiliary_dialogs();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
         {
             if (it.value() != nullptr && !it.value()->ais_display.IsNull())
@@ -507,15 +529,50 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
     });
     connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this, [this](Unit *changed_unit)
     {
-        refresh_unit_visual(changed_unit);
+        emit unit_data_updated(changed_unit);
+    });
+    connect(inj_edit_dialog, &unit_edit_dialog::injector_geometry_changed, this, [this](Unit *changed_unit)
+    {
+        schedule_unit_visual_refresh(changed_unit);
     });
     connect(this, &OCCTWidget::unit_data_updated, inj_edit_dialog, &unit_edit_dialog::refresh_from_unit_data);
     inj_edit_dialog->show();
 }
 
+void OCCTWidget::schedule_unit_visual_refresh(Unit *unit)
+{
+    if (unit == nullptr || !unit_hash.contains(unit->inj.uuid))
+    {
+        return;
+    }
+
+    const QUuid uuid = unit->inj.uuid;
+    if (m_pending_visual_refreshes.contains(uuid))
+    {
+        return;
+    }
+
+    m_pending_visual_refreshes.insert(uuid);
+    QTimer::singleShot(0, this, [this, uuid]()
+    {
+        m_pending_visual_refreshes.remove(uuid);
+        const std::shared_ptr<Unit> current_unit = unit_hash.value(uuid);
+        if (current_unit != nullptr)
+        {
+            refresh_unit_visual(current_unit.get());
+        }
+    });
+}
+
 void OCCTWidget::refresh_unit_visual(Unit *unit)
 {
-    if (unit == nullptr || m_context.IsNull())
+    if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> current_unit = unit_hash.value(unit->inj.uuid);
+    if (current_unit == nullptr || current_unit.get() != unit)
     {
         return;
     }
@@ -532,6 +589,7 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
     m_context->Redisplay(unit->ais_display, Standard_False);
     m_view->Redraw();
+    emit unit_data_updated(unit);
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event)

@@ -4,6 +4,7 @@
 #include <QSizePolicy>
 #include <QLocale>
 #include <QLayoutItem>
+#include <QSignalBlocker>
 
 #include <tinyexpr.h>
 
@@ -998,6 +999,7 @@ QUI_ComboBox::QUI_ComboBox(QWidget *parent)
 
 void QUI_ComboBox::set_options(const QStringList &options)
 {
+    const QSignalBlocker blocker(this);
     clear();
     addItems(options);
     sync_from_binding();
@@ -1005,6 +1007,7 @@ void QUI_ComboBox::set_options(const QStringList &options)
 
 void QUI_ComboBox::add_option(const QString &text, const QVariant &data)
 {
+    const QSignalBlocker blocker(this);
     addItem(text, data);
     sync_from_binding();
 }
@@ -1023,6 +1026,7 @@ void QUI_ComboBox::bind_current_text(QString *value)
 
 void QUI_ComboBox::sync_from_binding()
 {
+    const QSignalBlocker blocker(this);
     if (auto *bound_value = std::get_if<int *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
         if (**bound_value >= 0 && **bound_value < count())
@@ -1130,6 +1134,7 @@ void QUI_CheckBox::bind_value(bool *value)
 
 void QUI_CheckBox::sync_from_binding()
 {
+    const QSignalBlocker blocker(this);
     if (m_bound_value != nullptr)
     {
         setChecked(*m_bound_value);
@@ -1226,6 +1231,7 @@ void QUI_RadioGroup::bind_checked_id(int *value)
 
 void QUI_RadioGroup::sync_from_binding()
 {
+    const QSignalBlocker blocker(m_button_group);
     if (m_bound_checked_id == nullptr)
     {
         return;

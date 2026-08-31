@@ -57,7 +57,8 @@ SpeciesMaterialDialog::SpeciesMaterialDialog(QWidget *parent)
 {
     runtime_debug::trace("SpeciesMaterialDialog constructor begin");
     ui->setupUi(this);
-    setAttribute(Qt::WA_DeleteOnClose, true);
+    // Let the MainWindow own this reusable auxiliary dialog until shutdown.
+    setAttribute(Qt::WA_DeleteOnClose, false);
 
     ui->materialsTable->setEditTriggers(
         QAbstractItemView::DoubleClicked |

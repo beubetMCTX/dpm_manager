@@ -37,9 +37,14 @@ public:
 
 
 QString Read_File_Dialog();
-[[deprecated("Use read_single_dpm_file_regex() instead.")]]
+[[deprecated("Use read_dpm_file(file_path, ...) instead.")]]
 QList<Unit> read_single_dpm_file(bool *ok);
+[[deprecated("Use read_dpm_file(file_path, ...) instead.")]]
 QList<Unit> read_single_dpm_file_regex(bool *ok);
+QList<Unit> read_dpm_file(const QString &file_path,
+                          bool *ok = nullptr,
+                          QString *error_message = nullptr,
+                          bool show_error_message_box = true);
 
 
 

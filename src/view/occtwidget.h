@@ -10,6 +10,7 @@
 #include <QMenu>
 #include <QPointer>
 #include <QStringList>
+#include <QSet>
 
 #include <QApplication>
 #include <memory>
@@ -95,6 +96,7 @@ public:
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
+    void discard_auxiliary_dialogs();
 
     QHash<QUuid, std::shared_ptr<Unit>> unit_hash;
 
@@ -121,6 +123,7 @@ private:
     bool select(TopAbs_ShapeEnum select_mode=TopAbs_COMPOUND);
 
     Unit* get_unit(Handle(AIS_Shape) shape);
+    void schedule_unit_visual_refresh(Unit *unit);
     void refresh_unit_visual(Unit *unit);
 
     void open_edit_widget(Handle(AIS_Shape) shape);
@@ -190,6 +193,7 @@ private:
     QStringList m_chemkin_species_names;
     QStringList m_material_names;
     QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;
+    QSet<QUuid> m_pending_visual_refreshes;
 
 
 };

@@ -1348,7 +1348,7 @@ bool read_end(QTextStream *in,QString name)
     // }
 }
 
-[[deprecated("Use read_single_dpm_file_regex() instead.")]]
+[[deprecated("Use read_dpm_file(file_path, ...) instead.")]]
 QList<Unit> read_single_dpm_file(bool *ok)
 {
     return read_single_dpm_file_regex(ok);
@@ -1617,19 +1617,31 @@ QList<Unit> read_single_dpm_file(bool *ok)
     }
 }
 
-QList<Unit> read_single_dpm_file_regex(bool *ok)
+QList<Unit> read_dpm_file(const QString &file_path,
+                          bool *ok,
+                          QString *error_message,
+                          bool show_error_message_box)
 {
     if (ok != nullptr)
     {
         *ok = false;
     }
 
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+
     QList<Unit> units;
-    const QString file_path = Read_File_Dialog();
     QString validation_error;
     if (!validate_dpm_file_path(file_path, &validation_error))
     {
-        if (!file_path.trimmed().isEmpty() && !validation_error.trimmed().isEmpty())
+        if (error_message != nullptr)
+        {
+            *error_message = validation_error;
+        }
+        if (show_error_message_box &&
+            !file_path.trimmed().isEmpty() && !validation_error.trimmed().isEmpty())
         {
             QMessageBox::critical(nullptr, "DPM Parse Error", validation_error);
         }
@@ -1640,9 +1652,15 @@ QList<Unit> read_single_dpm_file_regex(bool *ok)
 
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
     {
-        QMessageBox::critical(nullptr,
-                              "DPM Parse Error",
-                              QString("Unable to open DPM file: %1").arg(file_path));
+        const QString message = QString("Unable to open DPM file: %1").arg(file_path);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_error_message_box)
+        {
+            QMessageBox::critical(nullptr, "DPM Parse Error", message);
+        }
         return units;
     }
 
@@ -1650,9 +1668,15 @@ QList<Unit> read_single_dpm_file_regex(bool *ok)
     const QString content = QString::fromUtf8(file.readAll());
     if (content.trimmed().isEmpty())
     {
-        QMessageBox::critical(nullptr,
-                              "DPM Parse Error",
-                              QString("DPM file is empty: %1").arg(file_name));
+        const QString message = QString("DPM file is empty: %1").arg(file_name);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_error_message_box)
+        {
+            QMessageBox::critical(nullptr, "DPM Parse Error", message);
+        }
         return units;
     }
 
@@ -1660,8 +1684,15 @@ QList<Unit> read_single_dpm_file_regex(bool *ok)
 
     if (blocks.isEmpty())
     {
-        QMessageBox::critical(nullptr, "DPM Parse Error",
-                              QString("No top-level DPM block found in %1").arg(file_name));
+        const QString message = QString("No top-level DPM block found in %1").arg(file_name);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_error_message_box)
+        {
+            QMessageBox::critical(nullptr, "DPM Parse Error", message);
+        }
         return units;
     }
 
@@ -1670,6 +1701,10 @@ QList<Unit> read_single_dpm_file_regex(bool *ok)
         Unit unit;
         if (!parse_dpm_unit_block(block, unit, file_name))
         {
+            if (error_message != nullptr)
+            {
+                *error_message = QString("Unable to parse a DPM injector block in %1").arg(file_name);
+            }
             return QList<Unit>();
         }
         units.push_back(unit);
@@ -1680,4 +1715,10 @@ QList<Unit> read_single_dpm_file_regex(bool *ok)
         *ok = true;
     }
     return units;
+}
+
+[[deprecated("Use read_dpm_file(file_path, ...) instead.")]]
+QList<Unit> read_single_dpm_file_regex(bool *ok)
+{
+    return read_dpm_file(Read_File_Dialog(), ok, nullptr);
 }

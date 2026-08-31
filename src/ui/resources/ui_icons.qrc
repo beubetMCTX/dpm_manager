@@ -2,5 +2,6 @@
     <qresource prefix="/ui/icons">
         <file>chevron-down.svg</file>
         <file>chevron-up.svg</file>
+        <file>dpm_manager.svg</file>
     </qresource>
 </RCC>

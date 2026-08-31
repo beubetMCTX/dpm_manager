@@ -8,7 +8,10 @@
 #include <QLabel>
 #include <QLayoutItem>
 #include <QLocale>
+#include <QRegularExpression>
 #include <QSignalBlocker>
+#include <QScrollArea>
+#include <QTimer>
 
 namespace
 {
@@ -215,6 +218,16 @@ bool particle_type_supports_diameter_distribution(DPM_Type type)
     return type == Droplet;
 }
 
+bool particle_type_supports_inertial_models(DPM_Type type)
+{
+    return type != Massless;
+}
+
+bool particle_type_supports_vapor_pressure(DPM_Type type)
+{
+    return type == Droplet;
+}
+
 QWidget *create_property_header(QWidget *parent,
                                 const QString &left_title,
                                 const QString &middle_title,
@@ -365,8 +378,9 @@ QString base_diameter_distribution_label(Injection_Type type)
         return "linear";
     case surface:
     case volume:
-    case cone:
         return "uniform";
+    case cone:
+        return "fixed";
     case file_:
         return "from file";
     case plain_oriface_atomizer:
@@ -489,10 +503,34 @@ bool uses_atomizer_stagger(Injection_Type type)
 
 QString property_layout_key_for(const Injector &injector)
 {
-    return QString("%1|%2|%3")
+    return QString("%1|%2|%3|%4|%5|%6|%7")
+        .arg(static_cast<int>(injector.type))
         .arg(static_cast<int>(injector.injection_type))
         .arg(diameter_distribution_index(injector))
-        .arg(static_cast<int>(injector.cone_type));
+        .arg(static_cast<int>(injector.cone_type))
+        .arg(static_cast<int>(injector.volume_specification))
+        .arg(static_cast<int>(injector.volume_bgeom_shapes))
+        .arg(static_cast<int>(injector.volume_streams_spec));
+}
+
+QString model_layout_key_for(const Injector &injector)
+{
+    return QString("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11|%12|%13|%14|%15")
+        .arg(static_cast<int>(injector.type))
+        .arg(static_cast<int>(injector.injection_type))
+        .arg(injector.stochastic ? 1 : 0)
+        .arg(injector.cloud ? 1 : 0)
+        .arg(injector.rotation_on ? 1 : 0)
+        .arg(static_cast<int>(injector.drag_law))
+        .arg(injector.seco_breakup_on ? 1 : 0)
+        .arg(injector.seco_breakup_tab ? 1 : 0)
+        .arg(injector.seco_breakup_wave ? 1 : 0)
+        .arg(injector.seco_break_up_khrt ? 1 : 0)
+        .arg(injector.seco_breakup_ssd ? 1 : 0)
+        .arg(injector.seco_breakup_madahushi ? 1 : 0)
+        .arg(injector.seco_breakup_schmehl ? 1 : 0)
+        .arg(static_cast<int>(injector.parcel_model))
+        .arg(injector.evaporating_liquid ? 1 : 0);
 }
 }
 
@@ -507,7 +545,9 @@ unit_edit_dialog::unit_edit_dialog(Unit* control_unit,
     , m_material_names(material_names)
 {
     ui->setupUi(this);
-    setAttribute(Qt::WA_DeleteOnClose, true);
+    // Keep lifetime under the QObject parent. This avoids deleteLater() races
+    // when the main window is closing while an editor is still visible.
+    setAttribute(Qt::WA_DeleteOnClose, false);
     initialize();
 
     // for(auto i =0;i<ui->verticalLayout_number_of_stream->count();i++)
@@ -579,10 +619,21 @@ void unit_edit_dialog::refresh_from_unit_data(Unit *unit)
     if (layout_key != m_property_layout_key)
     {
         build_point_property_rows();
-        return;
+    }
+    else
+    {
+        sync_point_property_rows();
     }
 
-    sync_point_property_rows();
+    const QString model_layout_key = current_model_layout_key();
+    if (model_layout_key != m_model_layout_key)
+    {
+        build_model_property_rows();
+    }
+    else
+    {
+        sync_model_property_rows();
+    }
 }
 
 void unit_edit_dialog::set_material_names(const QStringList &material_names)
@@ -594,6 +645,7 @@ void unit_edit_dialog::set_material_names(const QStringList &material_names)
 
     m_material_names = material_names;
     sync_material_combo();
+    build_model_property_rows();
 }
 
 inline bool unit_edit_dialog::initialize()
@@ -626,6 +678,7 @@ inline bool unit_edit_dialog::initialize()
     sync_auxiliary_panels();
     sync_particle_type_dependent_controls();
     build_point_property_rows();
+    build_model_property_rows();
     return true;
 }
 
@@ -657,6 +710,45 @@ void unit_edit_dialog::setup_custom_controls()
     if (ui->tab_turbulent_dispersion != nullptr) ui->tab_turbulent_dispersion->setStyleSheet(tab_page_style);
     if (ui->tab_parcel != nullptr) ui->tab_parcel->setStyleSheet(tab_page_style);
     if (ui->tab_wet_combustion != nullptr) ui->tab_wet_combustion->setStyleSheet(tab_page_style);
+
+    auto create_model_tab_layout = [](QWidget *tab, const QString &title)
+    {
+        auto *outer_layout = new QVBoxLayout(tab);
+        outer_layout->setContentsMargins(0, 0, 0, 0);
+        outer_layout->setSpacing(0);
+
+        auto *scroll_area = new QScrollArea(tab);
+        scroll_area->setWidgetResizable(true);
+        scroll_area->setFrameShape(QFrame::NoFrame);
+        scroll_area->setStyleSheet(qui_scroll_area_style_sheet());
+
+        auto *content = new QWidget(scroll_area);
+        content->setStyleSheet("background: rgb(24, 24, 24);");
+        auto *layout = new QVBoxLayout(content);
+        layout->setContentsMargins(10, 10, 10, 10);
+        layout->setSpacing(4);
+        layout->addWidget(create_group_title_label(title, content));
+        layout->addStretch();
+        scroll_area->setWidget(content);
+        outer_layout->addWidget(scroll_area);
+        return layout;
+    };
+    if (ui->tab_physical_models != nullptr)
+    {
+        m_physical_models_layout = create_model_tab_layout(ui->tab_physical_models, "Physical Models");
+    }
+    if (ui->tab_turbulent_dispersion != nullptr)
+    {
+        m_turbulent_dispersion_layout = create_model_tab_layout(ui->tab_turbulent_dispersion, "Turbulent Dispersion");
+    }
+    if (ui->tab_parcel != nullptr)
+    {
+        m_parcel_layout = create_model_tab_layout(ui->tab_parcel, "Parcel");
+    }
+    if (ui->tab_wet_combustion != nullptr)
+    {
+        m_wet_combustion_layout = create_model_tab_layout(ui->tab_wet_combustion, "Wet Combustion");
+    }
     if (ui->scrollArea != nullptr)
     {
         ui->scrollArea->setFrameShape(QFrame::NoFrame);
@@ -887,7 +979,9 @@ void unit_edit_dialog::initialize_injection_type_combo()
         sync_diameter_distribution_combo();
         sync_stagger_controls();
         sync_auxiliary_panels();
+        sync_particle_type_dependent_controls();
         build_point_property_rows();
+        build_model_property_rows();
         notify_injector_data_changed();
     });
 }
@@ -914,7 +1008,15 @@ void unit_edit_dialog::initialize_particle_type_group()
         }
 
         control_unit->inj.injector_data.type = static_cast<DPM_Type>(checked_id);
+        if (!particle_type_supports_diameter_distribution(control_unit->inj.injector_data.type))
+        {
+            apply_diameter_distribution_index(control_unit->inj.injector_data, 0);
+        }
+        sync_diameter_distribution_combo();
+        sync_auxiliary_panels();
         sync_particle_type_dependent_controls();
+        build_point_property_rows();
+        build_model_property_rows();
         notify_injector_data_changed();
     });
 }
@@ -1138,6 +1240,19 @@ void unit_edit_dialog::sync_particle_type_dependent_controls()
     const bool enable_evaporating_species = particle_type_supports_evaporating_species(particle_type);
     const bool enable_devolatilizing_species = particle_type_supports_devolatilizing_species(particle_type);
 
+    const bool distribution_was_reset =
+        !enable_diameter_distribution &&
+        diameter_distribution_index(control_unit->inj.injector_data) != 0;
+    if (distribution_was_reset)
+    {
+        apply_diameter_distribution_index(control_unit->inj.injector_data, 0);
+    }
+
+    if (distribution_was_reset)
+    {
+        sync_diameter_distribution_combo();
+    }
+
     apply_labeled_control_enabled(m_material_combo, ui->label_material, enable_material);
     apply_labeled_control_enabled(m_diameter_distribution_combo,
                                   ui->label_diameter_distribution,
@@ -1340,6 +1455,16 @@ void unit_edit_dialog::sync_auxiliary_panels()
 
     if (ui->stagger_layout == nullptr)
     {
+        if (ui->tabWidget_injection != nullptr && ui->tab_wet_combustion != nullptr)
+        {
+            const int wet_index = ui->tabWidget_injection->indexOf(ui->tab_wet_combustion);
+            if (wet_index >= 0)
+            {
+                ui->tabWidget_injection->setTabVisible(
+                    wet_index,
+                    control_unit->inj.injector_data.type == Droplet);
+            }
+        }
         return;
     }
 
@@ -1356,6 +1481,21 @@ void unit_edit_dialog::sync_auxiliary_panels()
     {
         m_stagger_radius_edit->setVisible(show_stagger_panel);
     }
+
+    if (ui->tabWidget_injection != nullptr && ui->tab_wet_combustion != nullptr)
+    {
+        const int wet_index = ui->tabWidget_injection->indexOf(ui->tab_wet_combustion);
+        if (wet_index >= 0)
+        {
+            const bool show_wet_combustion =
+                control_unit->inj.injector_data.type == Droplet;
+            ui->tabWidget_injection->setTabVisible(wet_index, show_wet_combustion);
+            if (!show_wet_combustion && ui->tabWidget_injection->currentIndex() == wet_index)
+            {
+                ui->tabWidget_injection->setCurrentIndex(0);
+            }
+        }
+    }
 }
 
 QString unit_edit_dialog::current_property_layout_key() const
@@ -1366,6 +1506,16 @@ QString unit_edit_dialog::current_property_layout_key() const
     }
 
     return property_layout_key_for(control_unit->inj.injector_data);
+}
+
+QString unit_edit_dialog::current_model_layout_key() const
+{
+    if (control_unit == nullptr)
+    {
+        return QString();
+    }
+
+    return model_layout_key_for(control_unit->inj.injector_data);
 }
 
 void unit_edit_dialog::build_point_property_rows()
@@ -1426,6 +1576,196 @@ void unit_edit_dialog::build_point_property_rows()
         {
             notify_injector_data_changed();
         });
+        ui->verticalLayout_3->addWidget(row);
+    };
+
+    auto add_single_string_row = [this](const QString &label, const QString &unit, QString *value_ptr)
+    {
+        QUI_FieldRow *row = new QUI_FieldRow(label, unit, ui->scrollarea_properties);
+        row->set_label_width(180);
+        row->primary_editor()->set_string_mode();
+        row->primary_editor()->set_allow_empty_string(true);
+        row->primary_editor()->bind_value(value_ptr);
+        m_property_row_syncers.push_back([editor = row->primary_editor(), value_ptr]()
+        {
+            if (editor != nullptr && value_ptr != nullptr)
+            {
+                editor->sync_text(*value_ptr);
+            }
+        });
+        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
+                [this]() { notify_injector_data_changed(false); });
+        ui->verticalLayout_3->addWidget(row);
+    };
+
+    auto add_single_bool_row = [this](const QString &label, bool *value_ptr)
+    {
+        QWidget *row = new QWidget(ui->scrollarea_properties);
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 1, 0, 1);
+        layout->setSpacing(6);
+        auto *label_widget = new QUI_Label(label, row);
+        label_widget->setMinimumWidth(180);
+        label_widget->setMaximumWidth(180);
+        auto *check_box = new QUI_CheckBox(QString(), row);
+        check_box->bind_value(value_ptr);
+        layout->addWidget(label_widget);
+        layout->addWidget(check_box, 1);
+        m_property_row_syncers.push_back([check_box]()
+        {
+            if (check_box != nullptr)
+            {
+                check_box->sync_from_binding();
+            }
+        });
+        connect(check_box, &QUI_CheckBox::value_committed, this,
+                [this](bool) { notify_injector_data_changed(); });
+        ui->verticalLayout_3->addWidget(row);
+    };
+
+    auto add_int_list_row = [this](const QString &label, QVector<int> *value_ptr)
+    {
+        if (value_ptr == nullptr)
+        {
+            return;
+        }
+
+        QUI_FieldRow *row = new QUI_FieldRow(label, "ids", ui->scrollarea_properties);
+        row->set_label_width(180);
+        row->primary_editor()->set_string_mode();
+        row->primary_editor()->sync_text([value_ptr]()
+        {
+            QStringList values;
+            for (int value : *value_ptr)
+            {
+                values.push_back(QString::number(value));
+            }
+            return values.join(", ");
+        }());
+        m_property_row_syncers.push_back([editor = row->primary_editor(), value_ptr]()
+        {
+            if (editor != nullptr && value_ptr != nullptr)
+            {
+                QStringList values;
+                for (int value : *value_ptr)
+                {
+                    values.push_back(QString::number(value));
+                }
+                editor->sync_text(values.join(", "));
+            }
+        });
+        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
+                [this, editor = row->primary_editor(), value_ptr]()
+        {
+            const QString source = editor->text().trimmed();
+            QVector<int> parsed_values;
+            bool valid = true;
+            if (!source.isEmpty())
+            {
+                const QStringList tokens = source.split(
+                    QRegularExpression("[,;\\s]+"), Qt::SkipEmptyParts);
+                for (const QString &token : tokens)
+                {
+                    bool ok = false;
+                    const int value = token.toInt(&ok);
+                    if (!ok)
+                    {
+                        valid = false;
+                        break;
+                    }
+                    parsed_values.push_back(value);
+                }
+            }
+
+            if (!valid)
+            {
+                QStringList values;
+                for (int value : *value_ptr)
+                {
+                    values.push_back(QString::number(value));
+                }
+                editor->sync_text(values.join(", "));
+                return;
+            }
+
+            *value_ptr = parsed_values;
+            notify_injector_data_changed();
+        });
+        ui->verticalLayout_3->addWidget(row);
+    };
+
+    auto add_combo_row = [this](const QString &label,
+                                const QStringList &options,
+                                const std::function<int()> &value_getter,
+                                const std::function<void(int)> &value_setter)
+    {
+        QWidget *row = new QWidget(ui->scrollarea_properties);
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 1, 0, 1);
+        layout->setSpacing(6);
+
+        QUI_Label *label_widget = new QUI_Label(label, row);
+        label_widget->setMinimumWidth(180);
+        label_widget->setMaximumWidth(180);
+        QUI_ComboBox *combo = new QUI_ComboBox(row);
+        combo->set_options(options);
+        combo->setCurrentIndex(qBound(0, value_getter(), options.size() - 1));
+        layout->addWidget(label_widget, 0);
+        layout->addWidget(combo, 1);
+
+        m_property_row_syncers.push_back([combo, value_getter]()
+        {
+            if (combo != nullptr)
+            {
+                const QSignalBlocker blocker(combo);
+                combo->setCurrentIndex(value_getter());
+            }
+        });
+        connect(combo, &QUI_ComboBox::selection_committed, this,
+                [this, combo, value_setter]()
+        {
+            value_setter(combo->currentIndex());
+            notify_injector_data_changed();
+            QTimer::singleShot(0, this, [this]()
+            {
+                if (control_unit != nullptr)
+                {
+                    build_point_property_rows();
+                }
+            });
+        });
+
+        ui->verticalLayout_3->addWidget(row);
+    };
+
+    auto add_bool_row = [this](const QString &label, bool *value_ptr)
+    {
+        QWidget *row = new QWidget(ui->scrollarea_properties);
+        auto *layout = new QHBoxLayout(row);
+        layout->setContentsMargins(0, 1, 0, 1);
+        layout->setSpacing(6);
+
+        QUI_Label *label_widget = new QUI_Label(label, row);
+        label_widget->setMinimumWidth(180);
+        label_widget->setMaximumWidth(180);
+        QUI_CheckBox *check_box = new QUI_CheckBox(QString(), row);
+        check_box->bind_value(value_ptr);
+        layout->addWidget(label_widget, 0);
+        layout->addWidget(check_box, 1);
+
+        m_property_row_syncers.push_back([check_box]()
+        {
+            if (check_box != nullptr)
+            {
+                check_box->sync_from_binding();
+            }
+        });
+        connect(check_box, &QUI_CheckBox::value_committed, this,
+                [this](bool)
+        {
+            notify_injector_data_changed();
+        });
+
         ui->verticalLayout_3->addWidget(row);
     };
 
@@ -1582,27 +1922,202 @@ void unit_edit_dialog::build_point_property_rows()
 
     case volume:
         add_single_header();
-        add_single_vector_row("X-Min", "mm", &injector.volume_bgeom_min, 0);
-        add_single_vector_row("Y-Min", "mm", &injector.volume_bgeom_min, 1);
-        add_single_vector_row("Z-Min", "mm", &injector.volume_bgeom_min, 2);
-        add_single_vector_row("X-Max", "mm", &injector.volume_bgeom_max, 0);
-        add_single_vector_row("Y-Max", "mm", &injector.volume_bgeom_max, 1);
-        add_single_vector_row("Z-Max", "mm", &injector.volume_bgeom_max, 2);
-        add_single_row("Radius", "mm", &injector.volume_bgeom_radius);
-        add_single_row("Cone Angle", "rad", &injector.volume_bgeom_viconeangle);
+        add_combo_row(
+            "Volume Specification",
+            {"Zone", "Bounding Geometry"},
+            [&injector]() { return static_cast<int>(injector.volume_specification); },
+            [&injector](int value) { injector.volume_specification = static_cast<Volume_Specification>(value); });
+        if (injector.volume_specification == zone)
+        {
+            add_int_list_row("Volume Zones", &injector.volume_zones);
+        }
+        else
+        {
+            add_combo_row(
+                "Bounding Shape",
+                {"Sphere", "Cylinder", "Cone", "Hexahedron"},
+                 [&injector]() { return static_cast<int>(injector.volume_bgeom_shapes); },
+                 [&injector](int value) { injector.volume_bgeom_shapes = static_cast<Volume_Bgeom_Shapes>(value); });
+
+            // Bounding geometry fields are meaningful only for the selected
+            // shape. Zone-based volume injections do not expose any of them.
+            switch (injector.volume_bgeom_shapes)
+            {
+            case sphere:
+                add_single_vector_row("X-Center", "mm", &injector.volume_bgeom_min, 0);
+                add_single_vector_row("Y-Center", "mm", &injector.volume_bgeom_min, 1);
+                add_single_vector_row("Z-Center", "mm", &injector.volume_bgeom_min, 2);
+                add_single_row("Radius", "mm", &injector.volume_bgeom_radius);
+                break;
+            case cylinder:
+                add_single_vector_row("X-Min", "mm", &injector.volume_bgeom_min, 0);
+                add_single_vector_row("Y-Min", "mm", &injector.volume_bgeom_min, 1);
+                add_single_vector_row("Z-Min", "mm", &injector.volume_bgeom_min, 2);
+                add_single_vector_row("X-Max", "mm", &injector.volume_bgeom_max, 0);
+                add_single_vector_row("Y-Max", "mm", &injector.volume_bgeom_max, 1);
+                add_single_vector_row("Z-Max", "mm", &injector.volume_bgeom_max, 2);
+                add_single_row("Radius", "mm", &injector.volume_bgeom_radius);
+                break;
+            case cone_:
+                add_single_vector_row("X-Min", "mm", &injector.volume_bgeom_min, 0);
+                add_single_vector_row("Y-Min", "mm", &injector.volume_bgeom_min, 1);
+                add_single_vector_row("Z-Min", "mm", &injector.volume_bgeom_min, 2);
+                add_single_vector_row("X-Max", "mm", &injector.volume_bgeom_max, 0);
+                add_single_vector_row("Y-Max", "mm", &injector.volume_bgeom_max, 1);
+                add_single_vector_row("Z-Max", "mm", &injector.volume_bgeom_max, 2);
+                add_single_row("Radius", "mm", &injector.volume_bgeom_radius);
+                add_single_row("Cone Angle", "rad", &injector.volume_bgeom_viconeangle);
+                break;
+            case hexahedron:
+            default:
+                add_single_vector_row("X-Min", "mm", &injector.volume_bgeom_min, 0);
+                add_single_vector_row("Y-Min", "mm", &injector.volume_bgeom_min, 1);
+                add_single_vector_row("Z-Min", "mm", &injector.volume_bgeom_min, 2);
+                add_single_vector_row("X-Max", "mm", &injector.volume_bgeom_max, 0);
+                add_single_vector_row("Y-Max", "mm", &injector.volume_bgeom_max, 1);
+                add_single_vector_row("Z-Max", "mm", &injector.volume_bgeom_max, 2);
+                break;
+            }
+        }
+        add_combo_row(
+            "Stream Specification",
+            {"Total Parcel Count", "Parcel Per Cell"},
+            [&injector]() { return static_cast<int>(injector.volume_streams_spec); },
+            [&injector](int value) { injector.volume_streams_spec = static_cast<Volume_Streams_Spec>(value); });
+        if (injector.volume_streams_spec == total_parcel_count)
+        {
+            add_single_int_row("Total Streams", "-", &injector.volume_streams_total);
+        }
+        else
+        {
+            add_single_int_row("Streams Per Cell", "-", &injector.volume_streams_per_cell);
+        }
         add_single_row("Volume Fraction", "-", &injector.volume_fraction);
         add_single_row("Packing Limit", "-", &injector.volume_packing_limit_per_cell);
+        add_bool_row("Mass Input", &injector.mass_input_on);
+        add_bool_row("Volume Fraction Input", &injector.volfrac_input_on);
+        break;
+
+    case plain_oriface_atomizer:
+        add_single_header();
+        add_single_vector_row("X-Position", "mm", &injector.pos, 0);
+        add_single_vector_row("Y-Position", "mm", &injector.pos, 1);
+        add_single_vector_row("Z-Position", "mm", &injector.pos, 2);
+        add_single_vector_row("X-Atomizer Axis", "-", &injector.atomizer_axis, 0);
+        add_single_vector_row("Y-Atomizer Axis", "-", &injector.atomizer_axis, 1);
+        add_single_vector_row("Z-Atomizer Axis", "-", &injector.atomizer_axis, 2);
+        add_single_row("Diameter", "m", &injector.diameter);
+        add_single_row("Outer Diameter", "m", &injector.outer_diameter);
+        add_single_row("Plain Length", "m", &injector.plain_length);
+        add_single_row("Plain Corner Size", "m", &injector.plain_corner_size);
+        add_single_row("Plain Constant A", "-", &injector.plain_const_a);
+        add_single_row("Total Flow Rate", "kg/s", &injector.total_flow_rate);
+        break;
+
+    case pressure_swirl_atomizer:
+        add_single_header();
+        add_single_vector_row("X-Position", "mm", &injector.pos, 0);
+        add_single_vector_row("Y-Position", "mm", &injector.pos, 1);
+        add_single_vector_row("Z-Position", "mm", &injector.pos, 2);
+        add_single_vector_row("X-Atomizer Axis", "-", &injector.atomizer_axis, 0);
+        add_single_vector_row("Y-Atomizer Axis", "-", &injector.atomizer_axis, 1);
+        add_single_vector_row("Z-Atomizer Axis", "-", &injector.atomizer_axis, 2);
+        add_single_row("Inner Diameter", "m", &injector.inner_diameter);
+        add_single_row("Outer Diameter", "m", &injector.outer_diameter);
+        add_single_row("Half Angle", "rad", &injector.half_angle);
+        add_single_row("Injection Pressure", "Pa", &injector.pswirl_inj_press);
+        add_single_row("Sheet Constant", "-", &injector.sheet_const);
+        add_single_row("Ligament Constant", "-", &injector.lig_const);
+        add_single_row("Atomizer Dispersion Angle", "deg", &injector.atomizer_disp_angle);
+        add_single_row("Total Flow Rate", "kg/s", &injector.total_flow_rate);
+        break;
+
+    case air_blast_atomizer:
+        add_single_header();
+        add_single_vector_row("X-Position", "mm", &injector.pos, 0);
+        add_single_vector_row("Y-Position", "mm", &injector.pos, 1);
+        add_single_vector_row("Z-Position", "mm", &injector.pos, 2);
+        add_single_vector_row("X-Atomizer Axis", "-", &injector.atomizer_axis, 0);
+        add_single_vector_row("Y-Atomizer Axis", "-", &injector.atomizer_axis, 1);
+        add_single_vector_row("Z-Atomizer Axis", "-", &injector.atomizer_axis, 2);
+        add_single_row("Inner Diameter", "m", &injector.inner_diameter);
+        add_single_row("Outer Diameter", "m", &injector.outer_diameter);
+        add_single_row("Air Relative Velocity", "m/s", &injector.airbl_rel_vel);
+        add_single_row("Atomizer Dispersion Angle", "deg", &injector.atomizer_disp_angle);
+        add_single_row("Total Flow Rate", "kg/s", &injector.total_flow_rate);
+        break;
+
+    case flat_fan_atomizer:
+        add_single_header();
+        add_single_vector_row("X-Center", "mm", &injector.ff_center, 0);
+        add_single_vector_row("Y-Center", "mm", &injector.ff_center, 1);
+        add_single_vector_row("Z-Center", "mm", &injector.ff_center, 2);
+        add_single_vector_row("X-Virtual Origin", "mm", &injector.ff_virtual_origin, 0);
+        add_single_vector_row("Y-Virtual Origin", "mm", &injector.ff_virtual_origin, 1);
+        add_single_vector_row("Z-Virtual Origin", "mm", &injector.ff_virtual_origin, 2);
+        add_single_vector_row("X-Fan Normal", "-", &injector.ff_normal, 0);
+        add_single_vector_row("Y-Fan Normal", "-", &injector.ff_normal, 1);
+        add_single_vector_row("Z-Fan Normal", "-", &injector.ff_normal, 2);
+        add_single_vector_row("X-Atomizer Axis", "-", &injector.atomizer_axis, 0);
+        add_single_vector_row("Y-Atomizer Axis", "-", &injector.atomizer_axis, 1);
+        add_single_vector_row("Z-Atomizer Axis", "-", &injector.atomizer_axis, 2);
+        add_single_row("Orifice Width", "m", &injector.ff_oriface_width);
+        add_single_row("Phi Start", "rad", &injector.phi_start);
+        add_single_row("Phi Stop", "rad", &injector.phi_stop);
+        add_single_row("Sheet Constant", "-", &injector.ff_sheet_const);
+        add_single_row("Total Flow Rate", "kg/s", &injector.total_flow_rate);
+        break;
+
+    case effervescent_atomizer:
+        add_single_header();
+        add_single_vector_row("X-Position", "mm", &injector.pos, 0);
+        add_single_vector_row("Y-Position", "mm", &injector.pos, 1);
+        add_single_vector_row("Z-Position", "mm", &injector.pos, 2);
+        add_single_vector_row("X-Atomizer Axis", "-", &injector.atomizer_axis, 0);
+        add_single_vector_row("Y-Atomizer Axis", "-", &injector.atomizer_axis, 1);
+        add_single_vector_row("Z-Atomizer Axis", "-", &injector.atomizer_axis, 2);
+        add_single_row("Diameter", "m", &injector.diameter);
+        add_single_row("Outer Diameter", "m", &injector.outer_diameter);
+        add_single_row("Effervescent Quality", "-", &injector.effer_quality);
+        add_single_row("Saturation Temperature", "K", &injector.effer_t_sat);
+        add_single_row("Effervescent Constant", "-", &injector.effer_const);
+        add_single_row("Maximum Half Angle", "rad", &injector.effer_half_angle_max);
+        add_single_row("Total Flow Rate", "kg/s", &injector.total_flow_rate);
+        break;
+
+    case condensate:
+        add_single_header();
+        add_single_vector_row("X-Position", "mm", &injector.pos, 0);
+        add_single_vector_row("Y-Position", "mm", &injector.pos, 1);
+        add_single_vector_row("Z-Position", "mm", &injector.pos, 2);
+        add_single_vector_row("X-Axis", "-", &injector.axis, 0);
+        add_single_vector_row("Y-Axis", "-", &injector.axis, 1);
+        add_single_vector_row("Z-Axis", "-", &injector.axis, 2);
+        add_single_vector_row("X-Velocity", "m/s", &injector.vel, 0);
+        add_single_vector_row("Y-Velocity", "m/s", &injector.vel, 1);
+        add_single_vector_row("Z-Velocity", "m/s", &injector.vel, 2);
+        add_single_row("Velocity Magnitude", "m/s", &injector.vel_mag);
+        add_single_row("Radius", "m", &injector.radius);
+        add_single_row("Flow Rate", "kg/s", &injector.flow_rate);
+        break;
+
+    case surface:
+        add_range_header();
+        add_int_list_row("Surface Zone IDs", &injector.surfaces);
+        add_int_list_row("Boundary IDs", &injector.boundary);
+        add_range_vector_row("X-Position", "mm", &injector.pos, &injector.pos2, 0);
+        add_range_vector_row("Y-Position", "mm", &injector.pos, &injector.pos2, 1);
+        add_range_vector_row("Z-Position", "mm", &injector.pos, &injector.pos2, 2);
+        add_range_vector_row("X-Velocity", "m/s", &injector.vel, &injector.vel2, 0);
+        add_range_vector_row("Y-Velocity", "m/s", &injector.vel, &injector.vel2, 1);
+        add_range_vector_row("Z-Velocity", "m/s", &injector.vel, &injector.vel2, 2);
+        add_range_row("Diameter", "m", &injector.diameter, &injector.diameter2);
+        add_range_row("Temperature", "K", &injector.temperature, &injector.temperature2);
+        add_range_row("Flow Rate", "kg/s", &injector.flow_rate, &injector.flow_rate2);
         break;
 
     case single:
-    case surface:
-    case plain_oriface_atomizer:
-    case pressure_swirl_atomizer:
-    case air_blast_atomizer:
-    case flat_fan_atomizer:
-    case effervescent_atomizer:
     case file_:
-    case condensate:
     default:
         add_single_header();
         add_single_vector_row("X-Position", "mm", &injector.pos, 0);
@@ -1625,13 +2140,15 @@ void unit_edit_dialog::build_point_property_rows()
         }
         if (injector.injection_type == file_)
         {
-            add_info_label(QString("Current file source: %1").arg(injector.dpm_fname));
+            add_single_string_row("DPM File", "path", &injector.dpm_fname);
         }
         break;
+
     }
 
     const int diameter_mode = diameter_distribution_index(injector);
-    if ((diameter_mode == 1 || diameter_mode == 2) &&
+    if (particle_type_supports_diameter_distribution(injector.type) &&
+        (diameter_mode == 1 || diameter_mode == 2) &&
         diameter_distribution_mode_supported(injector.injection_type, diameter_mode))
     {
         add_info_label(injector.rr_uniform_ln_d
@@ -1643,6 +2160,18 @@ void unit_edit_dialog::build_point_property_rows()
         add_single_row("RR Spread", "-", &injector.rr_spread);
         add_single_int_row("RR Diameter Count", "-", &injector.rr_numdia);
     }
+    else if (particle_type_supports_diameter_distribution(injector.type) &&
+             diameter_mode == 3 &&
+             diameter_distribution_mode_supported(injector.injection_type, diameter_mode))
+    {
+        add_info_label("Tabulated diameter distribution parameters");
+        add_single_string_row("Table Name", "-", &injector.tabulated_diam_table_name);
+        add_single_int_row("Diameter Column", "-", &injector.tabulated_diam_ref_diam_col);
+        add_single_int_row("Number Fraction Column", "-", &injector.tabulated_diam_num_frac_col);
+        add_single_int_row("Mass Fraction Column", "-", &injector.tabulated_diam_mas_frac_col);
+        add_single_bool_row("Accumulated Number Fraction", &injector.tabulated_diam_num_frac_accum);
+        add_single_bool_row("Accumulated Mass Fraction", &injector.tabulated_diam_mas_frac_accum);
+    }
 
     ui->verticalLayout_3->addStretch();
 }
@@ -1650,6 +2179,472 @@ void unit_edit_dialog::build_point_property_rows()
 void unit_edit_dialog::sync_point_property_rows()
 {
     for (const std::function<void()> &syncer : m_property_row_syncers)
+    {
+        if (syncer)
+        {
+            syncer();
+        }
+    }
+}
+
+void unit_edit_dialog::build_model_property_rows()
+{
+    if (control_unit == nullptr)
+    {
+        return;
+    }
+
+    auto reset_layout = [this](QVBoxLayout *layout, const QString &title)
+    {
+        if (layout == nullptr)
+        {
+            return;
+        }
+
+        clear_layout(layout);
+        layout->addWidget(create_group_title_label(title, layout->parentWidget()));
+    };
+    reset_layout(m_physical_models_layout, "Physical Models");
+    reset_layout(m_turbulent_dispersion_layout, "Turbulent Dispersion");
+    reset_layout(m_parcel_layout, "Parcel");
+    reset_layout(m_wet_combustion_layout, "Wet Combustion");
+    m_model_row_syncers.clear();
+    m_model_layout_key = current_model_layout_key();
+
+    Injector &injector = control_unit->inj.injector_data;
+
+    auto add_double_row = [this](QVBoxLayout *layout,
+                                 const QString &label,
+                                 const QString &unit,
+                                 double *value_ptr)
+    {
+        if (layout == nullptr)
+        {
+            return;
+        }
+
+        auto *row = new QUI_FieldRow(label, unit, layout->parentWidget());
+        row->set_label_width(220);
+        row->primary_editor()->set_double_mode();
+        row->primary_editor()->bind_value(value_ptr);
+        m_model_row_syncers.push_back([editor = row->primary_editor(), value_ptr]()
+        {
+            if (editor != nullptr && value_ptr != nullptr)
+            {
+                editor->sync_text(QLocale::c().toString(*value_ptr, 'g', 15));
+            }
+        });
+        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
+                [this]() { notify_injector_data_changed(false); });
+        layout->addWidget(row);
+    };
+
+    auto add_int_row = [this](QVBoxLayout *layout,
+                              const QString &label,
+                              int *value_ptr)
+    {
+        if (layout == nullptr)
+        {
+            return;
+        }
+
+        auto *row = new QUI_FieldRow(label, QString(), layout->parentWidget());
+        row->set_label_width(220);
+        row->primary_editor()->set_integer_mode();
+        row->primary_editor()->bind_value(value_ptr);
+        m_model_row_syncers.push_back([editor = row->primary_editor(), value_ptr]()
+        {
+            if (editor != nullptr && value_ptr != nullptr)
+            {
+                editor->sync_text(QString::number(*value_ptr));
+            }
+        });
+        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
+                [this]() { notify_injector_data_changed(false); });
+        layout->addWidget(row);
+    };
+
+    auto add_string_row = [this](QVBoxLayout *layout,
+                                 const QString &label,
+                                 QString *value_ptr)
+    {
+        if (layout == nullptr || value_ptr == nullptr)
+        {
+            return;
+        }
+
+        auto *row = new QUI_FieldRow(label, QString(), layout->parentWidget());
+        row->set_label_width(220);
+        row->primary_editor()->set_string_mode();
+        row->primary_editor()->bind_value(value_ptr);
+        m_model_row_syncers.push_back([editor = row->primary_editor(), value_ptr]()
+        {
+            if (editor != nullptr && value_ptr != nullptr)
+            {
+                editor->sync_text(*value_ptr);
+            }
+        });
+        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
+                [this]() { notify_injector_data_changed(false); });
+        layout->addWidget(row);
+    };
+
+    auto add_vector_row = [this](QVBoxLayout *layout,
+                                 const QString &prefix,
+                                 const QString &unit,
+                                 QVector3D *vector)
+    {
+        if (layout == nullptr || vector == nullptr)
+        {
+            return;
+        }
+
+        const QString labels[] = {"X-", "Y-", "Z-"};
+        for (int component = 0; component < 3; ++component)
+        {
+            auto *row = new QUI_FieldRow(labels[component] + prefix, unit, layout->parentWidget());
+            row->set_label_width(220);
+            row->primary_editor()->set_double_mode();
+            row->primary_editor()->sync_text(QString::number(vector_component_value(*vector, component), 'g', 8));
+            m_model_row_syncers.push_back([editor = row->primary_editor(), vector, component]()
+            {
+                if (editor != nullptr && vector != nullptr)
+                {
+                    editor->sync_text(QString::number(vector_component_value(*vector, component), 'g', 8));
+                }
+            });
+            connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
+                    [this, editor = row->primary_editor(), vector, component]()
+            {
+                bool ok = false;
+                const float value = editor->text().toFloat(&ok);
+                if (ok)
+                {
+                    set_vector_component_value(*vector, component, value);
+                    notify_injector_data_changed(false);
+                }
+            });
+            layout->addWidget(row);
+        }
+    };
+
+    auto add_bool_row = [this](QVBoxLayout *layout,
+                               const QString &label,
+                               bool *value_ptr)
+    {
+        if (layout == nullptr)
+        {
+            return;
+        }
+
+        auto *row = new QWidget(layout->parentWidget());
+        auto *row_layout = new QHBoxLayout(row);
+        row_layout->setContentsMargins(0, 1, 0, 1);
+        row_layout->setSpacing(6);
+        auto *label_widget = new QUI_Label(label, row);
+        label_widget->setMinimumWidth(220);
+        label_widget->setMaximumWidth(220);
+        auto *check_box = new QUI_CheckBox(QString(), row);
+        check_box->bind_value(value_ptr);
+        row_layout->addWidget(label_widget);
+        row_layout->addWidget(check_box, 1);
+        m_model_row_syncers.push_back([check_box]()
+        {
+            if (check_box != nullptr)
+            {
+                check_box->sync_from_binding();
+            }
+        });
+        connect(check_box, &QUI_CheckBox::value_committed, this,
+                [this](bool)
+        {
+            notify_injector_data_changed(false);
+        });
+        layout->addWidget(row);
+    };
+
+    auto add_combo_row = [this](QVBoxLayout *layout,
+                                const QString &label,
+                                const QStringList &options,
+                                const std::function<int()> &getter,
+                                const std::function<void(int)> &setter)
+    {
+        if (layout == nullptr || options.isEmpty())
+        {
+            return;
+        }
+
+        auto *row = new QWidget(layout->parentWidget());
+        auto *row_layout = new QHBoxLayout(row);
+        row_layout->setContentsMargins(0, 1, 0, 1);
+        row_layout->setSpacing(6);
+        auto *label_widget = new QUI_Label(label, row);
+        label_widget->setMinimumWidth(220);
+        label_widget->setMaximumWidth(220);
+        auto *combo = new QUI_ComboBox(row);
+        combo->set_options(options);
+        combo->setCurrentIndex(qBound(0, getter(), options.size() - 1));
+        row_layout->addWidget(label_widget);
+        row_layout->addWidget(combo, 1);
+        m_model_row_syncers.push_back([combo, getter]()
+        {
+            if (combo != nullptr)
+            {
+                const QSignalBlocker blocker(combo);
+                combo->setCurrentIndex(getter());
+            }
+        });
+        connect(combo, &QUI_ComboBox::selection_committed, this,
+                [this, combo, setter]()
+        {
+            setter(combo->currentIndex());
+            notify_injector_data_changed(false);
+        });
+        layout->addWidget(row);
+    };
+
+    auto add_string_combo_row = [this](QVBoxLayout *layout,
+                                       const QString &label,
+                                       QStringList options,
+                                       QString *value_ptr)
+    {
+        if (layout == nullptr || value_ptr == nullptr)
+        {
+            return;
+        }
+
+        if (!value_ptr->isEmpty() && !options.contains(*value_ptr))
+        {
+            options.prepend(*value_ptr);
+        }
+        if (options.isEmpty())
+        {
+            options.push_back(QString());
+        }
+
+        auto *row = new QWidget(layout->parentWidget());
+        auto *row_layout = new QHBoxLayout(row);
+        row_layout->setContentsMargins(0, 1, 0, 1);
+        row_layout->setSpacing(6);
+        auto *label_widget = new QUI_Label(label, row);
+        label_widget->setMinimumWidth(220);
+        label_widget->setMaximumWidth(220);
+        auto *combo = new QUI_ComboBox(row);
+        combo->set_options(options);
+        combo->setCurrentIndex(qMax(0, options.indexOf(*value_ptr)));
+        row_layout->addWidget(label_widget);
+        row_layout->addWidget(combo, 1);
+        m_model_row_syncers.push_back([combo, value_ptr]()
+        {
+            if (combo != nullptr && value_ptr != nullptr)
+            {
+                const QSignalBlocker blocker(combo);
+                const int index = combo->findText(*value_ptr);
+                combo->setCurrentIndex(qMax(0, index));
+            }
+        });
+        connect(combo, &QUI_ComboBox::selection_committed, this,
+                [this, combo, value_ptr]()
+        {
+            *value_ptr = combo->currentText();
+            notify_injector_data_changed(false);
+        });
+        layout->addWidget(row);
+    };
+
+    if (m_physical_models_layout != nullptr)
+    {
+        const bool inertial_models_supported = particle_type_supports_inertial_models(injector.type);
+        const bool vapor_pressure_supported = particle_type_supports_vapor_pressure(injector.type);
+        const bool atomizer_staggering = uses_atomizer_stagger(injector.injection_type);
+
+        add_string_row(m_physical_models_layout, "Local Reference Frame", &injector.local_reference_frame);
+        add_string_row(m_physical_models_layout, "Collision Partner", &injector.collision_partner);
+        if (inertial_models_supported)
+        {
+            add_string_row(m_physical_models_layout, "Drag Function", &injector.drag_fcn);
+            add_bool_row(m_physical_models_layout, "Rotation", &injector.rotation_on);
+            if (injector.rotation_on)
+            {
+                add_vector_row(m_physical_models_layout, "Angular Velocity", "rad/s", &injector.ang_vel);
+                add_vector_row(m_physical_models_layout, "Angular Velocity (Last)", "rad/s", &injector.ang_vel2);
+                add_double_row(m_physical_models_layout, "Angular Velocity Magnitude", "rad/s", &injector.ang_vel_mag);
+                add_combo_row(m_physical_models_layout, "Rotational Drag Law",
+                              {"Dennis et al.", "None"},
+                              [&injector]() { return static_cast<int>(injector.rot_drag_law); },
+                              [&injector](int value) { injector.rot_drag_law = static_cast<Rot_Drag_Law>(value); });
+                add_combo_row(m_physical_models_layout, "Rotational Lift Law",
+                              {"Oesterle-Bui Dinh", "Tsuji et al.", "Rubinow-Keller", "None"},
+                              [&injector]() { return static_cast<int>(injector.rot_lift_law); },
+                              [&injector](int value) { injector.rot_lift_law = static_cast<Rot_Lift_Law>(value); });
+            }
+        }
+        if (vapor_pressure_supported)
+        {
+            add_double_row(m_physical_models_layout, "Vapor Pressure", "Pa", &injector.vapor_pressure);
+        }
+        add_double_row(m_physical_models_layout, "Swirl Fraction", "-", &injector.swirl_frac);
+        add_bool_row(m_physical_models_layout, "Uniform Mass Distribution", &injector.uniform_mass_dist_on);
+        if (atomizer_staggering)
+        {
+            add_bool_row(m_physical_models_layout, "Atomizer Staggering", &injector.spatial_staggering_atomizer_on);
+        }
+        else
+        {
+            add_bool_row(m_physical_models_layout, "Standard Injection Staggering", &injector.spatial_staggering_std_inj_on);
+        }
+        add_string_row(m_physical_models_layout, "Continuous Phase Domain", &injector.cphace_domain);
+        if (inertial_models_supported)
+        {
+            add_bool_row(m_physical_models_layout, "Rough Wall", &injector.rough_wall_on);
+            add_bool_row(m_physical_models_layout, "Brownian Motion", &injector.brownian_motion);
+            add_combo_row(m_physical_models_layout, "Drag Law",
+                          {"Spherical", "Nonspherical", "Stokes-Cunningham", "High Mach Number", "Dynamic Drag"},
+                          [&injector]() { return static_cast<int>(injector.drag_law); },
+                          [&injector](int value) { injector.drag_law = static_cast<Drag_Law>(value); });
+            if (injector.drag_law == nonspherical)
+            {
+                add_double_row(m_physical_models_layout, "Shape Factor", "-", &injector.shape_factor);
+            }
+            if (injector.drag_law == Strokes_Cunningham)
+            {
+                add_double_row(m_physical_models_layout, "Cunningham Correction", "-", &injector.cunningham_correction);
+            }
+        }
+        const bool breakup_supported = injector.type == Droplet;
+        if (breakup_supported)
+        {
+            add_bool_row(m_physical_models_layout, "SECO Breakup", &injector.seco_breakup_on);
+            if (injector.seco_breakup_on)
+            {
+                add_bool_row(m_physical_models_layout, "SECO Tabulated", &injector.seco_breakup_tab);
+                add_bool_row(m_physical_models_layout, "SECO Wave", &injector.seco_breakup_wave);
+                add_bool_row(m_physical_models_layout, "SECO KHRT", &injector.seco_break_up_khrt);
+                add_bool_row(m_physical_models_layout, "SECO SSD", &injector.seco_breakup_ssd);
+                add_bool_row(m_physical_models_layout, "SECO Madabhushi", &injector.seco_breakup_madahushi);
+                add_bool_row(m_physical_models_layout, "SECO Schmehl", &injector.seco_breakup_schmehl);
+                if (injector.seco_breakup_tab)
+                {
+                    add_double_row(m_physical_models_layout, "SECO Tabulated Y0", "-", &injector.seco_breakup_tab_y0);
+                    add_int_row(m_physical_models_layout, "Tabulated Diameter Count", &injector.number_tab_diameters);
+                }
+                if (injector.seco_breakup_wave)
+                {
+                    add_double_row(m_physical_models_layout, "SECO Wave B1", "-", &injector.seco_breakup_wave_b1);
+                    add_double_row(m_physical_models_layout, "SECO Wave B0", "-", &injector.seco_breakup_wave_b0);
+                }
+                if (injector.seco_break_up_khrt)
+                {
+                    add_double_row(m_physical_models_layout, "SECO KHRT CL", "-", &injector.seco_breakup_khrt_cl);
+                    add_double_row(m_physical_models_layout, "SECO KHRT Ctau", "-", &injector.seco_breakup_khrt_ctau);
+                    add_double_row(m_physical_models_layout, "SECO KHRT CRT", "-", &injector.seco_breakup_khrt_crt);
+                }
+                if (injector.seco_breakup_ssd)
+                {
+                    add_double_row(m_physical_models_layout, "SECO SSD We-Cr", "-", &injector.seco_breakup_ssd_we_cr);
+                    add_double_row(m_physical_models_layout, "SECO SSD Core BU", "-", &injector.seco_breakup_ssd_core_bu);
+                    add_double_row(m_physical_models_layout, "SECO SSD NP Target", "-", &injector.seco_breakup_ssd_np_target);
+                    add_double_row(m_physical_models_layout, "SECO SSD X-SI", "-", &injector.seco_breakup_ssd_x_si);
+                }
+                if (injector.seco_breakup_madahushi)
+                {
+                    add_double_row(m_physical_models_layout, "SECO Madabhushi C0", "-", &injector.seco_breakup_madabushi_c0);
+                    add_double_row(m_physical_models_layout, "SECO Madabhushi Column CD", "-", &injector.seco_breakup_madabushi_column_drag_cd);
+                    add_double_row(m_physical_models_layout, "SECO Madabhushi Ligament", "-", &injector.seco_breakup_madabushi_ligament_factor);
+                    add_double_row(m_physical_models_layout, "SECO Madabhushi Jet Diameter", "m", &injector.seco_breakup_madabushi_jet_diameter);
+                }
+                if (injector.seco_breakup_schmehl)
+                {
+                    add_double_row(m_physical_models_layout, "SECO Schmehl NP", "-", &injector.seco_breakup_schmehl_np);
+                }
+            }
+        }
+        m_physical_models_layout->addStretch();
+    }
+
+    if (m_turbulent_dispersion_layout != nullptr)
+    {
+        add_bool_row(m_turbulent_dispersion_layout, "Stochastic Tracking", &injector.stochastic);
+        if (injector.stochastic)
+        {
+            add_bool_row(m_turbulent_dispersion_layout, "Random Eddy", &injector.random_eddy);
+            add_int_row(m_turbulent_dispersion_layout, "Eddy Attempts", &injector.ntries);
+            add_double_row(m_turbulent_dispersion_layout, "Time Scale Constant", "s", &injector.time_scale_constant);
+        }
+        add_bool_row(m_turbulent_dispersion_layout, "Cloud Tracking", &injector.cloud);
+        if (injector.cloud)
+        {
+            add_double_row(m_turbulent_dispersion_layout, "Cloud Minimum Diameter", "m", &injector.cloud_min_dia);
+            add_double_row(m_turbulent_dispersion_layout, "Cloud Maximum Diameter", "m", &injector.cloud_max_dia);
+        }
+        if (injector.injection_type == surface)
+        {
+            add_bool_row(m_turbulent_dispersion_layout, "Scale By Area", &injector.scale_by_area);
+            add_bool_row(m_turbulent_dispersion_layout, "Use Face Normal", &injector.use_face_normal);
+            add_bool_row(m_turbulent_dispersion_layout, "Random Surface", &injector.random_surface);
+        }
+        if (injector.injection_type == file_)
+        {
+            add_double_row(m_turbulent_dispersion_layout, "Unsteady Start", "s", &injector.unsteady_start);
+            add_double_row(m_turbulent_dispersion_layout, "Unsteady Stop", "s", &injector.unsteady_stop);
+            add_double_row(m_turbulent_dispersion_layout, "Flow-Time Start", "s", &injector.start_at_flow_time_in_unsteady_inj_file);
+            add_double_row(m_turbulent_dispersion_layout, "Repeat Interval", "s", &injector.interval_to_repeat_in_unsteady_inj_file);
+            add_double_row(m_turbulent_dispersion_layout, "Cone-Angle Start", "rad", &injector.unsteady_ca_start);
+            add_double_row(m_turbulent_dispersion_layout, "Cone-Angle Stop", "rad", &injector.unsteady_ca_stop);
+        }
+        m_turbulent_dispersion_layout->addStretch();
+    }
+
+    if (m_parcel_layout != nullptr)
+    {
+        add_combo_row(m_parcel_layout, "Parcel Model",
+                      {"Standard", "Constant Number", "Constant Mass", "Constant Diameter"},
+                      [&injector]() { return static_cast<int>(injector.parcel_model); },
+                      [&injector](int value) { injector.parcel_model = static_cast<Parcel_Model>(value); });
+        switch (injector.parcel_model)
+        {
+        case const_number:
+            add_int_row(m_parcel_layout, "Parcel Number", &injector.parcel_number);
+            break;
+        case const_mass:
+            add_double_row(m_parcel_layout, "Parcel Mass", "kg", &injector.parcel_mass);
+            break;
+        case const_diameter:
+            add_double_row(m_parcel_layout, "Parcel Diameter", "m", &injector.parcel_diameter);
+            break;
+        case standard:
+        default:
+            add_int_row(m_parcel_layout, "Parcel Number", &injector.parcel_number);
+            add_double_row(m_parcel_layout, "Total Mass", "kg", &injector.total_mass);
+            break;
+        }
+        m_parcel_layout->addStretch();
+    }
+
+    if (m_wet_combustion_layout != nullptr)
+    {
+        add_bool_row(m_wet_combustion_layout, "Evaporating Liquid", &injector.evaporating_liquid);
+        if (injector.evaporating_liquid)
+        {
+            add_string_combo_row(m_wet_combustion_layout,
+                                 "Evaporating Material",
+                                 m_material_names,
+                                 &injector.evaporating_material);
+            add_double_row(m_wet_combustion_layout, "Liquid Fraction", "-", &injector.liquid_fraction);
+        }
+        auto *info = new QLabel(
+            "Evaporating material and species are selected in the injector properties panel.",
+            m_wet_combustion_layout->parentWidget());
+        info->setWordWrap(true);
+        info->setStyleSheet("color: rgb(110, 116, 126); padding: 4px 2px;");
+        m_wet_combustion_layout->addWidget(info);
+        m_wet_combustion_layout->addStretch();
+    }
+}
+
+void unit_edit_dialog::sync_model_property_rows()
+{
+    for (const std::function<void()> &syncer : m_model_row_syncers)
     {
         if (syncer)
         {
@@ -1669,7 +2664,9 @@ void unit_edit_dialog::clear_layout(QLayout *layout)
     {
         if (QWidget *widget = item->widget())
         {
-            widget->deleteLater();
+            // Property rows are rebuilt synchronously. Keeping old rows queued
+            // for deletion makes stale controls accumulate during type changes.
+            delete widget;
         }
 
         if (QLayout *child_layout = item->layout())
@@ -1682,7 +2679,7 @@ void unit_edit_dialog::clear_layout(QLayout *layout)
     }
 }
 
-void unit_edit_dialog::notify_injector_data_changed()
+void unit_edit_dialog::notify_injector_data_changed(bool geometry_changed)
 {
     if (control_unit == nullptr)
     {
@@ -1690,4 +2687,8 @@ void unit_edit_dialog::notify_injector_data_changed()
     }
 
     emit injector_data_changed(control_unit);
+    if (geometry_changed)
+    {
+        emit injector_geometry_changed(control_unit);
+    }
 }

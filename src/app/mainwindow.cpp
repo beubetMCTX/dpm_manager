@@ -109,6 +109,30 @@ MainWindow::MainWindow(QWidget *parent)
     this->setCentralWidget(m_3d_widget);
     runtime_debug::trace("MainWindow OCCTWidget created");
 
+    // OCCT owns editable Unit copies so that interactive handles remain stable.
+    // Keep the MainWindow list synchronized whenever one of those copies changes.
+    connect(m_3d_widget, &OCCTWidget::unit_data_updated, this, [this](Unit *changed_unit)
+    {
+        if (changed_unit == nullptr)
+        {
+            return;
+        }
+
+        for (Unit &stored_unit : units)
+        {
+            if (stored_unit.inj.uuid == changed_unit->inj.uuid)
+            {
+                // Do not assign a whole Unit here. Unit::operator= rebuilds
+                // OpenCASCADE/OCAF runtime state, which is unsafe and
+                // unnecessarily expensive while an editor update is active.
+                stored_unit.type = changed_unit->type;
+                stored_unit.inj.injector_data = changed_unit->inj.injector_data;
+                stored_unit.inj.shape = changed_unit->inj.shape;
+                return;
+            }
+        }
+    });
+
     m_chemkin_toolbar = new QToolBar("Chemkin Status", this);
     m_chemkin_toolbar->setMovable(false);
     m_chemkin_toolbar->setFloatable(false);
@@ -150,6 +174,20 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     runtime_debug::trace("MainWindow destructor begin");
+    // closeEvent is not guaranteed for every application-exit path. Close
+    // auxiliary windows here as a final lifetime boundary before UI teardown.
+    if (m_3d_widget != nullptr)
+    {
+        m_3d_widget->discard_auxiliary_dialogs();
+    }
+    if (m_species_color_dialog != nullptr)
+    {
+        m_species_color_dialog->close();
+    }
+    if (m_species_material_dialog != nullptr)
+    {
+        m_species_material_dialog->close();
+    }
     delete ui;
     runtime_debug::trace("MainWindow destructor end");
 }
@@ -157,6 +195,14 @@ MainWindow::~MainWindow()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     runtime_debug::trace("MainWindow closeEvent begin");
+
+    // Close OCCT-owned editors first so their selection-clearing callbacks run
+    // while the interactive context and view are still valid.
+    if (m_3d_widget != nullptr)
+    {
+        runtime_debug::trace("Closing OCCT auxiliary dialogs from MainWindow closeEvent");
+        m_3d_widget->discard_auxiliary_dialogs();
+    }
 
     if (m_species_color_dialog != nullptr)
     {
@@ -172,12 +218,6 @@ void MainWindow::closeEvent(QCloseEvent *event)
         m_species_material_dialog = nullptr;
     }
 
-    if (m_3d_widget != nullptr)
-    {
-        runtime_debug::trace("Closing OCCT auxiliary dialogs from MainWindow closeEvent");
-        m_3d_widget->close_auxiliary_dialogs();
-    }
-
     QMainWindow::closeEvent(event);
     runtime_debug::trace("MainWindow closeEvent end");
 }
@@ -186,12 +226,24 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::on_actionRead_triggered()
 {
     bool ok = false;
-    const QList<Unit> temp = read_single_dpm_file_regex(&ok);
+    QString error_message;
+    const QString file_path = QFileDialog::getOpenFileName(
+        this,
+        "选择 DPM 文件",
+        ".",
+        "DPM Files (*.dpm *.txt);;All Files (*.*)");
+    if (file_path.trimmed().isEmpty())
+    {
+        statusBar()->showMessage("DPM file import canceled", 5000);
+        return;
+    }
+
+    const QList<Unit> temp = read_dpm_file(file_path, &ok, &error_message, true);
     if (ok)
     {
         units.clear();
-        units=temp;
-        m_3d_widget->display_units(units);
+        units = temp;
+        m_3d_widget->display_units(units, true);
 
         qDebug() << "Loaded injector count:" << units.size();
         for (int i = 0; i < units.size(); ++i)
@@ -204,7 +256,9 @@ void MainWindow::on_actionRead_triggered()
     }
     else
     {
-        statusBar()->showMessage("DPM file import failed", 5000);
+        statusBar()->showMessage(
+            error_message.trimmed().isEmpty() ? "DPM file import failed" : error_message,
+            8000);
     }
 }
 
