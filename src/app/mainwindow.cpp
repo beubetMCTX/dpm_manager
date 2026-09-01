@@ -850,8 +850,12 @@ void MainWindow::create_object_list_panel()
     view_controls_layout->setContentsMargins(0, 0, 0, 0);
     auto *fit_all_button = new QPushButton("Fit All", view_controls);
     auto *clear_selection_button = new QPushButton("Clear Selection", view_controls);
+    auto *show_all_button = new QPushButton("Show All", view_controls);
+    auto *hide_all_button = new QPushButton("Hide All", view_controls);
     view_controls_layout->addWidget(fit_all_button);
     view_controls_layout->addWidget(clear_selection_button);
+    view_controls_layout->addWidget(show_all_button);
+    view_controls_layout->addWidget(hide_all_button);
     layout->addWidget(view_controls);
 
     m_object_list = new QListWidget(panel);
@@ -866,6 +870,16 @@ void MainWindow::create_object_list_panel()
             &OCCTWidget::fit_all_view);
     connect(clear_selection_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::clear_selection);
+    connect(show_all_button, &QPushButton::clicked, this, [this]()
+    {
+        m_3d_widget->set_all_units_visible(true);
+        update_object_list_panel();
+    });
+    connect(hide_all_button, &QPushButton::clicked, this, [this]()
+    {
+        m_3d_widget->set_all_units_visible(false);
+        update_object_list_panel();
+    });
 
     connect(m_object_list, &QListWidget::itemClicked, this,
             [this](QListWidgetItem *item)

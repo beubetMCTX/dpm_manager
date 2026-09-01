@@ -111,6 +111,7 @@ public:
     bool select_unit_by_uuid(const QUuid &uuid);
     bool select_reference_geometry();
     bool set_unit_visible(const QUuid &uuid, bool visible);
+    void set_all_units_visible(bool visible);
     bool set_reference_geometry_visible(bool visible);
     bool unit_visible(const QUuid &uuid) const;
     bool reference_geometry_visible() const { return m_reference_geometry_visible; }

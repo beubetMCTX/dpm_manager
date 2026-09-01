@@ -268,6 +268,15 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
     return true;
 }
 
+void OCCTWidget::set_all_units_visible(bool visible)
+{
+    const QList<QUuid> unit_ids = unit_hash.keys();
+    for (const QUuid &uuid : unit_ids)
+    {
+        set_unit_visible(uuid, visible);
+    }
+}
+
 bool OCCTWidget::set_reference_geometry_visible(bool visible)
 {
     if (base_geometry.IsNull() || m_context.IsNull() || ref_geom.IsNull())
