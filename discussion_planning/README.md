@@ -445,6 +445,11 @@ References:
 - Project session paths are stored in the versioned application configuration, deduplicated case-insensitively, limited to the 10 most recent existing files, and pruned when files disappear.
 - A project is added only after a successful load or save; failed opens do not alter the current project or recent-project list.
 
+### 2026-09-02 Auxiliary Dialog Lifetime Coverage
+
+- Added `auxiliary_dialog_lifetime_regression` as a focused offscreen test for simultaneous Species/Colors and Materials dialogs.
+- The test verifies that both child dialogs are owned and safely destroyed with their Qt parent, without restoring the removed legacy application-wide smoke target.
+
 ### 2026-09-02 Reference Lock Status Feedback
 
 - The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.

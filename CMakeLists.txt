@@ -242,6 +242,29 @@ if(DPM_BUILD_TESTS)
     target_link_libraries(base_geom_read_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
     target_link_libraries(base_geom_read_regression PRIVATE ${OpenCASCADE_LIBRARIES})
     add_test(NAME base_geom_read_regression COMMAND base_geom_read_regression)
+
+    add_executable(auxiliary_dialog_lifetime_regression
+        tests/auxiliary_dialog_lifetime_test.cpp
+        ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
+        ${UI_COMPONENTS_DIR}/qUI_components.h ${UI_COMPONENTS_DIR}/qUI_components.cpp
+        ${UI_DIALOGS_DIR}/species_color_dialog.h ${UI_DIALOGS_DIR}/species_color_dialog.cpp ${UI_DIALOGS_DIR}/species_color_dialog.ui
+        ${UI_DIALOGS_DIR}/species_material_dialog.h ${UI_DIALOGS_DIR}/species_material_dialog.cpp ${UI_DIALOGS_DIR}/species_material_dialog.ui
+    )
+    target_include_directories(auxiliary_dialog_lifetime_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${COMMON_DIR}
+        ${UI_COMPONENTS_DIR}
+        ${UI_DIALOGS_DIR}
+    )
+    target_link_libraries(auxiliary_dialog_lifetime_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(auxiliary_dialog_lifetime_regression PRIVATE unofficial::tinyexpr::tinyexpr)
+    add_test(NAME auxiliary_dialog_lifetime_regression
+             COMMAND auxiliary_dialog_lifetime_regression)
+set_tests_properties(auxiliary_dialog_lifetime_regression
+                         PROPERTIES ENVIRONMENT
+                         "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins")
 endif()
 
 
