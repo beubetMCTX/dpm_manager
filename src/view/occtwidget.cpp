@@ -418,6 +418,117 @@ void OCCTWidget::clear_selection()
     clear_context_selection_safely();
 }
 
+OCCTWidget::UnitMoveSnapshot OCCTWidget::make_move_snapshot(const Unit &unit) const
+{
+    UnitMoveSnapshot snapshot;
+    snapshot.pos = unit.inj.injector_data.pos;
+    snapshot.pos2 = unit.inj.injector_data.pos2;
+    snapshot.ff_center = unit.inj.injector_data.ff_center;
+    snapshot.ff_virtual_origin = unit.inj.injector_data.ff_virtual_origin;
+    snapshot.volume_bgeom_min = unit.inj.injector_data.volume_bgeom_min;
+    snapshot.volume_bgeom_max = unit.inj.injector_data.volume_bgeom_max;
+    return snapshot;
+}
+
+bool OCCTWidget::apply_move_snapshot(const UnitMoveHistoryEntry &entry,
+                                     const UnitMoveSnapshot &snapshot)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(entry.uuid);
+    if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
+    {
+        return false;
+    }
+
+    Injector &injector = unit->inj.injector_data;
+    injector.pos = snapshot.pos;
+    injector.pos2 = snapshot.pos2;
+    injector.ff_center = snapshot.ff_center;
+    injector.ff_virtual_origin = snapshot.ff_virtual_origin;
+    injector.volume_bgeom_min = snapshot.volume_bgeom_min;
+    injector.volume_bgeom_max = snapshot.volume_bgeom_max;
+
+    if (!unit->inj.create_injector())
+    {
+        return false;
+    }
+
+    unit->ais_display->SetLocalTransformation(gp_Trsf());
+    unit->ais_display->Set(unit->inj.shape);
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    m_view->Redraw();
+    emit unit_data_updated(unit.get());
+    return true;
+}
+
+void OCCTWidget::record_move(const QUuid &uuid,
+                             const UnitMoveSnapshot &before,
+                             const UnitMoveSnapshot &after)
+{
+    if (uuid.isNull())
+    {
+        return;
+    }
+
+    if (m_move_history_index < m_move_history.size())
+    {
+        m_move_history.resize(m_move_history_index);
+    }
+
+    UnitMoveHistoryEntry entry;
+    entry.uuid = uuid;
+    entry.before = before;
+    entry.after = after;
+    m_move_history.append(entry);
+    m_move_history_index = m_move_history.size();
+    emit move_history_changed(can_undo_move(), can_redo_move());
+}
+
+bool OCCTWidget::can_undo_move() const
+{
+    return m_move_history_index > 0;
+}
+
+bool OCCTWidget::can_redo_move() const
+{
+    return m_move_history_index < m_move_history.size();
+}
+
+bool OCCTWidget::undo_last_move()
+{
+    if (!can_undo_move())
+    {
+        return false;
+    }
+
+    const UnitMoveHistoryEntry &entry = m_move_history[m_move_history_index - 1];
+    if (!apply_move_snapshot(entry, entry.before))
+    {
+        return false;
+    }
+
+    --m_move_history_index;
+    emit move_history_changed(can_undo_move(), can_redo_move());
+    return true;
+}
+
+bool OCCTWidget::redo_move()
+{
+    if (!can_redo_move())
+    {
+        return false;
+    }
+
+    const UnitMoveHistoryEntry &entry = m_move_history[m_move_history_index];
+    if (!apply_move_snapshot(entry, entry.after))
+    {
+        return false;
+    }
+
+    ++m_move_history_index;
+    emit move_history_changed(can_undo_move(), can_redo_move());
+    return true;
+}
+
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;
@@ -866,6 +977,12 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
             if (Unit *unit = get_unit(selected_shape))
             {
                 myIsDragging = !unit_locked(unit->inj.uuid);
+                if (myIsDragging)
+                {
+                    m_drag_unit_uuid = unit->inj.uuid;
+                    m_drag_move_before = make_move_snapshot(*unit);
+                    m_drag_move_snapshot_valid = true;
+                }
             }
         }
         if (!myIsDragging)
@@ -901,6 +1018,25 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
         if(myIsDragging)
         {
+            if (m_drag_move_snapshot_valid && !m_drag_unit_uuid.isNull())
+            {
+                const std::shared_ptr<Unit> unit = unit_hash.value(m_drag_unit_uuid);
+                if (unit != nullptr)
+                {
+                    const UnitMoveSnapshot after = make_move_snapshot(*unit);
+                    if (after.pos != m_drag_move_before.pos ||
+                        after.pos2 != m_drag_move_before.pos2 ||
+                        after.ff_center != m_drag_move_before.ff_center ||
+                        after.ff_virtual_origin != m_drag_move_before.ff_virtual_origin ||
+                        after.volume_bgeom_min != m_drag_move_before.volume_bgeom_min ||
+                        after.volume_bgeom_max != m_drag_move_before.volume_bgeom_max)
+                    {
+                        record_move(m_drag_unit_uuid, m_drag_move_before, after);
+                    }
+                }
+            }
+            m_drag_unit_uuid = QUuid();
+            m_drag_move_snapshot_valid = false;
             myIsDragging=false;
             clear_context_selection_safely();
         }

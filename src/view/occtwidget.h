@@ -11,6 +11,7 @@
 #include <QPointer>
 #include <QStringList>
 #include <QSet>
+#include <QVector>
 #include <QVector3D>
 
 #include <QApplication>
@@ -120,6 +121,10 @@ public:
     bool remove_unit_by_uuid(const QUuid &uuid);
     void fit_all_view();
     void clear_selection();
+    bool undo_last_move();
+    bool redo_move();
+    bool can_undo_move() const;
+    bool can_redo_move() const;
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
@@ -139,6 +144,7 @@ signals:
     void unit_display_list_changed();
     void unit_removed(const QUuid &uuid);
     void selection_changed(const QUuid &uuid, bool reference_geometry);
+    void move_history_changed(bool can_undo, bool can_redo);
 
 private:
 
@@ -170,6 +176,27 @@ private:
     void refresh_unit_visual(Unit *unit);
 
     void open_edit_widget(Handle(AIS_Shape) shape);
+    struct UnitMoveSnapshot
+    {
+        QVector3D pos;
+        QVector3D pos2;
+        QVector3D ff_center;
+        QVector3D ff_virtual_origin;
+        QVector3D volume_bgeom_min;
+        QVector3D volume_bgeom_max;
+    };
+    struct UnitMoveHistoryEntry
+    {
+        QUuid uuid;
+        UnitMoveSnapshot before;
+        UnitMoveSnapshot after;
+    };
+    UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
+    bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,
+                             const UnitMoveSnapshot &snapshot);
+    void record_move(const QUuid &uuid,
+                     const UnitMoveSnapshot &before,
+                     const UnitMoveSnapshot &after);
 
 protected:
 
@@ -247,6 +274,11 @@ private:
     QHash<QUuid, bool> m_unit_visibility;
     QHash<QUuid, bool> m_unit_locks;
     bool m_reference_geometry_visible = true;
+    QVector<UnitMoveHistoryEntry> m_move_history;
+    int m_move_history_index = 0;
+    QUuid m_drag_unit_uuid;
+    UnitMoveSnapshot m_drag_move_before;
+    bool m_drag_move_snapshot_valid = false;
 
 
 };
