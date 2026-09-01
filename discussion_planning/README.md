@@ -74,6 +74,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Import and export now enforce the same name-uniqueness invariant.
 - Added regression coverage for a duplicate-name input file.
 
+### 2026-09-02 Validate DPM Semantics During Import
+
+- Parsed DPM unit lists now pass the same semantic validation used by export before they are returned.
+- Invalid cone and volume geometry is rejected without exposing partial units.
+- Added regression coverage for an invalid ring-cone import.
+
 ## Candidate Next Work
 
 ### High Priority

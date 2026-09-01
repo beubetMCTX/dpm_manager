@@ -173,6 +173,31 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QString invalid_geometry_contents = written_contents;
+    invalid_geometry_contents.replace("(injection-type . single)",
+                                      "(injection-type . cone)");
+    invalid_geometry_contents.replace("(cone-type . point)",
+                                      "(cone-type . ring)");
+    invalid_geometry_contents.replace("(inner-radius . 5)",
+                                      "(inner-radius . 10)");
+    invalid_geometry_contents.replace("(radius . 10)",
+                                      "(radius . 5)");
+    const QString invalid_geometry_path = temporary_directory.filePath("invalid-geometry.dpm");
+    if (!check(write_file(invalid_geometry_path, invalid_geometry_contents),
+               "Unable to create invalid-geometry DPM fixture"))
+    {
+        return 1;
+    }
+    error_message.clear();
+    const QList<Unit> invalid_geometry_import = read_dpm_file(
+        invalid_geometry_path, &ok, &error_message, false);
+    if (!check(!ok && invalid_geometry_import.isEmpty() &&
+                   error_message.contains("radius > inner-radius"),
+               "DPM import should reject invalid cone geometry"))
+    {
+        return 1;
+    }
+
     QString invalid_enum_contents = written_contents;
     invalid_enum_contents.replace(
         "(injection-type . single)",

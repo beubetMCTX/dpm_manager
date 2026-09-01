@@ -1882,6 +1882,22 @@ QList<Unit> read_dpm_file(const QString &file_path,
         units.push_back(unit);
     }
 
+    QString semantic_error;
+    if (!validate_dpm_units(units, &semantic_error))
+    {
+        const QString message = QString("DPM file failed semantic validation: %1")
+                                    .arg(semantic_error);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_error_message_box)
+        {
+            QMessageBox::critical(nullptr, "DPM Parse Error", message);
+        }
+        return QList<Unit>();
+    }
+
     if (ok != nullptr)
     {
         *ok = true;
