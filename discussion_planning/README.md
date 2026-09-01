@@ -427,3 +427,8 @@ References:
 
 - The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.
 - Lock and unlock operations refresh the row immediately while preserving visibility state and selection.
+
+### 2026-09-02 Repeatable Release Shutdown Probe
+
+- Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.
+- The script fails explicitly on missing executables, startup timeout, shutdown timeout, or non-zero exit, making release lifecycle checks repeatable in future regressions.
