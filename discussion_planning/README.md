@@ -253,6 +253,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added safe injector deletion in commit `1bde00f` and exposed a confirmation action in commit `5c1cdaf`. Deletion closes the matching editor and synchronizes OCCT, MainWindow data, selection, and object-list state.
 - Added object-name/UUID filtering to the Objects panel in commit `e99d26b`; list refreshes preserve the active filter.
 - Fixed stale object-list highlighting after OCCT selection is cleared in commit `f7b00d0`; drag/release and context-menu cleanup now notify the list.
+- Added `Fit All` and `Clear Selection` controls to the Objects panel in commit `17b3223`; these operate on the view/selection state only.
 
 References:
 
