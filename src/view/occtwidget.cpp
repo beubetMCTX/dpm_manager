@@ -278,6 +278,7 @@ void OCCTWidget::set_all_units_visible(bool visible)
     }
 
     const QList<QUuid> unit_ids = unit_hash.keys();
+    bool cleared_selected_unit = false;
     for (const QUuid &uuid : unit_ids)
     {
         const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
@@ -300,14 +301,15 @@ void OCCTWidget::set_all_units_visible(bool visible)
         {
             myIsDragging = false;
             selected_shape.Nullify();
+            cleared_selected_unit = true;
         }
     }
 
-    if (!visible)
+    if (cleared_selected_unit)
     {
         clear_context_selection_safely();
     }
-    else if (!m_view.IsNull())
+    if (!m_view.IsNull())
     {
         m_view->Redraw();
     }
