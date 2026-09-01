@@ -50,6 +50,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - This also makes `Fit Selected` consistent when invoked from the object list.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Add Standard View Selector
+
+- Added Top, Front, Right, Back, Left, Bottom, and Isometric camera orientations to the object panel.
+- Standard view changes affect only the OCCT camera and preserve injector/reference geometry data.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.

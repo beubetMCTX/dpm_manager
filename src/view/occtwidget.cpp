@@ -553,6 +553,17 @@ void OCCTWidget::fit_selected_view()
     m_view->Redraw();
 }
 
+void OCCTWidget::set_standard_view(V3d_TypeOfOrientation orientation)
+{
+    if (m_view.IsNull())
+    {
+        return;
+    }
+
+    m_view->SetProj(orientation, Standard_False);
+    m_view->Redraw();
+}
+
 void OCCTWidget::clear_selection()
 {
     clear_face_reference();

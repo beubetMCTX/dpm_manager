@@ -133,6 +133,7 @@ public:
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
     void fit_selected_view();
+    void set_standard_view(V3d_TypeOfOrientation orientation);
     void clear_selection();
     bool undo_last_move();
     bool redo_move();

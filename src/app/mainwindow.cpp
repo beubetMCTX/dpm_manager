@@ -17,6 +17,7 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMenu>
+#include <QComboBox>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
 #include <algorithm>
@@ -1626,6 +1627,18 @@ void MainWindow::create_object_list_panel()
     view_controls_layout->addWidget(hide_all_button);
     layout->addWidget(view_controls);
 
+    auto *view_selector = new QComboBox(panel);
+    view_selector->setObjectName("standardViewSelector");
+    view_selector->addItem("Top", static_cast<int>(V3d_Zpos));
+    view_selector->addItem("Front", static_cast<int>(V3d_TypeOfOrientation_Zup_Front));
+    view_selector->addItem("Right", static_cast<int>(V3d_TypeOfOrientation_Zup_Right));
+    view_selector->addItem("Back", static_cast<int>(V3d_TypeOfOrientation_Zup_Back));
+    view_selector->addItem("Left", static_cast<int>(V3d_TypeOfOrientation_Zup_Left));
+    view_selector->addItem("Bottom", static_cast<int>(V3d_TypeOfOrientation_Zup_Bottom));
+    view_selector->addItem("Isometric", static_cast<int>(V3d_XposYposZpos));
+    view_selector->setCurrentIndex(0);
+    layout->addWidget(view_selector);
+
     m_object_list = new QListWidget(panel);
     m_object_list->setSelectionMode(QAbstractItemView::SingleSelection);
     m_object_list->setAlternatingRowColors(true);
@@ -1638,6 +1651,18 @@ void MainWindow::create_object_list_panel()
             &OCCTWidget::fit_all_view);
     connect(fit_selected_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::fit_selected_view);
+    connect(view_selector, &QComboBox::currentIndexChanged, this,
+            [this, view_selector](int index)
+    {
+        if (m_3d_widget == nullptr || view_selector == nullptr || index < 0)
+        {
+            return;
+        }
+
+        m_3d_widget->set_standard_view(
+            static_cast<V3d_TypeOfOrientation>(
+                view_selector->itemData(index).toInt()));
+    });
     connect(clear_selection_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::clear_selection);
     connect(show_all_button, &QPushButton::clicked, this, [this]()
