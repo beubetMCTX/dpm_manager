@@ -267,6 +267,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Ensured the application creates `config`, `color_cfg`, and `material_cfg` during startup in commit `2b9b7bd`, even before any import or save operation occurs.
 - Added `Show All` and `Hide All` injector visibility controls to the Objects panel in commit `322daa9`; these affect display state only and leave reference geometry unchanged.
 - Optimized batch visibility updates in commit `ec99cef` so Show/Hide All redraws the OCCT view once rather than once per injector.
+- Fixed `Hide All` so it does not clear an unrelated selected reference face in commit `7109a7e`; only a hidden selected injector clears selection.
 - Added double-click editor opening for injector rows in commit `5c6f1a5`; the reference-geometry row is intentionally ignored.
 - Implemented injector copy/paste-to-replace data handling in commit `b395c74`, connected it to the 3D context menu in `6ad3e51`, and exposed it in the Objects panel in `bfaf19f`.
 - Connected the previously inactive 3D injector Delete action in commit `bcec0ea`; it now uses the same confirmation and safe-removal path as the Objects panel.
