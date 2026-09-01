@@ -14,6 +14,25 @@ Base_Geom_Read::~Base_Geom_Read()
 
 }
 
+void Base_Geom_Read::adopt_loaded_geometry(const Base_Geom_Read &other)
+{
+    if (this == &other)
+    {
+        return;
+    }
+
+    m_shape = other.m_shape;
+    m_hasAssembly = other.m_hasAssembly;
+    m_rootShapesCount = other.m_rootShapesCount;
+    m_shapeNames = other.m_shapeNames;
+    m_last_error_message = other.m_last_error_message;
+    m_file_path = other.m_file_path;
+    bounding_box = other.bounding_box;
+    xyz_min = other.xyz_min;
+    xyz_max = other.xyz_max;
+    xyz_length = other.xyz_length;
+}
+
 bool Base_Geom_Read::report_error(const QString &message)
 {
     m_last_error_message = message;

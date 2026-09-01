@@ -587,6 +587,24 @@ bool MainWindow::load_project_session(const QString &file_path)
         }
     }
 
+    Base_Geom_Read loaded_geometry;
+    const bool has_reference_geometry =
+        !data.reference_geometry.file_path.trimmed().isEmpty();
+    if (has_reference_geometry)
+    {
+        QString geometry_path = QFileInfo(data.reference_geometry.file_path).absoluteFilePath();
+        if (!loaded_geometry.readFile(geometry_path))
+        {
+            const QString message = loaded_geometry.last_error_message().trimmed().isEmpty()
+                ? QString("Unable to read project reference geometry: %1")
+                      .arg(data.reference_geometry.file_path)
+                : loaded_geometry.last_error_message();
+            QMessageBox::critical(this, "Project Session Error", message);
+            statusBar()->showMessage(message, 8000);
+            return false;
+        }
+    }
+
     m_loading_project_session = true;
     m_3d_widget->discard_auxiliary_dialogs();
     units = data.units;
@@ -632,18 +650,9 @@ bool MainWindow::load_project_session(const QString &file_path)
     apply_material_entries(data.materials, true, false);
 
     m_3d_widget->clear_reference_geometry();
-    if (!data.reference_geometry.file_path.trimmed().isEmpty())
+    if (has_reference_geometry)
     {
-        QString geometry_path = QFileInfo(data.reference_geometry.file_path).absoluteFilePath();
-        if (!m_3d_widget->geometry.readFile(geometry_path))
-        {
-            const QString message = m_3d_widget->geometry.last_error_message();
-            QMessageBox::critical(this, "Project Session Error", message);
-            statusBar()->showMessage(message, 8000);
-            m_loading_project_session = false;
-            return false;
-        }
-
+        m_3d_widget->geometry.adopt_loaded_geometry(loaded_geometry);
         m_3d_widget->add_readed_geometry();
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
