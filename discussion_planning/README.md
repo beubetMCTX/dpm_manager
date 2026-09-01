@@ -434,6 +434,11 @@ References:
 - Added a read-only source-file field to the reference-geometry properties Dock.
 - The absolute path is refreshed after import, project restore, selection, and clear operations, with selectable text and a tooltip for long paths.
 
+### 2026-09-02 Latest Release Package Verification
+
+- Repackaged the current Release executable with the app-local runtime DLL set.
+- The self-contained package contains 257 runtime files and passed the repeatable startup/shutdown probe with exit code `0`.
+
 ### 2026-09-02 Reference Lock Status Feedback
 
 - The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.
