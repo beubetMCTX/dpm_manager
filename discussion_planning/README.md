@@ -626,3 +626,9 @@ References:
 - Project-session validation now rejects non-finite reference-geometry position and rotation values before they reach OCCT.
 - Added regression coverage for a `NaN` transform component.
 - Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Reject Malformed Reference Transform Arrays
+
+- Project-session loading now checks the return value of reference position and rotation array parsing.
+- A loaded reference geometry with missing or incorrectly sized transform arrays is rejected instead of silently becoming a zero transform.
+- Added regression coverage for a two-component position array; Release build and all 9 CTest regressions passed.

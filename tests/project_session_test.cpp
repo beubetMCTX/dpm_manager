@@ -159,7 +159,38 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString malformed_transform_path =
+        temporary_directory.filePath("malformed_transform.dpmproj");
+    QJsonObject malformed_transform_root;
+    malformed_transform_root.insert("schema_version", 1);
+    malformed_transform_root.insert("units", QJsonArray());
+    malformed_transform_root.insert("materials", QJsonArray());
+    malformed_transform_root.insert(
+        "reference_geometry",
+        QJsonObject{{"file_path", "geometry.step"},
+                     {"position", QJsonArray{1.0, 2.0}},
+                     {"rotation", QJsonArray{0.0, 0.0, 0.0}}});
+    QFile malformed_transform_file(malformed_transform_path);
+    if (!check(malformed_transform_file.open(QIODevice::WriteOnly | QIODevice::Text),
+               "Unable to create malformed transform fixture"))
+    {
+        return 1;
+    }
+    malformed_transform_file.write(QJsonDocument(malformed_transform_root).toJson());
+    malformed_transform_file.close();
+
+    error_message.clear();
+    if (!check(!project_session::load(malformed_transform_path, &preserved, &error_message) &&
+                   error_message.contains("reference geometry transform"),
+               "malformed reference transform should be rejected") ||
+        !check(preserved.units.size() == source.units.size(),
+               "failed transform load should not expose partial data"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
     QFile::remove(malformed_path);
+    QFile::remove(malformed_transform_path);
     return 0;
 }

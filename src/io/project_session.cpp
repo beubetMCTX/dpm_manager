@@ -687,8 +687,16 @@ bool load(const QString &file_path, Data *data, QString *error_message)
 
     const QJsonObject reference_geometry = root.value("reference_geometry").toObject();
     parsed.reference_geometry.file_path = reference_geometry.value("file_path").toString();
-    vector_from_json(reference_geometry.value("position"), &parsed.reference_geometry.position);
-    vector_from_json(reference_geometry.value("rotation"), &parsed.reference_geometry.rotation);
+    if (!parsed.reference_geometry.file_path.trimmed().isEmpty() &&
+        (!vector_from_json(reference_geometry.value("position"),
+                          &parsed.reference_geometry.position) ||
+         !vector_from_json(reference_geometry.value("rotation"),
+                           &parsed.reference_geometry.rotation)))
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference geometry transform.");
+        return false;
+    }
     parsed.reference_geometry.locked = reference_geometry.value("locked").toBool(false);
     parsed.reference_geometry.visible = reference_geometry.value("visible").toBool(true);
 
