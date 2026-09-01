@@ -73,6 +73,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
         ${IO_DIR}/dpm_file_io.h ${IO_DIR}/dpm_file_io.cpp
         ${IO_DIR}/chemkin_io.h ${IO_DIR}/chemkin_io.cpp
+        ${IO_DIR}/project_session.h ${IO_DIR}/project_session.cpp
         ${MODEL_DIR}/unit.h
         ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp

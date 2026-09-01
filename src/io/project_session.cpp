@@ -1,0 +1,595 @@
+#include "project_session.h"
+
+#include <QDateTime>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonParseError>
+#include <QSaveFile>
+
+namespace
+{
+constexpr int kSessionSchemaVersion = 1;
+
+QJsonArray vector_to_json(const QVector3D &value)
+{
+    QJsonArray result;
+    result.append(value.x());
+    result.append(value.y());
+    result.append(value.z());
+    return result;
+}
+
+bool vector_from_json(const QJsonValue &json_value, QVector3D *value)
+{
+    const QJsonArray array = json_value.toArray();
+    if (array.size() != 3 || value == nullptr)
+    {
+        return false;
+    }
+
+    *value = QVector3D(static_cast<float>(array.at(0).toDouble()),
+                       static_cast<float>(array.at(1).toDouble()),
+                       static_cast<float>(array.at(2).toDouble()));
+    return true;
+}
+
+QJsonArray int_list_to_json(const QVector<int> &values)
+{
+    QJsonArray result;
+    for (const int value : values)
+    {
+        result.append(value);
+    }
+    return result;
+}
+
+QVector<int> int_list_from_json(const QJsonValue &json_value,
+                                const QVector<int> &fallback)
+{
+    const QJsonArray array = json_value.toArray();
+    if (array.isEmpty() && !json_value.isArray())
+    {
+        return fallback;
+    }
+
+    QVector<int> result;
+    for (const QJsonValue &value : array)
+    {
+        if (value.isDouble())
+        {
+            result.append(value.toInt());
+        }
+    }
+    return result;
+}
+
+void injector_to_json(const Injector &value, QJsonObject *object)
+{
+    if (object == nullptr)
+    {
+        return;
+    }
+
+#define SAVE_STRING(field) object->insert(#field, value.field)
+#define SAVE_INT(field) object->insert(#field, value.field)
+#define SAVE_DOUBLE(field) object->insert(#field, value.field)
+#define SAVE_BOOL(field) object->insert(#field, value.field)
+#define SAVE_ENUM(field) object->insert(#field, static_cast<int>(value.field))
+#define SAVE_VECTOR(field) object->insert(#field, vector_to_json(value.field))
+#define SAVE_INT_LIST(field) object->insert(#field, int_list_to_json(value.field))
+
+    SAVE_STRING(name);
+    SAVE_ENUM(type);
+    SAVE_ENUM(injection_type);
+    SAVE_STRING(local_reference_frame);
+    SAVE_INT(numpts);
+    SAVE_STRING(dpm_fname);
+    SAVE_INT_LIST(surfaces);
+    SAVE_INT_LIST(boundary);
+    SAVE_BOOL(stochastic);
+    SAVE_BOOL(random_eddy);
+    SAVE_INT(ntries);
+    SAVE_DOUBLE(time_scale_constant);
+    SAVE_BOOL(cloud);
+    SAVE_DOUBLE(cloud_min_dia);
+    SAVE_DOUBLE(cloud_max_dia);
+    SAVE_STRING(material);
+    SAVE_BOOL(scale_by_area);
+    SAVE_BOOL(use_face_normal);
+    SAVE_BOOL(random_surface);
+    SAVE_BOOL(tabulated_diam_dist);
+    SAVE_STRING(tabulated_diam_table_name);
+    SAVE_INT(tabulated_diam_ref_diam_col);
+    SAVE_INT(tabulated_diam_num_frac_col);
+    SAVE_INT(tabulated_diam_mas_frac_col);
+    SAVE_BOOL(tabulated_diam_num_frac_accum);
+    SAVE_BOOL(tabulated_diam_mas_frac_accum);
+    SAVE_STRING(devolatilizing_species);
+    SAVE_STRING(evaporating_species);
+    SAVE_STRING(oxidizing_species);
+    SAVE_STRING(product_species);
+    SAVE_BOOL(rr_disturb);
+    SAVE_BOOL(rr_uniform_ln_d);
+    SAVE_BOOL(evaporating_liquid);
+    SAVE_STRING(evaporating_material);
+    SAVE_DOUBLE(liquid_fraction);
+    SAVE_STRING(dpm_domain);
+    SAVE_STRING(collision_partner);
+    SAVE_INT(parcel_number);
+    SAVE_DOUBLE(parcel_mass);
+    SAVE_DOUBLE(parcel_diameter);
+    SAVE_ENUM(parcel_model);
+    SAVE_ENUM(drag_law);
+    SAVE_DOUBLE(shape_factor);
+    SAVE_DOUBLE(cunningham_correction);
+    SAVE_STRING(drag_fcn);
+    SAVE_BOOL(brownian_motion);
+    SAVE_BOOL(seco_breakup_on);
+    SAVE_BOOL(seco_breakup_tab);
+    SAVE_BOOL(seco_breakup_wave);
+    SAVE_BOOL(seco_break_up_khrt);
+    SAVE_BOOL(seco_breakup_ssd);
+    SAVE_BOOL(seco_breakup_madahushi);
+    SAVE_BOOL(seco_breakup_schmehl);
+    SAVE_DOUBLE(seco_breakup_tab_y0);
+    SAVE_INT(number_tab_diameters);
+    SAVE_DOUBLE(seco_breakup_wave_b1);
+    SAVE_DOUBLE(seco_breakup_wave_b0);
+    SAVE_DOUBLE(seco_breakup_khrt_cl);
+    SAVE_DOUBLE(seco_breakup_khrt_ctau);
+    SAVE_DOUBLE(seco_breakup_khrt_crt);
+    SAVE_DOUBLE(seco_breakup_ssd_we_cr);
+    SAVE_DOUBLE(seco_breakup_ssd_core_bu);
+    SAVE_DOUBLE(seco_breakup_ssd_np_target);
+    SAVE_DOUBLE(seco_breakup_ssd_x_si);
+    SAVE_DOUBLE(seco_breakup_madabushi_c0);
+    SAVE_DOUBLE(seco_breakup_madabushi_column_drag_cd);
+    SAVE_DOUBLE(seco_breakup_madabushi_ligament_factor);
+    SAVE_DOUBLE(seco_breakup_madabushi_jet_diameter);
+    SAVE_DOUBLE(seco_breakup_schmehl_np);
+    SAVE_ENUM(volume_specification);
+    SAVE_INT_LIST(volume_zones);
+    SAVE_ENUM(volume_streams_spec);
+    SAVE_INT(volume_streams_total);
+    SAVE_INT(volume_streams_per_cell);
+    SAVE_DOUBLE(volume_packing_limit_per_cell);
+    SAVE_ENUM(volume_bgeom_shapes);
+    SAVE_VECTOR(volume_bgeom_min);
+    SAVE_VECTOR(volume_bgeom_max);
+    SAVE_DOUBLE(volume_bgeom_radius);
+    SAVE_DOUBLE(volume_bgeom_viconeangle);
+    SAVE_BOOL(mass_input_on);
+    SAVE_BOOL(volfrac_input_on);
+    SAVE_BOOL(rotation_on);
+    SAVE_ENUM(rot_drag_law);
+    SAVE_ENUM(rot_lift_law);
+    SAVE_ENUM(cone_type);
+    SAVE_BOOL(uniform_mass_dist_on);
+    SAVE_BOOL(spatial_staggering_std_inj_on);
+    SAVE_BOOL(spatial_staggering_atomizer_on);
+    SAVE_DOUBLE(stagger_radius);
+    SAVE_BOOL(rough_wall_on);
+    SAVE_STRING(cphace_domain);
+    SAVE_VECTOR(pos);
+    SAVE_VECTOR(pos2);
+    SAVE_VECTOR(ff_center);
+    SAVE_VECTOR(ff_virtual_origin);
+    SAVE_VECTOR(ff_normal);
+    SAVE_VECTOR(vel);
+    SAVE_VECTOR(vel2);
+    SAVE_VECTOR(ang_vel);
+    SAVE_VECTOR(ang_vel2);
+    SAVE_VECTOR(atomizer_axis);
+    SAVE_DOUBLE(diameter);
+    SAVE_DOUBLE(diameter2);
+    SAVE_DOUBLE(temperature);
+    SAVE_DOUBLE(temperature2);
+    SAVE_DOUBLE(flow_rate);
+    SAVE_DOUBLE(flow_rate2);
+    SAVE_DOUBLE(unsteady_start);
+    SAVE_DOUBLE(unsteady_stop);
+    SAVE_DOUBLE(start_at_flow_time_in_unsteady_inj_file);
+    SAVE_DOUBLE(interval_to_repeat_in_unsteady_inj_file);
+    SAVE_DOUBLE(unsteady_ca_start);
+    SAVE_DOUBLE(unsteady_ca_stop);
+    SAVE_DOUBLE(vapor_pressure);
+    SAVE_DOUBLE(inner_diameter);
+    SAVE_DOUBLE(outer_diameter);
+    SAVE_DOUBLE(half_angle);
+    SAVE_DOUBLE(plain_length);
+    SAVE_DOUBLE(plain_corner_size);
+    SAVE_DOUBLE(plain_const_a);
+    SAVE_DOUBLE(pswirl_inj_press);
+    SAVE_DOUBLE(airbl_rel_vel);
+    SAVE_DOUBLE(effer_quality);
+    SAVE_DOUBLE(effer_t_sat);
+    SAVE_DOUBLE(ff_oriface_width);
+    SAVE_DOUBLE(phi_start);
+    SAVE_DOUBLE(phi_stop);
+    SAVE_DOUBLE(sheet_const);
+    SAVE_DOUBLE(lig_const);
+    SAVE_DOUBLE(effer_const);
+    SAVE_DOUBLE(effer_half_angle_max);
+    SAVE_DOUBLE(ff_sheet_const);
+    SAVE_DOUBLE(atomizer_disp_angle);
+    SAVE_VECTOR(axis);
+    SAVE_DOUBLE(vel_mag);
+    SAVE_DOUBLE(ang_vel_mag);
+    SAVE_DOUBLE(cone_angle);
+    SAVE_DOUBLE(inner_radius);
+    SAVE_DOUBLE(radius);
+    SAVE_DOUBLE(swirl_frac);
+    SAVE_DOUBLE(total_flow_rate);
+    SAVE_DOUBLE(total_mass);
+    SAVE_DOUBLE(volume_fraction);
+    SAVE_DOUBLE(rr_min);
+    SAVE_DOUBLE(rr_max);
+    SAVE_DOUBLE(rr_mean);
+    SAVE_DOUBLE(rr_spread);
+    SAVE_INT(rr_numdia);
+    SAVE_VECTOR(posr);
+    SAVE_VECTOR(posu);
+
+#undef SAVE_STRING
+#undef SAVE_INT
+#undef SAVE_DOUBLE
+#undef SAVE_BOOL
+#undef SAVE_ENUM
+#undef SAVE_VECTOR
+#undef SAVE_INT_LIST
+}
+
+void injector_from_json(const QJsonObject &object, Injector *value)
+{
+    if (value == nullptr)
+    {
+        return;
+    }
+
+#define READ_STRING(field) if (object.contains(#field)) value->field = object.value(#field).toString(value->field)
+#define READ_INT(field) if (object.contains(#field)) value->field = object.value(#field).toInt(value->field)
+#define READ_DOUBLE(field) if (object.contains(#field)) value->field = object.value(#field).toDouble(value->field)
+#define READ_BOOL(field) if (object.contains(#field)) value->field = object.value(#field).toBool(value->field)
+#define READ_ENUM(field, type_name) if (object.contains(#field)) value->field = static_cast<type_name>(object.value(#field).toInt(static_cast<int>(value->field)))
+#define READ_VECTOR(field) if (object.contains(#field)) vector_from_json(object.value(#field), &value->field)
+#define READ_INT_LIST(field) if (object.contains(#field)) value->field = int_list_from_json(object.value(#field), value->field)
+
+    READ_STRING(name);
+    READ_ENUM(type, DPM_Type);
+    READ_ENUM(injection_type, Injection_Type);
+    READ_STRING(local_reference_frame);
+    READ_INT(numpts);
+    READ_STRING(dpm_fname);
+    READ_INT_LIST(surfaces);
+    READ_INT_LIST(boundary);
+    READ_BOOL(stochastic);
+    READ_BOOL(random_eddy);
+    READ_INT(ntries);
+    READ_DOUBLE(time_scale_constant);
+    READ_BOOL(cloud);
+    READ_DOUBLE(cloud_min_dia);
+    READ_DOUBLE(cloud_max_dia);
+    READ_STRING(material);
+    READ_BOOL(scale_by_area);
+    READ_BOOL(use_face_normal);
+    READ_BOOL(random_surface);
+    READ_BOOL(tabulated_diam_dist);
+    READ_STRING(tabulated_diam_table_name);
+    READ_INT(tabulated_diam_ref_diam_col);
+    READ_INT(tabulated_diam_num_frac_col);
+    READ_INT(tabulated_diam_mas_frac_col);
+    READ_BOOL(tabulated_diam_num_frac_accum);
+    READ_BOOL(tabulated_diam_mas_frac_accum);
+    READ_STRING(devolatilizing_species);
+    READ_STRING(evaporating_species);
+    READ_STRING(oxidizing_species);
+    READ_STRING(product_species);
+    READ_BOOL(rr_disturb);
+    READ_BOOL(rr_uniform_ln_d);
+    READ_BOOL(evaporating_liquid);
+    READ_STRING(evaporating_material);
+    READ_DOUBLE(liquid_fraction);
+    READ_STRING(dpm_domain);
+    READ_STRING(collision_partner);
+    READ_INT(parcel_number);
+    READ_DOUBLE(parcel_mass);
+    READ_DOUBLE(parcel_diameter);
+    READ_ENUM(parcel_model, Parcel_Model);
+    READ_ENUM(drag_law, Drag_Law);
+    READ_DOUBLE(shape_factor);
+    READ_DOUBLE(cunningham_correction);
+    READ_STRING(drag_fcn);
+    READ_BOOL(brownian_motion);
+    READ_BOOL(seco_breakup_on);
+    READ_BOOL(seco_breakup_tab);
+    READ_BOOL(seco_breakup_wave);
+    READ_BOOL(seco_break_up_khrt);
+    READ_BOOL(seco_breakup_ssd);
+    READ_BOOL(seco_breakup_madahushi);
+    READ_BOOL(seco_breakup_schmehl);
+    READ_DOUBLE(seco_breakup_tab_y0);
+    READ_INT(number_tab_diameters);
+    READ_DOUBLE(seco_breakup_wave_b1);
+    READ_DOUBLE(seco_breakup_wave_b0);
+    READ_DOUBLE(seco_breakup_khrt_cl);
+    READ_DOUBLE(seco_breakup_khrt_ctau);
+    READ_DOUBLE(seco_breakup_khrt_crt);
+    READ_DOUBLE(seco_breakup_ssd_we_cr);
+    READ_DOUBLE(seco_breakup_ssd_core_bu);
+    READ_DOUBLE(seco_breakup_ssd_np_target);
+    READ_DOUBLE(seco_breakup_ssd_x_si);
+    READ_DOUBLE(seco_breakup_madabushi_c0);
+    READ_DOUBLE(seco_breakup_madabushi_column_drag_cd);
+    READ_DOUBLE(seco_breakup_madabushi_ligament_factor);
+    READ_DOUBLE(seco_breakup_madabushi_jet_diameter);
+    READ_DOUBLE(seco_breakup_schmehl_np);
+    READ_ENUM(volume_specification, Volume_Specification);
+    READ_INT_LIST(volume_zones);
+    READ_ENUM(volume_streams_spec, Volume_Streams_Spec);
+    READ_INT(volume_streams_total);
+    READ_INT(volume_streams_per_cell);
+    READ_DOUBLE(volume_packing_limit_per_cell);
+    READ_ENUM(volume_bgeom_shapes, Volume_Bgeom_Shapes);
+    READ_VECTOR(volume_bgeom_min);
+    READ_VECTOR(volume_bgeom_max);
+    READ_DOUBLE(volume_bgeom_radius);
+    READ_DOUBLE(volume_bgeom_viconeangle);
+    READ_BOOL(mass_input_on);
+    READ_BOOL(volfrac_input_on);
+    READ_BOOL(rotation_on);
+    READ_ENUM(rot_drag_law, Rot_Drag_Law);
+    READ_ENUM(rot_lift_law, Rot_Lift_Law);
+    READ_ENUM(cone_type, Cone_Type);
+    READ_BOOL(uniform_mass_dist_on);
+    READ_BOOL(spatial_staggering_std_inj_on);
+    READ_BOOL(spatial_staggering_atomizer_on);
+    READ_DOUBLE(stagger_radius);
+    READ_BOOL(rough_wall_on);
+    READ_STRING(cphace_domain);
+    READ_VECTOR(pos);
+    READ_VECTOR(pos2);
+    READ_VECTOR(ff_center);
+    READ_VECTOR(ff_virtual_origin);
+    READ_VECTOR(ff_normal);
+    READ_VECTOR(vel);
+    READ_VECTOR(vel2);
+    READ_VECTOR(ang_vel);
+    READ_VECTOR(ang_vel2);
+    READ_VECTOR(atomizer_axis);
+    READ_DOUBLE(diameter);
+    READ_DOUBLE(diameter2);
+    READ_DOUBLE(temperature);
+    READ_DOUBLE(temperature2);
+    READ_DOUBLE(flow_rate);
+    READ_DOUBLE(flow_rate2);
+    READ_DOUBLE(unsteady_start);
+    READ_DOUBLE(unsteady_stop);
+    READ_DOUBLE(start_at_flow_time_in_unsteady_inj_file);
+    READ_DOUBLE(interval_to_repeat_in_unsteady_inj_file);
+    READ_DOUBLE(unsteady_ca_start);
+    READ_DOUBLE(unsteady_ca_stop);
+    READ_DOUBLE(vapor_pressure);
+    READ_DOUBLE(inner_diameter);
+    READ_DOUBLE(outer_diameter);
+    READ_DOUBLE(half_angle);
+    READ_DOUBLE(plain_length);
+    READ_DOUBLE(plain_corner_size);
+    READ_DOUBLE(plain_const_a);
+    READ_DOUBLE(pswirl_inj_press);
+    READ_DOUBLE(airbl_rel_vel);
+    READ_DOUBLE(effer_quality);
+    READ_DOUBLE(effer_t_sat);
+    READ_DOUBLE(ff_oriface_width);
+    READ_DOUBLE(phi_start);
+    READ_DOUBLE(phi_stop);
+    READ_DOUBLE(sheet_const);
+    READ_DOUBLE(lig_const);
+    READ_DOUBLE(effer_const);
+    READ_DOUBLE(effer_half_angle_max);
+    READ_DOUBLE(ff_sheet_const);
+    READ_DOUBLE(atomizer_disp_angle);
+    READ_VECTOR(axis);
+    READ_DOUBLE(vel_mag);
+    READ_DOUBLE(ang_vel_mag);
+    READ_DOUBLE(cone_angle);
+    READ_DOUBLE(inner_radius);
+    READ_DOUBLE(radius);
+    READ_DOUBLE(swirl_frac);
+    READ_DOUBLE(total_flow_rate);
+    READ_DOUBLE(total_mass);
+    READ_DOUBLE(volume_fraction);
+    READ_DOUBLE(rr_min);
+    READ_DOUBLE(rr_max);
+    READ_DOUBLE(rr_mean);
+    READ_DOUBLE(rr_spread);
+    READ_INT(rr_numdia);
+    READ_VECTOR(posr);
+    READ_VECTOR(posu);
+
+#undef READ_STRING
+#undef READ_INT
+#undef READ_DOUBLE
+#undef READ_BOOL
+#undef READ_ENUM
+#undef READ_VECTOR
+#undef READ_INT_LIST
+}
+
+QJsonObject unit_to_json(const Unit &unit)
+{
+    QJsonObject result;
+    result.insert("uuid", unit.inj.uuid.toString(QUuid::WithoutBraces));
+    result.insert("unit_type", static_cast<int>(unit.type));
+    QJsonObject injector;
+    injector_to_json(unit.inj.injector_data, &injector);
+    result.insert("injector", injector);
+    return result;
+}
+
+bool unit_from_json(const QJsonValue &json_value, Unit *unit)
+{
+    if (unit == nullptr || !json_value.isObject())
+    {
+        return false;
+    }
+
+    const QJsonObject object = json_value.toObject();
+    const QUuid uuid(object.value("uuid").toString());
+    const QJsonObject injector_object = object.value("injector").toObject();
+    if (uuid.isNull() || injector_object.isEmpty())
+    {
+        return false;
+    }
+
+    unit->type = static_cast<Unit_Type>(object.value("unit_type").toInt(static_cast<int>(injector)));
+    unit->inj.uuid = uuid;
+    injector_from_json(injector_object, &unit->inj.injector_data);
+    return true;
+}
+
+void set_error(QString *error_message, const QString &message)
+{
+    if (error_message != nullptr)
+    {
+        *error_message = message;
+    }
+}
+}
+
+namespace project_session
+{
+bool save(const QString &file_path, const Data &data, QString *error_message)
+{
+    if (file_path.trimmed().isEmpty())
+    {
+        set_error(error_message, "Project session path is empty.");
+        return false;
+    }
+
+    QJsonObject root;
+    root.insert("schema_version", kSessionSchemaVersion);
+    root.insert("created_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+    root.insert("chemkin_file_path", data.chemkin_file_path);
+
+    QJsonArray units;
+    for (const Unit &unit : data.units)
+    {
+        units.append(unit_to_json(unit));
+    }
+    root.insert("units", units);
+
+    QJsonArray materials;
+    for (const MaterialConfigEntry &entry : data.materials)
+    {
+        QJsonObject material;
+        material.insert("name", entry.name);
+        material.insert("density", entry.density);
+        materials.append(material);
+    }
+    root.insert("materials", materials);
+
+    QJsonObject reference_geometry;
+    reference_geometry.insert("file_path", data.reference_geometry.file_path);
+    reference_geometry.insert("position", vector_to_json(data.reference_geometry.position));
+    reference_geometry.insert("rotation", vector_to_json(data.reference_geometry.rotation));
+    reference_geometry.insert("locked", data.reference_geometry.locked);
+    reference_geometry.insert("visible", data.reference_geometry.visible);
+    root.insert("reference_geometry", reference_geometry);
+
+    QSaveFile file(file_path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        set_error(error_message, QString("Unable to write project session: %1").arg(file_path));
+        return false;
+    }
+    file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    if (!file.commit())
+    {
+        set_error(error_message, QString("Unable to finalize project session: %1").arg(file_path));
+        return false;
+    }
+    return true;
+}
+
+bool load(const QString &file_path, Data *data, QString *error_message)
+{
+    if (data != nullptr)
+    {
+        *data = Data();
+    }
+    if (file_path.trimmed().isEmpty())
+    {
+        set_error(error_message, "Project session path is empty.");
+        return false;
+    }
+
+    QFile file(file_path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        set_error(error_message, QString("Unable to open project session: %1").arg(file_path));
+        return false;
+    }
+
+    QJsonParseError parse_error;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parse_error);
+    if (parse_error.error != QJsonParseError::NoError || !document.isObject())
+    {
+        set_error(error_message,
+                  QString("Invalid project session: %1 (%2)")
+                      .arg(file_path, parse_error.errorString()));
+        return false;
+    }
+
+    const QJsonObject root = document.object();
+    const int version = root.value("schema_version").toInt(-1);
+    if (version != kSessionSchemaVersion)
+    {
+        set_error(error_message, QString("Unsupported project session schema version: %1").arg(version));
+        return false;
+    }
+
+    Data parsed;
+    parsed.chemkin_file_path = root.value("chemkin_file_path").toString();
+
+    for (const QJsonValue &unit_value : root.value("units").toArray())
+    {
+        Unit unit;
+        if (!unit_from_json(unit_value, &unit))
+        {
+            set_error(error_message, "Project session contains an invalid injector entry.");
+            return false;
+        }
+        parsed.units.append(std::move(unit));
+    }
+
+    for (const QJsonValue &material_value : root.value("materials").toArray())
+    {
+        const QJsonObject material = material_value.toObject();
+        const QString name = material.value("name").toString().trimmed();
+        if (name.isEmpty())
+        {
+            continue;
+        }
+        MaterialConfigEntry entry;
+        entry.name = name;
+        entry.density = material.value("density").toDouble(0.0);
+        parsed.materials.append(entry);
+    }
+
+    const QJsonObject reference_geometry = root.value("reference_geometry").toObject();
+    parsed.reference_geometry.file_path = reference_geometry.value("file_path").toString();
+    vector_from_json(reference_geometry.value("position"), &parsed.reference_geometry.position);
+    vector_from_json(reference_geometry.value("rotation"), &parsed.reference_geometry.rotation);
+    parsed.reference_geometry.locked = reference_geometry.value("locked").toBool(false);
+    parsed.reference_geometry.visible = reference_geometry.value("visible").toBool(true);
+
+    if (data != nullptr)
+    {
+        *data = std::move(parsed);
+    }
+    return true;
+}
+}
