@@ -264,6 +264,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added `Reset Window Layout` to the `View` menu in commit `743c965`, restoring the default size and dock positions and persisting the reset state.
 - Added destructor-level layout persistence fallback in commit `c2f389a`, covering application-exit paths that bypass `closeEvent`.
 - Added `schema_version: 1` to newly written application, material, and species-color configuration files in commit `69333da`; readers remain backward-compatible with existing files.
+- Ensured the application creates `config`, `color_cfg`, and `material_cfg` during startup in commit `2b9b7bd`, even before any import or save operation occurs.
 
 References:
 
