@@ -1292,7 +1292,9 @@ void OCCTWidget::ensure_reference_face_selection_mode()
     // Injector selection changes the active OCCT selection mode globally.
     // Restore face picking explicitly before detecting a reference face;
     // locking the geometry must not disable this selection path.
-    m_context->Deactivate(base_geometry, TopAbs_SHAPE);
+    // Global injector selection can leave additional modes active on the
+    // reference object. Clear all of them before enabling face picking.
+    m_context->Deactivate(base_geometry);
     m_context->Activate(base_geometry, TopAbs_FACE, Standard_True);
 }
 

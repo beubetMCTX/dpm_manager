@@ -614,3 +614,9 @@ References:
 - Parentheses inside quoted strings and escaped characters are ignored correctly.
 - Truncated or malformed DPM files now fail safely with an explicit error instead of entering partial parsing.
 - Added regression coverage for an unbalanced DPM file; the Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Clear Stale OCCT Reference Selection Modes
+
+- Reference-face recovery now deactivates every selection mode on the reference geometry before enabling `TopAbs_FACE`.
+- This prevents global injector selection modes such as `COMPOUND` from remaining active and interfering with face picking after injector selection or lock/unlock operations.
+- Release build and all 9 CTest regressions passed; interactive OCCT mouse verification remains required.
