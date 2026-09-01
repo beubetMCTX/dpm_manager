@@ -189,8 +189,38 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString malformed_unit_path = temporary_directory.filePath("malformed_unit.dpmproj");
+    QJsonObject malformed_unit_root;
+    malformed_unit_root.insert("schema_version", 1);
+    malformed_unit_root.insert(
+        "units",
+        QJsonArray{QJsonObject{
+            {"uuid", source.units.first().inj.uuid.toString(QUuid::WithoutBraces)},
+            {"unit_type", static_cast<int>(injector)},
+            {"injector", QJsonObject{{"pos", QJsonArray{1.0, 2.0}}}}}});
+    malformed_unit_root.insert("materials", QJsonArray());
+    QFile malformed_unit_file(malformed_unit_path);
+    if (!check(malformed_unit_file.open(QIODevice::WriteOnly | QIODevice::Text),
+               "Unable to create malformed unit fixture"))
+    {
+        return 1;
+    }
+    malformed_unit_file.write(QJsonDocument(malformed_unit_root).toJson());
+    malformed_unit_file.close();
+
+    error_message.clear();
+    if (!check(!project_session::load(malformed_unit_path, &preserved, &error_message) &&
+                   error_message.contains("invalid injector entry"),
+               "malformed injector vector should be rejected") ||
+        !check(preserved.units.size() == source.units.size(),
+               "failed injector load should not expose partial data"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
     QFile::remove(malformed_path);
     QFile::remove(malformed_transform_path);
+    QFile::remove(malformed_unit_path);
     return 0;
 }

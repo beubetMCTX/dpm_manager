@@ -246,19 +246,26 @@ void injector_to_json(const Injector &value, QJsonObject *object)
 #undef SAVE_INT_LIST
 }
 
-void injector_from_json(const QJsonObject &object, Injector *value)
+bool injector_from_json(const QJsonObject &object, Injector *value)
 {
     if (value == nullptr)
     {
-        return;
+        return false;
     }
+
+    bool vectors_valid = true;
 
 #define READ_STRING(field) if (object.contains(#field)) value->field = object.value(#field).toString(value->field)
 #define READ_INT(field) if (object.contains(#field)) value->field = object.value(#field).toInt(value->field)
 #define READ_DOUBLE(field) if (object.contains(#field)) value->field = object.value(#field).toDouble(value->field)
 #define READ_BOOL(field) if (object.contains(#field)) value->field = object.value(#field).toBool(value->field)
 #define READ_ENUM(field, type_name) if (object.contains(#field)) value->field = static_cast<type_name>(object.value(#field).toInt(static_cast<int>(value->field)))
-#define READ_VECTOR(field) if (object.contains(#field)) vector_from_json(object.value(#field), &value->field)
+#define READ_VECTOR(field) \
+    if (object.contains(#field) && \
+        !vector_from_json(object.value(#field), &value->field)) \
+    { \
+        vectors_valid = false; \
+    }
 #define READ_INT_LIST(field) if (object.contains(#field)) value->field = int_list_from_json(object.value(#field), value->field)
 
     READ_STRING(name);
@@ -420,6 +427,8 @@ void injector_from_json(const QJsonObject &object, Injector *value)
 #undef READ_ENUM
 #undef READ_VECTOR
 #undef READ_INT_LIST
+
+    return vectors_valid;
 }
 
 QJsonObject unit_to_json(const Unit &unit)
@@ -450,7 +459,10 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
 
     unit->type = static_cast<Unit_Type>(object.value("unit_type").toInt(static_cast<int>(injector)));
     unit->inj.uuid = uuid;
-    injector_from_json(injector_object, &unit->inj.injector_data);
+    if (!injector_from_json(injector_object, &unit->inj.injector_data))
+    {
+        return false;
+    }
     return unit->inj.create_injector();
 }
 

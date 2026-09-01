@@ -666,3 +666,9 @@ References:
 
 - Added the `DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW` CMake option for the experimental complex atomizer previews.
 - The default remains `OFF`, preserving the stable simplified preview; developers can opt in with `-DDPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW=ON` without editing source code.
+
+### 2026-09-02 Reject Malformed Project Injector Vectors
+
+- Project-session loading now propagates vector parsing failures for injector fields such as `pos`, `vel`, and `axis`.
+- Incorrectly sized vector arrays are rejected before injector geometry creation instead of silently retaining default values.
+- Added regression coverage for a malformed injector position array; Release build and all 9 CTest regressions passed.
