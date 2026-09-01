@@ -309,3 +309,6 @@ References:
 - Added focused `project_session_regression` coverage for injector fields/UUIDs, geometry rebuild, Species colors, materials, and reference-geometry state.
 - The regression executable passes with the existing deployed dependency directory on `PATH`; a bare build directory returns `0xc0000135` because it has no runtime DLLs.
 - Test target and CMake registration were pushed in commit `616634b`; interactive GUI save/open and editor undo/redo verification remains manual.
+- Project-session workflow now remembers the active `.dpmproj`, uses `Ctrl+S` for direct save, provides `Save Project Session As`, and marks unsaved model changes with `*` in the window title.
+- Importing a new DPM starts a new unsaved session instead of silently overwriting the previously opened project on the next save.
+- Release build, project-session regression (`exit 0`), and six-second startup check passed; commit `6f72cdc` was pushed to `origin/main`.
