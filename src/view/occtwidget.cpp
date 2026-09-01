@@ -153,6 +153,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
     if (clear_existing)
     {
         discard_auxiliary_dialogs();
+        clear_move_history();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
         {
             if (it.value() != nullptr && !it.value()->ais_display.IsNull())
@@ -392,6 +393,20 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     m_unit_visibility.remove(uuid);
     m_unit_locks.remove(uuid);
     unit_hash.remove(uuid);
+    for (int index = m_move_history.size() - 1; index >= 0; --index)
+    {
+        if (m_move_history[index].uuid == uuid)
+        {
+            m_move_history.removeAt(index);
+            if (index < m_move_history_index)
+            {
+                --m_move_history_index;
+            }
+        }
+    }
+    m_move_history_index = qBound(0, m_move_history_index,
+                                  m_move_history.size());
+    emit move_history_changed(can_undo_move(), can_redo_move());
     emit unit_removed(uuid);
     emit unit_display_list_changed();
 
@@ -481,6 +496,18 @@ void OCCTWidget::record_move(const QUuid &uuid,
     m_move_history.append(entry);
     m_move_history_index = m_move_history.size();
     emit move_history_changed(can_undo_move(), can_redo_move());
+}
+
+void OCCTWidget::clear_move_history()
+{
+    if (m_move_history.isEmpty() && m_move_history_index == 0)
+    {
+        return;
+    }
+
+    m_move_history.clear();
+    m_move_history_index = 0;
+    emit move_history_changed(false, false);
 }
 
 bool OCCTWidget::can_undo_move() const

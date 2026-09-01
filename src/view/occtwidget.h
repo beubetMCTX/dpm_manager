@@ -197,6 +197,7 @@ private:
     void record_move(const QUuid &uuid,
                      const UnitMoveSnapshot &before,
                      const UnitMoveSnapshot &after);
+    void clear_move_history();
 
 protected:
 
