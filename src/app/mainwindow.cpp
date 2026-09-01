@@ -1016,6 +1016,9 @@ void MainWindow::create_object_list_panel()
 
         QMenu menu(m_object_list);
         QAction *edit_action = menu.addAction("Edit");
+        QAction *copy_action = menu.addAction("Copy");
+        QAction *paste_action = menu.addAction("Paste to replace");
+        paste_action->setEnabled(m_3d_widget->has_copied_unit());
         QAction *rename_action = menu.addAction("Rename");
         QAction *lock_action = menu.addAction(
             m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
@@ -1026,6 +1029,14 @@ void MainWindow::create_object_list_panel()
         if (chosen_action == edit_action)
         {
             m_3d_widget->edit_unit_by_uuid(uuid);
+        }
+        else if (chosen_action == copy_action)
+        {
+            m_3d_widget->copy_unit_by_uuid(uuid);
+        }
+        else if (chosen_action == paste_action)
+        {
+            m_3d_widget->paste_unit_by_uuid(uuid);
         }
         else if (chosen_action == rename_action)
         {
