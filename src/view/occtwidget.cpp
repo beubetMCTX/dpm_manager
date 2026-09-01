@@ -218,7 +218,7 @@ bool OCCTWidget::select_unit_by_uuid(const QUuid &uuid)
     clear_face_reference();
     m_context->ClearSelected(Standard_False);
     selected_shape = unit->ais_display;
-    m_context->AddOrRemoveSelected(selected_shape, Standard_True);
+    m_context->SetSelected(selected_shape, Standard_True);
     m_view->Redraw();
     emit selection_changed(uuid, false);
     return true;
@@ -234,7 +234,7 @@ bool OCCTWidget::select_reference_geometry()
 
     m_context->ClearSelected(Standard_False);
     selected_shape = base_geometry;
-    m_context->AddOrRemoveSelected(base_geometry, Standard_True);
+    m_context->SetSelected(base_geometry, Standard_True);
     m_view->Redraw();
     emit selection_changed(QUuid(), true);
     return true;

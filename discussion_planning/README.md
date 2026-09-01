@@ -43,6 +43,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Startup restoration is protected from dirty tracking, so loading saved reference geometry does not appear as a new unsaved edit.
 - Configuration files are not written on every mouse-move event; the existing save paths remain responsible for persistence.
 
+### 2026-09-02 Make Object-List Selection Deterministic
+
+- Object-list selection now uses OCCT `SetSelected` instead of a toggle operation.
+- Repeated selection cannot accidentally deselect an injector or reference geometry because of stale OCCT selection state.
+- This also makes `Fit Selected` consistent when invoked from the object list.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
