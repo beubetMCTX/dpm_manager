@@ -1951,7 +1951,40 @@ void MainWindow::update_object_list_panel()
             continue;
         }
 
-        QString name = it.value()->inj.injector_data.name.trimmed();
+        const Unit &unit = *it.value();
+        const auto injection_type_name = [](Injection_Type type)
+        {
+            switch (type)
+            {
+            case single: return QStringLiteral("Single");
+            case group: return QStringLiteral("Group");
+            case surface: return QStringLiteral("Surface");
+            case volume: return QStringLiteral("Volume");
+            case cone: return QStringLiteral("Cone");
+            case plain_oriface_atomizer: return QStringLiteral("Plain Orifice Atomizer");
+            case pressure_swirl_atomizer: return QStringLiteral("Pressure Swirl Atomizer");
+            case air_blast_atomizer: return QStringLiteral("Air Blast Atomizer");
+            case flat_fan_atomizer: return QStringLiteral("Flat Fan Atomizer");
+            case effervescent_atomizer: return QStringLiteral("Effervescent Atomizer");
+            case file_: return QStringLiteral("File");
+            case condensate: return QStringLiteral("Condensate");
+            }
+            return QStringLiteral("Unknown");
+        };
+        const auto particle_type_name = [](DPM_Type type)
+        {
+            switch (type)
+            {
+            case Massless: return QStringLiteral("Massless");
+            case Inert: return QStringLiteral("Inert");
+            case Droplet: return QStringLiteral("Droplet");
+            case Combusting: return QStringLiteral("Combusting");
+            case Multicomponent: return QStringLiteral("Multicomponent");
+            }
+            return QStringLiteral("Unknown");
+        };
+
+        QString name = unit.inj.injector_data.name.trimmed();
         if (name.isEmpty())
         {
             name = it.key().toString(QUuid::WithoutBraces);
@@ -1964,7 +1997,11 @@ void MainWindow::update_object_list_panel()
         auto *unit_item = new QListWidgetItem(name, m_object_list);
         unit_item->setData(Qt::UserRole,
                            unit_id.toString(QUuid::WithoutBraces));
-        unit_item->setToolTip(unit_id.toString(QUuid::WithoutBraces));
+        unit_item->setToolTip(
+            QString("Injection: %1\nParticle: %2\nUUID: %3")
+                .arg(injection_type_name(unit.inj.injector_data.injection_type),
+                     particle_type_name(unit.inj.injector_data.type),
+                     unit_id.toString(QUuid::WithoutBraces)));
         unit_item->setFlags(unit_item->flags() | Qt::ItemIsUserCheckable);
         unit_item->setCheckState(m_3d_widget->unit_visible(unit_id)
                                      ? Qt::Checked

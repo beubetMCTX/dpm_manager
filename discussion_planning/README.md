@@ -56,6 +56,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Standard view changes affect only the OCCT camera and preserve injector/reference geometry data.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Add Object Metadata Tooltips
+
+- Object-list entries now show injection type, particle type, and UUID in their tooltips.
+- Display names, sorting, visibility, and selection behavior remain unchanged.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
