@@ -503,6 +503,10 @@ References:
 - DPM export now rejects non-injector `Unit` entries instead of serializing them as injectors.
 - Added regression coverage for spacer-unit rejection.
 
+### 2026-09-02 DPM Export Atomicity Coverage
+
+- Extended DPM I/O regression coverage to verify that a failed export leaves an existing output file unchanged.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

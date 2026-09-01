@@ -125,10 +125,19 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QFile written_file(written_path);
+    if (!check(written_file.open(QIODevice::ReadOnly),
+               "Unable to read DPM output fixture") )
+    {
+        return 1;
+    }
+    const QByteArray original_output = written_file.readAll();
+    written_file.close();
+
     Unit invalid = first;
     invalid.inj.injector_data.total_flow_rate = std::numeric_limits<double>::quiet_NaN();
     error_message.clear();
-    if (!check(!write_dpm_file(temporary_directory.filePath("invalid.dpm"),
+    if (!check(!write_dpm_file(written_path,
                                {invalid},
                                &error_message) &&
                    error_message.contains("not finite"),
@@ -137,6 +146,14 @@ int main(int argc, char *argv[])
                                {},
                                &error_message),
                "empty DPM lists should be rejected"))
+    {
+        return 1;
+    }
+
+    if (!check(written_file.open(QIODevice::ReadOnly),
+               "Unable to reopen DPM output fixture") ||
+        !check(written_file.readAll() == original_output,
+               "failed DPM export must not overwrite an existing file"))
     {
         return 1;
     }
