@@ -546,3 +546,10 @@ References:
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.
 - The script fails explicitly on missing executables, startup timeout, shutdown timeout, or non-zero exit, making release lifecycle checks repeatable in future regressions.
+
+### 2026-09-02 Reference Face Selection Mode Recovery
+
+- Injector selection can change the active OpenCASCADE selection mode globally, leaving reference-geometry faces unpickable afterward.
+- Added an explicit face-selection-mode restoration before left-click and context-menu detection.
+- Reference-geometry locking still only prevents dragging and transform edits; face selection and view alignment remain available.
+- Release build passed and all 9 CTest regressions passed. Desktop verification of lock/unlock, face picking, and alignment remains required because the current automated tests run offscreen.

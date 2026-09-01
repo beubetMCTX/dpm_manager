@@ -187,6 +187,7 @@ private:
 
     bool select(TopAbs_ShapeEnum select_mode=TopAbs_COMPOUND);
     bool select_injector();
+    void ensure_reference_face_selection_mode();
     bool select_face_reference();
     void clear_face_reference();
     void clear_context_selection_safely();

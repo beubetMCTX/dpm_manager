@@ -1282,6 +1282,20 @@ bool OCCTWidget::select_face_reference()
     return !face_trihedron.IsNull();
 }
 
+void OCCTWidget::ensure_reference_face_selection_mode()
+{
+    if (m_context.IsNull() || base_geometry.IsNull())
+    {
+        return;
+    }
+
+    // Injector selection changes the active OCCT selection mode globally.
+    // Restore face picking explicitly before detecting a reference face;
+    // locking the geometry must not disable this selection path.
+    m_context->Deactivate(base_geometry, TopAbs_SHAPE);
+    m_context->Activate(base_geometry, TopAbs_FACE, Standard_True);
+}
+
 
 void OCCTWidget::m_initialize_context()
 {
@@ -1419,6 +1433,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
     {
         m_x_max=pos.x();
         m_y_max=pos.y();
+        ensure_reference_face_selection_mode();
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
 
         if (select_face_reference())
@@ -1839,6 +1854,7 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);
 
+    ensure_reference_face_selection_mode();
     m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
     selected_shape.Nullify();
 
