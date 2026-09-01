@@ -429,6 +429,11 @@ References:
 - Added a confirmed `Clear Reference Geometry` action to the reference-geometry properties Dock.
 - The action uses the existing safe clear path and persists the cleared state, including removal of the selected-face coordinate reference and Objects-panel entry.
 
+### 2026-09-02 Reference Geometry Source Path
+
+- Added a read-only source-file field to the reference-geometry properties Dock.
+- The absolute path is refreshed after import, project restore, selection, and clear operations, with selectable text and a tooltip for long paths.
+
 ### 2026-09-02 Reference Lock Status Feedback
 
 - The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.

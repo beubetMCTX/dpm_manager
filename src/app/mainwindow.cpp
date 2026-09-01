@@ -1172,6 +1172,13 @@ void MainWindow::create_reference_geometry_panel()
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
 
+    auto *source_group = new QGroupBox("Source", panel);
+    auto *source_layout = new QFormLayout(source_group);
+    m_reference_geometry_path = new QLabel("-", source_group);
+    m_reference_geometry_path->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_reference_geometry_path->setWordWrap(true);
+    source_layout->addRow("File", m_reference_geometry_path);
+
     auto *face_info_group = new QGroupBox("Selected Face Coordinate", panel);
     auto *face_info_layout = new QFormLayout(face_info_group);
     m_reference_face_origin = new QLabel("-", face_info_group);
@@ -1185,6 +1192,7 @@ void MainWindow::create_reference_geometry_panel()
     panel_layout->addWidget(m_reset_reference_transform);
     panel_layout->addWidget(m_align_reference_face);
     panel_layout->addWidget(m_clear_reference_geometry);
+    panel_layout->addWidget(source_group);
     panel_layout->addWidget(face_info_group);
     panel_layout->addWidget(m_reference_geometry_lock);
     panel_layout->addStretch();
@@ -1293,6 +1301,12 @@ void MainWindow::update_reference_geometry_panel()
 
     const QVector3D position = m_3d_widget->reference_position();
     const QVector3D rotation = m_3d_widget->reference_rotation();
+    if (m_reference_geometry_path != nullptr)
+    {
+        const QString path = m_3d_widget->geometry.file_path();
+        m_reference_geometry_path->setText(path.trimmed().isEmpty() ? "-" : path);
+        m_reference_geometry_path->setToolTip(path);
+    }
     const QSignalBlocker position_x_blocker(m_reference_position_x);
     const QSignalBlocker position_y_blocker(m_reference_position_y);
     const QSignalBlocker position_z_blocker(m_reference_position_z);
