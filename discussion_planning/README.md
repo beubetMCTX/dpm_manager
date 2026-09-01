@@ -306,3 +306,6 @@ References:
 - Manual GUI verification is still required for the full edit-close-undo-redo cycle.
 - Project sessions now include custom Species color mappings; saving uses the live color-dialog map when available and loading refreshes an already-open color dialog while retaining the legacy `color_cfg` fallback.
 - Release build and a six-second startup check with deployed dependencies passed; commits `c832cb3` and `7b4ee7b` were pushed to `origin/main`.
+- Added focused `project_session_regression` coverage for injector fields/UUIDs, geometry rebuild, Species colors, materials, and reference-geometry state.
+- The regression executable passes with the existing deployed dependency directory on `PATH`; a bare build directory returns `0xc0000135` because it has no runtime DLLs.
+- Test target and CMake registration were pushed in commit `616634b`; interactive GUI save/open and editor undo/redo verification remains manual.
