@@ -243,11 +243,21 @@ MainWindow::MainWindow(QWidget *parent)
             &OCCTWidget::undo_last_move);
     connect(ui->actionRedo_Move, &QAction::triggered, m_3d_widget,
             &OCCTWidget::redo_move);
+    connect(ui->actionUndo_Edit, &QAction::triggered, m_3d_widget,
+            &OCCTWidget::undo_last_edit);
+    connect(ui->actionRedo_Edit, &QAction::triggered, m_3d_widget,
+            &OCCTWidget::redo_edit);
     connect(m_3d_widget, &OCCTWidget::move_history_changed, this,
             [this](bool can_undo, bool can_redo)
     {
         ui->actionUndo_Move->setEnabled(can_undo);
         ui->actionRedo_Move->setEnabled(can_redo);
+    });
+    connect(m_3d_widget, &OCCTWidget::edit_history_changed, this,
+            [this](bool can_undo, bool can_redo)
+    {
+        ui->actionUndo_Edit->setEnabled(can_undo);
+        ui->actionRedo_Edit->setEnabled(can_redo);
     });
 
     // OCCT owns editable Unit copies so that interactive handles remain stable.

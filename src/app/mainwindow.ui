@@ -49,6 +49,8 @@
     </property>
     <addaction name="actionUndo_Move"/>
     <addaction name="actionRedo_Move"/>
+    <addaction name="actionUndo_Edit"/>
+    <addaction name="actionRedo_Edit"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
@@ -164,6 +166,28 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Y</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionUndo_Edit">
+   <property name="text">
+    <string>Undo Unit Edit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+Z</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRedo_Edit">
+   <property name="text">
+    <string>Redo Unit Edit</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+Y</string>
    </property>
    <property name="enabled">
     <bool>false</bool>
