@@ -86,6 +86,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Validation behavior is unchanged; only diagnostic readability was corrected.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Back Up Semantically Invalid Configurations
+
+- Material and species-color configuration files that contain valid JSON but invalid content are now backed up as `.corrupt-*.bak` before rejection.
+- Invalid material entries and invalid color values no longer disappear silently during recovery.
+- Added regression coverage for material-config backup behavior.
+- Release build and all 9 CTest regressions passed.
+
 ## Candidate Next Work
 
 ### High Priority

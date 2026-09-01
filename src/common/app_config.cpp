@@ -179,6 +179,22 @@ QString backup_invalid_config(const QString &file_path)
     return {};
 }
 
+bool reject_invalid_config(const QString &file_path,
+                           const QString &detail,
+                           QString *error_message)
+{
+    const QString backup_path = backup_invalid_config(file_path);
+    if (error_message != nullptr)
+    {
+        *error_message = detail;
+        if (!backup_path.isEmpty())
+        {
+            *error_message += QString("; backup: %1").arg(backup_path);
+        }
+    }
+    return false;
+}
+
 bool write_json_object(const QString &file_path,
                        const QJsonObject &json_object,
                        QString *error_message)
@@ -718,7 +734,27 @@ bool load_species_color_config(const QString &chemkin_file_path,
         return false;
     }
 
-    const QJsonObject colors_object = root_object.value("species_colors").toObject();
+    const QJsonValue colors_value = root_object.value("species_colors");
+    if (!colors_value.isObject())
+    {
+        return reject_invalid_config(
+            file_path,
+            "Species color configuration contains an invalid species_colors object.",
+            error_message);
+    }
+
+    const QJsonObject colors_object = colors_value.toObject();
+    for (auto it = colors_object.constBegin(); it != colors_object.constEnd(); ++it)
+    {
+        if (!QColor(it.value().toString()).isValid())
+        {
+            return reject_invalid_config(
+                file_path,
+                QString("Species color configuration contains an invalid color: %1")
+                    .arg(it.key()),
+                error_message);
+        }
+    }
     if (species_colors != nullptr)
     {
         for (const QString &species_name : species_names)
@@ -801,8 +837,10 @@ bool load_material_table_config(QList<MaterialConfigEntry> *materials,
     {
         if (!value.isObject())
         {
-            if (error_message != nullptr) *error_message = "Material configuration contains an invalid entry.";
-            return false;
+            return reject_invalid_config(
+                file_path,
+                "Material configuration contains an invalid entry.",
+                error_message);
         }
 
         const QJsonObject material_object = value.toObject();
@@ -814,7 +852,10 @@ bool load_material_table_config(QList<MaterialConfigEntry> *materials,
 
     if (!validate_material_entries(parsed_materials, error_message))
     {
-        return false;
+        const QString detail = error_message != nullptr && !error_message->isEmpty()
+            ? *error_message
+            : QStringLiteral("Material configuration failed validation.");
+        return reject_invalid_config(file_path, detail, error_message);
     }
 
     if (materials != nullptr)
