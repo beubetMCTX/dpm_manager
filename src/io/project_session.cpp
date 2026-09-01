@@ -447,7 +447,7 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     unit->type = static_cast<Unit_Type>(object.value("unit_type").toInt(static_cast<int>(injector)));
     unit->inj.uuid = uuid;
     injector_from_json(injector_object, &unit->inj.injector_data);
-    return true;
+    return unit->inj.create_injector();
 }
 
 void set_error(QString *error_message, const QString &message)
