@@ -307,6 +307,8 @@ MainWindow::MainWindow(QWidget *parent)
 
     restore_material_table();
     runtime_debug::trace("MainWindow material table restored");
+    restore_reference_geometry();
+    runtime_debug::trace("MainWindow reference geometry restore finished");
     restore_last_chemkin_file();
     runtime_debug::trace("MainWindow chemkin file restore finished");
     restore_window_layout();
@@ -334,6 +336,7 @@ MainWindow::~MainWindow()
     // Keep layout persistence reliable even when the window is destroyed
     // through an application-exit path that bypasses closeEvent.
     save_window_layout();
+    save_reference_geometry_state();
     delete ui;
     runtime_debug::trace("MainWindow destructor end");
 }
@@ -365,6 +368,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 
     save_window_layout();
+    save_reference_geometry_state();
 
     QMainWindow::closeEvent(event);
     runtime_debug::trace("MainWindow closeEvent end");
@@ -419,6 +423,7 @@ void MainWindow::on_actionRead_Base_Geometry_triggered()
     {
         qDebug() << "true";
         m_3d_widget->add_readed_geometry();
+        save_reference_geometry_state();
         statusBar()->showMessage("Base geometry loaded successfully", 5000);
     }
     else
@@ -623,6 +628,82 @@ void MainWindow::restore_material_table()
     apply_material_entries(entries, false, false);
 }
 
+void MainWindow::restore_reference_geometry()
+{
+    ReferenceGeometryConfig config;
+    QString error_message;
+    if (!load_reference_geometry_config(&config, &error_message))
+    {
+        if (!error_message.trimmed().isEmpty())
+        {
+            qWarning() << error_message;
+            statusBar()->showMessage(error_message, 8000);
+        }
+        return;
+    }
+
+    const QFileInfo file_info(config.file_path);
+    if (!file_info.exists() || !file_info.isFile())
+    {
+        const QString message = QString("Saved reference geometry was not found: %1")
+                                    .arg(config.file_path);
+        qWarning() << message;
+        statusBar()->showMessage(message, 8000);
+        QString clear_error;
+        if (!save_reference_geometry_config(ReferenceGeometryConfig(), &clear_error) &&
+            !clear_error.trimmed().isEmpty())
+        {
+            qWarning() << clear_error;
+        }
+        return;
+    }
+
+    QString file_path = file_info.absoluteFilePath();
+    if (!m_3d_widget->geometry.readFile(file_path))
+    {
+        const QString message = m_3d_widget->geometry.last_error_message().trimmed().isEmpty()
+            ? QString("Unable to restore reference geometry: %1").arg(config.file_path)
+            : m_3d_widget->geometry.last_error_message();
+        qWarning() << message;
+        statusBar()->showMessage(message, 8000);
+        QString clear_error;
+        if (!save_reference_geometry_config(ReferenceGeometryConfig(), &clear_error) &&
+            !clear_error.trimmed().isEmpty())
+        {
+            qWarning() << clear_error;
+        }
+        return;
+    }
+
+    m_3d_widget->add_readed_geometry();
+    m_3d_widget->set_reference_transform(config.position, config.rotation);
+    m_3d_widget->set_reference_geometry_locked(config.locked);
+    m_3d_widget->set_reference_geometry_visible(config.visible);
+    update_reference_geometry_panel();
+    statusBar()->showMessage(
+        QString("Restored reference geometry from %1").arg(config.file_path), 5000);
+}
+
+void MainWindow::save_reference_geometry_state()
+{
+    ReferenceGeometryConfig config;
+    if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
+    {
+        config.file_path = m_3d_widget->geometry.file_path();
+        config.position = m_3d_widget->reference_position();
+        config.rotation = m_3d_widget->reference_rotation();
+        config.locked = m_3d_widget->reference_geometry_locked();
+        config.visible = m_3d_widget->reference_geometry_visible();
+    }
+
+    QString error_message;
+    if (!save_reference_geometry_config(config, &error_message) &&
+        !error_message.trimmed().isEmpty())
+    {
+        qWarning() << error_message;
+    }
+}
+
 void MainWindow::apply_material_entries(const QList<MaterialConfigEntry> &entries,
                                         bool save_to_config,
                                         bool show_status_feedback)
@@ -759,12 +840,14 @@ void MainWindow::create_reference_geometry_panel()
     {
         m_3d_widget->set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
                                               QVector3D(0.0f, 0.0f, 0.0f));
+        save_reference_geometry_state();
     });
     connect(m_align_reference_face, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::align_view_to_selected_face);
     connect(m_reference_geometry_lock, &QCheckBox::toggled, this, [this](bool locked)
     {
         m_3d_widget->set_reference_geometry_locked(locked);
+        save_reference_geometry_state();
         const bool enabled = !locked;
         m_reference_position_x->setEnabled(enabled);
         m_reference_position_y->setEnabled(enabled);
@@ -1292,6 +1375,7 @@ void MainWindow::apply_reference_geometry_transform()
         QVector3D(static_cast<float>(m_reference_rotation_x->value()),
                   static_cast<float>(m_reference_rotation_y->value()),
                   static_cast<float>(m_reference_rotation_z->value())));
+    save_reference_geometry_state();
 }
 
 QList<Unit> MainWindow::build_test_injector_units() const

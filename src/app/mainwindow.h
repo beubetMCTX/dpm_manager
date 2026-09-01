@@ -69,6 +69,8 @@ private:
                            bool show_success_feedback);
     void restore_last_chemkin_file();
     void restore_material_table();
+    void restore_reference_geometry();
+    void save_reference_geometry_state();
     void apply_material_entries(const QList<MaterialConfigEntry> &entries,
                                 bool save_to_config,
                                 bool show_status_feedback);
