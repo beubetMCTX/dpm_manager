@@ -249,7 +249,7 @@ struct dpm_scalar_converter<double>
     {
         bool ok = false;
         value = raw_value.trimmed().toDouble(&ok);
-        return ok;
+        return ok && std::isfinite(value);
     }
 };
 

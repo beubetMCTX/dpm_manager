@@ -593,3 +593,10 @@ References:
 - The first spelling is preserved for display and later duplicates are omitted.
 - Added regression coverage for duplicate species across multiple lines.
 - Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Reject Non-Finite DPM Values on Import
+
+- The field-table-driven DPM parser now rejects `NaN` and infinite values at numeric conversion time.
+- This prevents invalid coordinates, velocities, temperatures, and geometry parameters from reaching model or OCCT code.
+- Added regression coverage for a non-finite imported temperature.
+- Release build and all 9 CTest regressions passed.

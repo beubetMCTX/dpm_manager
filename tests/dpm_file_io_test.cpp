@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTextStream>
+#include <QRegularExpression>
 
 #include <limits>
 
@@ -135,10 +136,11 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
-    const QString invalid_enum_contents =
-        QString::fromUtf8(written_input.readAll()).replace(
-            "(injection-type . single)",
-            "(injection-type . not-a-cone)");
+    const QString written_contents = QString::fromUtf8(written_input.readAll());
+    QString invalid_enum_contents = written_contents;
+    invalid_enum_contents.replace(
+        "(injection-type . single)",
+        "(injection-type . not-a-cone)");
     written_input.close();
     const QString invalid_enum_path = temporary_directory.filePath("invalid-enum.dpm");
     if (!check(write_file(invalid_enum_path, invalid_enum_contents),
@@ -153,6 +155,27 @@ int main(int argc, char *argv[])
                "DPM parser should reject enum values that only contain a valid token") ||
         !check(error_message.contains("injection-type"),
                "Invalid enum failure should identify the field"))
+    {
+        return 1;
+    }
+
+    QString invalid_numeric_contents = written_contents;
+    invalid_numeric_contents.replace(
+        QRegularExpression("\\(temperature\\s*\\.\\s*[^()]*\\)"),
+        "(temperature . nan)");
+    const QString invalid_numeric_path = temporary_directory.filePath("invalid-numeric.dpm");
+    if (!check(write_file(invalid_numeric_path, invalid_numeric_contents),
+               "Unable to create invalid numeric fixture") )
+    {
+        return 1;
+    }
+    error_message.clear();
+    const QList<Unit> invalid_numeric = read_dpm_file(
+        invalid_numeric_path, &ok, &error_message, false);
+    if (!check(!ok && invalid_numeric.isEmpty(),
+               "DPM parser should reject non-finite numeric values") ||
+        !check(error_message.contains("temperature"),
+               "Invalid numeric failure should identify the field"))
     {
         return 1;
     }
