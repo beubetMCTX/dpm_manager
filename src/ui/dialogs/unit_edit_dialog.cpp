@@ -894,12 +894,12 @@ void unit_edit_dialog::setup_custom_controls()
         {
             setWindowTitle(QString("Unit Editor - %1").arg(control_unit->inj.injector_data.name));
         }
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 
     connect(m_number_of_stream_spin, &QUI_SpinBox::value_committed, this, [this](int)
     {
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 }
 
@@ -933,7 +933,7 @@ void unit_edit_dialog::initialize_unit_type_combo()
 
         control_unit->type = static_cast<Unit_Type>(m_unit_type_combo->currentData().toInt());
         ui->stackedWidget_unit_type->setCurrentIndex(control_unit->type == injector ? 0 : 1);
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 }
 
@@ -1017,7 +1017,7 @@ void unit_edit_dialog::initialize_particle_type_group()
         sync_particle_type_dependent_controls();
         build_point_property_rows();
         build_model_property_rows();
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 }
 
@@ -1031,7 +1031,7 @@ void unit_edit_dialog::initialize_material_combo()
     m_material_combo->bind_current_text(&control_unit->inj.injector_data.material);
     connect(m_material_combo, &QUI_ComboBox::selection_committed, this, [this]()
     {
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 }
 
@@ -1061,7 +1061,7 @@ void unit_edit_dialog::initialize_diameter_distribution_combo()
         apply_diameter_distribution_index(control_unit->inj.injector_data,
                                           m_diameter_distribution_combo->currentData().toInt());
         build_point_property_rows();
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 }
 
@@ -1075,7 +1075,7 @@ void unit_edit_dialog::initialize_discrete_phase_domain_combo()
     m_discrete_phase_domain_combo->bind_current_text(&control_unit->inj.injector_data.dpm_domain);
     connect(m_discrete_phase_domain_combo, &QUI_ComboBox::selection_committed, this, [this]()
     {
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 }
 
@@ -1091,7 +1091,7 @@ void unit_edit_dialog::initialize_species_combos()
         m_devolatilizing_species_combo->bind_current_text(&control_unit->inj.injector_data.devolatilizing_species);
         connect(m_devolatilizing_species_combo, &QUI_ComboBox::selection_committed, this, [this]()
         {
-            notify_injector_data_changed();
+            notify_injector_data_changed(false);
         });
     }
 
@@ -1100,7 +1100,7 @@ void unit_edit_dialog::initialize_species_combos()
         m_evaporating_species_combo->bind_current_text(&control_unit->inj.injector_data.evaporating_species);
         connect(m_evaporating_species_combo, &QUI_ComboBox::selection_committed, this, [this]()
         {
-            notify_injector_data_changed();
+            notify_injector_data_changed(false);
         });
     }
 
@@ -1109,7 +1109,7 @@ void unit_edit_dialog::initialize_species_combos()
         m_product_species_combo->bind_current_text(&control_unit->inj.injector_data.product_species);
         connect(m_product_species_combo, &QUI_ComboBox::selection_committed, this, [this]()
         {
-            notify_injector_data_changed();
+            notify_injector_data_changed(false);
         });
     }
 
@@ -1118,7 +1118,7 @@ void unit_edit_dialog::initialize_species_combos()
         m_oxidizing_species_combo->bind_current_text(&control_unit->inj.injector_data.oxidizing_species);
         connect(m_oxidizing_species_combo, &QUI_ComboBox::selection_committed, this, [this]()
         {
-            notify_injector_data_changed();
+            notify_injector_data_changed(false);
         });
     }
 }
@@ -1169,11 +1169,11 @@ void unit_edit_dialog::initialize_stagger_controls()
             m_stagger_radius_edit,
             ui != nullptr ? static_cast<QWidget *>(ui->label_stagger) : nullptr,
             m_stagger_check != nullptr && m_stagger_check->isChecked());
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
     connect(m_stagger_radius_edit, &QUI_LineEdit::value_committed, this, [this]()
     {
-        notify_injector_data_changed();
+        notify_injector_data_changed(false);
     });
 }
 
@@ -1539,7 +1539,10 @@ void unit_edit_dialog::build_point_property_rows()
         ui->verticalLayout_3->addWidget(label);
     };
 
-    auto add_single_row = [this](const QString &label, const QString &unit, double *value_ptr)
+    auto add_single_row = [this](const QString &label,
+                                 const QString &unit,
+                                 double *value_ptr,
+                                 bool geometry_changed = true)
     {
         QUI_FieldRow *row = new QUI_FieldRow(label, unit, ui->scrollarea_properties);
         row->set_label_width(180);
@@ -1552,9 +1555,9 @@ void unit_edit_dialog::build_point_property_rows()
                 editor->sync_bound_value();
             }
         });
-        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this]()
+        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this, geometry_changed]()
         {
-            notify_injector_data_changed();
+            notify_injector_data_changed(geometry_changed);
         });
         ui->verticalLayout_3->addWidget(row);
     };
@@ -1769,7 +1772,11 @@ void unit_edit_dialog::build_point_property_rows()
         ui->verticalLayout_3->addWidget(row);
     };
 
-    auto add_range_row = [this](const QString &label, const QString &unit, double *first_ptr, double *second_ptr)
+    auto add_range_row = [this](const QString &label,
+                                const QString &unit,
+                                double *first_ptr,
+                                double *second_ptr,
+                                bool geometry_changed = true)
     {
         QUI_FieldRow *row = new QUI_FieldRow(label, unit, ui->scrollarea_properties);
         row->set_label_width(180);
@@ -1789,13 +1796,13 @@ void unit_edit_dialog::build_point_property_rows()
                 secondary->sync_bound_value();
             }
         });
-        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this]()
+        connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this, geometry_changed]()
         {
-            notify_injector_data_changed();
+            notify_injector_data_changed(geometry_changed);
         });
-        connect(row->secondary_editor(), &QUI_LineEdit::value_committed, this, [this]()
+        connect(row->secondary_editor(), &QUI_LineEdit::value_committed, this, [this, geometry_changed]()
         {
-            notify_injector_data_changed();
+            notify_injector_data_changed(geometry_changed);
         });
         ui->verticalLayout_3->addWidget(row);
     };

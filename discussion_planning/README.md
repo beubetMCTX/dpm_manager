@@ -336,3 +336,10 @@ References:
 - `QUI_FieldRow` now configures numeric editors from their displayed unit; `mm` fields use `m` as storage unit while existing `m`, `rad`, `deg`, `m/s`, `kg/s`, `Pa`, and `K` fields preserve their current storage semantics.
 - Scalar, range, and vector property rows now synchronize and commit through the same unit-aware path.
 - Release build passed. `unit_system_regression` and `project_session_regression` both passed with deployed Qt DLLs.
+
+### 2026-09-02 Incremental Editor Refresh
+
+- Ordinary metadata and model-option edits now emit data synchronization without scheduling OCCT geometry rebuilds.
+- Injection type, cone type, and geometry-affecting property rows retain geometry refresh behavior.
+- Release build passed. `unit_system_regression` and `project_session_regression` both passed with deployed Qt DLLs.
+- Interactive timing comparison remains useful because the current automated tests do not expose a real OCCT window.
