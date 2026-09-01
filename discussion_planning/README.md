@@ -507,6 +507,12 @@ References:
 
 - Extended DPM I/O regression coverage to verify that a failed export leaves an existing output file unchanged.
 
+### 2026-09-02 Species and Material Filters
+
+- Added case-insensitive filter fields to Species/Colors and Materials dialogs.
+- Filtering hides non-matching rows without changing stored Species colors or material entries.
+- Extended auxiliary-dialog regression coverage for filter controls and row visibility.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

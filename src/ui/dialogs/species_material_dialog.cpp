@@ -87,6 +87,11 @@ SpeciesMaterialDialog::SpeciesMaterialDialog(QWidget *parent)
     {
         handle_item_changed(item);
     });
+    connect(ui->materialFilterEdit, &QLineEdit::textChanged, this,
+            [this](const QString &text)
+    {
+        apply_material_filter(text);
+    });
 
     add_empty_row();
     adjustSize();
@@ -140,6 +145,7 @@ void SpeciesMaterialDialog::set_material_entries(const QList<MaterialConfigEntry
     }
 
     m_syncing_table = false;
+    apply_material_filter(ui->materialFilterEdit->text());
     ui->materialsTable->setCurrentCell(0, 0);
     update_summary_label();
 }
@@ -282,4 +288,21 @@ void SpeciesMaterialDialog::emit_materials_changed()
     }
 
     emit materials_changed();
+}
+
+void SpeciesMaterialDialog::apply_material_filter(const QString &filter_text)
+{
+    if (ui == nullptr || ui->materialsTable == nullptr)
+    {
+        return;
+    }
+
+    const QString needle = filter_text.trimmed().toCaseFolded();
+    for (int row = 0; row < ui->materialsTable->rowCount(); ++row)
+    {
+        const QTableWidgetItem *item = ui->materialsTable->item(row, 0);
+        const bool visible = needle.isEmpty() ||
+            (item != nullptr && item->text().toCaseFolded().contains(needle));
+        ui->materialsTable->setRowHidden(row, !visible);
+    }
 }

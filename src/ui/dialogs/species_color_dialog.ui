@@ -40,9 +40,16 @@
      <property name="wordWrap">
       <bool>true</bool>
      </property>
-    </widget>
-   </item>
-   <item>
+   </widget>
+  </item>
+  <item>
+   <widget class="QLineEdit" name="speciesFilterEdit">
+    <property name="placeholderText">
+     <string>Filter species...</string>
+    </property>
+   </widget>
+  </item>
+  <item>
     <layout class="QHBoxLayout" name="contentLayout" stretch="0,1">
      <property name="spacing">
       <number>14</number>

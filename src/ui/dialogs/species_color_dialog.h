@@ -49,6 +49,7 @@ private:
     void update_color_item_visuals(QTableWidgetItem *item, const QColor &color) const;
     QColor color_for_species(const QString &species_name) const;
     QString current_species_name() const;
+    void apply_species_filter(const QString &filter_text);
     void rebuild_table();
 
     QHash<QString, QColor> m_species_colors;

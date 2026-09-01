@@ -40,9 +40,16 @@
      <property name="wordWrap">
       <bool>true</bool>
      </property>
-    </widget>
-   </item>
-   <item>
+   </widget>
+  </item>
+  <item>
+   <widget class="QLineEdit" name="materialFilterEdit">
+   <property name="placeholderText">
+     <string>Filter materials...</string>
+    </property>
+   </widget>
+  </item>
+  <item>
     <widget class="QTableWidget" name="materialsTable">
      <property name="minimumSize">
       <size>

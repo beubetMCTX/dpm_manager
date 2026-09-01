@@ -100,6 +100,12 @@ SpeciesColorDialog::SpeciesColorDialog(QWidget *parent)
     {
         sync_color_picker_to_current_row();
     });
+    connect(ui->speciesFilterEdit, &QLineEdit::textChanged, this,
+            [this](const QString &text)
+    {
+        apply_species_filter(text);
+        sync_color_picker_to_current_row();
+    });
     connect(ui->speciesTable, &QTableWidget::itemChanged, this,
             [this](QTableWidgetItem *item)
     {
@@ -540,6 +546,23 @@ QString SpeciesColorDialog::current_species_name() const
     return species_item != nullptr ? species_item->text() : QString();
 }
 
+void SpeciesColorDialog::apply_species_filter(const QString &filter_text)
+{
+    if (ui == nullptr || ui->speciesTable == nullptr)
+    {
+        return;
+    }
+
+    const QString needle = filter_text.trimmed().toCaseFolded();
+    for (int row = 0; row < ui->speciesTable->rowCount(); ++row)
+    {
+        const QTableWidgetItem *item = ui->speciesTable->item(row, 0);
+        const bool visible = needle.isEmpty() ||
+            (item != nullptr && item->text().toCaseFolded().contains(needle));
+        ui->speciesTable->setRowHidden(row, !visible);
+    }
+}
+
 void SpeciesColorDialog::rebuild_table()
 {
     if (ui == nullptr || ui->summaryLabel == nullptr || ui->speciesTable == nullptr
@@ -579,6 +602,8 @@ void SpeciesColorDialog::rebuild_table()
     }
     m_syncing_from_table = false;
 
+    apply_species_filter(ui->speciesFilterEdit->text());
+
     ui->speciesTable->resizeColumnToContents(1);
 
     int row_to_select = m_species_names.isEmpty() ? -1 : 0;
@@ -586,7 +611,8 @@ void SpeciesColorDialog::rebuild_table()
     {
         for (int row = 0; row < m_species_names.size(); ++row)
         {
-            if (m_species_names.at(row) == previously_selected_species)
+            if (m_species_names.at(row) == previously_selected_species &&
+                !ui->speciesTable->isRowHidden(row))
             {
                 row_to_select = row;
                 break;

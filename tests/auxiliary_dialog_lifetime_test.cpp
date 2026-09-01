@@ -3,6 +3,8 @@
 
 #include <QApplication>
 #include <QPointer>
+#include <QLineEdit>
+#include <QTableWidget>
 #include <QWidget>
 
 namespace
@@ -25,6 +27,31 @@ int main(int argc, char *argv[])
 
     QPointer<SpeciesColorDialog> color_dialog = new SpeciesColorDialog(parent);
     QPointer<SpeciesMaterialDialog> material_dialog = new SpeciesMaterialDialog(parent);
+
+    color_dialog->set_species_names({"O2", "CH4", "CO2"});
+    material_dialog->set_material_entries({{"water", 998.2}, {"kerosene", 800.0}});
+    auto *species_filter = color_dialog->findChild<QLineEdit*>("speciesFilterEdit");
+    auto *material_filter = material_dialog->findChild<QLineEdit*>("materialFilterEdit");
+    if (!check(species_filter != nullptr && material_filter != nullptr,
+               "filter controls should be created") ||
+        !check(color_dialog->findChild<QTableWidget*>("speciesTable") != nullptr &&
+                   material_dialog->findChild<QTableWidget*>("materialsTable") != nullptr,
+               "auxiliary tables should be created"))
+    {
+        return 1;
+    }
+
+    species_filter->setText("ch4");
+    material_filter->setText("water");
+    if (!check(!color_dialog->findChild<QTableWidget*>("speciesTable")->isRowHidden(1) &&
+                   color_dialog->findChild<QTableWidget*>("speciesTable")->isRowHidden(0),
+               "species filter should hide non-matching rows") ||
+        !check(!material_dialog->findChild<QTableWidget*>("materialsTable")->isRowHidden(0) &&
+                   material_dialog->findChild<QTableWidget*>("materialsTable")->isRowHidden(1),
+               "material filter should hide non-matching rows"))
+    {
+        return 1;
+    }
     color_dialog->set_chemkin_context(QString(), {});
     material_dialog->set_material_entries({});
     color_dialog->show();

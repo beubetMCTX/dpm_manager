@@ -35,6 +35,7 @@ private:
     void update_summary_label() const;
     void handle_item_changed(QTableWidgetItem *item);
     void emit_materials_changed();
+    void apply_material_filter(const QString &filter_text);
 
     Ui::SpeciesMaterialDialog *ui = nullptr;
     bool m_syncing_table = false;
