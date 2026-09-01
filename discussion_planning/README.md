@@ -513,6 +513,12 @@ References:
 - Filtering hides non-matching rows without changing stored Species colors or material entries.
 - Extended auxiliary-dialog regression coverage for filter controls and row visibility.
 
+### 2026-09-02 Numeric Range Validation
+
+- Added optional numeric ranges to `QUI_LineEdit`.
+- Materials density editors now reject non-positive and non-finite values with the existing invalid-input rollback behavior.
+- Added range acceptance/rejection regression coverage.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

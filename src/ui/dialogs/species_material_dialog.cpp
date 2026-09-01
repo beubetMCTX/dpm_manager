@@ -10,6 +10,8 @@
 #include <QStyledItemDelegate>
 #include <QTableWidgetItem>
 
+#include <limits>
+
 namespace
 {
 class DensityItemDelegate final : public QStyledItemDelegate
@@ -28,6 +30,9 @@ public:
 
         auto *line_edit = new QUI_LineEdit(parent);
         line_edit->set_double_mode();
+        line_edit->sync_text(index.data().toString());
+        line_edit->set_numeric_range(std::numeric_limits<double>::denorm_min(),
+                                     std::numeric_limits<double>::max());
         line_edit->setPlaceholderText("Supports expressions like 5+6 or sin(30)");
         return line_edit;
     }

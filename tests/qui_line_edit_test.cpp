@@ -99,5 +99,31 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    double bounded_value = 7.0;
+    QUI_LineEdit bounded_editor;
+    bounded_editor.bind_value(&bounded_value);
+    if (!check(bounded_editor.set_numeric_range(0.0, 10.0),
+               "finite ascending numeric range should be accepted"))
+    {
+        return 1;
+    }
+    bounded_editor.setText("5+2");
+    if (!check(bounded_editor.commit() && close_enough(bounded_value, 7.0),
+               "value inside numeric range should be accepted"))
+    {
+        return 1;
+    }
+    bounded_editor.setText("11");
+    if (!check(!bounded_editor.commit() && close_enough(bounded_value, 7.0),
+               "value outside numeric range should be rejected"))
+    {
+        return 1;
+    }
+    if (!check(!bounded_editor.set_numeric_range(10.0, 0.0),
+               "descending numeric range should be rejected"))
+    {
+        return 1;
+    }
+
     return 0;
 }

@@ -15,6 +15,8 @@
 #include <QStringList>
 #include <QVariant>
 #include <QWidget>
+#include <QPair>
+#include <optional>
 #include <variant>
 
 QString qui_tab_widget_style_sheet();
@@ -53,6 +55,9 @@ public:
     void set_string_mode();
     Value_Mode value_mode() const;
 
+    bool set_numeric_range(double minimum, double maximum);
+    void clear_numeric_range();
+
     bool set_unit_conversion(const QString &display_unit, const QString &storage_unit);
     QString display_unit() const;
     QString storage_unit() const;
@@ -90,6 +95,7 @@ private:
     bool m_allow_empty_string = true;
     QString m_display_unit;
     QString m_storage_unit;
+    std::optional<QPair<double, double>> m_numeric_range;
 };
 
 class QUI_FieldRow : public QWidget

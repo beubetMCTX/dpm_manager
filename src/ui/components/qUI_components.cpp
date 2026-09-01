@@ -12,6 +12,7 @@
 #include <array>
 #include <cmath>
 #include <memory>
+#include <limits>
 
 namespace
 {
@@ -673,6 +674,22 @@ QUI_LineEdit::Value_Mode QUI_LineEdit::value_mode() const
     return m_value_mode;
 }
 
+bool QUI_LineEdit::set_numeric_range(double minimum, double maximum)
+{
+    if (!std::isfinite(minimum) || !std::isfinite(maximum) || minimum > maximum)
+    {
+        return false;
+    }
+
+    m_numeric_range = qMakePair(minimum, maximum);
+    return true;
+}
+
+void QUI_LineEdit::clear_numeric_range()
+{
+    m_numeric_range.reset();
+}
+
 bool QUI_LineEdit::set_unit_conversion(const QString &display_unit, const QString &storage_unit)
 {
     if (!UnitSystem::are_compatible(display_unit, storage_unit))
@@ -909,6 +926,15 @@ bool QUI_LineEdit::commit_numeric_value(double &numeric_value,
 {
     if (!evaluate_expression(text(), numeric_value, error_message))
     {
+        return false;
+    }
+
+    if (m_numeric_range.has_value() &&
+        (numeric_value < m_numeric_range->first || numeric_value > m_numeric_range->second))
+    {
+        error_message = QString("Value must be between %1 and %2.")
+                            .arg(format_double_value(m_numeric_range->first),
+                                 format_double_value(m_numeric_range->second));
         return false;
     }
 
