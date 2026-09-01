@@ -258,6 +258,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added reference-geometry actions to the Objects panel context menu in commit `c2a2992`: Fit All, clear selected face, align view, and lock/unlock.
 - Stabilized injector ordering and selection retention during Objects-panel refreshes in commit `80ba5a4` by sorting by name and restoring the selected item when it remains visible.
 - Added a first-scope move history in commit `00f70ea` and exposed `Undo Move`/`Redo Move` actions with `Ctrl+Z`/`Ctrl+Y` in commit `a3b6499`. Each complete 3D injector drag is one history entry; editor-field history remains a separate future task.
+- Cleared move history on DPM reload and removed entries for deleted injectors in commit `d061b0d`, preventing undo/redo from targeting stale objects.
 
 References:
 
