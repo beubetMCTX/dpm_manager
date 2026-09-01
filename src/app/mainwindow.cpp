@@ -17,6 +17,7 @@
 #include <QMenu>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
+#include <algorithm>
 
 namespace
 {
@@ -958,6 +959,10 @@ void MainWindow::update_object_list_panel()
         return;
     }
 
+    const QString selected_object_id = m_object_list->currentItem() == nullptr
+                                           ? QString()
+                                           : m_object_list->currentItem()
+                                                 ->data(Qt::UserRole).toString();
     const QSignalBlocker blocker(m_object_list);
     m_object_list->clear();
 
@@ -971,9 +976,30 @@ void MainWindow::update_object_list_panel()
                                           : Qt::Unchecked);
     }
 
-    for (auto it = m_3d_widget->unit_hash.cbegin();
-         it != m_3d_widget->unit_hash.cend(); ++it)
+    QList<QUuid> unit_ids = m_3d_widget->unit_hash.keys();
+    std::sort(unit_ids.begin(), unit_ids.end(), [this](const QUuid &lhs,
+                                                       const QUuid &rhs)
     {
+        const auto left = m_3d_widget->unit_hash.value(lhs);
+        const auto right = m_3d_widget->unit_hash.value(rhs);
+        const QString left_name = left == nullptr
+                                      ? QString()
+                                      : left->inj.injector_data.name.trimmed();
+        const QString right_name = right == nullptr
+                                       ? QString()
+                                       : right->inj.injector_data.name.trimmed();
+        const int name_comparison = QString::compare(left_name, right_name,
+                                                     Qt::CaseInsensitive);
+        if (name_comparison != 0)
+        {
+            return name_comparison < 0;
+        }
+        return lhs.toString() < rhs.toString();
+    });
+
+    for (const QUuid &unit_id : unit_ids)
+    {
+        const auto it = m_3d_widget->unit_hash.constFind(unit_id);
         if (it.value() == nullptr)
         {
             continue;
@@ -985,16 +1011,16 @@ void MainWindow::update_object_list_panel()
             name = it.key().toString(QUuid::WithoutBraces);
         }
 
-        if (m_3d_widget->unit_locked(it.key()))
+        if (m_3d_widget->unit_locked(unit_id))
         {
             name = "[Locked] " + name;
         }
         auto *unit_item = new QListWidgetItem(name, m_object_list);
         unit_item->setData(Qt::UserRole,
-                           it.key().toString(QUuid::WithoutBraces));
-        unit_item->setToolTip(it.key().toString(QUuid::WithoutBraces));
+                           unit_id.toString(QUuid::WithoutBraces));
+        unit_item->setToolTip(unit_id.toString(QUuid::WithoutBraces));
         unit_item->setFlags(unit_item->flags() | Qt::ItemIsUserCheckable);
-        unit_item->setCheckState(m_3d_widget->unit_visible(it.key())
+        unit_item->setCheckState(m_3d_widget->unit_visible(unit_id)
                                      ? Qt::Checked
                                      : Qt::Unchecked);
     }
@@ -1009,6 +1035,21 @@ void MainWindow::update_object_list_panel()
                             !item->text().contains(filter, Qt::CaseInsensitive) &&
                             !item->data(Qt::UserRole).toString()
                                  .contains(filter, Qt::CaseInsensitive));
+        }
+    }
+
+    if (!selected_object_id.isEmpty())
+    {
+        for (int row = 0; row < m_object_list->count(); ++row)
+        {
+            QListWidgetItem *item = m_object_list->item(row);
+            if (item->data(Qt::UserRole).toString() == selected_object_id &&
+                !item->isHidden())
+            {
+                item->setSelected(true);
+                m_object_list->scrollToItem(item);
+                break;
+            }
         }
     }
 }
