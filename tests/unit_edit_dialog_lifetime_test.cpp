@@ -35,6 +35,28 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Injector_OCCT geometry;
+    geometry.injector_data.vel = QVector3D(0.0f, 0.0f, 1.0f);
+    geometry.injector_data.total_flow_rate = 1.0;
+    if (!check(geometry.create_injector(),
+               "A valid injector should create geometry") ||
+        !check(!geometry.shape.IsNull(),
+               "A valid injector should retain its geometry"))
+    {
+        delete parent;
+        return 1;
+    }
+
+    geometry.injector_data.vel = QVector3D();
+    if (!check(!geometry.create_injector(),
+               "An invalid injector should fail geometry creation") ||
+        !check(!geometry.shape.IsNull(),
+               "A failed rebuild should preserve the previous geometry"))
+    {
+        delete parent;
+        return 1;
+    }
+
     dialog->close();
     application.processEvents();
     if (!check(dialog != nullptr,

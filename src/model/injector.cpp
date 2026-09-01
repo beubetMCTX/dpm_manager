@@ -608,6 +608,9 @@ bool Injector_OCCT::initialize_OCAF()
 
 bool Injector_OCCT::create_injector()
 {
+    const TopoDS_Compound previous_shape = shape;
+    bool success = false;
+
     if (!kEnableAdvancedAtomizerGeometryPreview &&
         is_advanced_atomizer_preview_type(injector_data.injection_type))
     {
@@ -618,32 +621,52 @@ bool Injector_OCCT::create_injector()
     switch(injector_data.injection_type)
     {
     case single:
-        return create_geometry_single();
+        success = create_geometry_single();
+        break;
     case group:
-        return create_geometry_group(shape);
+        success = create_geometry_group(shape);
+        break;
     case surface:
-        return create_geometry_group(shape);
+        success = create_geometry_group(shape);
+        break;
     case volume:
-        return create_geometry_volume(shape);
+        success = create_geometry_volume(shape);
+        break;
     case cone:
-        return create_geometry_cone(shape);
+        success = create_geometry_cone(shape);
+        break;
     case plain_oriface_atomizer:
-        return create_geometry_p_o_a(shape);
+        success = create_geometry_p_o_a(shape);
+        break;
     case pressure_swirl_atomizer:
-        return create_geometry_p_s_a(shape);
+        success = create_geometry_p_s_a(shape);
+        break;
     case air_blast_atomizer:
-        return create_geometry_a_b_a(shape);
+        success = create_geometry_a_b_a(shape);
+        break;
     case flat_fan_atomizer:
-        return create_geometry_f_f_a(shape);
+        success = create_geometry_f_f_a(shape);
+        break;
     case effervescent_atomizer:
-        return create_geometry_e_a(shape);
+        success = create_geometry_e_a(shape);
+        break;
     case file_:
-        return create_geometry_group(shape);
+        success = create_geometry_group(shape);
+        break;
     case condensate:
-        return create_geometry_condensate(shape);
+        success = create_geometry_condensate(shape);
+        break;
     default:
-        return false;
+        success = false;
+        break;
     }
+
+    if (!success)
+    {
+        shape = previous_shape;
+    }
+
+    return success;
 }
 
 TopoDS_Compound Injector_OCCT::create_arrow(gp_Ax2 ax2, Standard_Real cyli_diameter, Standard_Real cyli_length, Standard_Real cone_diameter, Standard_Real cone_length)

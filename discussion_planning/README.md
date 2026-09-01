@@ -638,3 +638,9 @@ References:
 - `QUI_ComboBox::set_options()` now compares the incoming labels with the existing options before clearing and repopulating the widget.
 - External unit-data synchronization therefore preserves unchanged combo-box contents without rebuilding the selection or emitting extra selection changes.
 - Added regression coverage for unchanged options; Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Preserve Geometry on Failed Rebuilds
+
+- `Injector_OCCT::create_injector()` now keeps the previous compound when a geometry generator fails.
+- Invalid edits can no longer silently replace a valid displayed injector with an empty shape; callers can report the failure while retaining the last valid preview.
+- Added regression coverage for a failed rebuild caused by a zero velocity; Release build and all 9 CTest regressions passed.
