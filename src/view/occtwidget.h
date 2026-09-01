@@ -113,6 +113,9 @@ public:
     bool set_reference_geometry_visible(bool visible);
     bool unit_visible(const QUuid &uuid) const;
     bool reference_geometry_visible() const { return m_reference_geometry_visible; }
+    bool set_unit_locked(const QUuid &uuid, bool locked);
+    bool unit_locked(const QUuid &uuid) const;
+    bool set_unit_name(const QUuid &uuid, const QString &name);
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
@@ -237,6 +240,7 @@ private:
     QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;
     QSet<QUuid> m_pending_visual_refreshes;
     QHash<QUuid, bool> m_unit_visibility;
+    QHash<QUuid, bool> m_unit_locks;
     bool m_reference_geometry_visible = true;
 
 

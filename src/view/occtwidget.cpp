@@ -63,6 +63,7 @@ OCCTWidget::~OCCTWidget()
 
     unit_hash.clear();
     m_unit_visibility.clear();
+    m_unit_locks.clear();
     reference_geometry.Nullify();
     base_geometry.Nullify();
     trihedron_main.Nullify();
@@ -161,6 +162,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         }
         unit_hash.clear();
         m_unit_visibility.clear();
+        m_unit_locks.clear();
     }
 
     static const Quantity_Color palette[] = {
@@ -178,6 +180,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
         unit_hash.insert(stored_unit->inj.uuid, stored_unit);
         m_unit_visibility.insert(stored_unit->inj.uuid, true);
+        m_unit_locks.insert(stored_unit->inj.uuid, false);
 
         stored_unit->ais_display->Set(stored_unit->inj.shape);
         stored_unit->u_owner->set_unit(stored_unit.get());
@@ -300,6 +303,46 @@ bool OCCTWidget::set_reference_geometry_visible(bool visible)
 bool OCCTWidget::unit_visible(const QUuid &uuid) const
 {
     return m_unit_visibility.value(uuid, false);
+}
+
+bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
+{
+    if (uuid.isNull() || !unit_hash.contains(uuid))
+    {
+        return false;
+    }
+
+    m_unit_locks.insert(uuid, locked);
+    if (locked && selected_shape == unit_hash.value(uuid)->ais_display)
+    {
+        myIsDragging = false;
+    }
+    return true;
+}
+
+bool OCCTWidget::unit_locked(const QUuid &uuid) const
+{
+    return m_unit_locks.value(uuid, false);
+}
+
+bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr)
+    {
+        return false;
+    }
+
+    const QString normalized_name = name.trimmed();
+    if (normalized_name.isEmpty() ||
+        unit->inj.injector_data.name == normalized_name)
+    {
+        return false;
+    }
+
+    unit->inj.injector_data.name = normalized_name;
+    emit unit_data_updated(unit.get());
+    return true;
 }
 
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
@@ -744,6 +787,13 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
         clear_face_reference();
         myIsDragging = select_injector();
+        if (myIsDragging && !selected_shape.IsNull())
+        {
+            if (Unit *unit = get_unit(selected_shape))
+            {
+                myIsDragging = !unit_locked(unit->inj.uuid);
+            }
+        }
         if (!myIsDragging)
         {
             selected_shape.Nullify();
