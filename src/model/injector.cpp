@@ -11,9 +11,13 @@ constexpr double kPi = 3.14159265358979323846;
 constexpr float kTiny = 1.0e-6f;
 constexpr Standard_Integer kPreviewArrowCount = 8;
 constexpr Standard_Real kBaseThickness = 0.01;
-// Temporary preview gate: keep parsing/data intact, but skip drawing the more
-// complex atomizer OCCT preview geometry until we want to re-enable it.
+// Keep parsing/data intact while allowing experimental previews to be enabled
+// explicitly through the DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW build option.
+#ifdef DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW
+constexpr bool kEnableAdvancedAtomizerGeometryPreview = true;
+#else
 constexpr bool kEnableAdvancedAtomizerGeometryPreview = false;
+#endif
 
 double clamp_double(double value, double low, double high)
 {

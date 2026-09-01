@@ -661,3 +661,8 @@ References:
 
 - OpenCASCADE and VTK paths are now CMake Cache variables instead of fixed non-overridable assignments.
 - Existing defaults preserve the current development environment, while another machine can provide its own paths during configuration with `-D...` options.
+
+### 2026-09-02 Make Advanced Atomizer Preview Configurable
+
+- Added the `DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW` CMake option for the experimental complex atomizer previews.
+- The default remains `OFF`, preserving the stable simplified preview; developers can opt in with `-DDPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW=ON` without editing source code.

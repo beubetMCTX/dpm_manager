@@ -3,6 +3,9 @@ cmake_minimum_required(VERSION 3.16)
 project(dpm_manager VERSION 0.1 LANGUAGES CXX)
 
 option(DPM_BUILD_TESTS "Build focused regression tests" ON)
+option(DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW
+       "Enable experimental advanced atomizer geometry previews"
+       OFF)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -142,6 +145,10 @@ target_link_libraries(dpm_manager PRIVATE unofficial::tinyexpr::tinyexpr)
 target_link_libraries(dpm_manager PRIVATE OpenGL::GL)
 target_link_libraries(dpm_manager PRIVATE Qt6::OpenGLWidgets)
 target_link_libraries(dpm_manager PRIVATE ${OpenCASCADE_LIBRARIES})
+if(DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW)
+    target_compile_definitions(dpm_manager PRIVATE
+        DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW=1)
+endif()
 #target_link_libraries(dpm_manager PRIVATE TKernel;TKMath;TKG2d;TKG3d;TKGeomBase;TKBRep;TKGeomAlgo;TKTopAlgo;TKPrim;TKBO;TKShHealing;TKBool;TKHLR;TKFillet;TKOffset;TKFeat;TKMesh;TKXMesh;TKService;TKV3d;TKOpenGl;TKMeshVS;TKIVtk;TKCDF;TKLCAF;TKCAF;TKBinL;TKXmlL;TKBin;TKXml;TKStdL;TKStd;TKTObj;TKBinTObj;TKXmlTObj;TKVCAF;TKDE;TKXSBase;TKDESTEP;TKXCAF;TKDEIGES;TKDESTL;TKDEVRML;TKRWMesh;TKDECascade;TKBinXCAF;TKXmlXCAF;TKDEOBJ;TKDEGLTF;TKDEPLY;TKExpress;TKDraw;TKTopTest;TKOpenGlTest;TKViewerTest;TKXSDRAW;TKDCAF;TKXDEDRAW;TKTObjDRAW;TKQADraw;TKIVtkDraw;TKXSDRAWDE;TKXSDRAWGLTF;TKXSDRAWIGES;TKXSDRAWOBJ;TKXSDRAWPLY;TKXSDRAWSTEP;TKXSDRAWSTL;TKXSDRAWVRML)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
