@@ -1612,10 +1612,12 @@ void MainWindow::create_object_list_panel()
     auto *view_controls_layout = new QHBoxLayout(view_controls);
     view_controls_layout->setContentsMargins(0, 0, 0, 0);
     auto *fit_all_button = new QPushButton("Fit All", view_controls);
+    auto *fit_selected_button = new QPushButton("Fit Selected", view_controls);
     auto *clear_selection_button = new QPushButton("Clear Selection", view_controls);
     auto *show_all_button = new QPushButton("Show All", view_controls);
     auto *hide_all_button = new QPushButton("Hide All", view_controls);
     view_controls_layout->addWidget(fit_all_button);
+    view_controls_layout->addWidget(fit_selected_button);
     view_controls_layout->addWidget(clear_selection_button);
     view_controls_layout->addWidget(show_all_button);
     view_controls_layout->addWidget(hide_all_button);
@@ -1631,6 +1633,8 @@ void MainWindow::create_object_list_panel()
 
     connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::fit_all_view);
+    connect(fit_selected_button, &QPushButton::clicked, m_3d_widget,
+            &OCCTWidget::fit_selected_view);
     connect(clear_selection_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::clear_selection);
     connect(show_all_button, &QPushButton::clicked, this, [this]()
@@ -1749,6 +1753,7 @@ void MainWindow::create_object_list_panel()
         {
             QMenu menu(m_object_list);
             QAction *fit_all_action = menu.addAction("Fit All");
+            QAction *fit_selected_action = menu.addAction("Fit Selected");
             QAction *clear_face_action = menu.addAction("Clear Selected Face");
             QAction *align_face_action = menu.addAction("Align View to Selected Face");
             align_face_action->setEnabled(m_align_reference_face != nullptr &&
@@ -1763,6 +1768,11 @@ void MainWindow::create_object_list_panel()
             if (chosen_action == fit_all_action)
             {
                 m_3d_widget->fit_all_view();
+            }
+            else if (chosen_action == fit_selected_action)
+            {
+                m_3d_widget->select_reference_geometry();
+                m_3d_widget->fit_selected_view();
             }
             else if (chosen_action == clear_face_action)
             {
@@ -1788,6 +1798,7 @@ void MainWindow::create_object_list_panel()
 
         QMenu menu(m_object_list);
         QAction *edit_action = menu.addAction("Edit");
+        QAction *fit_selected_action = menu.addAction("Fit Selected");
         QAction *copy_action = menu.addAction("Copy");
         QAction *paste_action = menu.addAction("Paste to replace");
         paste_action->setEnabled(m_3d_widget->has_copied_unit());
@@ -1801,6 +1812,11 @@ void MainWindow::create_object_list_panel()
         if (chosen_action == edit_action)
         {
             m_3d_widget->edit_unit_by_uuid(uuid);
+        }
+        else if (chosen_action == fit_selected_action)
+        {
+            m_3d_widget->select_unit_by_uuid(uuid);
+            m_3d_widget->fit_selected_view();
         }
         else if (chosen_action == copy_action)
         {

@@ -132,6 +132,7 @@ public:
     bool paste_unit_by_uuid(const QUuid &uuid);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
+    void fit_selected_view();
     void clear_selection();
     bool undo_last_move();
     bool redo_move();

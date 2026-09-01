@@ -23,6 +23,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - The reference geometry lock remains a movement lock only; it does not disable face selection.
 - Release build and all 9 CTest regressions passed. Real OCCT mouse interaction still needs manual verification.
 
+### 2026-09-02 Fit Selected Object
+
+- Added a `Fit Selected` view command backed by OCCT `FitSelected`.
+- Exposed it in the object-list toolbar and object context menus for injectors and reference geometry.
+- The command changes only the camera view and does not rebuild displayed geometry.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.

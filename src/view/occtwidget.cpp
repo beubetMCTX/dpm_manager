@@ -542,6 +542,17 @@ void OCCTWidget::fit_all_view()
     }
 }
 
+void OCCTWidget::fit_selected_view()
+{
+    if (m_context.IsNull() || m_view.IsNull())
+    {
+        return;
+    }
+
+    m_context->FitSelected(m_view);
+    m_view->Redraw();
+}
+
 void OCCTWidget::clear_selection()
 {
     clear_face_reference();
