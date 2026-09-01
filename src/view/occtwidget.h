@@ -140,6 +140,7 @@ public:
     bool can_redo_move() const;
     void begin_unit_edit_transaction(Unit *unit);
     void finish_unit_edit_transaction(Unit *unit, bool changed);
+    bool cancel_unit_edit_transaction(Unit *unit);
     bool undo_last_edit();
     bool redo_edit();
     bool can_undo_edit() const;

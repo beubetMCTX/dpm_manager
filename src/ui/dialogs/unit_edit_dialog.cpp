@@ -549,6 +549,7 @@ unit_edit_dialog::unit_edit_dialog(Unit* control_unit,
     // when the main window is closing while an editor is still visible.
     setAttribute(Qt::WA_DeleteOnClose, false);
     initialize();
+    setup_action_buttons();
 
     // for(auto i =0;i<ui->verticalLayout_number_of_stream->count();i++)
     // {
@@ -582,6 +583,39 @@ void unit_edit_dialog::closeEvent(QCloseEvent *event)
 {
     emit dialog_closed(control_unit);
     QDialog::closeEvent(event);
+}
+
+void unit_edit_dialog::setup_action_buttons()
+{
+    if (ui == nullptr || ui->verticalLayout_frame == nullptr)
+    {
+        return;
+    }
+
+    auto *button_row = new QWidget(this);
+    button_row->setObjectName("unitEditorActionRow");
+    auto *button_layout = new QHBoxLayout(button_row);
+    button_layout->setContentsMargins(20, 6, 20, 10);
+    button_layout->setSpacing(8);
+    button_layout->addStretch(1);
+
+    m_apply_button = new QPushButton("Apply and Close", button_row);
+    m_apply_button->setObjectName("applyChangesButton");
+    m_cancel_button = new QPushButton("Cancel Changes", button_row);
+    m_cancel_button->setObjectName("cancelChangesButton");
+    button_layout->addWidget(m_apply_button);
+    button_layout->addWidget(m_cancel_button);
+    ui->verticalLayout_frame->addWidget(button_row);
+
+    connect(m_apply_button, &QPushButton::clicked, this, [this]()
+    {
+        close();
+    });
+    connect(m_cancel_button, &QPushButton::clicked, this, [this]()
+    {
+        emit dialog_cancelled(control_unit);
+        close();
+    });
 }
 
 void unit_edit_dialog::refresh_from_unit_data(Unit *unit)

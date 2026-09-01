@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QGroupBox>
 #include <QLayout>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QString>
 
@@ -39,6 +40,7 @@ public:
 signals:
     void injector_data_changed(Unit *unit);
     void injector_geometry_changed(Unit *unit);
+    void dialog_cancelled(Unit *unit);
     void dialog_closed(Unit *unit);
 
 protected:
@@ -80,6 +82,8 @@ private:
     QVBoxLayout *m_turbulent_dispersion_layout = nullptr;
     QVBoxLayout *m_parcel_layout = nullptr;
     QVBoxLayout *m_wet_combustion_layout = nullptr;
+    QPushButton *m_apply_button = nullptr;
+    QPushButton *m_cancel_button = nullptr;
     bool m_data_modified = false;
 
     inline bool initialize();
@@ -111,6 +115,7 @@ private:
     void build_model_property_rows();
     void sync_model_property_rows();
     void clear_layout(QLayout *layout);
+    void setup_action_buttons();
     void notify_injector_data_changed(bool geometry_changed = true);
 };
 

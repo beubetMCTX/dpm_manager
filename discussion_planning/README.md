@@ -30,6 +30,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - The command changes only the camera view and does not rebuild displayed geometry.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Unit Editor Apply and Cancel
+
+- Added explicit `Apply and Close` and `Cancel Changes` actions to the unit editor.
+- Existing window-close behavior still keeps live edits; explicit cancellation restores the transaction snapshot and rebuilds the affected injector once.
+- Added a lifetime regression check for the new cancel action and signal.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.

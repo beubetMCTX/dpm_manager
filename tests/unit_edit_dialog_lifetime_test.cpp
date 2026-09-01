@@ -2,6 +2,7 @@
 
 #include <QApplication>
 #include <QPointer>
+#include <QPushButton>
 #include <QWidget>
 
 namespace
@@ -34,6 +35,31 @@ int main(int argc, char *argv[])
         delete parent;
         return 1;
     }
+
+    if (!check(dialog->findChild<QPushButton*>("applyChangesButton") != nullptr &&
+                   dialog->findChild<QPushButton*>("cancelChangesButton") != nullptr,
+               "Unit editor should expose explicit apply and cancel actions"))
+    {
+        delete parent;
+        return 1;
+    }
+
+    bool cancel_signal_received = false;
+    QObject::connect(dialog, &unit_edit_dialog::dialog_cancelled,
+                     [&cancel_signal_received](Unit *)
+    {
+        cancel_signal_received = true;
+    });
+    dialog->findChild<QPushButton*>("cancelChangesButton")->click();
+    application.processEvents();
+    if (!check(cancel_signal_received && !dialog->isVisible(),
+               "Cancel Changes should emit its signal and close the editor"))
+    {
+        delete parent;
+        return 1;
+    }
+    dialog->show();
+    application.processEvents();
 
     Injector_OCCT geometry;
     geometry.injector_data.vel = QVector3D(0.0f, 0.0f, 1.0f);

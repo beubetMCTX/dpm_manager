@@ -672,6 +672,38 @@ void OCCTWidget::finish_unit_edit_transaction(Unit *unit, bool changed)
     }
 }
 
+bool OCCTWidget::cancel_unit_edit_transaction(Unit *unit)
+{
+    if (unit == nullptr || unit->inj.uuid.isNull())
+    {
+        return false;
+    }
+
+    const auto transaction_it = m_edit_transactions.find(unit->inj.uuid);
+    if (transaction_it == m_edit_transactions.end())
+    {
+        return false;
+    }
+
+    const UnitEditTransaction transaction = transaction_it.value();
+    UnitEditHistoryEntry before_entry;
+    before_entry.uuid = transaction.uuid;
+    before_entry.before_type = transaction.before_type;
+    before_entry.after_type = transaction.before_type;
+    before_entry.before_data = transaction.before_data;
+    before_entry.after_data = transaction.before_data;
+
+    if (!apply_edit_snapshot(before_entry,
+                             transaction.before_type,
+                             transaction.before_data))
+    {
+        return false;
+    }
+
+    m_edit_transactions.erase(transaction_it);
+    return true;
+}
+
 bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
                                      Unit_Type type,
                                      const Injector &data)
@@ -1708,6 +1740,11 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
         }
 
         clear_context_selection_safely();
+    });
+    connect(inj_edit_dialog, &unit_edit_dialog::dialog_cancelled, this,
+            [this](Unit *cancelled_unit)
+    {
+        cancel_unit_edit_transaction(cancelled_unit);
     });
     connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this, [this](Unit *changed_unit)
     {
