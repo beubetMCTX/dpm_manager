@@ -198,6 +198,23 @@ if(DPM_BUILD_TESTS)
     target_link_libraries(unit_system_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME unit_system_regression COMMAND unit_system_regression)
 
+    add_executable(qui_line_edit_regression
+        tests/qui_line_edit_test.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
+        ${UI_COMPONENTS_DIR}/qUI_components.h ${UI_COMPONENTS_DIR}/qUI_components.cpp
+    )
+    target_include_directories(qui_line_edit_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${COMMON_DIR}
+        ${UI_COMPONENTS_DIR}
+    )
+    target_link_libraries(qui_line_edit_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(qui_line_edit_regression PRIVATE unofficial::tinyexpr::tinyexpr)
+    add_test(NAME qui_line_edit_regression COMMAND qui_line_edit_regression)
+    set_tests_properties(qui_line_edit_regression
+                         PROPERTIES ENVIRONMENT
+                         "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins")
+
     add_executable(chemkin_io_regression
         tests/chemkin_io_test.cpp
         ${IO_DIR}/chemkin_io.h ${IO_DIR}/chemkin_io.cpp
