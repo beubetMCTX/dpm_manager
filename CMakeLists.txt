@@ -230,6 +230,18 @@ if(DPM_BUILD_TESTS)
     target_link_libraries(dpm_file_io_regression PRIVATE Qt6::OpenGLWidgets)
     target_link_libraries(dpm_file_io_regression PRIVATE ${OpenCASCADE_LIBRARIES})
     add_test(NAME dpm_file_io_regression COMMAND dpm_file_io_regression)
+
+    add_executable(base_geom_read_regression
+        tests/base_geom_read_test.cpp
+        ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
+    )
+    target_include_directories(base_geom_read_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${IO_DIR}
+    )
+    target_link_libraries(base_geom_read_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(base_geom_read_regression PRIVATE ${OpenCASCADE_LIBRARIES})
+    add_test(NAME base_geom_read_regression COMMAND base_geom_read_regression)
 endif()
 
 

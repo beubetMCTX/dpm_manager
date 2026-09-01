@@ -406,3 +406,8 @@ References:
 
 - Added a dedicated injector lock-state signal from `OCCTWidget`.
 - The Objects panel now refreshes the affected row immediately when locking or unlocking is performed from the 3D context menu, keeping the `[Locked]` label synchronized across all entry points.
+
+### 2026-09-02 Reference Geometry Reader Regression Coverage
+
+- Added `base_geom_read_regression` for empty paths, missing files, empty files, and unsupported geometry extensions.
+- The test confirms that these failures return `false` and preserve a descriptive reader error without requiring a GUI message box.
