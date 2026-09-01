@@ -37,6 +37,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added a lifetime regression check for the new cancel action and signal.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Track Reference Geometry Changes
+
+- Reference geometry transformations now mark the project dirty when changed through OCCT interaction.
+- Startup restoration is protected from dirty tracking, so loading saved reference geometry does not appear as a new unsaved edit.
+- Configuration files are not written on every mouse-move event; the existing save paths remain responsible for persistence.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.

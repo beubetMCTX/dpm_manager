@@ -208,6 +208,7 @@ MainWindow::MainWindow(QWidget *parent)
             [this](const QVector3D &, const QVector3D &)
     {
         update_reference_geometry_panel();
+        mark_project_dirty();
     });
     connect(m_3d_widget, &OCCTWidget::face_reference_changed, this,
             [this](bool available)
@@ -372,7 +373,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     restore_material_table();
     runtime_debug::trace("MainWindow material table restored");
+    m_loading_project_session = true;
     restore_reference_geometry();
+    m_loading_project_session = false;
     runtime_debug::trace("MainWindow reference geometry restore finished");
     restore_last_chemkin_file();
     runtime_debug::trace("MainWindow chemkin file restore finished");
