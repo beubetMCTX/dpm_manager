@@ -13,6 +13,8 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QInputDialog>
+#include <QMenu>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
 
@@ -767,6 +769,61 @@ void MainWindow::create_object_list_panel()
         if (!uuid.isNull())
         {
             m_3d_widget->set_unit_visible(uuid, visible);
+            }
+    });
+    m_object_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_object_list, &QListWidget::customContextMenuRequested, this,
+            [this](const QPoint &position)
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        QListWidgetItem *item = m_object_list->itemAt(position);
+        if (item == nullptr)
+        {
+            return;
+        }
+
+        const QString object_id = item->data(Qt::UserRole).toString();
+        if (object_id == QStringLiteral("reference"))
+        {
+            return;
+        }
+
+        const QUuid uuid(object_id);
+        if (uuid.isNull() || !m_3d_widget->unit_hash.contains(uuid))
+        {
+            return;
+        }
+
+        QMenu menu(m_object_list);
+        QAction *rename_action = menu.addAction("Rename");
+        QAction *lock_action = menu.addAction(
+            m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
+                                            : "Lock Movement");
+        QAction *chosen_action = menu.exec(m_object_list->viewport()->mapToGlobal(position));
+        if (chosen_action == rename_action)
+        {
+            const QString old_name = m_3d_widget->unit_hash.value(uuid)
+                                         ->inj.injector_data.name;
+            bool accepted = false;
+            const QString new_name = QInputDialog::getText(
+                this, "Rename Injector", "Name:", QLineEdit::Normal,
+                old_name, &accepted);
+            if (accepted)
+            {
+                m_3d_widget->set_unit_name(uuid, new_name);
+            }
+        }
+        else if (chosen_action == lock_action)
+        {
+            m_3d_widget->set_unit_locked(
+                uuid, !m_3d_widget->unit_locked(uuid));
+            update_object_list_item(
+                uuid, m_3d_widget->unit_hash.value(uuid)
+                           ->inj.injector_data.name);
         }
     });
 
@@ -807,6 +864,10 @@ void MainWindow::update_object_list_panel()
             name = it.key().toString(QUuid::WithoutBraces);
         }
 
+        if (m_3d_widget->unit_locked(it.key()))
+        {
+            name = "[Locked] " + name;
+        }
         auto *unit_item = new QListWidgetItem(name, m_object_list);
         unit_item->setData(Qt::UserRole,
                            it.key().toString(QUuid::WithoutBraces));
@@ -854,6 +915,10 @@ void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)
     if (display_name.isEmpty())
     {
         display_name = uuid.toString(QUuid::WithoutBraces);
+    }
+    if (m_3d_widget != nullptr && m_3d_widget->unit_locked(uuid))
+    {
+        display_name = "[Locked] " + display_name;
     }
 
     for (int row = 0; row < m_object_list->count(); ++row)
