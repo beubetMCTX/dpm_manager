@@ -34,6 +34,7 @@ QT_END_NAMESPACE
 
 class SpeciesColorDialog;
 class SpeciesMaterialDialog;
+class UnitPreferencesDialog;
 
 class MainWindow : public QMainWindow
 {
@@ -97,6 +98,7 @@ private:
     void restore_window_layout();
     void save_window_layout();
     void reset_window_layout();
+    void open_unit_preferences_dialog();
 
     Ui::MainWindow *ui;
     QStringList m_chemkin_species_names;

@@ -363,3 +363,8 @@ References:
 - Application startup now loads valid unit preferences and activates them before editors are opened.
 - `QUI_FieldRow` maps semantic dimensions to configured display units while preserving field-specific internal storage units.
 - Length and temperature use base storage units; angle fields preserve their existing degree/radian storage semantics.
+
+### 2026-09-02 Unit Preference Settings UI
+
+- Added a reusable Display Units dialog for length, angle, velocity, mass, mass flow, time, pressure, and temperature.
+- Added a Settings menu action that persists confirmed choices and refreshes all open injector editors without changing model storage units.

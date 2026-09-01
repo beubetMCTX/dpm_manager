@@ -862,6 +862,22 @@ void OCCTWidget::add_readed_geometry()
 
 }
 
+void OCCTWidget::refresh_open_unit_editors()
+{
+    for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
+    {
+        if (dialog != nullptr)
+        {
+            const QVariant property_value = dialog->property("unit_ptr");
+            Unit *unit = reinterpret_cast<Unit *>(property_value.value<quintptr>());
+            if (unit != nullptr)
+            {
+                dialog->refresh_from_unit_data(unit);
+            }
+        }
+    }
+}
+
 bool OCCTWidget::clear_reference_geometry()
 {
     clear_face_reference();

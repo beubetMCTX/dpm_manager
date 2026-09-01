@@ -7,6 +7,7 @@
 #include "runtime_debug.h"
 #include "species_color_dialog.h"
 #include "species_material_dialog.h"
+#include "unit_preferences_dialog.h"
 #include <QFileInfo>
 #include <QSizePolicy>
 #include <QtMath>
@@ -118,6 +119,11 @@ MainWindow::MainWindow(QWidget *parent)
     {
         qWarning() << config_error_message;
     }
+
+    auto *settings_menu = menuBar()->addMenu("Settings");
+    QAction *unit_preferences_action = settings_menu->addAction("Display Units...");
+    connect(unit_preferences_action, &QAction::triggered, this,
+            &MainWindow::open_unit_preferences_dialog);
 
     Unit_Preferences unit_preferences;
     QString unit_preferences_error;
@@ -339,6 +345,30 @@ MainWindow::MainWindow(QWidget *parent)
     restore_window_layout();
     runtime_debug::trace("MainWindow constructor end");
 
+}
+
+void MainWindow::open_unit_preferences_dialog()
+{
+    UnitPreferencesDialog dialog(UnitSystem::active_preferences(), this);
+    if (dialog.exec() != QDialog::Accepted)
+    {
+        return;
+    }
+
+    const Unit_Preferences preferences = dialog.preferences();
+    QString error_message;
+    if (!save_unit_preferences(preferences, &error_message))
+    {
+        QMessageBox::warning(this, "Display Units", error_message);
+        return;
+    }
+
+    UnitSystem::set_active_preferences(preferences);
+    if (m_3d_widget != nullptr)
+    {
+        m_3d_widget->refresh_open_unit_editors();
+    }
+    statusBar()->showMessage("Display units updated", 3000);
 }
 
 MainWindow::~MainWindow()

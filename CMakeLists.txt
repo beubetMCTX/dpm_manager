@@ -85,6 +85,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
         ${UI_COMPONENTS_DIR}/qUI_components.h ${UI_COMPONENTS_DIR}/qUI_components.cpp
         ${UI_DIALOGS_DIR}/unit_edit_dialog.h ${UI_DIALOGS_DIR}/unit_edit_dialog.cpp ${UI_DIALOGS_DIR}/unit_edit_dialog.ui
+        ${UI_DIALOGS_DIR}/unit_preferences_dialog.h ${UI_DIALOGS_DIR}/unit_preferences_dialog.cpp
         ${UI_DIALOGS_DIR}/species_color_dialog.h ${UI_DIALOGS_DIR}/species_color_dialog.cpp ${UI_DIALOGS_DIR}/species_color_dialog.ui
         ${UI_DIALOGS_DIR}/species_material_dialog.h ${UI_DIALOGS_DIR}/species_material_dialog.cpp ${UI_DIALOGS_DIR}/species_material_dialog.ui
         ${UI_RESOURCES_DIR}/ui_icons.qrc

@@ -141,6 +141,7 @@ public:
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
     void discard_auxiliary_dialogs();
+    void refresh_open_unit_editors();
 
     QHash<QUuid, std::shared_ptr<Unit>> unit_hash;
 
