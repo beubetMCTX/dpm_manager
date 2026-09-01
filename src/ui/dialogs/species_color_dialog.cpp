@@ -104,6 +104,12 @@ SpeciesColorDialog::SpeciesColorDialog(QWidget *parent)
             [this](const QString &text)
     {
         apply_species_filter(text);
+        const int current_row = ui->speciesTable->currentRow();
+        if (current_row >= 0 && ui->speciesTable->isRowHidden(current_row))
+        {
+            clear_current_selection();
+            return;
+        }
         sync_color_picker_to_current_row();
     });
     connect(ui->speciesTable, &QTableWidget::itemChanged, this,

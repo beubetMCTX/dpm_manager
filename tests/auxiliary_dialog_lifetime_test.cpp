@@ -52,6 +52,15 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+
+    color_dialog->findChild<QTableWidget*>("speciesTable")->setCurrentCell(1, 1);
+    species_filter->setText("o2");
+    if (!check(color_dialog->findChild<QTableWidget*>("speciesTable")->currentRow() < 0,
+               "filtering selected species should clear hidden selection"))
+    {
+        return 1;
+    }
+
     color_dialog->set_chemkin_context(QString(), {});
     material_dialog->set_material_entries({});
     color_dialog->show();

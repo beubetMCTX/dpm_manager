@@ -519,6 +519,11 @@ References:
 - Materials density editors now reject non-positive and non-finite values with the existing invalid-input rollback behavior.
 - Added range acceptance/rejection regression coverage.
 
+### 2026-09-02 Filtered Selection Safety
+
+- Species/Colors now clears the active row when filtering hides it, preventing the color picker from editing an invisible Species entry.
+- Added regression coverage for hidden-selection clearing.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.
