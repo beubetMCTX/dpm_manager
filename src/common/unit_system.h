@@ -25,9 +25,25 @@ struct Unit_Definition
     double offset_to_base = 0.0;
 };
 
+struct Unit_Preferences
+{
+    QString length = "mm";
+    QString angle = "deg";
+    QString velocity = "m/s";
+    QString mass = "kg";
+    QString mass_flow = "kg/s";
+    QString time = "s";
+    QString pressure = "Pa";
+    QString temperature = "K";
+};
+
 class UnitSystem
 {
 public:
+    static Unit_Preferences default_preferences();
+    static bool validate_preferences(const Unit_Preferences &preferences,
+                                     QString *error_message = nullptr);
+
     static Unit_Definition definition(const QString &symbol);
     static bool is_supported(const QString &symbol);
     static bool are_compatible(const QString &from_symbol, const QString &to_symbol);

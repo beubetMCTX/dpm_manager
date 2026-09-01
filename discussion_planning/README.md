@@ -350,3 +350,10 @@ References:
 - Malformed schema markers are backed up with the same `.corrupt-*.bak` recovery path as malformed JSON.
 - Configurations from a newer schema are rejected without being overwritten, protecting settings written by a newer application.
 - Release build, `unit_system_regression`, and `project_session_regression` passed.
+
+### 2026-09-02 Unit Preference Persistence
+
+- Added validated `Unit_Preferences` for length, angle, velocity, mass, mass flow, time, pressure, and temperature display units.
+- Added JSON persistence under `config.json` with safe defaults when the preference block is absent.
+- Invalid or dimension-incompatible unit preferences are rejected without being applied.
+- Added default/validation regression coverage; settings UI integration remains the next increment.

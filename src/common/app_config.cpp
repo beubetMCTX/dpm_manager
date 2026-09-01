@@ -488,6 +488,109 @@ bool save_main_window_state(const QByteArray &geometry,
     return write_json_object(app_settings_file_path(), root_object, error_message);
 }
 
+bool load_unit_preferences(Unit_Preferences *preferences,
+                           QString *error_message)
+{
+    if (preferences != nullptr)
+    {
+        *preferences = UnitSystem::default_preferences();
+    }
+
+    if (!QFileInfo::exists(app_settings_file_path()))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (!read_json_object(app_settings_file_path(), &root_object, error_message))
+    {
+        return false;
+    }
+
+    const QJsonObject units_object = root_object.value("unit_preferences").toObject();
+    if (units_object.isEmpty())
+    {
+        return false;
+    }
+
+    Unit_Preferences loaded = UnitSystem::default_preferences();
+    const auto read_unit = [&units_object](const char *key, QString *target)
+    {
+        const QJsonValue value = units_object.value(QString::fromLatin1(key));
+        if (value.isString())
+        {
+            *target = value.toString().trimmed();
+        }
+    };
+    read_unit("length", &loaded.length);
+    read_unit("angle", &loaded.angle);
+    read_unit("velocity", &loaded.velocity);
+    read_unit("mass", &loaded.mass);
+    read_unit("mass_flow", &loaded.mass_flow);
+    read_unit("time", &loaded.time);
+    read_unit("pressure", &loaded.pressure);
+    read_unit("temperature", &loaded.temperature);
+
+    QString validation_error;
+    if (!UnitSystem::validate_preferences(loaded, &validation_error))
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QString("Invalid unit preferences in %1: %2")
+                                 .arg(app_settings_file_path(), validation_error);
+        }
+        return false;
+    }
+
+    if (preferences != nullptr)
+    {
+        *preferences = loaded;
+    }
+    return true;
+}
+
+bool save_unit_preferences(const Unit_Preferences &preferences,
+                           QString *error_message)
+{
+    QString validation_error;
+    if (!UnitSystem::validate_preferences(preferences, &validation_error))
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = validation_error;
+        }
+        return false;
+    }
+
+    if (!ensure_app_config_directories(error_message))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (QFileInfo::exists(app_settings_file_path()))
+    {
+        QString read_error;
+        if (!read_json_object(app_settings_file_path(), &root_object, &read_error))
+        {
+            root_object = QJsonObject();
+        }
+    }
+
+    QJsonObject units_object;
+    units_object.insert("length", preferences.length);
+    units_object.insert("angle", preferences.angle);
+    units_object.insert("velocity", preferences.velocity);
+    units_object.insert("mass", preferences.mass);
+    units_object.insert("mass_flow", preferences.mass_flow);
+    units_object.insert("time", preferences.time);
+    units_object.insert("pressure", preferences.pressure);
+    units_object.insert("temperature", preferences.temperature);
+    root_object.insert("unit_preferences", units_object);
+    root_object.insert("schema_version", kConfigSchemaVersion);
+    return write_json_object(app_settings_file_path(), root_object, error_message);
+}
+
 bool load_species_color_config(const QString &chemkin_file_path,
                                const QStringList &species_names,
                                QHash<QString, QColor> *species_colors,

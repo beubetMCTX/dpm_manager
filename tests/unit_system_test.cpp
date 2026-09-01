@@ -28,6 +28,22 @@ int main(int argc, char **argv)
     (void)argv;
 
     bool ok = false;
+    const Unit_Preferences defaults = UnitSystem::default_preferences();
+    if (!expect(UnitSystem::validate_preferences(defaults), "default unit preferences should be valid") ||
+        !expect(defaults.length == "mm" && defaults.angle == "deg",
+                "default display units should match current editor conventions"))
+    {
+        return 1;
+    }
+
+    Unit_Preferences invalid = defaults;
+    invalid.length = "rad";
+    if (!expect(!UnitSystem::validate_preferences(invalid, nullptr),
+                "incompatible preference should fail validation"))
+    {
+        return 1;
+    }
+
     if (!expect(UnitSystem::is_supported("mm"), "mm should be supported") ||
         !expect(UnitSystem::are_compatible("mm", "m"), "length units should be compatible") ||
         !expect(!UnitSystem::are_compatible("mm", "rad"), "length and angle should be incompatible") ||

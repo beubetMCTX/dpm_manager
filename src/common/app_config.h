@@ -9,6 +9,8 @@
 #include <QStringList>
 #include <QVector3D>
 
+#include "unit_system.h"
+
 struct MaterialConfigEntry
 {
     QString name;
@@ -44,6 +46,10 @@ bool load_main_window_state(QByteArray *geometry,
 bool save_main_window_state(const QByteArray &geometry,
                             const QByteArray &window_state,
                             QString *error_message = nullptr);
+bool load_unit_preferences(Unit_Preferences *preferences,
+                           QString *error_message = nullptr);
+bool save_unit_preferences(const Unit_Preferences &preferences,
+                           QString *error_message = nullptr);
 
 bool load_species_color_config(const QString &chemkin_file_path,
                                const QStringList &species_names,

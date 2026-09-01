@@ -55,6 +55,67 @@ void set_result(bool *ok, bool value)
         *ok = value;
     }
 }
+
+QString base_unit_for(Unit_Dimension dimension)
+{
+    switch (dimension)
+    {
+    case Unit_Dimension::Length:
+        return "m";
+    case Unit_Dimension::Angle:
+        return "rad";
+    case Unit_Dimension::Velocity:
+        return "m/s";
+    case Unit_Dimension::Mass:
+        return "kg";
+    case Unit_Dimension::MassFlow:
+        return "kg/s";
+    case Unit_Dimension::Time:
+        return "s";
+    case Unit_Dimension::Pressure:
+        return "Pa";
+    case Unit_Dimension::Temperature:
+        return "K";
+    case Unit_Dimension::Dimensionless:
+    default:
+        return "-";
+    }
+}
+
+bool validate_preference(const QString &value,
+                         Unit_Dimension dimension,
+                         const char *name,
+                         QString *error_message)
+{
+    if (!UnitSystem::are_compatible(value, base_unit_for(dimension)))
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QString("Invalid %1 display unit: %2.")
+                                 .arg(QString::fromLatin1(name), value);
+        }
+        return false;
+    }
+    return true;
+}
+}
+
+Unit_Preferences UnitSystem::default_preferences()
+{
+    return {};
+}
+
+bool UnitSystem::validate_preferences(const Unit_Preferences &preferences,
+                                      QString *error_message)
+{
+    return validate_preference(preferences.length, Unit_Dimension::Length, "length", error_message) &&
+           validate_preference(preferences.angle, Unit_Dimension::Angle, "angle", error_message) &&
+           validate_preference(preferences.velocity, Unit_Dimension::Velocity, "velocity", error_message) &&
+           validate_preference(preferences.mass, Unit_Dimension::Mass, "mass", error_message) &&
+           validate_preference(preferences.mass_flow, Unit_Dimension::MassFlow, "mass_flow", error_message) &&
+           validate_preference(preferences.time, Unit_Dimension::Time, "time", error_message) &&
+           validate_preference(preferences.pressure, Unit_Dimension::Pressure, "pressure", error_message) &&
+           validate_preference(preferences.temperature, Unit_Dimension::Temperature, "temperature", error_message);
 }
 
 Unit_Definition UnitSystem::definition(const QString &symbol)
