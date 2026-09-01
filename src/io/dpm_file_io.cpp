@@ -11,14 +11,30 @@ dpm_file_io::dpm_file_io() {}
 
 namespace
 {
+thread_local QString *active_parse_error_message = nullptr;
+
 QString make_parse_error(const QString& file_name, const QString& title, const QString& detail)
 {
     return QString("Failed to parse '%1' in %2: %3").arg(title, file_name, detail);
 }
 
-bool show_parse_error(const QString& file_name, const QString& title, const QString& detail)
+bool show_parse_error(const QString& file_name,
+                      const QString& title,
+                      const QString& detail,
+                      bool show_error_message_box)
 {
-    QMessageBox::critical(nullptr, "DPM Parse Error", make_parse_error(file_name, title, detail));
+    const QString message = make_parse_error(file_name, title, detail);
+    if (active_parse_error_message != nullptr)
+    {
+        *active_parse_error_message = message;
+    }
+
+    if (show_error_message_box)
+    {
+        QMessageBox::critical(nullptr,
+                              "DPM Parse Error",
+                              message);
+    }
     return false;
 }
 
@@ -138,17 +154,22 @@ QStringList split_dpm_blocks(const QString& content)
     return blocks;
 }
 
-bool parse_unit_name(const QString& block, QString& name, const QString& file_name)
+bool parse_unit_name(const QString& block,
+                     QString& name,
+                     const QString& file_name,
+                     bool show_error_message_box)
 {
     static const QRegularExpression head_regex("^\\s*\\(\\s*([^\\s()]+)");
     QRegularExpressionMatch match = head_regex.match(block);
     if (!match.hasMatch())
     {
-        return show_parse_error(file_name, "unit-head", "missing unit name");
+        return show_parse_error(file_name, "unit-head", "missing unit name",
+                                show_error_message_box);
     }
 
     name = match.captured(1).trimmed();
-    return !name.isEmpty() || show_parse_error(file_name, "unit-head", "empty unit name");
+    return !name.isEmpty() || show_parse_error(file_name, "unit-head", "empty unit name",
+                                               show_error_message_box);
 }
 
 bool extract_dot_payload(const QString& block, const QString& title, QString& payload, int occurrence = 0)
@@ -190,14 +211,14 @@ bool extract_list_payload(const QString& block, const QString& title, QString& p
 }
 
 template<typename EnumType>
-bool parse_enum_contains(const QString& raw_value,
-                         EnumType& value,
-                         const QList<QPair<QString, EnumType>>& mappings)
+bool parse_enum_value(const QString& raw_value,
+                      EnumType& value,
+                      const QList<QPair<QString, EnumType>>& mappings)
 {
     const QString normalized = raw_value.trimmed().toLower();
     for (const auto& mapping : mappings)
     {
-        if (normalized.contains(mapping.first))
+        if (normalized == mapping.first)
         {
             value = mapping.second;
             return true;
@@ -271,7 +292,7 @@ struct dpm_scalar_converter<DPM_Type>
 {
     static bool convert(const QString&, const QString& raw_value, DPM_Type& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"massless", Massless},
             {"inert", Inert},
             {"droplet", Droplet},
@@ -286,7 +307,7 @@ struct dpm_scalar_converter<Injection_Type>
 {
     static bool convert(const QString&, const QString& raw_value, Injection_Type& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"single", single},
             {"group", group},
             {"surface", surface},
@@ -295,6 +316,7 @@ struct dpm_scalar_converter<Injection_Type>
             {"plain-orifice-atomizer", plain_oriface_atomizer},
             {"pressure-swirl-atomizer", pressure_swirl_atomizer},
             {"air-blast_atomizer", air_blast_atomizer},
+            {"air-blast-atomizer", air_blast_atomizer},
             {"flat-fan-atomizer", flat_fan_atomizer},
             {"effervescent-atomizer", effervescent_atomizer},
             {"file", file_},
@@ -308,11 +330,14 @@ struct dpm_scalar_converter<Cone_Type>
 {
     static bool convert(const QString&, const QString& raw_value, Cone_Type& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"point", point},
             {"hollow", hollow},
+            {"hollow-cone", hollow},
             {"ring", ring},
-            {"solid", solid}
+            {"ring-cone", ring},
+            {"solid", solid},
+            {"solid-cone", solid}
         });
     }
 };
@@ -322,7 +347,7 @@ struct dpm_scalar_converter<Parcel_Model>
 {
     static bool convert(const QString&, const QString& raw_value, Parcel_Model& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"0", standard},
             {"1", const_number},
             {"2", const_mass},
@@ -336,12 +361,15 @@ struct dpm_scalar_converter<Drag_Law>
 {
     static bool convert(const QString&, const QString& raw_value, Drag_Law& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"spherical", spherical},
             {"nonspherical", nonspherical},
             {"strokes", Strokes_Cunningham},
+            {"stokes-cunningham", Strokes_Cunningham},
             {"mach", high_Mach_number},
-            {"dynamic", dynamic_drag}
+            {"high-mach-number", high_Mach_number},
+            {"dynamic", dynamic_drag},
+            {"dynamic-drag", dynamic_drag}
         });
     }
 };
@@ -351,8 +379,9 @@ struct dpm_scalar_converter<Volume_Streams_Spec>
 {
     static bool convert(const QString&, const QString& raw_value, Volume_Streams_Spec& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"total", total_parcel_count},
+            {"total-parcel-count", total_parcel_count},
             {"cell", parcel_per_cell}
         });
     }
@@ -363,9 +392,10 @@ struct dpm_scalar_converter<Volume_Specification>
 {
     static bool convert(const QString&, const QString& raw_value, Volume_Specification& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"zone", zone},
-            {"bouning", bouning_geometry}
+            {"bouning", bouning_geometry},
+            {"bouning-geometry", bouning_geometry}
         });
     }
 };
@@ -375,11 +405,12 @@ struct dpm_scalar_converter<Volume_Bgeom_Shapes>
 {
     static bool convert(const QString&, const QString& raw_value, Volume_Bgeom_Shapes& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"sphere", sphere},
             {"cylinder", cylinder},
             {"cone", cone_},
-            {"hex", hexahedron}
+            {"hex", hexahedron},
+            {"hexahedron", hexahedron}
         });
     }
 };
@@ -389,8 +420,9 @@ struct dpm_scalar_converter<Rot_Drag_Law>
 {
     static bool convert(const QString&, const QString& raw_value, Rot_Drag_Law& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"dennis", Dennis_et_al},
+            {"dennis-et-al", Dennis_et_al},
             {"none", none}
         });
     }
@@ -401,8 +433,9 @@ struct dpm_scalar_converter<Rot_Lift_Law>
 {
     static bool convert(const QString&, const QString& raw_value, Rot_Lift_Law& value)
     {
-        return parse_enum_contains(raw_value, value, {
+        return parse_enum_value(raw_value, value, {
             {"oest", Oesterle_Bui_Dinh},
+            {"oesterle-bui-dinh", Oesterle_Bui_Dinh},
             {"tsuji", Tsuji_et_al},
             {"rubinow", Rubinow_Keller},
             {"none", none_}
@@ -415,17 +448,21 @@ bool parse_dpm_dot_field(const QString& block,
                          const QString& title,
                          T& value,
                          const QString& file_name,
-                         int occurrence = 0)
+                         int occurrence = 0,
+                         bool show_error_message_box = false)
 {
     QString payload;
     if (!extract_dot_payload(block, title, payload, occurrence))
     {
-        return show_parse_error(file_name, title, "field not found");
+        return show_parse_error(file_name, title, "field not found",
+                                show_error_message_box);
     }
 
     if (!dpm_scalar_converter<T>::convert(title, payload, value))
     {
-        return show_parse_error(file_name, title, QString("invalid value '%1'").arg(payload));
+        return show_parse_error(file_name, title,
+                                QString("invalid value '%1'").arg(payload),
+                                show_error_message_box);
     }
 
     return true;
@@ -434,12 +471,14 @@ bool parse_dpm_dot_field(const QString& block,
 bool parse_dpm_list_field(const QString& block,
                           const QString& title,
                           QVector<int>& values,
-                          const QString& file_name)
+                          const QString& file_name,
+                          bool show_error_message_box)
 {
     QString payload;
     if (!extract_list_payload(block, title, payload))
     {
-        return show_parse_error(file_name, title, "field not found");
+        return show_parse_error(file_name, title, "field not found",
+                                show_error_message_box);
     }
 
     QString normalized = payload;
@@ -466,7 +505,9 @@ bool parse_dpm_list_field(const QString& block,
         const int parsed = token.toInt(&ok);
         if (!ok)
         {
-            return show_parse_error(file_name, title, QString("invalid list token '%1'").arg(token));
+            return show_parse_error(file_name, title,
+                                    QString("invalid list token '%1'").arg(token),
+                                    show_error_message_box);
         }
         values.push_back(parsed);
     }
@@ -477,15 +518,19 @@ bool parse_dpm_list_field(const QString& block,
 bool parse_dpm_repeated_vector3_field(const QString& block,
                                       const QString& title,
                                       QVector3D& value,
-                                      const QString& file_name)
+                                      const QString& file_name,
+                                      bool show_error_message_box)
 {
     double x_value = 0.0;
     double y_value = 0.0;
     double z_value = 0.0;
 
-    if (!parse_dpm_dot_field(block, title, x_value, file_name, 0) ||
-        !parse_dpm_dot_field(block, title, y_value, file_name, 1) ||
-        !parse_dpm_dot_field(block, title, z_value, file_name, 2))
+    if (!parse_dpm_dot_field(block, title, x_value, file_name, 0,
+                             show_error_message_box) ||
+        !parse_dpm_dot_field(block, title, y_value, file_name, 1,
+                             show_error_message_box) ||
+        !parse_dpm_dot_field(block, title, z_value, file_name, 2,
+                             show_error_message_box))
     {
         return false;
     }
@@ -501,15 +546,19 @@ bool parse_dpm_named_vector3_field(const QString& block,
                                    const QString& y_title,
                                    const QString& z_title,
                                    QVector3D& value,
-                                   const QString& file_name)
+                                   const QString& file_name,
+                                   bool show_error_message_box)
 {
     double x_value = 0.0;
     double y_value = 0.0;
     double z_value = 0.0;
 
-    if (!parse_dpm_dot_field(block, x_title, x_value, file_name) ||
-        !parse_dpm_dot_field(block, y_title, y_value, file_name) ||
-        !parse_dpm_dot_field(block, z_title, z_value, file_name))
+    if (!parse_dpm_dot_field(block, x_title, x_value, file_name, 0,
+                             show_error_message_box) ||
+        !parse_dpm_dot_field(block, y_title, y_value, file_name, 0,
+                             show_error_message_box) ||
+        !parse_dpm_dot_field(block, z_title, z_value, file_name, 0,
+                             show_error_message_box))
     {
         return false;
     }
@@ -523,39 +572,56 @@ bool parse_dpm_named_vector3_field(const QString& block,
 bool parse_dpm_prefixed_vector3_field(const QString& block,
                                       const QString& title,
                                       QVector3D& value,
-                                      const QString& file_name)
+                                      const QString& file_name,
+                                      bool show_error_message_box)
 {
     return parse_dpm_named_vector3_field(block,
                                          "x-" + title,
                                          "y-" + title,
                                          "z-" + title,
                                          value,
-                                         file_name);
+                                         file_name,
+                                         show_error_message_box);
 }
 
 bool parse_dpm_suffixed_vector3_field(const QString& block,
                                       const QString& title,
                                       QVector3D& value,
-                                      const QString& file_name)
+                                      const QString& file_name,
+                                      bool show_error_message_box)
 {
     return parse_dpm_named_vector3_field(block,
                                          title + "-x",
                                          title + "-y",
                                          title + "-z",
                                          value,
-                                         file_name);
+                                         file_name,
+                                         show_error_message_box);
 }
 
 struct ScalarFieldRule
 {
     const char* title;
-    bool (*apply)(const QString& block, Injector& injector, const QString& file_name, const char* title);
+    bool (*apply)(const QString& block,
+                  Injector& injector,
+                  const QString& file_name,
+                  const char* title,
+                  bool show_error_message_box);
 };
 
 template<typename T, T Injector::*Member>
-bool apply_scalar_rule(const QString& block, Injector& injector, const QString& file_name, const char* title)
+bool apply_scalar_rule(const QString& block,
+                       Injector& injector,
+                       const QString& file_name,
+                       const char* title,
+                       bool show_error_message_box)
 {
-    return parse_dpm_dot_field(block, QString::fromLatin1(title), injector.*Member, file_name);
+    return parse_dpm_dot_field(block,
+                               QString::fromLatin1(title),
+                               injector.*Member,
+                               file_name,
+                               0,
+                               show_error_message_box);
 }
 
 struct ListFieldRule
@@ -572,11 +638,15 @@ struct VectorFieldRule
     QVector3D Injector::*member;
 };
 
-bool parse_dpm_unit_block(const QString& block, Unit& unit, const QString& file_name)
+bool parse_dpm_unit_block(const QString& block,
+                          Unit& unit,
+                          const QString& file_name,
+                          bool show_error_message_box)
 {
     auto& injector = unit.inj.injector_data;
 
-    if (!parse_unit_name(block, injector.name, file_name)) return false;
+    if (!parse_unit_name(block, injector.name, file_name,
+                         show_error_message_box)) return false;
 
     static const ScalarFieldRule scalar_rules[] = {
         {"type", &apply_scalar_rule<DPM_Type, &Injector::type>},
@@ -739,7 +809,8 @@ bool parse_dpm_unit_block(const QString& block, Unit& unit, const QString& file_
 
     for (const ScalarFieldRule& rule : scalar_rules)
     {
-        if (!rule.apply(block, injector, file_name, rule.title))
+        if (!rule.apply(block, injector, file_name, rule.title,
+                        show_error_message_box))
         {
             return false;
         }
@@ -747,7 +818,11 @@ bool parse_dpm_unit_block(const QString& block, Unit& unit, const QString& file_
 
     for (const ListFieldRule& rule : list_rules)
     {
-        if (!parse_dpm_list_field(block, QString::fromLatin1(rule.title), injector.*(rule.member), file_name))
+        if (!parse_dpm_list_field(block,
+                                  QString::fromLatin1(rule.title),
+                                  injector.*(rule.member),
+                                  file_name,
+                                  show_error_message_box))
         {
             return false;
         }
@@ -760,7 +835,8 @@ bool parse_dpm_unit_block(const QString& block, Unit& unit, const QString& file_
                                            QString::fromLatin1(rule.y_title),
                                            QString::fromLatin1(rule.z_title),
                                            injector.*(rule.member),
-                                           file_name))
+                                           file_name,
+                                           show_error_message_box))
         {
             return false;
         }
@@ -1696,14 +1772,25 @@ QList<Unit> read_dpm_file(const QString &file_path,
     for (const QString& block : blocks)
     {
         Unit unit;
-        if (!parse_dpm_unit_block(block, unit, file_name))
+        active_parse_error_message = error_message;
+        if (!parse_dpm_unit_block(block, unit, file_name,
+                                  show_error_message_box))
         {
+            const QString detailed_error = error_message != nullptr
+                                               ? error_message->trimmed()
+                                               : QString();
+            active_parse_error_message = nullptr;
             if (error_message != nullptr)
             {
-                *error_message = QString("Unable to parse a DPM injector block in %1").arg(file_name);
+                if (detailed_error.isEmpty())
+                {
+                    *error_message = QString("Unable to parse a DPM injector block in %1")
+                                         .arg(file_name);
+                }
             }
             return QList<Unit>();
         }
+        active_parse_error_message = nullptr;
         units.push_back(unit);
     }
 

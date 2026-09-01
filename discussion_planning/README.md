@@ -578,3 +578,11 @@ References:
 - Non-empty DPM file names now survive writer/import round trips.
 - The deprecated legacy reader path was left unchanged.
 - Added DPM round-trip coverage; Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Strict DPM Enum Validation
+
+- Replaced substring-based enum parsing with exact matching plus explicit compatibility aliases.
+- Invalid values such as `not-a-cone` are rejected instead of being silently interpreted as valid enums.
+- Propagated the `show_error_message_box` option through the new parser so headless callers do not create widgets.
+- Preserved detailed field-level parse errors instead of replacing them with a generic block error.
+- Release build and all 9 CTest regressions passed.

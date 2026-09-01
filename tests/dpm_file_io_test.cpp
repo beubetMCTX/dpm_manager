@@ -129,6 +129,34 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QFile written_input(written_path);
+    if (!check(written_input.open(QIODevice::ReadOnly | QIODevice::Text),
+               "Unable to reopen DPM output for enum validation") )
+    {
+        return 1;
+    }
+    const QString invalid_enum_contents =
+        QString::fromUtf8(written_input.readAll()).replace(
+            "(injection-type . single)",
+            "(injection-type . not-a-cone)");
+    written_input.close();
+    const QString invalid_enum_path = temporary_directory.filePath("invalid-enum.dpm");
+    if (!check(write_file(invalid_enum_path, invalid_enum_contents),
+               "Unable to create invalid enum fixture") )
+    {
+        return 1;
+    }
+    error_message.clear();
+    const QList<Unit> invalid_enum = read_dpm_file(
+        invalid_enum_path, &ok, &error_message, false);
+    if (!check(!ok && invalid_enum.isEmpty(),
+               "DPM parser should reject enum values that only contain a valid token") ||
+        !check(error_message.contains("injection-type"),
+               "Invalid enum failure should identify the field"))
+    {
+        return 1;
+    }
+
     QFile written_file(written_path);
     if (!check(written_file.open(QIODevice::ReadOnly),
                "Unable to read DPM output fixture") )
