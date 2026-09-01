@@ -528,10 +528,13 @@ void MainWindow::on_actionRead_triggered()
 
 void MainWindow::on_actionSave_DPM_triggered()
 {
-    if (units.isEmpty())
+    QString preflight_error;
+    if (!validate_dpm_units(units, &preflight_error))
     {
-        const QString message = "There are no injectors to write to a DPM file.";
-        QMessageBox::warning(this, "DPM Export", message);
+        const QString message = preflight_error.trimmed().isEmpty()
+            ? "DPM export preflight failed."
+            : preflight_error;
+        QMessageBox::warning(this, "DPM Export Preflight", message);
         statusBar()->showMessage(message, 5000);
         return;
     }

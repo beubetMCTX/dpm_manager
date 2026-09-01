@@ -2268,6 +2268,66 @@ QString dpm_unit_block(const Unit &unit)
 }
 }
 
+bool validate_dpm_units(const QList<Unit> &units, QString *error_message)
+{
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+
+    QStringList errors;
+    if (units.isEmpty())
+    {
+        errors.append("There are no injector units to export.");
+    }
+
+    for (int index = 0; index < units.size(); ++index)
+    {
+        const Unit &unit = units.at(index);
+        if (unit.type != injector)
+        {
+            errors.append(QString("Unit %1 is not an injector unit; DPM export supports injector units only.")
+                              .arg(index + 1));
+            continue;
+        }
+
+        const Injector &injector_data = unit.inj.injector_data;
+        const QString name = injector_data.name.trimmed();
+        if (name.isEmpty())
+        {
+            errors.append(QString("Injector %1 has an empty name.").arg(index + 1));
+        }
+        else if (name.contains(QRegularExpression("[\\s()]")))
+        {
+            errors.append(QString("Injector %1 has a name containing whitespace or parentheses: %2")
+                              .arg(index + 1)
+                              .arg(name));
+        }
+
+        QString injector_error;
+        if (!validate_dpm_output_injector(injector_data, &injector_error))
+        {
+            errors.append(QString("Injector %1 (%2): %3")
+                              .arg(index + 1)
+                              .arg(name.isEmpty() ? QStringLiteral("unnamed") : name)
+                              .arg(injector_error));
+        }
+    }
+
+    if (errors.isEmpty())
+    {
+        return true;
+    }
+
+    if (error_message != nullptr)
+    {
+        *error_message = QString("DPM export preflight found %1 problem(s):\\n- %2")
+                             .arg(errors.size())
+                             .arg(errors.join("\\n- "));
+    }
+    return false;
+}
+
 bool write_dpm_file(const QString &file_path,
                     const QList<Unit> &units,
                     QString *error_message)
@@ -2281,37 +2341,14 @@ bool write_dpm_file(const QString &file_path,
         if (error_message != nullptr) *error_message = "DPM output path is empty.";
         return false;
     }
-    if (units.isEmpty())
+    if (!validate_dpm_units(units, error_message))
     {
-        if (error_message != nullptr) *error_message = "Cannot write an empty DPM injector list.";
         return false;
     }
 
     QStringList blocks;
     for (const Unit &unit : units)
     {
-        if (unit.type != injector)
-        {
-            if (error_message != nullptr)
-            {
-                *error_message = "DPM export supports injector units only.";
-            }
-            return false;
-        }
-
-        const QString name = unit.inj.injector_data.name.trimmed();
-        if (name.isEmpty() || name.contains(QRegularExpression("[\\s()]")))
-        {
-            if (error_message != nullptr)
-            {
-                *error_message = "DPM injector names must be non-empty and contain no whitespace or parentheses.";
-            }
-            return false;
-        }
-        if (!validate_dpm_output_injector(unit.inj.injector_data, error_message))
-        {
-            return false;
-        }
         blocks.append(dpm_unit_block(unit));
     }
 

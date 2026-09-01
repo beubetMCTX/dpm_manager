@@ -50,6 +50,9 @@ bool write_dpm_file(const QString &file_path,
                     const QList<Unit> &units,
                     QString *error_message = nullptr);
 
+bool validate_dpm_units(const QList<Unit> &units,
+                        QString *error_message = nullptr);
+
 
 
 #endif // DPM_FILE_IO_H

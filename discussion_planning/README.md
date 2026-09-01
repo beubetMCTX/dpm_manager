@@ -16,6 +16,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Injector geometry preview supports several injector types, with complex models selectively disabled where implementation is incomplete.
 - A Release build has been generated with Qt/OpenCASCADE/runtime DLL deployment for testing.
 
+### 2026-09-02 DPM Export Preflight
+
+- Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
+- The preflight reports all invalid units in one message, while `write_dpm_file()` keeps the same validation as a second safety check.
+- Added regression coverage for valid lists, empty names, invalid names, invalid numeric values, and non-injector units.
+- Release build and all 9 CTest regressions passed.
+
 ## Candidate Next Work
 
 ### High Priority

@@ -246,6 +246,28 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QString preflight_error;
+    if (!check(validate_dpm_units({first, second}, &preflight_error),
+               "valid injector units should pass DPM export preflight"))
+    {
+        return 1;
+    }
+
+    Unit invalid_name = first;
+    invalid_name.inj.injector_data.name = "bad name";
+    Unit invalid_value = first;
+    invalid_value.inj.injector_data.total_flow_rate =
+        std::numeric_limits<double>::quiet_NaN();
+    if (!check(!validate_dpm_units({invalid_name, invalid_value}, &preflight_error),
+               "DPM export preflight should reject invalid units") ||
+        !check(preflight_error.contains("2 problem(s)") &&
+                   preflight_error.contains("bad name") &&
+                   preflight_error.contains("total_flow_rate"),
+               "DPM export preflight should report all invalid units"))
+    {
+        return 1;
+    }
+
     if (!check(written_file.open(QIODevice::ReadOnly),
                "Unable to reopen DPM output fixture") ||
         !check(written_file.readAll() == original_output,
