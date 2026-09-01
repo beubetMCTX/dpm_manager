@@ -2,7 +2,11 @@
 
 #include <QCoreApplication>
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
+
+#include <BRepPrimAPI_MakeBox.hxx>
+#include <BRepTools.hxx>
 
 namespace
 {
@@ -72,6 +76,22 @@ int main(int argc, char *argv[])
     if (!check(!reader.readFile(unsupported_path) &&
                    reader.last_error_message().contains("不支持"),
                "Unsupported geometry extension should fail with an error"))
+    {
+        return 1;
+    }
+
+    QString valid_path = temporary_directory.filePath("box.brep");
+    const TopoDS_Shape source_shape = BRepPrimAPI_MakeBox(2.0, 3.0, 4.0).Shape();
+    if (!check(BRepTools::Write(source_shape, valid_path.toUtf8().constData()),
+               "Unable to create valid BREP fixture"))
+    {
+        return 1;
+    }
+
+    if (!check(reader.readFile(valid_path), "Valid BREP file should be readable") ||
+        !check(!reader.getShape().IsNull(), "Valid BREP read should produce a shape") ||
+        !check(reader.file_path() == QFileInfo(valid_path).absoluteFilePath(),
+               "Geometry reader should retain the absolute source path"))
     {
         return 1;
     }

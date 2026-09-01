@@ -411,6 +411,7 @@ References:
 
 - Added `base_geom_read_regression` for empty paths, missing files, empty files, and unsupported geometry extensions.
 - The test confirms that these failures return `false` and preserve a descriptive reader error without requiring a GUI message box.
+- The test also round-trips a generated BREP box through the reader and verifies that a non-null shape and absolute source path are returned.
 
 ### 2026-09-02 Reference Transform History
 
