@@ -600,3 +600,10 @@ References:
 - This prevents invalid coordinates, velocities, temperatures, and geometry parameters from reaching model or OCCT code.
 - Added regression coverage for a non-finite imported temperature.
 - Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Accept Quoted Fluent Enum Values
+
+- DPM enum parsing now accepts optional double quotes used by Fluent output files.
+- Strict matching remains enabled after quote removal, so malformed substrings are still rejected.
+- Added round-trip coverage for quoted drag-law values.
+- Release build and all 9 CTest regressions passed.

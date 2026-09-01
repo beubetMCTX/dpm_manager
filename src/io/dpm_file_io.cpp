@@ -215,7 +215,12 @@ bool parse_enum_value(const QString& raw_value,
                       EnumType& value,
                       const QList<QPair<QString, EnumType>>& mappings)
 {
-    const QString normalized = raw_value.trimmed().toLower();
+    QString normalized = raw_value.trimmed().toLower();
+    if (normalized.size() >= 2 && normalized.front() == '"' &&
+        normalized.back() == '"')
+    {
+        normalized = normalized.mid(1, normalized.size() - 2).trimmed();
+    }
     for (const auto& mapping : mappings)
     {
         if (normalized == mapping.first)

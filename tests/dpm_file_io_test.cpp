@@ -180,6 +180,29 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QString quoted_enum_contents = written_contents;
+    quoted_enum_contents.replace("(drag-law . spherical)",
+                                 "(drag-law . \"spherical\")");
+    quoted_enum_contents.replace("(rot-drag-law . none)",
+                                 "(rot-drag-law . \"none\")");
+    const QString quoted_enum_path = temporary_directory.filePath("quoted-enums.dpm");
+    if (!check(write_file(quoted_enum_path, quoted_enum_contents),
+               "Unable to create quoted enum fixture") )
+    {
+        return 1;
+    }
+    error_message.clear();
+    const QList<Unit> quoted_enums = read_dpm_file(
+        quoted_enum_path, &ok, &error_message, false);
+    if (!check(ok && quoted_enums.size() == 2,
+               "DPM parser should accept quoted Fluent enum values") ||
+        !check(quoted_enums.at(0).inj.injector_data.drag_law == spherical &&
+                   quoted_enums.at(0).inj.injector_data.rot_drag_law == none,
+               "Quoted Fluent enum values should preserve their enum values"))
+    {
+        return 1;
+    }
+
     QFile written_file(written_path);
     if (!check(written_file.open(QIODevice::ReadOnly),
                "Unable to read DPM output fixture") )
