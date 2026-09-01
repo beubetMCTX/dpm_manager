@@ -5,6 +5,8 @@
 #include <QTemporaryDir>
 #include <QTextStream>
 
+#include <limits>
+
 namespace
 {
 bool check(bool condition, const QString &message)
@@ -119,6 +121,22 @@ int main(int argc, char *argv[])
         !check(round_trip.at(1).inj.injector_data.injection_type == cone &&
                    round_trip.at(1).inj.injector_data.cone_type == hollow,
                "written DPM should preserve enum fields"))
+    {
+        return 1;
+    }
+
+    Unit invalid = first;
+    invalid.inj.injector_data.total_flow_rate = std::numeric_limits<double>::quiet_NaN();
+    error_message.clear();
+    if (!check(!write_dpm_file(temporary_directory.filePath("invalid.dpm"),
+                               {invalid},
+                               &error_message) &&
+                   error_message.contains("not finite"),
+               "non-finite DPM values should be rejected before writing") ||
+        !check(!write_dpm_file(temporary_directory.filePath("empty-list.dpm"),
+                               {},
+                               &error_message),
+               "empty DPM lists should be rejected"))
     {
         return 1;
     }

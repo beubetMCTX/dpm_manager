@@ -3,6 +3,8 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QRegularExpression>
+
+#include <cmath>
 #define  Kill_Read  *ok=false;delete(in);delete(file);return unit;
 
 dpm_file_io::dpm_file_io() {}
@@ -1720,6 +1722,136 @@ QList<Unit> read_dpm_file(const QString &file_path,
 
 namespace
 {
+bool finite_vector(const QVector3D &value)
+{
+    return std::isfinite(value.x()) &&
+           std::isfinite(value.y()) &&
+           std::isfinite(value.z());
+}
+
+bool validate_dpm_output_injector(const Injector &injector, QString *error_message)
+{
+    if (injector.type < Massless || injector.type > Multicomponent ||
+        injector.injection_type < single || injector.injection_type > condensate ||
+        injector.cone_type < point || injector.cone_type > solid ||
+        injector.parcel_model < standard || injector.parcel_model > const_diameter ||
+        injector.drag_law < spherical || injector.drag_law > dynamic_drag ||
+        injector.volume_specification < zone || injector.volume_specification > bouning_geometry ||
+        injector.volume_streams_spec < total_parcel_count || injector.volume_streams_spec > parcel_per_cell ||
+        injector.volume_bgeom_shapes < sphere || injector.volume_bgeom_shapes > hexahedron ||
+        injector.rot_drag_law < Dennis_et_al || injector.rot_drag_law > none ||
+        injector.rot_lift_law < Oesterle_Bui_Dinh || injector.rot_lift_law > none_)
+    {
+        if (error_message != nullptr) *error_message = "DPM injector contains an invalid enum value.";
+        return false;
+    }
+
+#define DPM_CHECK_FINITE(field) \
+    if (!std::isfinite(injector.field)) \
+    { \
+        if (error_message != nullptr) *error_message = QString("DPM field is not finite: %1").arg(#field); \
+        return false; \
+    }
+
+    DPM_CHECK_FINITE(time_scale_constant);
+    DPM_CHECK_FINITE(cloud_min_dia);
+    DPM_CHECK_FINITE(cloud_max_dia);
+    DPM_CHECK_FINITE(liquid_fraction);
+    DPM_CHECK_FINITE(parcel_mass);
+    DPM_CHECK_FINITE(parcel_diameter);
+    DPM_CHECK_FINITE(shape_factor);
+    DPM_CHECK_FINITE(cunningham_correction);
+    DPM_CHECK_FINITE(seco_breakup_tab_y0);
+    DPM_CHECK_FINITE(seco_breakup_wave_b1);
+    DPM_CHECK_FINITE(seco_breakup_wave_b0);
+    DPM_CHECK_FINITE(seco_breakup_khrt_cl);
+    DPM_CHECK_FINITE(seco_breakup_khrt_ctau);
+    DPM_CHECK_FINITE(seco_breakup_khrt_crt);
+    DPM_CHECK_FINITE(seco_breakup_ssd_we_cr);
+    DPM_CHECK_FINITE(seco_breakup_ssd_core_bu);
+    DPM_CHECK_FINITE(seco_breakup_ssd_np_target);
+    DPM_CHECK_FINITE(seco_breakup_ssd_x_si);
+    DPM_CHECK_FINITE(seco_breakup_madabushi_c0);
+    DPM_CHECK_FINITE(seco_breakup_madabushi_column_drag_cd);
+    DPM_CHECK_FINITE(seco_breakup_madabushi_ligament_factor);
+    DPM_CHECK_FINITE(seco_breakup_madabushi_jet_diameter);
+    DPM_CHECK_FINITE(seco_breakup_schmehl_np);
+    DPM_CHECK_FINITE(volume_packing_limit_per_cell);
+    DPM_CHECK_FINITE(volume_bgeom_radius);
+    DPM_CHECK_FINITE(volume_bgeom_viconeangle);
+    DPM_CHECK_FINITE(diameter);
+    DPM_CHECK_FINITE(diameter2);
+    DPM_CHECK_FINITE(temperature);
+    DPM_CHECK_FINITE(temperature2);
+    DPM_CHECK_FINITE(flow_rate);
+    DPM_CHECK_FINITE(flow_rate2);
+    DPM_CHECK_FINITE(unsteady_start);
+    DPM_CHECK_FINITE(unsteady_stop);
+    DPM_CHECK_FINITE(start_at_flow_time_in_unsteady_inj_file);
+    DPM_CHECK_FINITE(interval_to_repeat_in_unsteady_inj_file);
+    DPM_CHECK_FINITE(unsteady_ca_start);
+    DPM_CHECK_FINITE(unsteady_ca_stop);
+    DPM_CHECK_FINITE(vapor_pressure);
+    DPM_CHECK_FINITE(inner_diameter);
+    DPM_CHECK_FINITE(outer_diameter);
+    DPM_CHECK_FINITE(half_angle);
+    DPM_CHECK_FINITE(plain_length);
+    DPM_CHECK_FINITE(plain_corner_size);
+    DPM_CHECK_FINITE(plain_const_a);
+    DPM_CHECK_FINITE(pswirl_inj_press);
+    DPM_CHECK_FINITE(airbl_rel_vel);
+    DPM_CHECK_FINITE(effer_quality);
+    DPM_CHECK_FINITE(effer_t_sat);
+    DPM_CHECK_FINITE(ff_oriface_width);
+    DPM_CHECK_FINITE(phi_start);
+    DPM_CHECK_FINITE(phi_stop);
+    DPM_CHECK_FINITE(sheet_const);
+    DPM_CHECK_FINITE(lig_const);
+    DPM_CHECK_FINITE(effer_const);
+    DPM_CHECK_FINITE(effer_half_angle_max);
+    DPM_CHECK_FINITE(ff_sheet_const);
+    DPM_CHECK_FINITE(atomizer_disp_angle);
+    DPM_CHECK_FINITE(vel_mag);
+    DPM_CHECK_FINITE(ang_vel_mag);
+    DPM_CHECK_FINITE(cone_angle);
+    DPM_CHECK_FINITE(inner_radius);
+    DPM_CHECK_FINITE(radius);
+    DPM_CHECK_FINITE(swirl_frac);
+    DPM_CHECK_FINITE(total_flow_rate);
+    DPM_CHECK_FINITE(total_mass);
+    DPM_CHECK_FINITE(volume_fraction);
+    DPM_CHECK_FINITE(rr_min);
+    DPM_CHECK_FINITE(rr_max);
+    DPM_CHECK_FINITE(rr_mean);
+    DPM_CHECK_FINITE(rr_spread);
+
+#undef DPM_CHECK_FINITE
+
+    const QVector<QPair<const char *, const QVector3D *>> vectors = {
+        {"pos", &injector.pos}, {"pos2", &injector.pos2},
+        {"ff_center", &injector.ff_center}, {"ff_virtual_origin", &injector.ff_virtual_origin},
+        {"ff_normal", &injector.ff_normal}, {"vel", &injector.vel},
+        {"vel2", &injector.vel2}, {"ang_vel", &injector.ang_vel},
+        {"ang_vel2", &injector.ang_vel2}, {"atomizer_axis", &injector.atomizer_axis},
+        {"axis", &injector.axis}, {"volume_bgeom_min", &injector.volume_bgeom_min},
+        {"volume_bgeom_max", &injector.volume_bgeom_max}, {"posr", &injector.posr},
+        {"posu", &injector.posu}
+    };
+    for (const auto &entry : vectors)
+    {
+        if (!finite_vector(*entry.second))
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = QString("DPM vector is not finite: %1").arg(entry.first);
+            }
+            return false;
+        }
+    }
+
+    return true;
+}
+
 QString dpm_output_scalar(const QString &name, const QString &value)
 {
     return QString("(%1 . %2)").arg(name, value.trimmed().isEmpty() ? QStringLiteral("#f") : value.trimmed());
@@ -2016,6 +2148,10 @@ bool write_dpm_file(const QString &file_path,
             {
                 *error_message = "DPM injector names must be non-empty and contain no whitespace or parentheses.";
             }
+            return false;
+        }
+        if (!validate_dpm_output_injector(unit.inj.injector_data, error_message))
+        {
             return false;
         }
         blocks.append(dpm_unit_block(unit));

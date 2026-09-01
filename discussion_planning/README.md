@@ -492,6 +492,12 @@ References:
 - The action exports the current edited injector list through `write_dpm_file(...)` and reports cancel, empty-list, and write failures without replacing the current scene.
 - Release application build and all 8 regression tests passed.
 
+### 2026-09-02 DPM Export Preflight
+
+- DPM export now rejects invalid enum values, non-finite scalar/vector values, empty injector lists, and invalid injector names before opening the output file.
+- Added regression coverage for `NaN` and empty-list rejection.
+- Focused DPM I/O regression passed.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.
