@@ -241,6 +241,7 @@ MainWindow::MainWindow(QWidget *parent)
             m_reference_geometry_lock->setChecked(locked);
         }
         update_reference_geometry_controls();
+        update_object_list_panel();
     });
     connect(m_3d_widget, &OCCTWidget::unit_display_list_changed,
             this, &MainWindow::update_object_list_panel);
@@ -1622,7 +1623,12 @@ void MainWindow::update_object_list_panel()
 
     if (!m_3d_widget->geometry.getShape().IsNull())
     {
-        auto *reference_item = new QListWidgetItem("Reference Geometry", m_object_list);
+        QString reference_name = QStringLiteral("Reference Geometry");
+        if (m_3d_widget->reference_geometry_locked())
+        {
+            reference_name = QStringLiteral("[Locked] ") + reference_name;
+        }
+        auto *reference_item = new QListWidgetItem(reference_name, m_object_list);
         reference_item->setData(Qt::UserRole, QStringLiteral("reference"));
         reference_item->setFlags(reference_item->flags() | Qt::ItemIsUserCheckable);
         reference_item->setCheckState(m_3d_widget->reference_geometry_visible()

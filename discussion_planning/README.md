@@ -422,3 +422,8 @@ References:
 
 - Selecting reference geometry from the 3D view or Objects panel now opens and raises its properties Dock automatically.
 - The Dock values are refreshed before selection highlighting is updated, so the displayed transform always belongs to the selected reference object.
+
+### 2026-09-02 Reference Lock Status Feedback
+
+- The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.
+- Lock and unlock operations refresh the row immediately while preserving visibility state and selection.
