@@ -374,3 +374,4 @@ References:
 - Added `scripts/package_release.ps1` for repeatable Release packaging.
 - The script copies the Release executable, all known runtime DLLs, Qt plugin directories, and runs matching `windeployqt` when available.
 - It emits a SHA-256 deployment manifest for checking package contents.
+- Generated packages under `/release/` are ignored by Git and can be tested locally without polluting the source tree.
