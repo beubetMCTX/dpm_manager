@@ -154,6 +154,7 @@ signals:
     void face_reference_info_changed(const QVector3D &origin,
                                      const QVector3D &normal);
     void reference_geometry_lock_changed(bool locked);
+    void unit_lock_changed(const QUuid &uuid, bool locked);
     void unit_display_list_changed();
     void unit_removed(const QUuid &uuid);
     void selection_changed(const QUuid &uuid, bool reference_geometry);

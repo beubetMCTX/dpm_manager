@@ -361,11 +361,17 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
         return false;
     }
 
+    if (m_unit_locks.value(uuid, false) == locked)
+    {
+        return true;
+    }
+
     m_unit_locks.insert(uuid, locked);
     if (locked && selected_shape == unit_hash.value(uuid)->ais_display)
     {
         myIsDragging = false;
     }
+    emit unit_lock_changed(uuid, locked);
     return true;
 }
 

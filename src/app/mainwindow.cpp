@@ -244,6 +244,20 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_3d_widget, &OCCTWidget::unit_display_list_changed,
             this, &MainWindow::update_object_list_panel);
+    connect(m_3d_widget, &OCCTWidget::unit_lock_changed,
+            this, [this](const QUuid &uuid, bool)
+    {
+        if (m_3d_widget == nullptr || !m_3d_widget->unit_hash.contains(uuid))
+        {
+            return;
+        }
+
+        const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+        if (unit != nullptr)
+        {
+            update_object_list_item(uuid, unit->inj.injector_data.name);
+        }
+    });
     connect(m_3d_widget, &OCCTWidget::unit_removed, this,
             [this](const QUuid &uuid)
     {

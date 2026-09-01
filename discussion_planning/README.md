@@ -401,3 +401,8 @@ References:
 
 - Added `dpm_file_io_regression` for missing, empty, and malformed DPM files.
 - The test verifies that failed imports return an empty unit list, set `ok` to false, and expose a useful error without showing a modal dialog.
+
+### 2026-09-02 Injector Lock State Feedback
+
+- Added a dedicated injector lock-state signal from `OCCTWidget`.
+- The Objects panel now refreshes the affected row immediately when locking or unlocking is performed from the 3D context menu, keeping the `[Locked]` label synchronized across all entry points.
