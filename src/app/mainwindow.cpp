@@ -648,6 +648,42 @@ void MainWindow::on_actionSave_Project_As_triggered()
     save_project_session_as();
 }
 
+void MainWindow::on_actionValidate_Project_triggered()
+{
+    const project_session::Data data = collect_project_data();
+    QString error_message;
+    if (!validate_dpm_units(data.units, &error_message))
+    {
+        const QString message = error_message.trimmed().isEmpty()
+            ? "Project validation failed for one or more DPM units."
+            : error_message;
+        QMessageBox::warning(this, "Project Validation", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    if (!project_session::validate(data, &error_message) ||
+        !project_session::validate_references(data,
+                                               m_chemkin_species_names,
+                                               &error_message))
+    {
+        const QString message = error_message.trimmed().isEmpty()
+            ? "Project validation failed."
+            : error_message;
+        QMessageBox::warning(this, "Project Validation", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    QMessageBox::information(this,
+                             "Project Validation",
+                             QString("Project validation passed.\n\n%1 unit(s), %2 material(s), %3 species color(s).")
+                                 .arg(data.units.size())
+                                 .arg(data.materials.size())
+                                 .arg(data.species_colors.size()));
+    statusBar()->showMessage("Project validation passed", 5000);
+}
+
 bool MainWindow::save_current_project_session()
 {
     if (!m_project_session_file_path.trimmed().isEmpty())

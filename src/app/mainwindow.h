@@ -65,6 +65,8 @@ private slots:
 
     void on_actionSave_Project_As_triggered();
 
+    void on_actionValidate_Project_triggered();
+
     void on_actionRead_Base_Geometry_triggered();
 
     void on_actionRead_Chemkin_Files_triggered();

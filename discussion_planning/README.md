@@ -856,3 +856,9 @@ References:
 - DPM imports intentionally start a new unsaved baseline and remain dirty until saved.
 - Added regression coverage proving identical snapshots match and edited injector data changes the fingerprint.
 - Release build and all 9 CTest regressions passed with the required runtime DLL paths.
+### 2026-09-02 Project Validation Report
+
+- Added an Edit-menu `Validate Project` action.
+- The report reuses DPM unit validation, project structure validation, and material/species reference validation before export or calculation.
+- Validation failures are shown in a warning dialog and the status bar; successful validation reports unit, material, and species-color counts.
+- Release build and all 9 CTest regressions passed.
