@@ -155,6 +155,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
     {
         discard_auxiliary_dialogs();
         clear_move_history();
+        m_copied_unit.reset();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
         {
             if (it.value() != nullptr && !it.value()->ais_display.IsNull())
