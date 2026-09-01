@@ -345,6 +345,18 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
     return true;
 }
 
+bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit->ais_display.IsNull())
+    {
+        return false;
+    }
+
+    open_edit_widget(unit->ais_display);
+    return true;
+}
+
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;

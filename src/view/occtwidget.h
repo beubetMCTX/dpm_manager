@@ -116,6 +116,7 @@ public:
     bool set_unit_locked(const QUuid &uuid, bool locked);
     bool unit_locked(const QUuid &uuid) const;
     bool set_unit_name(const QUuid &uuid, const QString &name);
+    bool edit_unit_by_uuid(const QUuid &uuid);
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();

@@ -799,12 +799,17 @@ void MainWindow::create_object_list_panel()
         }
 
         QMenu menu(m_object_list);
+        QAction *edit_action = menu.addAction("Edit");
         QAction *rename_action = menu.addAction("Rename");
         QAction *lock_action = menu.addAction(
             m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
                                             : "Lock Movement");
         QAction *chosen_action = menu.exec(m_object_list->viewport()->mapToGlobal(position));
-        if (chosen_action == rename_action)
+        if (chosen_action == edit_action)
+        {
+            m_3d_widget->edit_unit_by_uuid(uuid);
+        }
+        else if (chosen_action == rename_action)
         {
             const QString old_name = m_3d_widget->unit_hash.value(uuid)
                                          ->inj.injector_data.name;
