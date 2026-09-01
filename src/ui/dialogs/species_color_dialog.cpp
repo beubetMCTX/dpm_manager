@@ -201,6 +201,12 @@ void SpeciesColorDialog::set_species_names(const QStringList &species_names)
     set_chemkin_context(m_chemkin_file_path, species_names);
 }
 
+void SpeciesColorDialog::set_species_colors(const QHash<QString, QColor> &species_colors)
+{
+    m_species_colors = species_colors;
+    rebuild_table();
+}
+
 void SpeciesColorDialog::set_chemkin_context(const QString &chemkin_file_path,
                                              const QStringList &species_names)
 {

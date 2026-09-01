@@ -463,6 +463,17 @@ bool MainWindow::save_project_session(const QString &file_path)
     data.units = units;
     data.chemkin_file_path = m_chemkin_file_path;
     data.materials = m_material_entries;
+    if (m_species_color_dialog != nullptr)
+    {
+        data.species_colors = m_species_color_dialog->species_colors();
+    }
+    else if (!m_chemkin_file_path.trimmed().isEmpty())
+    {
+        load_species_color_config(m_chemkin_file_path,
+                                  m_chemkin_species_names,
+                                  &data.species_colors,
+                                  nullptr);
+    }
     if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
     {
         data.reference_geometry.file_path = m_3d_widget->geometry.file_path();
@@ -546,6 +557,25 @@ bool MainWindow::load_project_session(const QString &file_path)
     else if (!load_chemkin_file(data.chemkin_file_path, false, false))
     {
         return false;
+    }
+
+    if (!data.species_colors.isEmpty() && !m_chemkin_species_names.isEmpty())
+    {
+        QString color_error;
+        if (!save_species_color_config(m_chemkin_file_path,
+                                       m_chemkin_species_names,
+                                       data.species_colors,
+                                       &color_error) &&
+            !color_error.trimmed().isEmpty())
+        {
+            qWarning() << color_error;
+        }
+        if (m_species_color_dialog != nullptr)
+        {
+            m_species_color_dialog->set_chemkin_context(m_chemkin_file_path,
+                                                        m_chemkin_species_names);
+            m_species_color_dialog->set_species_colors(data.species_colors);
+        }
     }
 
     apply_material_entries(data.materials, true, false);

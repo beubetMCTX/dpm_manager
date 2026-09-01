@@ -24,6 +24,8 @@ public:
 
     void set_species_names(const QStringList &species_names);
     void set_chemkin_context(const QString &chemkin_file_path, const QStringList &species_names);
+    QHash<QString, QColor> species_colors() const { return m_species_colors; }
+    void set_species_colors(const QHash<QString, QColor> &species_colors);
 
 protected:
     void closeEvent(QCloseEvent *event) override;
