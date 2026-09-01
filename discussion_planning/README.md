@@ -231,6 +231,16 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Public references confirm stochastic tracking and cloud tracking as prerequisite-driven turbulent-dispersion options, and confirm droplet breakup as a liquid-particle feature.
 - Exact field labels and some advanced atomizer/model branches vary by Fluent release. The implementation therefore hides only dependencies supported by both the project contract and the cross-check, while retaining version-sensitive generic fields.
 
+### 2026-09-01 Reference Geometry Follow-up
+
+- Archived the reference-geometry interaction and smoke-test cleanup changes in commit `30136ee` and pushed them to `origin/main`.
+- Added selected-face coordinate feedback to the Reference Geometry panel. The panel now displays the selected face origin and normal, and clears both values when the face selection is cleared.
+- Release compilation was verified with the configured Visual Studio developer environment; the coordinate feedback change was archived in commit `c23e97d` and pushed to `origin/main`.
+
+#### Next Recommended Increment
+
+- Add a lightweight object list for loaded injectors and reference geometry before implementing undo/redo. This provides reliable selection context and a stable place for future visibility, lock, rename, and delete operations without coupling those features to the 3D context menu.
+
 References:
 
 - https://www.mr-cfd.com/injection-dpm-diameter-distribution-linear-uniform-rosin-rammler-rosin-rammler-logarithmic/
