@@ -96,6 +96,7 @@ int main(int argc, char *argv[])
     first.inj.injector_data.total_flow_rate = 0.25;
     first.inj.injector_data.cone_angle = 37.0;
     first.inj.injector_data.material = "water";
+    first.inj.injector_data.dpm_fname = "\"spray_profile.inj\"";
 
     Unit second = first;
     second.inj.injector_data.name = "writer_second";
@@ -118,6 +119,9 @@ int main(int argc, char *argv[])
         !check(round_trip.at(0).inj.injector_data.pos == QVector3D(1.0f, 2.0f, 3.0f) &&
                    round_trip.at(1).inj.injector_data.pos == QVector3D(7.0f, 8.0f, 9.0f),
                "written DPM should preserve injector positions") ||
+        !check(round_trip.at(0).inj.injector_data.dpm_fname ==
+                   "\"spray_profile.inj\"",
+               "written DPM should preserve the DPM file name") ||
         !check(round_trip.at(1).inj.injector_data.injection_type == cone &&
                    round_trip.at(1).inj.injector_data.cone_type == hollow,
                "written DPM should preserve enum fields"))

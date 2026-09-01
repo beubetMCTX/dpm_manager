@@ -571,3 +571,10 @@ References:
 - Added null-handle guards to paint, mouse, and wheel event handlers.
 - Late Qt events during OCCT view/context teardown are now ignored instead of dereferencing released native handles.
 - Release build and all 9 CTest regressions passed. A real desktop close-while-interacting test remains desirable.
+
+### 2026-09-02 Preserve DPM File Names During Import
+
+- The field-table-driven parser no longer replaces `dpm-fname` with the default blank value.
+- Non-empty DPM file names now survive writer/import round trips.
+- The deprecated legacy reader path was left unchanged.
+- Added DPM round-trip coverage; Release build and all 9 CTest regressions passed.

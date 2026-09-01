@@ -235,14 +235,8 @@ struct dpm_scalar_converter<double>
 template<>
 struct dpm_scalar_converter<QString>
 {
-    static bool convert(const QString& title, const QString& raw_value, QString& value)
+    static bool convert(const QString&, const QString& raw_value, QString& value)
     {
-        if (title == "dpm-fname")
-        {
-            value = "\" \"";
-            return true;
-        }
-
         value = raw_value.trimmed();
         if (value == "#f")
         {
