@@ -559,6 +559,7 @@ void OCCTWidget::clear_context_selection_safely()
         m_context->ClearSelected(Standard_False);
     }
     selected_shape.Nullify();
+    emit selection_changed(QUuid(), false);
 
     QTimer::singleShot(0, this, [this]()
     {
