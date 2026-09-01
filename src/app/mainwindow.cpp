@@ -737,6 +737,15 @@ void MainWindow::create_object_list_panel()
     m_object_filter->setClearButtonEnabled(true);
     layout->addWidget(m_object_filter);
 
+    auto *view_controls = new QWidget(panel);
+    auto *view_controls_layout = new QHBoxLayout(view_controls);
+    view_controls_layout->setContentsMargins(0, 0, 0, 0);
+    auto *fit_all_button = new QPushButton("Fit All", view_controls);
+    auto *clear_selection_button = new QPushButton("Clear Selection", view_controls);
+    view_controls_layout->addWidget(fit_all_button);
+    view_controls_layout->addWidget(clear_selection_button);
+    layout->addWidget(view_controls);
+
     m_object_list = new QListWidget(panel);
     m_object_list->setSelectionMode(QAbstractItemView::SingleSelection);
     m_object_list->setAlternatingRowColors(true);
@@ -744,6 +753,11 @@ void MainWindow::create_object_list_panel()
 
     m_object_list_dock->setWidget(panel);
     addDockWidget(Qt::LeftDockWidgetArea, m_object_list_dock);
+
+    connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
+            &OCCTWidget::fit_all_view);
+    connect(clear_selection_button, &QPushButton::clicked, m_3d_widget,
+            &OCCTWidget::clear_selection);
 
     connect(m_object_list, &QListWidget::itemClicked, this,
             [this](QListWidgetItem *item)

@@ -402,6 +402,22 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     return true;
 }
 
+void OCCTWidget::fit_all_view()
+{
+    if (!m_view.IsNull())
+    {
+        m_view->FitAll();
+        m_view->Redraw();
+    }
+}
+
+void OCCTWidget::clear_selection()
+{
+    clear_face_reference();
+    myIsDragging = false;
+    clear_context_selection_safely();
+}
+
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;
