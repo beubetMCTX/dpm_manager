@@ -384,3 +384,9 @@ References:
 - Locking continues to restrict movement and transform edits only. Face selection, face clearing, and view alignment remain available while locked.
 - Release compilation passed. `project_session_regression` and `unit_system_regression` both passed.
 - Real mouse interaction with a locked and then unlocked reference geometry still requires manual GUI verification.
+
+### 2026-09-02 Chemkin Import Regression Coverage
+
+- Added `chemkin_io_regression` with temporary-file coverage for a valid multi-line `SPECIES` section, inline comments, missing `END`, and a missing file path.
+- The test verifies that invalid imports return no species and a useful error instead of exposing partial data.
+- CMake registers the focused test without restoring the removed legacy smoke targets.

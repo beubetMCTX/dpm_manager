@@ -197,6 +197,17 @@ if(DPM_BUILD_TESTS)
     )
     target_link_libraries(unit_system_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME unit_system_regression COMMAND unit_system_regression)
+
+    add_executable(chemkin_io_regression
+        tests/chemkin_io_test.cpp
+        ${IO_DIR}/chemkin_io.h ${IO_DIR}/chemkin_io.cpp
+    )
+    target_include_directories(chemkin_io_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${IO_DIR}
+    )
+    target_link_libraries(chemkin_io_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    add_test(NAME chemkin_io_regression COMMAND chemkin_io_regression)
 endif()
 
 
