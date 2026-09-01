@@ -30,12 +30,17 @@ if (-not (Test-Path -LiteralPath $dependencyPath -PathType Container)) {
 }
 
 New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
-Copy-Item -LiteralPath $executablePath -Destination (Join-Path $outputPath "dpm_manager.exe") -Force
+$outputRoot = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($outputPath))
+if ([IO.Path]::GetFullPath($outputPath).TrimEnd('\', '/') -eq $outputRoot.TrimEnd('\', '/')) {
+    throw "Refusing to clean a filesystem root as the release output: $outputPath"
+}
 
-# The output directory may have been populated by an older package that copied
-# Debug runtimes. Remove only those generated DLLs before rebuilding the set.
-Get-ChildItem -LiteralPath $outputPath -Recurse -Filter "*_debug.dll" -File |
-    Remove-Item -Force
+# Rebuild the package from scratch so removed dependencies, old plugins, and
+# runtime logs from previous packaging runs cannot leak into a new package.
+Get-ChildItem -LiteralPath $outputPath -Force |
+    Remove-Item -Recurse -Force
+
+Copy-Item -LiteralPath $executablePath -Destination (Join-Path $outputPath "dpm_manager.exe") -Force
 
 # Preserve the complete Release runtime DLL set. Some vcpkg libraries depend on
 # other DLLs that windeployqt cannot discover, but Debug runtimes must not be

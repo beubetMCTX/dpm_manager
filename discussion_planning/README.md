@@ -650,3 +650,9 @@ References:
 - Release packaging now removes stale `*_debug.dll` files from the output directory before copying dependencies.
 - Dependency copying excludes Debug-suffixed DLLs and the final package is checked for any remaining Debug runtime.
 - Verified that the Release executable dependency list does not require the removed Debug TBB chain; startup/shutdown verification remains part of the packaging check.
+
+### 2026-09-02 Rebuild Release Packages from a Clean Directory
+
+- The packaging script now clears the generated output directory before copying the executable and dependencies.
+- A filesystem-root safety check prevents an accidental broad deletion when a custom output path is supplied.
+- This prevents stale logs, plugins, and removed dependencies from leaking into later Release packages.
