@@ -82,6 +82,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${COMMON_DIR}/global_functions.h
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
         ${UI_COMPONENTS_DIR}/qUI_components.h ${UI_COMPONENTS_DIR}/qUI_components.cpp
         ${UI_DIALOGS_DIR}/unit_edit_dialog.h ${UI_DIALOGS_DIR}/unit_edit_dialog.cpp ${UI_DIALOGS_DIR}/unit_edit_dialog.ui
         ${UI_DIALOGS_DIR}/species_color_dialog.h ${UI_DIALOGS_DIR}/species_color_dialog.cpp ${UI_DIALOGS_DIR}/species_color_dialog.ui
@@ -184,6 +185,17 @@ if(DPM_BUILD_TESTS)
     target_link_libraries(project_session_regression PRIVATE Qt6::OpenGLWidgets)
     target_link_libraries(project_session_regression PRIVATE ${OpenCASCADE_LIBRARIES})
     add_test(NAME project_session_regression COMMAND project_session_regression)
+
+    add_executable(unit_system_regression
+        tests/unit_system_test.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
+    )
+    target_include_directories(unit_system_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${COMMON_DIR}
+    )
+    target_link_libraries(unit_system_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    add_test(NAME unit_system_regression COMMAND unit_system_regression)
 endif()
 
 

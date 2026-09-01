@@ -316,3 +316,10 @@ References:
 - Release build, project-session regression (`exit 0`), and six-second startup check passed; commit `ba56889` was pushed to `origin/main`.
 - Project-session reference geometry is now parsed into a temporary reader before the current scene is replaced, preventing a parse failure from leaving a partially loaded session.
 - Release build, project-session regression (`exit 0`), and six-second startup check passed; commit `19bd1fd` was pushed to `origin/main`.
+### 2026-09-02 Unit System Foundation
+
+- Added standalone `UnitSystem` definitions and conversion utilities for dimensionless values, length, angle, velocity, mass, mass flow, time, pressure, and temperature.
+- Added compatibility and finite-value validation so incompatible or invalid conversions fail without producing data.
+- Added `unit_system_regression` coverage for length, angle, temperature, pressure, incompatible units, and non-finite input.
+- Registered the module in the main target and CTest; Release build and regression test passed.
+- This increment intentionally does not change existing editor bindings. The next increment can opt fields into display-unit to internal-unit conversion safely.
