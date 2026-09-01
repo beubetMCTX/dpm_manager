@@ -359,6 +359,26 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     runtime_debug::trace("MainWindow closeEvent begin");
 
+    if (m_project_dirty)
+    {
+        const QMessageBox::StandardButton answer = QMessageBox::warning(
+            this,
+            "Unsaved Project Changes",
+            "The current project has unsaved changes. Save before closing?",
+            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+            QMessageBox::Save);
+        if (answer == QMessageBox::Cancel)
+        {
+            event->ignore();
+            return;
+        }
+        if (answer == QMessageBox::Save && !save_current_project_session())
+        {
+            event->ignore();
+            return;
+        }
+    }
+
     // Close OCCT-owned editors first so their selection-clearing callbacks run
     // while the interactive context and view are still valid.
     if (m_3d_widget != nullptr)
@@ -449,16 +469,25 @@ void MainWindow::on_actionOpen_Project_triggered()
 
 void MainWindow::on_actionSave_Project_triggered()
 {
-    if (!m_project_session_file_path.trimmed().isEmpty())
-    {
-        save_project_session(m_project_session_file_path);
-        return;
-    }
-
-    on_actionSave_Project_As_triggered();
+    save_current_project_session();
 }
 
 void MainWindow::on_actionSave_Project_As_triggered()
+{
+    save_project_session_as();
+}
+
+bool MainWindow::save_current_project_session()
+{
+    if (!m_project_session_file_path.trimmed().isEmpty())
+    {
+        return save_project_session(m_project_session_file_path);
+    }
+
+    return save_project_session_as();
+}
+
+bool MainWindow::save_project_session_as()
 {
     const QString file_path = QFileDialog::getSaveFileName(
         this,
@@ -468,10 +497,10 @@ void MainWindow::on_actionSave_Project_As_triggered()
     if (file_path.trimmed().isEmpty())
     {
         statusBar()->showMessage("Project session save canceled", 5000);
-        return;
+        return false;
     }
 
-    save_project_session(file_path);
+    return save_project_session(file_path);
 }
 
 bool MainWindow::save_project_session(const QString &file_path)

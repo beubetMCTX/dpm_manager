@@ -78,6 +78,8 @@ private:
     void restore_reference_geometry();
     void save_reference_geometry_state();
     bool save_project_session(const QString &file_path);
+    bool save_current_project_session();
+    bool save_project_session_as();
     bool load_project_session(const QString &file_path);
     void mark_project_dirty();
     void update_project_session_title();
