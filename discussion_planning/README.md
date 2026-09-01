@@ -249,6 +249,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - All three commits were pushed to `origin/main`, and the Release target compiled successfully after each code change.
 - Added per-object visibility toggles to the Objects panel in commit `9a5ef73`. Visibility changes affect only OCCT display state and safely clear selection when the selected object is hidden.
 - Added injector lock and rename APIs in commit `792ef42`, then exposed them through the Objects panel context menu in commit `8bd312d`. Locking prevents 3D movement only; editing and selection remain available.
+- Added direct editor opening from the Objects panel in commit `776b23e`, reusing the existing dialog lifetime and duplicate-window protection.
 
 References:
 
