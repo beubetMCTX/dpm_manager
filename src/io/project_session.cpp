@@ -1,6 +1,7 @@
 #include "project_session.h"
 
 #include <QDateTime>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
@@ -480,6 +481,30 @@ bool is_finite_vector(const QVector3D &value)
            std::isfinite(static_cast<double>(value.y())) &&
            std::isfinite(static_cast<double>(value.z()));
 }
+
+QString session_path_for_storage(const QString &path, const QString &session_file_path)
+{
+    if (path.trimmed().isEmpty() || !QFileInfo(path).isAbsolute())
+    {
+        return path;
+    }
+
+    const QDir session_directory(QFileInfo(session_file_path).absolutePath());
+    const QString relative_path = session_directory.relativeFilePath(
+        QFileInfo(path).absoluteFilePath());
+    return QFileInfo(relative_path).isAbsolute() ? path : relative_path;
+}
+
+QString session_path_for_runtime(const QString &path, const QString &session_file_path)
+{
+    if (path.trimmed().isEmpty() || QFileInfo(path).isAbsolute())
+    {
+        return path;
+    }
+
+    const QDir session_directory(QFileInfo(session_file_path).absolutePath());
+    return QFileInfo(session_directory.absoluteFilePath(path)).absoluteFilePath();
+}
 }
 
 namespace project_session
@@ -562,7 +587,8 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
     QJsonObject root;
     root.insert("schema_version", kSessionSchemaVersion);
     root.insert("created_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
-    root.insert("chemkin_file_path", data.chemkin_file_path);
+    root.insert("chemkin_file_path",
+                session_path_for_storage(data.chemkin_file_path, file_path));
 
     if (data.has_unit_preferences)
     {
@@ -608,7 +634,9 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
     root.insert("materials", materials);
 
     QJsonObject reference_geometry;
-    reference_geometry.insert("file_path", data.reference_geometry.file_path);
+    reference_geometry.insert(
+        "file_path",
+        session_path_for_storage(data.reference_geometry.file_path, file_path));
     reference_geometry.insert("position", vector_to_json(data.reference_geometry.position));
     reference_geometry.insert("rotation", vector_to_json(data.reference_geometry.rotation));
     reference_geometry.insert("locked", data.reference_geometry.locked);
@@ -664,7 +692,8 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
 
     Data parsed;
-    parsed.chemkin_file_path = root.value("chemkin_file_path").toString();
+    parsed.chemkin_file_path = session_path_for_runtime(
+        root.value("chemkin_file_path").toString(), file_path);
 
     const QJsonValue unit_preferences_value = root.value("unit_preferences");
     if (!unit_preferences_value.isUndefined())
@@ -748,7 +777,8 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
 
     const QJsonObject reference_geometry = root.value("reference_geometry").toObject();
-    parsed.reference_geometry.file_path = reference_geometry.value("file_path").toString();
+    parsed.reference_geometry.file_path = session_path_for_runtime(
+        reference_geometry.value("file_path").toString(), file_path);
     if (!parsed.reference_geometry.file_path.trimmed().isEmpty() &&
         (!vector_from_json(reference_geometry.value("position"),
                           &parsed.reference_geometry.position) ||

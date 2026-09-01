@@ -23,6 +23,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added regression coverage for valid lists, empty names, invalid names, invalid numeric values, and non-injector units.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Portable Project Paths
+
+- Project sessions now store same-volume Chemkin and reference-geometry paths relative to the session file.
+- Relative paths are resolved to absolute runtime paths when loading; legacy absolute paths and cross-volume paths remain supported.
+- Added round-trip coverage for relative path storage and runtime resolution.
+- Release build and all 9 CTest regressions passed.
+
 ## Candidate Next Work
 
 ### High Priority

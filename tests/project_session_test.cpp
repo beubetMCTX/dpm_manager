@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -53,10 +54,10 @@ int main(int argc, char *argv[])
 
     project_session::Data source;
     source.units.append(unit);
-    source.chemkin_file_path = "C:/chemistry/example.inp";
+    source.chemkin_file_path = temporary_directory.filePath("inputs/example.inp");
     source.species_colors.insert("O2", QColor("#123456"));
     source.materials.append({"water", 998.2});
-    source.reference_geometry.file_path = "C:/geometry/example.step";
+    source.reference_geometry.file_path = temporary_directory.filePath("geometry/example.step");
     source.reference_geometry.position = QVector3D(9.0f, 8.0f, 7.0f);
     source.reference_geometry.rotation = QVector3D(10.0f, 20.0f, 30.0f);
     source.reference_geometry.locked = true;
@@ -105,6 +106,26 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QFile saved_session(session_path);
+    if (!check(saved_session.open(QIODevice::ReadOnly | QIODevice::Text),
+               "Unable to inspect saved project session"))
+    {
+        return 1;
+    }
+    const QJsonObject saved_root =
+        QJsonDocument::fromJson(saved_session.readAll()).object();
+    saved_session.close();
+    if (!check(!QFileInfo(saved_root.value("chemkin_file_path").toString()).isAbsolute() &&
+                   !QFileInfo(saved_root.value("reference_geometry")
+                                  .toObject()
+                                  .value("file_path")
+                                  .toString())
+                       .isAbsolute(),
+               "Project sessions should store paths relative to the session file"))
+    {
+        return 1;
+    }
+
     project_session::Data restored;
     if (!check(project_session::load(session_path, &restored, &error_message), error_message))
     {
@@ -112,6 +133,8 @@ int main(int argc, char *argv[])
     }
 
     if (!check(restored.units.size() == 1, "Unexpected restored unit count") ||
+        !check(restored.chemkin_file_path == QFileInfo(source.chemkin_file_path).absoluteFilePath(),
+               "Relative Chemkin path did not resolve during load") ||
         !check(restored.units.first().inj.uuid == unit.inj.uuid, "Unit UUID did not round-trip") ||
         !check(restored.units.first().inj.injector_data.name == "session-test",
                "Unit name did not round-trip") ||
@@ -131,6 +154,9 @@ int main(int argc, char *argv[])
                "Material did not round-trip") ||
         !check(restored.reference_geometry.position == QVector3D(9.0f, 8.0f, 7.0f),
                "Reference position did not round-trip") ||
+        !check(restored.reference_geometry.file_path ==
+                   QFileInfo(source.reference_geometry.file_path).absoluteFilePath(),
+               "Relative reference geometry path did not resolve during load") ||
         !check(restored.reference_geometry.locked && !restored.reference_geometry.visible,
                "Reference visibility/lock state did not round-trip") ||
         !check(restored.has_unit_preferences &&
