@@ -269,6 +269,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Optimized batch visibility updates in commit `ec99cef` so Show/Hide All redraws the OCCT view once rather than once per injector.
 - Added double-click editor opening for injector rows in commit `5c6f1a5`; the reference-geometry row is intentionally ignored.
 - Implemented injector copy/paste-to-replace data handling in commit `b395c74`, connected it to the 3D context menu in `6ad3e51`, and exposed it in the Objects panel in `bfaf19f`.
+- Connected the previously inactive 3D injector Delete action in commit `bcec0ea`; it now uses the same confirmation and safe-removal path as the Objects panel.
 
 References:
 
