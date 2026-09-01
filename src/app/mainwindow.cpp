@@ -190,6 +190,8 @@ MainWindow::MainWindow(QWidget *parent)
                 stored_unit.type = changed_unit->type;
                 stored_unit.inj.injector_data = changed_unit->inj.injector_data;
                 stored_unit.inj.shape = changed_unit->inj.shape;
+                update_object_list_item(stored_unit.inj.uuid,
+                                        stored_unit.inj.injector_data.name);
                 return;
             }
         }
@@ -807,6 +809,31 @@ void MainWindow::update_object_list_selection(const QUuid &uuid,
             item->setSelected(true);
             m_object_list->scrollToItem(item);
             break;
+        }
+    }
+}
+
+void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)
+{
+    if (m_object_list == nullptr || uuid.isNull())
+    {
+        return;
+    }
+
+    QString display_name = name.trimmed();
+    if (display_name.isEmpty())
+    {
+        display_name = uuid.toString(QUuid::WithoutBraces);
+    }
+
+    for (int row = 0; row < m_object_list->count(); ++row)
+    {
+        QListWidgetItem *item = m_object_list->item(row);
+        if (item->data(Qt::UserRole).toString() ==
+            uuid.toString(QUuid::WithoutBraces))
+        {
+            item->setText(display_name);
+            return;
         }
     }
 }

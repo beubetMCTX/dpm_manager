@@ -78,6 +78,7 @@ private:
     void apply_reference_geometry_transform();
     void create_object_list_panel();
     void update_object_list_panel();
+    void update_object_list_item(const QUuid &uuid, const QString &name);
     void update_object_list_selection(const QUuid &uuid, bool reference_geometry);
 
     Ui::MainWindow *ui;
