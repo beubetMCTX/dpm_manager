@@ -155,6 +155,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
     {
         discard_auxiliary_dialogs();
         clear_move_history();
+        clear_edit_history();
         m_copied_unit.reset();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
         {
@@ -485,6 +486,7 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     m_pending_visual_refreshes.remove(uuid);
     m_unit_visibility.remove(uuid);
     m_unit_locks.remove(uuid);
+    m_edit_transactions.remove(uuid);
     unit_hash.remove(uuid);
     for (int index = m_move_history.size() - 1; index >= 0; --index)
     {
@@ -500,6 +502,21 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     m_move_history_index = qBound(0, m_move_history_index,
                                   m_move_history.size());
     emit move_history_changed(can_undo_move(), can_redo_move());
+
+    for (int index = m_edit_history.size() - 1; index >= 0; --index)
+    {
+        if (m_edit_history[index].uuid == uuid)
+        {
+            m_edit_history.removeAt(index);
+            if (index < m_edit_history_index)
+            {
+                --m_edit_history_index;
+            }
+        }
+    }
+    m_edit_history_index = qBound(0, m_edit_history_index,
+                                  m_edit_history.size());
+    emit edit_history_changed(can_undo_edit(), can_redo_edit());
     emit unit_removed(uuid);
     emit unit_display_list_changed();
 
@@ -601,6 +618,152 @@ void OCCTWidget::clear_move_history()
     m_move_history.clear();
     m_move_history_index = 0;
     emit move_history_changed(false, false);
+}
+
+void OCCTWidget::begin_unit_edit_transaction(Unit *unit)
+{
+    if (unit == nullptr || unit->inj.uuid.isNull())
+    {
+        return;
+    }
+
+    UnitEditTransaction transaction;
+    transaction.uuid = unit->inj.uuid;
+    transaction.before_type = unit->type;
+    transaction.before_data = unit->inj.injector_data;
+    m_edit_transactions.insert(transaction.uuid, std::move(transaction));
+}
+
+void OCCTWidget::finish_unit_edit_transaction(Unit *unit, bool changed)
+{
+    if (unit == nullptr || unit->inj.uuid.isNull())
+    {
+        return;
+    }
+
+    const auto transaction_it = m_edit_transactions.find(unit->inj.uuid);
+    if (transaction_it == m_edit_transactions.end())
+    {
+        return;
+    }
+
+    const UnitEditTransaction transaction = transaction_it.value();
+    m_edit_transactions.erase(transaction_it);
+    if (changed && unit_hash.contains(unit->inj.uuid))
+    {
+        record_edit(transaction, *unit);
+    }
+}
+
+bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
+                                     Unit_Type type,
+                                     const Injector &data)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(entry.uuid);
+    if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
+    {
+        return false;
+    }
+
+    unit->type = type;
+    unit->inj.injector_data = data;
+    if (!unit->inj.create_injector())
+    {
+        return false;
+    }
+
+    unit->ais_display->SetLocalTransformation(gp_Trsf());
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(
+        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    m_view->Redraw();
+    emit unit_data_updated(unit.get());
+    return true;
+}
+
+void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
+                             const Unit &unit)
+{
+    if (transaction.uuid.isNull())
+    {
+        return;
+    }
+
+    if (m_edit_history_index < m_edit_history.size())
+    {
+        m_edit_history.resize(m_edit_history_index);
+    }
+
+    UnitEditHistoryEntry entry;
+    entry.uuid = transaction.uuid;
+    entry.before_type = transaction.before_type;
+    entry.after_type = unit.type;
+    entry.before_data = transaction.before_data;
+    entry.after_data = unit.inj.injector_data;
+    m_edit_history.append(std::move(entry));
+    m_edit_history_index = m_edit_history.size();
+    emit edit_history_changed(can_undo_edit(), can_redo_edit());
+}
+
+void OCCTWidget::clear_edit_history()
+{
+    if (m_edit_history.isEmpty() && m_edit_history_index == 0 &&
+        m_edit_transactions.isEmpty())
+    {
+        return;
+    }
+
+    m_edit_transactions.clear();
+    m_edit_history.clear();
+    m_edit_history_index = 0;
+    emit edit_history_changed(false, false);
+}
+
+bool OCCTWidget::can_undo_edit() const
+{
+    return m_edit_history_index > 0;
+}
+
+bool OCCTWidget::can_redo_edit() const
+{
+    return m_edit_history_index < m_edit_history.size();
+}
+
+bool OCCTWidget::undo_last_edit()
+{
+    if (!can_undo_edit())
+    {
+        return false;
+    }
+
+    const UnitEditHistoryEntry &entry = m_edit_history[m_edit_history_index - 1];
+    if (!apply_edit_snapshot(entry, entry.before_type, entry.before_data))
+    {
+        return false;
+    }
+
+    --m_edit_history_index;
+    emit edit_history_changed(can_undo_edit(), can_redo_edit());
+    return true;
+}
+
+bool OCCTWidget::redo_edit()
+{
+    if (!can_redo_edit())
+    {
+        return false;
+    }
+
+    const UnitEditHistoryEntry &entry = m_edit_history[m_edit_history_index];
+    if (!apply_edit_snapshot(entry, entry.after_type, entry.after_data))
+    {
+        return false;
+    }
+
+    ++m_edit_history_index;
+    emit edit_history_changed(can_undo_edit(), can_redo_edit());
+    return true;
 }
 
 bool OCCTWidget::can_undo_move() const
@@ -1316,6 +1479,8 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
         }
     }
 
+    begin_unit_edit_transaction(unit);
+
     unit_edit_dialog* inj_edit_dialog = new unit_edit_dialog(unit,
                                                              m_chemkin_species_names,
                                                              m_material_names,
@@ -1326,12 +1491,16 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
     {
         m_open_edit_dialogs.removeAll(inj_edit_dialog);
     });
-    connect(inj_edit_dialog, &unit_edit_dialog::dialog_closed, this, [this](Unit *closed_unit)
+    connect(inj_edit_dialog, &unit_edit_dialog::dialog_closed, this,
+            [this, inj_edit_dialog](Unit *closed_unit)
     {
         if (closed_unit == nullptr)
         {
             return;
         }
+
+        finish_unit_edit_transaction(closed_unit,
+                                     inj_edit_dialog->has_unsaved_changes());
 
         if (!selected_shape.IsNull() && get_unit(selected_shape) == closed_unit)
         {

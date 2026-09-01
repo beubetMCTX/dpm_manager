@@ -131,6 +131,12 @@ public:
     bool redo_move();
     bool can_undo_move() const;
     bool can_redo_move() const;
+    void begin_unit_edit_transaction(Unit *unit);
+    void finish_unit_edit_transaction(Unit *unit, bool changed);
+    bool undo_last_edit();
+    bool redo_edit();
+    bool can_undo_edit() const;
+    bool can_redo_edit() const;
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
@@ -151,6 +157,7 @@ signals:
     void unit_removed(const QUuid &uuid);
     void selection_changed(const QUuid &uuid, bool reference_geometry);
     void move_history_changed(bool can_undo, bool can_redo);
+    void edit_history_changed(bool can_undo, bool can_redo);
 
 private:
 
@@ -197,6 +204,20 @@ private:
         UnitMoveSnapshot before;
         UnitMoveSnapshot after;
     };
+    struct UnitEditTransaction
+    {
+        QUuid uuid;
+        Unit_Type before_type = injector;
+        Injector before_data;
+    };
+    struct UnitEditHistoryEntry
+    {
+        QUuid uuid;
+        Unit_Type before_type = injector;
+        Unit_Type after_type = injector;
+        Injector before_data;
+        Injector after_data;
+    };
     struct CopiedUnit
     {
         Unit_Type type = injector;
@@ -209,6 +230,12 @@ private:
                      const UnitMoveSnapshot &before,
                      const UnitMoveSnapshot &after);
     void clear_move_history();
+    bool apply_edit_snapshot(const UnitEditHistoryEntry &entry,
+                             Unit_Type type,
+                             const Injector &data);
+    void record_edit(const UnitEditTransaction &transaction,
+                     const Unit &unit);
+    void clear_edit_history();
 
 protected:
 
@@ -289,6 +316,9 @@ private:
     std::optional<CopiedUnit> m_copied_unit;
     QVector<UnitMoveHistoryEntry> m_move_history;
     int m_move_history_index = 0;
+    QHash<QUuid, UnitEditTransaction> m_edit_transactions;
+    QVector<UnitEditHistoryEntry> m_edit_history;
+    int m_edit_history_index = 0;
     QUuid m_drag_unit_uuid;
     UnitMoveSnapshot m_drag_move_before;
     bool m_drag_move_snapshot_valid = false;
