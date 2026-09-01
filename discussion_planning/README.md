@@ -368,3 +368,9 @@ References:
 
 - Added a reusable Display Units dialog for length, angle, velocity, mass, mass flow, time, pressure, and temperature.
 - Added a Settings menu action that persists confirmed choices and refreshes all open injector editors without changing model storage units.
+
+### 2026-09-02 Release Packaging
+
+- Added `scripts/package_release.ps1` for repeatable Release packaging.
+- The script copies the Release executable, all known runtime DLLs, Qt plugin directories, and runs matching `windeployqt` when available.
+- It emits a SHA-256 deployment manifest for checking package contents.
