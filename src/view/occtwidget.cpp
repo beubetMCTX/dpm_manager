@@ -207,7 +207,7 @@ bool OCCTWidget::select_unit_by_uuid(const QUuid &uuid)
     }
 
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit->ais_display.IsNull())
+    if (unit == nullptr || unit->ais_display.IsNull() || !unit_visible(uuid))
     {
         return false;
     }
@@ -224,7 +224,7 @@ bool OCCTWidget::select_unit_by_uuid(const QUuid &uuid)
 bool OCCTWidget::select_reference_geometry()
 {
     if (base_geometry.IsNull() || m_context.IsNull() || m_view.IsNull() ||
-        ref_geom.IsNull())
+        ref_geom.IsNull() || !m_reference_geometry_visible)
     {
         return false;
     }
