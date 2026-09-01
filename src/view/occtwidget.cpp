@@ -566,6 +566,27 @@ void OCCTWidget::set_standard_view(V3d_TypeOfOrientation orientation)
 
 void OCCTWidget::clear_selection()
 {
+    finish_reference_transform_transaction();
+
+    if (m_drag_move_snapshot_valid && !m_drag_unit_uuid.isNull())
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(m_drag_unit_uuid);
+        if (unit != nullptr)
+        {
+            const UnitMoveSnapshot after = make_move_snapshot(*unit);
+            if (after.pos != m_drag_move_before.pos ||
+                after.pos2 != m_drag_move_before.pos2 ||
+                after.ff_center != m_drag_move_before.ff_center ||
+                after.ff_virtual_origin != m_drag_move_before.ff_virtual_origin ||
+                after.volume_bgeom_min != m_drag_move_before.volume_bgeom_min ||
+                after.volume_bgeom_max != m_drag_move_before.volume_bgeom_max)
+            {
+                record_move(m_drag_unit_uuid, m_drag_move_before, after);
+            }
+        }
+    }
+    m_drag_unit_uuid = QUuid();
+    m_drag_move_snapshot_valid = false;
     clear_face_reference();
     myIsDragging = false;
     clear_context_selection_safely();

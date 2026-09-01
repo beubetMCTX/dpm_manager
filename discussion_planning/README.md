@@ -87,6 +87,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - The shortcut does not modify injector or reference geometry data.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Finalize Drag State on Escape
+
+- Clearing selection now finalizes an active reference transform or injector move transaction before resetting interaction state.
+- Pressing `Esc` during a drag no longer leaves a stale transaction for the next drag operation.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
