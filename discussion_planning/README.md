@@ -314,3 +314,5 @@ References:
 - Release build, project-session regression (`exit 0`), and six-second startup check passed; commit `6f72cdc` was pushed to `origin/main`.
 - Closing a dirty project now asks Save/Discard/Cancel; Cancel or a canceled/failed Save keeps the application open. `Ctrl+S` is also bound to the current session save path.
 - Release build, project-session regression (`exit 0`), and six-second startup check passed; commit `ba56889` was pushed to `origin/main`.
+- Project-session reference geometry is now parsed into a temporary reader before the current scene is replaced, preventing a parse failure from leaving a partially loaded session.
+- Release build, project-session regression (`exit 0`), and six-second startup check passed; commit `19bd1fd` was pushed to `origin/main`.
