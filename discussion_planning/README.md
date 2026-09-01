@@ -304,3 +304,5 @@ References:
 - Editor history rebuilds the injector geometry and synchronizes the main-window model when applied; stale entries are removed when units are deleted or reloaded.
 - Release compilation and a six-second deployed-DLL startup check passed; commits `df0a99f`, `2ddeb1d`, and `449678d` were pushed to `origin/main`.
 - Manual GUI verification is still required for the full edit-close-undo-redo cycle.
+- Project sessions now include custom Species color mappings; saving uses the live color-dialog map when available and loading refreshes an already-open color dialog while retaining the legacy `color_cfg` fallback.
+- Release build and a six-second startup check with deployed dependencies passed; commits `c832cb3` and `7b4ee7b` were pushed to `origin/main`.
