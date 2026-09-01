@@ -506,6 +506,8 @@ void MainWindow::on_actionRead_triggered()
         units = temp;
         m_3d_widget->display_units(units, true);
         m_project_session_file_path.clear();
+        m_project_baseline_initialized = false;
+        m_saved_project_fingerprint.clear();
         update_project_session_title();
         mark_project_dirty();
 
@@ -674,31 +676,7 @@ bool MainWindow::save_project_session_as()
 
 bool MainWindow::save_project_session(const QString &file_path)
 {
-    project_session::Data data;
-    data.units = units;
-    data.chemkin_file_path = m_chemkin_file_path;
-    data.materials = m_material_entries;
-    data.unit_preferences = UnitSystem::active_preferences();
-    data.has_unit_preferences = true;
-    if (m_species_color_dialog != nullptr)
-    {
-        data.species_colors = m_species_color_dialog->species_colors();
-    }
-    else if (!m_chemkin_file_path.trimmed().isEmpty())
-    {
-        load_species_color_config(m_chemkin_file_path,
-                                  m_chemkin_species_names,
-                                  &data.species_colors,
-                                  nullptr);
-    }
-    if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
-    {
-        data.reference_geometry.file_path = m_3d_widget->geometry.file_path();
-        data.reference_geometry.position = m_3d_widget->reference_position();
-        data.reference_geometry.rotation = m_3d_widget->reference_rotation();
-        data.reference_geometry.locked = m_3d_widget->reference_geometry_locked();
-        data.reference_geometry.visible = m_3d_widget->reference_geometry_visible();
-    }
+    const project_session::Data data = collect_project_data();
 
     QString error_message;
     if (!project_session::validate_references(data,
@@ -718,6 +696,8 @@ bool MainWindow::save_project_session(const QString &file_path)
 
     m_project_session_file_path = QFileInfo(file_path).absoluteFilePath();
     remember_project_path(m_project_session_file_path);
+    m_saved_project_fingerprint = project_session::fingerprint(data);
+    m_project_baseline_initialized = true;
     m_project_dirty = false;
     update_project_session_title();
     statusBar()->showMessage(QString("Project session saved: %1").arg(file_path), 8000);
@@ -858,6 +838,8 @@ bool MainWindow::load_project_session(const QString &file_path)
     update_reference_geometry_panel();
     m_project_session_file_path = QFileInfo(file_path).absoluteFilePath();
     remember_project_path(m_project_session_file_path);
+    m_saved_project_fingerprint = project_session::fingerprint(data);
+    m_project_baseline_initialized = true;
     m_project_dirty = false;
     m_loading_project_session = false;
     update_project_session_title();
@@ -954,12 +936,55 @@ void MainWindow::update_recent_projects_menu()
 
 void MainWindow::mark_project_dirty()
 {
-    if (m_loading_project_session || m_project_dirty)
+    if (m_loading_project_session)
     {
         return;
     }
 
-    m_project_dirty = true;
+    refresh_project_dirty_state();
+}
+
+project_session::Data MainWindow::collect_project_data() const
+{
+    project_session::Data data;
+    data.units = units;
+    data.chemkin_file_path = m_chemkin_file_path;
+    data.materials = m_material_entries;
+    data.unit_preferences = UnitSystem::active_preferences();
+    data.has_unit_preferences = true;
+    if (m_species_color_dialog != nullptr)
+    {
+        data.species_colors = m_species_color_dialog->species_colors();
+    }
+    else if (!m_chemkin_file_path.trimmed().isEmpty())
+    {
+        load_species_color_config(m_chemkin_file_path,
+                                  m_chemkin_species_names,
+                                  &data.species_colors,
+                                  nullptr);
+    }
+    if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
+    {
+        data.reference_geometry.file_path = m_3d_widget->geometry.file_path();
+        data.reference_geometry.position = m_3d_widget->reference_position();
+        data.reference_geometry.rotation = m_3d_widget->reference_rotation();
+        data.reference_geometry.locked = m_3d_widget->reference_geometry_locked();
+        data.reference_geometry.visible = m_3d_widget->reference_geometry_visible();
+    }
+    return data;
+}
+
+void MainWindow::refresh_project_dirty_state()
+{
+    const bool dirty = !m_project_baseline_initialized ||
+                       project_session::fingerprint(collect_project_data()) !=
+                           m_saved_project_fingerprint;
+    if (m_project_dirty == dirty)
+    {
+        return;
+    }
+
+    m_project_dirty = dirty;
     update_project_session_title();
 }
 

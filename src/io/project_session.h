@@ -6,6 +6,7 @@
 #include <QColor>
 #include <QString>
 #include <QStringList>
+#include <QByteArray>
 
 #include "app_config.h"
 #include "unit.h"
@@ -32,6 +33,10 @@ bool validate_references(const Data &data,
 bool save(const QString &file_path,
           const Data &data,
           QString *error_message = nullptr);
+
+// Returns a stable representation of the editable project state. Runtime
+// geometry handles and save timestamps are intentionally excluded.
+QByteArray fingerprint(const Data &data);
 
 bool load(const QString &file_path,
           Data *data,

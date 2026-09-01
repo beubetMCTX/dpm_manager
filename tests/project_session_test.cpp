@@ -140,6 +140,21 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data fingerprint_variant = source;
+    if (!check(project_session::fingerprint(source) ==
+                   project_session::fingerprint(fingerprint_variant),
+               "Identical project data should have identical fingerprints"))
+    {
+        return 1;
+    }
+    fingerprint_variant.units.first().inj.injector_data.pos.setX(99.0f);
+    if (!check(project_session::fingerprint(source) !=
+                   project_session::fingerprint(fingerprint_variant),
+               "Editable project changes should change the fingerprint"))
+    {
+        return 1;
+    }
+
     QFile saved_session(session_path);
     if (!check(saved_session.open(QIODevice::ReadOnly | QIODevice::Text),
                "Unable to inspect saved project session"))

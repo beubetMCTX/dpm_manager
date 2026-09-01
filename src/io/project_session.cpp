@@ -10,6 +10,7 @@
 #include <QJsonParseError>
 #include <QSaveFile>
 #include <QSet>
+#include <QCryptographicHash>
 
 #include <cmath>
 
@@ -489,6 +490,11 @@ QString session_path_for_storage(const QString &path, const QString &session_fil
         return path;
     }
 
+    if (session_file_path.trimmed().isEmpty())
+    {
+        return QFileInfo(path).absoluteFilePath();
+    }
+
     const QDir session_directory(QFileInfo(session_file_path).absolutePath());
     const QString relative_path = session_directory.relativeFilePath(
         QFileInfo(path).absoluteFilePath());
@@ -504,6 +510,74 @@ QString session_path_for_runtime(const QString &path, const QString &session_fil
 
     const QDir session_directory(QFileInfo(session_file_path).absolutePath());
     return QFileInfo(session_directory.absoluteFilePath(path)).absoluteFilePath();
+}
+
+QJsonObject data_to_json(const project_session::Data &data,
+                         const QString &file_path,
+                         bool include_timestamp)
+{
+    QJsonObject root;
+    root.insert("schema_version", kSessionSchemaVersion);
+    if (include_timestamp)
+    {
+        root.insert("created_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+    }
+    root.insert("chemkin_file_path",
+                session_path_for_storage(data.chemkin_file_path, file_path));
+
+    if (data.has_unit_preferences)
+    {
+        QJsonObject unit_preferences;
+        unit_preferences.insert("length", data.unit_preferences.length);
+        unit_preferences.insert("angle", data.unit_preferences.angle);
+        unit_preferences.insert("velocity", data.unit_preferences.velocity);
+        unit_preferences.insert("mass", data.unit_preferences.mass);
+        unit_preferences.insert("mass_flow", data.unit_preferences.mass_flow);
+        unit_preferences.insert("time", data.unit_preferences.time);
+        unit_preferences.insert("pressure", data.unit_preferences.pressure);
+        unit_preferences.insert("temperature", data.unit_preferences.temperature);
+        root.insert("unit_preferences", unit_preferences);
+    }
+
+    QJsonObject species_colors;
+    for (auto it = data.species_colors.constBegin();
+         it != data.species_colors.constEnd();
+         ++it)
+    {
+        if (it.value().isValid())
+        {
+            species_colors.insert(it.key(), it.value().name(QColor::HexRgb).toUpper());
+        }
+    }
+    root.insert("species_colors", species_colors);
+
+    QJsonArray units;
+    for (const Unit &unit : data.units)
+    {
+        units.append(unit_to_json(unit));
+    }
+    root.insert("units", units);
+
+    QJsonArray materials;
+    for (const MaterialConfigEntry &entry : data.materials)
+    {
+        QJsonObject material;
+        material.insert("name", entry.name);
+        material.insert("density", entry.density);
+        materials.append(material);
+    }
+    root.insert("materials", materials);
+
+    QJsonObject reference_geometry;
+    reference_geometry.insert(
+        "file_path",
+        session_path_for_storage(data.reference_geometry.file_path, file_path));
+    reference_geometry.insert("position", vector_to_json(data.reference_geometry.position));
+    reference_geometry.insert("rotation", vector_to_json(data.reference_geometry.rotation));
+    reference_geometry.insert("locked", data.reference_geometry.locked);
+    reference_geometry.insert("visible", data.reference_geometry.visible);
+    root.insert("reference_geometry", reference_geometry);
+    return root;
 }
 }
 
@@ -685,64 +759,7 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
         return false;
     }
 
-    QJsonObject root;
-    root.insert("schema_version", kSessionSchemaVersion);
-    root.insert("created_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
-    root.insert("chemkin_file_path",
-                session_path_for_storage(data.chemkin_file_path, file_path));
-
-    if (data.has_unit_preferences)
-    {
-        QJsonObject unit_preferences;
-        unit_preferences.insert("length", data.unit_preferences.length);
-        unit_preferences.insert("angle", data.unit_preferences.angle);
-        unit_preferences.insert("velocity", data.unit_preferences.velocity);
-        unit_preferences.insert("mass", data.unit_preferences.mass);
-        unit_preferences.insert("mass_flow", data.unit_preferences.mass_flow);
-        unit_preferences.insert("time", data.unit_preferences.time);
-        unit_preferences.insert("pressure", data.unit_preferences.pressure);
-        unit_preferences.insert("temperature", data.unit_preferences.temperature);
-        root.insert("unit_preferences", unit_preferences);
-    }
-
-    QJsonObject species_colors;
-    for (auto it = data.species_colors.constBegin();
-         it != data.species_colors.constEnd();
-         ++it)
-    {
-        if (it.value().isValid())
-        {
-            species_colors.insert(it.key(), it.value().name(QColor::HexRgb).toUpper());
-        }
-    }
-    root.insert("species_colors", species_colors);
-
-    QJsonArray units;
-    for (const Unit &unit : data.units)
-    {
-        units.append(unit_to_json(unit));
-    }
-    root.insert("units", units);
-
-    QJsonArray materials;
-    for (const MaterialConfigEntry &entry : data.materials)
-    {
-        QJsonObject material;
-        material.insert("name", entry.name);
-        material.insert("density", entry.density);
-        materials.append(material);
-    }
-    root.insert("materials", materials);
-
-    QJsonObject reference_geometry;
-    reference_geometry.insert(
-        "file_path",
-        session_path_for_storage(data.reference_geometry.file_path, file_path));
-    reference_geometry.insert("position", vector_to_json(data.reference_geometry.position));
-    reference_geometry.insert("rotation", vector_to_json(data.reference_geometry.rotation));
-    reference_geometry.insert("locked", data.reference_geometry.locked);
-    reference_geometry.insert("visible", data.reference_geometry.visible);
-    root.insert("reference_geometry", reference_geometry);
+    const QJsonObject root = data_to_json(data, file_path, true);
 
     QSaveFile file(file_path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -757,6 +774,17 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
         return false;
     }
     return true;
+}
+
+QByteArray fingerprint(const Data &data)
+{
+    // The empty session path makes absolute paths stay absolute; the
+    // timestamp is omitted by design.
+    const QJsonObject root = data_to_json(data, QString(), false);
+    return QCryptographicHash::hash(
+               QJsonDocument(root).toJson(QJsonDocument::Compact),
+               QCryptographicHash::Sha256)
+        .toHex();
 }
 
 bool load(const QString &file_path, Data *data, QString *error_message)

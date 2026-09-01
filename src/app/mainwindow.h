@@ -15,6 +15,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QListWidget>
+#include <QByteArray>
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -24,6 +25,7 @@
 #include "occtwidget.h"
 #include "unit.h"
 #include "app_config.h"
+#include "project_session.h"
 
 
 QT_BEGIN_NAMESPACE
@@ -108,12 +110,16 @@ private:
     void save_window_layout();
     void reset_window_layout();
     void open_unit_preferences_dialog();
+    project_session::Data collect_project_data() const;
+    void refresh_project_dirty_state();
 
     Ui::MainWindow *ui;
     QStringList m_chemkin_species_names;
     QString m_chemkin_file_path;
     QString m_project_session_file_path;
     bool m_project_dirty = false;
+    bool m_project_baseline_initialized = false;
+    QByteArray m_saved_project_fingerprint;
     bool m_loading_project_session = false;
     QList<MaterialConfigEntry> m_material_entries;
     QToolBar *m_chemkin_toolbar = nullptr;

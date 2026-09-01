@@ -849,3 +849,10 @@ References:
 - Project sessions can now store and restore the active display-unit preferences alongside the model data.
 - Older sessions without the optional `unit_preferences` object remain compatible and keep the current global preferences.
 - Unit preferences are validated on save and load; incompatible settings are rejected before partial project data is exposed.
+### 2026-09-02 Project Dirty-State Fingerprint
+
+- Added a project-session fingerprint built from editable project data rather than runtime geometry handles or save timestamps.
+- MainWindow now compares the current project snapshot with the last saved/loaded snapshot, so Undo/Redo can clear the dirty marker when the saved state is restored.
+- DPM imports intentionally start a new unsaved baseline and remain dirty until saved.
+- Added regression coverage proving identical snapshots match and edited injector data changes the fingerprint.
+- Release build and all 9 CTest regressions passed with the required runtime DLL paths.
