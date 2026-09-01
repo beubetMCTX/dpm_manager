@@ -34,6 +34,7 @@ public:
 
     void refresh_from_unit_data(Unit *unit);
     void set_material_names(const QStringList &material_names);
+    bool has_unsaved_changes() const { return m_data_modified; }
 
 signals:
     void injector_data_changed(Unit *unit);
@@ -79,6 +80,7 @@ private:
     QVBoxLayout *m_turbulent_dispersion_layout = nullptr;
     QVBoxLayout *m_parcel_layout = nullptr;
     QVBoxLayout *m_wet_combustion_layout = nullptr;
+    bool m_data_modified = false;
 
     inline bool initialize();
     void setup_custom_controls();

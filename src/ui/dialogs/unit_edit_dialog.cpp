@@ -2686,6 +2686,7 @@ void unit_edit_dialog::notify_injector_data_changed(bool geometry_changed)
         return;
     }
 
+    m_data_modified = true;
     emit injector_data_changed(control_unit);
     if (geometry_changed)
     {
