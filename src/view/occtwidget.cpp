@@ -1412,7 +1412,10 @@ void OCCTWidget::m_initialize_context()
 
 void OCCTWidget::paintEvent(QPaintEvent *)
 {
-    m_view->Redraw();
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
 }
 
 void OCCTWidget::resizeEvent(QResizeEvent *)
@@ -1425,6 +1428,12 @@ void OCCTWidget::resizeEvent(QResizeEvent *)
 
 void OCCTWidget::mousePressEvent(QMouseEvent *event)
 {
+    if (m_context.IsNull() || m_view.IsNull())
+    {
+        event->ignore();
+        return;
+    }
+
     QPoint pos = event->pos();
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);
@@ -1487,6 +1496,12 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
 void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
 {
+    if (m_context.IsNull() || m_view.IsNull())
+    {
+        event->ignore();
+        return;
+    }
+
     if (event->button() == Qt::LeftButton)
     {
         QPoint pos = event->pos();
@@ -1747,6 +1762,12 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
 {
+    if (m_context.IsNull() || m_view.IsNull())
+    {
+        event->ignore();
+        return;
+    }
+
     QPoint pos = event->pos();
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);
@@ -1834,6 +1855,12 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
 
 void OCCTWidget::wheelEvent(QWheelEvent *event)
 {
+    if (m_context.IsNull() || m_view.IsNull())
+    {
+        event->ignore();
+        return;
+    }
+
     QPointF pos = event->position();
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);

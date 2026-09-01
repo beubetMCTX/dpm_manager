@@ -565,3 +565,9 @@ References:
 - Kept injector data synchronization immediate while adding a 30 ms coalescing window to the expensive OCCT geometry rebuild.
 - Multiple geometry-field commits in a short burst now rebuild from the latest data once instead of rebuilding for each commit.
 - Release build and all 9 CTest regressions passed. Desktop verification should confirm that the short delay remains visually imperceptible.
+
+### 2026-09-02 Guard OCCT Widget Events During Teardown
+
+- Added null-handle guards to paint, mouse, and wheel event handlers.
+- Late Qt events during OCCT view/context teardown are now ignored instead of dereferencing released native handles.
+- Release build and all 9 CTest regressions passed. A real desktop close-while-interacting test remains desirable.
