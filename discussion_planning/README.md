@@ -280,3 +280,9 @@ References:
 - https://www.mr-cfd.com/injection-dpm-diameter-distribution-linear-uniform-rosin-rammler-rosin-rammler-logarithmic/
 - https://cfdland.com/dpm-injection-types-in-ansys-fluent-direct-methods/
 - https://cfdland.com/discrete-phase-model-physical-model/
+
+### 2026-09-01 Configuration Resilience
+
+- Invalid JSON configuration files are now detected with `QJsonParseError` details.
+- Before falling back to defaults, the invalid file is renamed to a timestamped `.corrupt-*.bak` backup instead of being overwritten.
+- Release compilation passed after the change; commit `dc31075` was pushed to `origin/main`.
