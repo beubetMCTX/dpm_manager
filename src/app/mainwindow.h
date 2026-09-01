@@ -10,6 +10,10 @@
 #include <QPointer>
 #include <QStringList>
 #include <QToolBar>
+#include <QDockWidget>
+#include <QDoubleSpinBox>
+#include <QCheckBox>
+#include <QPushButton>
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -68,6 +72,9 @@ private:
                                 bool save_to_config,
                                 bool show_status_feedback);
     void update_chemkin_status();
+    void create_reference_geometry_panel();
+    void update_reference_geometry_panel();
+    void apply_reference_geometry_transform();
 
     Ui::MainWindow *ui;
     QStringList m_chemkin_species_names;
@@ -78,5 +85,14 @@ private:
     QLineEdit *m_chemkin_path_edit = nullptr;
     QPointer<SpeciesColorDialog> m_species_color_dialog;
     QPointer<SpeciesMaterialDialog> m_species_material_dialog;
+    QDockWidget *m_reference_geometry_dock = nullptr;
+    QDoubleSpinBox *m_reference_position_x = nullptr;
+    QDoubleSpinBox *m_reference_position_y = nullptr;
+    QDoubleSpinBox *m_reference_position_z = nullptr;
+    QDoubleSpinBox *m_reference_rotation_x = nullptr;
+    QDoubleSpinBox *m_reference_rotation_y = nullptr;
+    QDoubleSpinBox *m_reference_rotation_z = nullptr;
+    QCheckBox *m_reference_geometry_lock = nullptr;
+    QPushButton *m_align_reference_face = nullptr;
 };
 #endif // MAINWINDOW_H

@@ -213,7 +213,17 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added explicit `Massless` filtering for inertial and liquid-only physical-model fields. `Droplet` remains the only particle type exposing vapor pressure, diameter-distribution controls, SECO breakup, and Wet Combustion in this implementation; this matches the current project UI contract.
 - Physical Models now show only the stagger branch matching the selected injection family: standard injection staggering for ordinary injections and atomizer staggering for atomizer injections. The separate top-level Stagger Options panel remains visible for every injection type.
 - Fixed external particle-type refresh so a stale Rosin-Rammler or tabulated selection is normalized back to the base distribution and the combo box is refreshed at the same time.
-- Release build and all five CTest checks pass after the pass.
+- Release build passed after the pass; the historical smoke-test targets were
+  subsequently removed from the project to keep CMake focused on the main
+  application target.
+
+### 2026-09-01 Smoke-Test Cleanup
+
+- Removed the five legacy smoke-test source files and their CMake targets.
+- Removed CTest registration and smoke-test-only cache options from
+  `CMakeLists.txt`.
+- Future regression coverage should be added as focused tests when a stable
+  automated interface is available, rather than restoring the old executables.
 
 #### Fluent Cross-Check Notes
 

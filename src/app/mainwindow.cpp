@@ -10,6 +10,11 @@
 #include <QSizePolicy>
 #include <QtMath>
 #include <QDebug>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QSignalBlocker>
+#include <QVBoxLayout>
 
 namespace
 {
@@ -108,6 +113,39 @@ MainWindow::MainWindow(QWidget *parent)
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
     runtime_debug::trace("MainWindow OCCTWidget created");
+
+    create_reference_geometry_panel();
+    connect(m_3d_widget, &OCCTWidget::reference_geometry_available, this,
+            [this](bool available)
+    {
+        if (m_reference_geometry_dock != nullptr)
+        {
+            m_reference_geometry_dock->setVisible(available);
+        }
+        update_reference_geometry_panel();
+    });
+    connect(m_3d_widget, &OCCTWidget::reference_transform_changed, this,
+            [this](const QVector3D &, const QVector3D &)
+    {
+        update_reference_geometry_panel();
+    });
+    connect(m_3d_widget, &OCCTWidget::face_reference_changed, this,
+            [this](bool available)
+    {
+        if (m_align_reference_face != nullptr)
+        {
+            m_align_reference_face->setEnabled(available);
+        }
+    });
+    connect(m_3d_widget, &OCCTWidget::reference_geometry_lock_changed,
+            this, [this](bool locked)
+    {
+        if (m_reference_geometry_lock != nullptr &&
+            m_reference_geometry_lock->isChecked() != locked)
+        {
+            m_reference_geometry_lock->setChecked(locked);
+        }
+    });
 
     // OCCT owns editable Unit copies so that interactive handles remain stable.
     // Keep the MainWindow list synchronized whenever one of those copies changes.
@@ -528,6 +566,124 @@ void MainWindow::update_chemkin_status()
         m_chemkin_path_edit->setToolTip(m_chemkin_file_path);
         m_chemkin_path_edit->setCursorPosition(0);
     }
+}
+
+void MainWindow::create_reference_geometry_panel()
+{
+    m_reference_geometry_dock = new QDockWidget("Reference Geometry", this);
+    m_reference_geometry_dock->setObjectName("referenceGeometryDock");
+    m_reference_geometry_dock->setAllowedAreas(Qt::RightDockWidgetArea);
+    m_reference_geometry_dock->setMinimumWidth(250);
+
+    auto *panel = new QWidget(m_reference_geometry_dock);
+    auto *panel_layout = new QVBoxLayout(panel);
+    panel_layout->setContentsMargins(10, 10, 10, 10);
+
+    auto create_spin_box = [panel](const QString &label, QFormLayout *layout)
+    {
+        auto *spin_box = new QDoubleSpinBox(panel);
+        spin_box->setRange(-1.0e6, 1.0e6);
+        spin_box->setDecimals(4);
+        spin_box->setSingleStep(0.1);
+        spin_box->setKeyboardTracking(false);
+        layout->addRow(label, spin_box);
+        return spin_box;
+    };
+
+    auto *position_group = new QGroupBox("Position", panel);
+    auto *position_layout = new QFormLayout(position_group);
+    m_reference_position_x = create_spin_box("X", position_layout);
+    m_reference_position_y = create_spin_box("Y", position_layout);
+    m_reference_position_z = create_spin_box("Z", position_layout);
+    panel_layout->addWidget(position_group);
+
+    auto *rotation_group = new QGroupBox("Rotation (deg)", panel);
+    auto *rotation_layout = new QFormLayout(rotation_group);
+    m_reference_rotation_x = create_spin_box("X", rotation_layout);
+    m_reference_rotation_y = create_spin_box("Y", rotation_layout);
+    m_reference_rotation_z = create_spin_box("Z", rotation_layout);
+    panel_layout->addWidget(rotation_group);
+
+    auto *apply_button = new QPushButton("Apply Transform", panel);
+    auto *reset_button = new QPushButton("Reset Transform", panel);
+    m_align_reference_face = new QPushButton("Align View to Selected Face", panel);
+    m_align_reference_face->setEnabled(false);
+    m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
+
+    panel_layout->addWidget(apply_button);
+    panel_layout->addWidget(reset_button);
+    panel_layout->addWidget(m_align_reference_face);
+    panel_layout->addWidget(m_reference_geometry_lock);
+    panel_layout->addStretch();
+
+    m_reference_geometry_dock->setWidget(panel);
+    addDockWidget(Qt::RightDockWidgetArea, m_reference_geometry_dock);
+    m_reference_geometry_dock->hide();
+
+    connect(apply_button, &QPushButton::clicked, this,
+            &MainWindow::apply_reference_geometry_transform);
+    connect(reset_button, &QPushButton::clicked, this, [this]()
+    {
+        m_3d_widget->set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
+                                              QVector3D(0.0f, 0.0f, 0.0f));
+    });
+    connect(m_align_reference_face, &QPushButton::clicked, m_3d_widget,
+            &OCCTWidget::align_view_to_selected_face);
+    connect(m_reference_geometry_lock, &QCheckBox::toggled, this, [this](bool locked)
+    {
+        m_3d_widget->set_reference_geometry_locked(locked);
+        const bool enabled = !locked;
+        m_reference_position_x->setEnabled(enabled);
+        m_reference_position_y->setEnabled(enabled);
+        m_reference_position_z->setEnabled(enabled);
+        m_reference_rotation_x->setEnabled(enabled);
+        m_reference_rotation_y->setEnabled(enabled);
+        m_reference_rotation_z->setEnabled(enabled);
+    });
+
+    connect(m_reference_geometry_lock, &QCheckBox::toggled, apply_button,
+            [apply_button](bool locked) { apply_button->setEnabled(!locked); });
+    connect(m_reference_geometry_lock, &QCheckBox::toggled, reset_button,
+            [reset_button](bool locked) { reset_button->setEnabled(!locked); });
+}
+
+void MainWindow::update_reference_geometry_panel()
+{
+    if (m_3d_widget == nullptr || m_reference_position_x == nullptr)
+    {
+        return;
+    }
+
+    const QVector3D position = m_3d_widget->reference_position();
+    const QVector3D rotation = m_3d_widget->reference_rotation();
+    const QSignalBlocker position_x_blocker(m_reference_position_x);
+    const QSignalBlocker position_y_blocker(m_reference_position_y);
+    const QSignalBlocker position_z_blocker(m_reference_position_z);
+    const QSignalBlocker rotation_x_blocker(m_reference_rotation_x);
+    const QSignalBlocker rotation_y_blocker(m_reference_rotation_y);
+    const QSignalBlocker rotation_z_blocker(m_reference_rotation_z);
+    m_reference_position_x->setValue(position.x());
+    m_reference_position_y->setValue(position.y());
+    m_reference_position_z->setValue(position.z());
+    m_reference_rotation_x->setValue(rotation.x());
+    m_reference_rotation_y->setValue(rotation.y());
+    m_reference_rotation_z->setValue(rotation.z());
+}
+
+void MainWindow::apply_reference_geometry_transform()
+{
+    if (m_3d_widget == nullptr)
+    {
+        return;
+    }
+
+    m_3d_widget->set_reference_transform(
+        QVector3D(static_cast<float>(m_reference_position_x->value()),
+                  static_cast<float>(m_reference_position_y->value()),
+                  static_cast<float>(m_reference_position_z->value())),
+        QVector3D(static_cast<float>(m_reference_rotation_x->value()),
+                  static_cast<float>(m_reference_rotation_y->value()),
+                  static_cast<float>(m_reference_rotation_z->value())));
 }
 
 QList<Unit> MainWindow::build_test_injector_units() const

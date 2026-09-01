@@ -2,6 +2,7 @@
 #include "runtime_debug.h"
 #include <AIS_ViewCube.hxx>
 #include <QTimer>
+#include <QtMath>
 
 namespace
 {
@@ -41,6 +42,7 @@ OCCTWidget::~OCCTWidget()
     try
     {
         selected_shape.Nullify();
+        selected_face.Nullify();
 
         if (!m_context.IsNull())
         {
@@ -64,6 +66,9 @@ OCCTWidget::~OCCTWidget()
     base_geometry.Nullify();
     trihedron_main.Nullify();
     axis_placement_main.Nullify();
+    face_trihedron.Nullify();
+    face_axis_placement.Nullify();
+    emit face_reference_changed(false);
     m_viewer.Nullify();
     m_graphic_driver.Nullify();
     runtime_debug::trace("OCCTWidget destructor end");
@@ -214,6 +219,10 @@ Standard_Real OCCTWidget::get_trihedron_size()
 
 void OCCTWidget::add_readed_geometry()
 {
+    clear_face_reference();
+    set_reference_geometry_locked(false);
+    set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
+                            QVector3D(0.0f, 0.0f, 0.0f));
     builder.Remove(compound,ref_geom);
     ref_geom=geometry.getShape();
     builder.Add(compound,ref_geom);
@@ -227,7 +236,244 @@ void OCCTWidget::add_readed_geometry()
     m_context->Redisplay(trihedron_main, Standard_True);
 
     builded=true;
+    emit reference_geometry_available(true);
 
+}
+
+void OCCTWidget::set_reference_transform(const QVector3D &position,
+                                         const QVector3D &rotation_degrees)
+{
+    m_reference_position = position;
+    m_reference_rotation = rotation_degrees;
+    apply_reference_transform();
+}
+
+void OCCTWidget::set_reference_geometry_locked(bool locked)
+{
+    if (m_reference_geometry_locked == locked)
+    {
+        return;
+    }
+
+    m_reference_geometry_locked = locked;
+    emit reference_geometry_lock_changed(locked);
+}
+
+void OCCTWidget::apply_reference_transform()
+{
+    gp_Trsf rotation_x;
+    gp_Trsf rotation_y;
+    gp_Trsf rotation_z;
+    rotation_x.SetRotation(gp_Ax1(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(1.0, 0.0, 0.0)),
+                           qDegreesToRadians(static_cast<double>(m_reference_rotation.x())));
+    rotation_y.SetRotation(gp_Ax1(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(0.0, 1.0, 0.0)),
+                           qDegreesToRadians(static_cast<double>(m_reference_rotation.y())));
+    rotation_z.SetRotation(gp_Ax1(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(0.0, 0.0, 1.0)),
+                           qDegreesToRadians(static_cast<double>(m_reference_rotation.z())));
+
+    m_reference_transform = rotation_z;
+    m_reference_transform.Multiply(rotation_y);
+    m_reference_transform.Multiply(rotation_x);
+    m_reference_transform.SetTranslationPart(
+        gp_Vec(m_reference_position.x(), m_reference_position.y(), m_reference_position.z()));
+
+    if (!base_geometry.IsNull())
+    {
+        base_geometry->SetLocalTransformation(m_reference_transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(base_geometry, Standard_False);
+        }
+    }
+
+    if (!face_trihedron.IsNull())
+    {
+        face_trihedron->SetLocalTransformation(m_reference_transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(face_trihedron, Standard_False);
+        }
+    }
+
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    emit reference_transform_changed(m_reference_position, m_reference_rotation);
+}
+
+void OCCTWidget::align_view_to_selected_face()
+{
+    if (!m_view.IsNull() && !face_trihedron.IsNull())
+    {
+        gp_XYZ direction(selected_face_axis.Direction().X(),
+                         selected_face_axis.Direction().Y(),
+                         selected_face_axis.Direction().Z());
+        m_reference_transform.Transforms(direction);
+        m_view->SetProj(direction.X(), direction.Y(), direction.Z());
+        m_view->FitAll();
+        m_view->Redraw();
+    }
+}
+
+void OCCTWidget::clear_face_reference()
+{
+    const bool had_face_reference = !selected_face.IsNull() ||
+                                    !face_trihedron.IsNull();
+    selected_face.Nullify();
+
+    if (!face_trihedron.IsNull() && !m_context.IsNull())
+    {
+        m_context->Remove(face_trihedron, Standard_False);
+    }
+
+    face_trihedron.Nullify();
+    face_axis_placement.Nullify();
+
+    if (had_face_reference)
+    {
+        emit face_reference_changed(false);
+    }
+}
+
+void OCCTWidget::clear_context_selection_safely()
+{
+    if (!m_context.IsNull())
+    {
+        // Avoid an immediate native-view redraw while Qt is dispatching a
+        // mouse or context-menu event.
+        m_context->ClearSelected(Standard_False);
+    }
+    selected_shape.Nullify();
+
+    QTimer::singleShot(0, this, [this]()
+    {
+        if (!m_context.IsNull() && !m_view.IsNull())
+        {
+            m_view->Redraw();
+        }
+    });
+}
+
+void OCCTWidget::show_face_reference(const TopoDS_Face &face)
+{
+    if (face.IsNull() || m_context.IsNull() || m_view.IsNull())
+    {
+        return;
+    }
+
+    GProp_GProps properties;
+    BRepGProp::SurfaceProperties(face, properties);
+    if (properties.Mass() <= Precision::Confusion())
+    {
+        return;
+    }
+
+    gp_Pnt origin = properties.CentreOfMass();
+    BRepAdaptor_Surface surface(face, Standard_True);
+    Standard_Real u_min = 0.0;
+    Standard_Real u_max = 0.0;
+    Standard_Real v_min = 0.0;
+    Standard_Real v_max = 0.0;
+    BRepTools::UVBounds(face, u_min, u_max, v_min, v_max);
+
+    gp_Dir normal;
+    gp_Dir x_direction;
+    bool has_normal = false;
+    bool has_x_direction = false;
+    const Standard_Real u = 0.5 * (u_min + u_max);
+    const Standard_Real v = 0.5 * (v_min + v_max);
+    try
+    {
+        gp_Pnt sample_point;
+        gp_Vec du;
+        gp_Vec dv;
+        surface.D1(u, v, sample_point, du, dv);
+        gp_Vec candidate_normal = du.Crossed(dv);
+        if (candidate_normal.SquareMagnitude() > Precision::Confusion())
+        {
+            normal = gp_Dir(candidate_normal);
+            has_normal = true;
+            if (face.Orientation() == TopAbs_REVERSED)
+            {
+                normal.Reverse();
+            }
+
+            if (du.SquareMagnitude() > Precision::Confusion())
+            {
+                x_direction = gp_Dir(du);
+                has_x_direction = true;
+            }
+            else if (dv.SquareMagnitude() > Precision::Confusion())
+            {
+                x_direction = gp_Dir(dv);
+                has_x_direction = true;
+            }
+        }
+    }
+    catch (...)
+    {
+        return;
+    }
+
+    if (!has_normal)
+    {
+        return;
+    }
+
+    gp_Ax2 face_axis = has_x_direction
+                           ? gp_Ax2(origin, normal, x_direction)
+                           : gp_Ax2(origin, normal);
+
+    clear_face_reference();
+    selected_face = face;
+    selected_face_axis = face_axis;
+    face_axis_placement = new Geom_Axis2Placement(face_axis);
+    face_trihedron = new AIS_Trihedron(face_axis_placement);
+    face_trihedron->SetSize(std::max(get_trihedron_size() * 0.75, 1.0));
+    face_trihedron->SetDatumDisplayMode(Prs3d_DM_Shaded);
+    face_trihedron->SetDatumPartColor(Prs3d_DP_XAxis, Quantity_NOC_RED);
+    face_trihedron->SetDatumPartColor(Prs3d_DP_XArrow, Quantity_NOC_RED);
+    face_trihedron->SetDatumPartColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);
+    face_trihedron->SetDatumPartColor(Prs3d_DP_YArrow, Quantity_NOC_GREEN);
+    face_trihedron->SetDatumPartColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
+    face_trihedron->SetDatumPartColor(Prs3d_DP_ZArrow, Quantity_NOC_BLUE);
+    face_trihedron->SetTextColor(Prs3d_DP_XAxis, Quantity_NOC_RED);
+    face_trihedron->SetTextColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);
+    face_trihedron->SetTextColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
+
+    face_trihedron->SetLocalTransformation(m_reference_transform);
+    m_context->Display(face_trihedron, Standard_False);
+    m_context->Deactivate(face_trihedron, TopAbs_SHAPE);
+    emit face_reference_changed(true);
+}
+
+bool OCCTWidget::select_face_reference()
+{
+    if (m_context.IsNull() || base_geometry.IsNull() ||
+        !m_context->HasDetected())
+    {
+        return false;
+    }
+
+    const Handle(AIS_InteractiveObject) detected_object =
+        m_context->DetectedInteractive();
+    if (detected_object.IsNull() || detected_object != base_geometry)
+    {
+        return false;
+    }
+
+    const TopoDS_Shape detected_shape = m_context->DetectedShape();
+    if (detected_shape.IsNull() || detected_shape.ShapeType() != TopAbs_FACE)
+    {
+        return false;
+    }
+
+    m_context->ClearSelected(Standard_False);
+    m_context->SelectDetected();
+    show_face_reference(TopoDS::Face(detected_shape));
+    m_view->Update();
+    return !face_trihedron.IsNull();
 }
 
 
@@ -368,7 +614,16 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         m_x_max=pos.x();
         m_y_max=pos.y();
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
-        myIsDragging = select() && !selected_shape.IsNull() && get_unit(selected_shape) != nullptr;
+
+        if (select_face_reference())
+        {
+            selected_shape = base_geometry;
+            myIsDragging = !m_reference_geometry_locked;
+            return;
+        }
+
+        clear_face_reference();
+        myIsDragging = select_injector();
         if (!myIsDragging)
         {
             selected_shape.Nullify();
@@ -403,8 +658,7 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
         if(myIsDragging)
         {
             myIsDragging=false;
-            m_context->ClearSelected(true);
-            m_view->Update();
+            clear_context_selection_safely();
         }
         selected_shape.Nullify();
     }
@@ -422,36 +676,68 @@ gp_Pln OCCTWidget::get_moving_base_plane(opencascade::handle<AIS_Shape> moving_s
 
 bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
 {
-    m_context->Activate(select_mode);
-    if(m_context->HasDetected()&&m_context->DetectedInteractive()->Type()!=1)
+    if (m_context.IsNull() || m_view.IsNull())
     {
-        //qDebug()<<m_context->DetectedInteractive()->Type();
-        Handle(AIS_InteractiveObject) obj;
-        obj=m_context->DetectedInteractive();
-        selected_shape=Handle(AIS_Shape)::DownCast(obj);
-        if (selected_shape.IsNull())
-        {
-            return false;
-        }
-        m_view->Update();
+        return false;
+    }
 
-        if(selected_shape->HasColor())
-        {
-            Handle(Prs3d_Drawer) t_select_style = m_context->SelectionStyle();  // 获取选择风格
-            Quantity_Color color;
-            selected_shape->Color(color);
-            t_select_style->SetMethod(Aspect_TOHM_COLOR);  // 颜色显示方式
-            t_select_style->SetColor(color);   // 设置选择后颜色
-            t_select_style->SetDisplayMode(AIS_Shaded); // 整体高亮
-            t_select_style->SetTransparency(0.8f); // 设置透明度 // 设置选择后颜色
-        }
-        if(m_context->HasDetected()) m_context->SelectDetected();
-        m_view->Update();
+    selected_shape.Nullify();
+    m_context->Activate(select_mode);
+    if (!m_context->HasDetected())
+    {
+        return false;
+    }
 
-        //get_unit(selected_shape)->test();
+    const Handle(AIS_InteractiveObject) detected_object =
+        m_context->DetectedInteractive();
+    if (detected_object.IsNull() || detected_object->Type() == 1)
+    {
+        return false;
+    }
 
+    //qDebug()<<detected_object->Type();
+    selected_shape=Handle(AIS_Shape)::DownCast(detected_object);
+    if (selected_shape.IsNull())
+    {
+        return false;
+    }
+
+    m_view->Update();
+
+    if(selected_shape->HasColor())
+    {
+        Handle(Prs3d_Drawer) t_select_style = m_context->SelectionStyle();  // 获取选择风格
+        Quantity_Color color;
+        selected_shape->Color(color);
+        t_select_style->SetMethod(Aspect_TOHM_COLOR);  // 颜色显示方式
+        t_select_style->SetColor(color);   // 设置选择后颜色
+        t_select_style->SetDisplayMode(AIS_Shaded); // 整体高亮
+        t_select_style->SetTransparency(0.8f); // 设置透明度 // 设置选择后颜色
+    }
+    m_context->SelectDetected();
+    m_view->Update();
+
+    return true;
+}
+
+bool OCCTWidget::select_injector()
+{
+    if (m_context.IsNull() || m_view.IsNull())
+    {
+        return false;
+    }
+
+    if (select(TopAbs_COMPOUND) && get_unit(selected_shape) != nullptr)
+    {
         return true;
     }
+
+    if (select(TopAbs_SHAPE) && get_unit(selected_shape) != nullptr)
+    {
+        return true;
+    }
+
+    selected_shape.Nullify();
     return false;
 }
 
@@ -517,15 +803,7 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
             selected_shape.Nullify();
         }
 
-        if (!m_context.IsNull())
-        {
-            m_context->ClearSelected(Standard_True);
-        }
-
-        if (!m_view.IsNull())
-        {
-            m_view->Update();
-        }
+        clear_context_selection_safely();
     });
     connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this, [this](Unit *changed_unit)
     {
@@ -617,6 +895,19 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         gp_Trsf trsf;
         const QVector3D delta_vec = to_qvector3d(ResultPoint);
 
+        if (selected_shape == base_geometry)
+        {
+            if (!m_reference_geometry_locked)
+            {
+                m_reference_position += delta_vec;
+                apply_reference_transform();
+            }
+
+            m_x_max = pos.x();
+            m_y_max = pos.y();
+            return;
+        }
+
         trsf.SetTranslation(gp_Vec(ResultPoint.X(),ResultPoint.Y(),ResultPoint.Z()));
         selected_shape->SetLocalTransformation(trsf * selected_shape->LocalTransformation());
 
@@ -679,66 +970,151 @@ void OCCTWidget::wheelEvent(QWheelEvent *event)
 
 void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
 {
-    if(1)
+    if (m_context.IsNull() || m_view.IsNull())
     {
-        QPoint pos = event->pos();
-        pos.setX(pos.x()*m_dpi_scale);
-        pos.setY(pos.y()*m_dpi_scale);
-
-        m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
-        if(!select()) return;
-
-        if(get_unit(selected_shape)==nullptr)
-        {
-            qDebug()<<"1!";
-        }
-        else if(get_unit(selected_shape)->type==injector)
-        {
-            QMenu menu;
-            QString label_edit=("Edit");
-            QString label_copy=("Copy");
-            QString label_paste=("Paste to replace");
-            QString label_delete=("Delete");
-
-            QAction *headerAction = new QAction(get_unit(selected_shape)->inj.injector_data.name, &menu);
-            //QAction *headerAction = new QAction("test");
-            headerAction->setEnabled(false);  // 禁用点击
-
-            // 设置表头样式
-            QFont headerFont = headerAction->font();
-            headerFont.setBold(true);
-            headerFont.setPointSize(headerFont.pointSize() + 1);
-            headerAction->setFont(headerFont);
-
-            menu.addAction(headerAction);
-            menu.addSeparator();  // 分隔线
-
-            QAction* act_edit  = menu.addAction(label_edit  );
-            QAction* act_copy  = menu.addAction(label_copy  );
-            QAction* act_paste = menu.addAction(label_paste );
-            QAction* act_delte = menu.addAction(label_delete);
-
-
-            connect(act_edit, &QAction::triggered, this, [this](){ open_edit_widget(selected_shape);});
-
-
-            QAction *selected_action =menu.exec(QCursor::pos());	// 右键菜单被模态显示出来了
-            if(selected_action==nullptr)
-            {
-                on_menu_closed();
-            }
-
-
-        }
+        event->ignore();
+        return;
     }
 
+    QPoint pos = event->pos();
+    pos.setX(pos.x()*m_dpi_scale);
+    pos.setY(pos.y()*m_dpi_scale);
+
+    m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
+    selected_shape.Nullify();
+
+    if (!m_context->HasDetected())
+    {
+        event->ignore();
+        return;
+    }
+
+    const Handle(AIS_InteractiveObject) detected_object =
+        m_context->DetectedInteractive();
+    if (detected_object.IsNull())
+    {
+        event->ignore();
+        return;
+    }
+
+    // Reference geometry has no Unit_Owner, so it must not go through the
+    // injector-only selection path below.
+    if (!base_geometry.IsNull() &&
+        detected_object == base_geometry)
+    {
+        const TopoDS_Shape detected_shape = m_context->DetectedShape();
+        if (!detected_shape.IsNull() &&
+            detected_shape.ShapeType() == TopAbs_FACE)
+        {
+            // Establish the face reference without changing OCCT's selection
+            // state while the context menu is being dispatched.
+            show_face_reference(TopoDS::Face(detected_shape));
+        }
+
+        // Face selection and its local trihedron are handled by the left
+        // mouse path. The right mouse path only refreshes the independent
+        // face trihedron from the detected face.
+        const bool face_selected = !face_trihedron.IsNull();
+
+        QMenu menu;
+        QAction *header_action = new QAction("Reference Geometry", &menu);
+        header_action->setEnabled(false);
+        menu.addAction(header_action);
+        menu.addSeparator();
+
+        QAction *align_action = menu.addAction("Align View to Selected Face");
+        align_action->setEnabled(face_selected || !face_trihedron.IsNull());
+        connect(align_action, &QAction::triggered, this,
+                &OCCTWidget::align_view_to_selected_face);
+
+        QAction *clear_face_action = menu.addAction("Clear Selected Face");
+        clear_face_action->setEnabled(face_selected || !face_trihedron.IsNull());
+        connect(clear_face_action, &QAction::triggered, this,
+                &OCCTWidget::clear_face_reference);
+
+        QAction *reset_transform_action = menu.addAction("Reset Transform");
+        connect(reset_transform_action, &QAction::triggered, this, [this]()
+        {
+            set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
+                                    QVector3D(0.0f, 0.0f, 0.0f));
+        });
+
+        QAction *lock_action = menu.addAction(
+            m_reference_geometry_locked ? "Unlock Reference Geometry"
+                                         : "Lock Reference Geometry");
+        connect(lock_action, &QAction::triggered, this, [this]()
+        {
+            set_reference_geometry_locked(!m_reference_geometry_locked);
+        });
+
+        menu.exec(event->globalPos());
+        clear_context_selection_safely();
+        event->accept();
+        return;
+    }
+
+    selected_shape = Handle(AIS_Shape)::DownCast(detected_object);
+    if (selected_shape.IsNull())
+    {
+        event->ignore();
+        return;
+    }
+
+    Unit *selected_unit = get_unit(selected_shape);
+    if (selected_unit == nullptr)
+    {
+        clear_context_selection_safely();
+        event->ignore();
+        return;
+    }
+    else if(selected_unit->type==injector)
+    {
+        QMenu menu;
+        QString label_edit=("Edit");
+        QString label_copy=("Copy");
+        QString label_paste=("Paste to replace");
+        QString label_delete=("Delete");
+
+        QAction *headerAction = new QAction(selected_unit->inj.injector_data.name, &menu);
+        //QAction *headerAction = new QAction("test");
+        headerAction->setEnabled(false);  // 禁用点击
+
+        // 设置表头样式
+        QFont headerFont = headerAction->font();
+        headerFont.setBold(true);
+        headerFont.setPointSize(headerFont.pointSize() + 1);
+        headerAction->setFont(headerFont);
+
+        menu.addAction(headerAction);
+        menu.addSeparator();  // 分隔线
+
+        QAction* act_edit  = menu.addAction(label_edit  );
+        QAction* act_copy  = menu.addAction(label_copy  );
+        QAction* act_paste = menu.addAction(label_paste );
+        QAction* act_delte = menu.addAction(label_delete);
+
+
+        const Handle(AIS_Shape) target_shape = selected_shape;
+        connect(act_edit, &QAction::triggered, this,
+                [this, target_shape]() { open_edit_widget(target_shape); });
+
+
+        menu.exec(event->globalPos());	// 右键菜单被模态显示出来了
+        clear_context_selection_safely();
+        event->accept();
+        return;
+
+
+    }
+
+    clear_context_selection_safely();
+    event->ignore();
 }
 
 void OCCTWidget::on_menu_closed()
 {
     qDebug() << "菜单已关闭";
-    m_context->ClearSelected(true);
-    m_view->Update();
+    clear_context_selection_safely();
 }
 
 

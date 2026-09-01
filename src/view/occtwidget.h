@@ -11,6 +11,7 @@
 #include <QPointer>
 #include <QStringList>
 #include <QSet>
+#include <QVector3D>
 
 #include <QApplication>
 #include <memory>
@@ -36,6 +37,12 @@
 #include <BRepPrimAPI_MakeCone.hxx>
 #include <BRepPrimAPI_MakeTorus.hxx>
 #include <BRepPrimAPI_MakeCylinder.hxx>
+#include <BRepAdaptor_Surface.hxx>
+#include <BRepGProp.hxx>
+#include <BRepTools.hxx>
+#include <GProp_GProps.hxx>
+#include <Precision.hxx>
+#include <TopoDS.hxx>
 
 #include <Prs3d_Arrow.hxx>
 
@@ -50,6 +57,7 @@
 #include <gp_Ax2.hxx>
 #include <gp_Dir.hxx>
 #include <gp_Pnt.hxx>
+#include <gp_Trsf.hxx>
 
 #include <AIS_Trihedron.hxx>
 #include <Geom_Axis2Placement.hxx>
@@ -91,6 +99,12 @@ public:
     Base_Geom_Read geometry;
 
     void add_readed_geometry();
+    void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
+    QVector3D reference_position() const { return m_reference_position; }
+    QVector3D reference_rotation() const { return m_reference_rotation; }
+    void set_reference_geometry_locked(bool locked);
+    bool reference_geometry_locked() const { return m_reference_geometry_locked; }
+    void align_view_to_selected_face();
 
     void display_units(const QList<Unit> &units, bool clear_existing = true);
     void set_chemkin_species_names(const QStringList &species_names);
@@ -102,6 +116,11 @@ public:
 
 signals:
     void unit_data_updated(Unit *unit);
+    void reference_transform_changed(const QVector3D &position,
+                                     const QVector3D &rotation_degrees);
+    void reference_geometry_available(bool available);
+    void face_reference_changed(bool available);
+    void reference_geometry_lock_changed(bool locked);
 
 private:
 
@@ -121,6 +140,12 @@ private:
     gp_Pln get_moving_base_plane(Handle(AIS_Shape) moving_shape);
 
     bool select(TopAbs_ShapeEnum select_mode=TopAbs_COMPOUND);
+    bool select_injector();
+    bool select_face_reference();
+    void clear_face_reference();
+    void clear_context_selection_safely();
+    void show_face_reference(const TopoDS_Face &face);
+    void apply_reference_transform();
 
     Unit* get_unit(Handle(AIS_Shape) shape);
     void schedule_unit_visual_refresh(Unit *unit);
@@ -189,6 +214,13 @@ private:
     Handle(AIS_Shape) selected_shape;
 
     TopoDS_Face selected_face;
+    Handle(Geom_Axis2Placement) face_axis_placement;
+    Handle(AIS_Trihedron) face_trihedron;
+    gp_Ax2 selected_face_axis;
+    QVector3D m_reference_position;
+    QVector3D m_reference_rotation;
+    gp_Trsf m_reference_transform;
+    bool m_reference_geometry_locked = false;
 
     QStringList m_chemkin_species_names;
     QStringList m_material_names;
