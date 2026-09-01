@@ -65,6 +65,8 @@ public:
     void set_allow_empty_string(bool allow);
     bool commit();
     void sync_bound_value();
+    void sync_numeric_value(double storage_value);
+    bool numeric_value_in_storage(double &storage_value, QString *error_message = nullptr) const;
 
 signals:
     void value_committed();

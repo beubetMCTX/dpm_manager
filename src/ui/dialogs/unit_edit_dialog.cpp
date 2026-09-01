@@ -1549,7 +1549,7 @@ void unit_edit_dialog::build_point_property_rows()
         {
             if (editor != nullptr && value_ptr != nullptr)
             {
-                editor->sync_text(QLocale::c().toString(*value_ptr, 'g', 15));
+                editor->sync_bound_value();
             }
         });
         connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this]()
@@ -1782,11 +1782,11 @@ void unit_edit_dialog::build_point_property_rows()
         {
             if (primary != nullptr && first_ptr != nullptr)
             {
-                primary->sync_text(QLocale::c().toString(*first_ptr, 'g', 15));
+                primary->sync_bound_value();
             }
             if (secondary != nullptr && second_ptr != nullptr)
             {
-                secondary->sync_text(QLocale::c().toString(*second_ptr, 'g', 15));
+                secondary->sync_bound_value();
             }
         });
         connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this]()
@@ -1805,21 +1805,20 @@ void unit_edit_dialog::build_point_property_rows()
         QUI_FieldRow *row = new QUI_FieldRow(label, unit, ui->scrollarea_properties);
         row->set_label_width(180);
         row->primary_editor()->set_double_mode();
-        row->primary_editor()->sync_text(QString::number(vector_component_value(*vector, component), 'g', 8));
+        row->primary_editor()->sync_numeric_value(vector_component_value(*vector, component));
         m_property_row_syncers.push_back([editor = row->primary_editor(), vector, component]()
         {
             if (editor != nullptr && vector != nullptr)
             {
-                editor->sync_text(QString::number(vector_component_value(*vector, component), 'g', 8));
+                editor->sync_numeric_value(vector_component_value(*vector, component));
             }
         });
         connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this, editor = row->primary_editor(), vector, component]()
         {
-            bool ok = false;
-            const float value = editor->text().toFloat(&ok);
-            if (ok)
+            double value = 0.0;
+            if (editor->numeric_value_in_storage(value))
             {
-                set_vector_component_value(*vector, component, value);
+                set_vector_component_value(*vector, component, static_cast<float>(value));
                 notify_injector_data_changed();
             }
         });
@@ -1837,8 +1836,8 @@ void unit_edit_dialog::build_point_property_rows()
         row->set_layout_mode(QUI_FieldRow::Layout_Mode::RangeValue);
         row->primary_editor()->set_double_mode();
         row->secondary_editor()->set_double_mode();
-        row->primary_editor()->sync_text(QString::number(vector_component_value(*first_vector, component), 'g', 8));
-        row->secondary_editor()->sync_text(QString::number(vector_component_value(*second_vector, component), 'g', 8));
+        row->primary_editor()->sync_numeric_value(vector_component_value(*first_vector, component));
+        row->secondary_editor()->sync_numeric_value(vector_component_value(*second_vector, component));
         m_property_row_syncers.push_back([primary = row->primary_editor(),
                                           secondary = row->secondary_editor(),
                                           first_vector,
@@ -1847,30 +1846,28 @@ void unit_edit_dialog::build_point_property_rows()
         {
             if (primary != nullptr && first_vector != nullptr)
             {
-                primary->sync_text(QString::number(vector_component_value(*first_vector, component), 'g', 8));
+                primary->sync_numeric_value(vector_component_value(*first_vector, component));
             }
             if (secondary != nullptr && second_vector != nullptr)
             {
-                secondary->sync_text(QString::number(vector_component_value(*second_vector, component), 'g', 8));
+                secondary->sync_numeric_value(vector_component_value(*second_vector, component));
             }
         });
         connect(row->primary_editor(), &QUI_LineEdit::value_committed, this, [this, editor = row->primary_editor(), first_vector, component]()
         {
-            bool ok = false;
-            const float value = editor->text().toFloat(&ok);
-            if (ok)
+            double value = 0.0;
+            if (editor->numeric_value_in_storage(value))
             {
-                set_vector_component_value(*first_vector, component, value);
+                set_vector_component_value(*first_vector, component, static_cast<float>(value));
                 notify_injector_data_changed();
             }
         });
         connect(row->secondary_editor(), &QUI_LineEdit::value_committed, this, [this, editor = row->secondary_editor(), second_vector, component]()
         {
-            bool ok = false;
-            const float value = editor->text().toFloat(&ok);
-            if (ok)
+            double value = 0.0;
+            if (editor->numeric_value_in_storage(value))
             {
-                set_vector_component_value(*second_vector, component, value);
+                set_vector_component_value(*second_vector, component, static_cast<float>(value));
                 notify_injector_data_changed();
             }
         });
@@ -2231,7 +2228,7 @@ void unit_edit_dialog::build_model_property_rows()
         {
             if (editor != nullptr && value_ptr != nullptr)
             {
-                editor->sync_text(QLocale::c().toString(*value_ptr, 'g', 15));
+                editor->sync_bound_value();
             }
         });
         connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
@@ -2305,22 +2302,21 @@ void unit_edit_dialog::build_model_property_rows()
             auto *row = new QUI_FieldRow(labels[component] + prefix, unit, layout->parentWidget());
             row->set_label_width(220);
             row->primary_editor()->set_double_mode();
-            row->primary_editor()->sync_text(QString::number(vector_component_value(*vector, component), 'g', 8));
+            row->primary_editor()->sync_numeric_value(vector_component_value(*vector, component));
             m_model_row_syncers.push_back([editor = row->primary_editor(), vector, component]()
             {
                 if (editor != nullptr && vector != nullptr)
                 {
-                    editor->sync_text(QString::number(vector_component_value(*vector, component), 'g', 8));
+                    editor->sync_numeric_value(vector_component_value(*vector, component));
                 }
             });
             connect(row->primary_editor(), &QUI_LineEdit::value_committed, this,
                     [this, editor = row->primary_editor(), vector, component]()
             {
-                bool ok = false;
-                const float value = editor->text().toFloat(&ok);
-                if (ok)
+                double value = 0.0;
+                if (editor->numeric_value_in_storage(value))
                 {
-                    set_vector_component_value(*vector, component, value);
+                    set_vector_component_value(*vector, component, static_cast<float>(value));
                     notify_injector_data_changed(false);
                 }
             });

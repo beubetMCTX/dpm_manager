@@ -330,3 +330,9 @@ References:
 - Numeric expressions are evaluated in the displayed unit, then converted before writing to the bound model value; bound values are converted back when synchronized.
 - Existing fields remain unchanged until they explicitly configure a conversion pair.
 - Release build passed. `unit_system_regression` and `project_session_regression` passed with the deployed Qt DLL directory on `PATH`.
+
+### 2026-09-02 Field Row Unit Integration
+
+- `QUI_FieldRow` now configures numeric editors from their displayed unit; `mm` fields use `m` as storage unit while existing `m`, `rad`, `deg`, `m/s`, `kg/s`, `Pa`, and `K` fields preserve their current storage semantics.
+- Scalar, range, and vector property rows now synchronize and commit through the same unit-aware path.
+- Release build passed. `unit_system_regression` and `project_session_regression` both passed with deployed Qt DLLs.

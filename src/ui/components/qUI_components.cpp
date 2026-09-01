@@ -841,41 +841,21 @@ void QUI_LineEdit::initialize()
 
 void QUI_LineEdit::sync_from_binding()
 {
-    auto format_bound_numeric = [this](double value)
-    {
-        if (m_display_unit.isEmpty())
-        {
-            return format_double_value(value);
-        }
-
-        bool conversion_ok = false;
-        const double display_value = UnitSystem::convert(
-            value, m_storage_unit, m_display_unit, &conversion_ok);
-        return conversion_ok ? format_double_value(display_value) : QString();
-    };
-
     if (auto *bound_value = std::get_if<int *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
-        if (m_display_unit.isEmpty())
-        {
-            sync_text(QString::number(**bound_value));
-        }
-        else
-        {
-            sync_text(format_bound_numeric(static_cast<double>(**bound_value)));
-        }
+        sync_numeric_value(static_cast<double>(**bound_value));
         return;
     }
 
     if (auto *bound_value = std::get_if<float *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
-        sync_text(format_bound_numeric(static_cast<double>(**bound_value)));
+        sync_numeric_value(static_cast<double>(**bound_value));
         return;
     }
 
     if (auto *bound_value = std::get_if<double *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
-        sync_text(format_bound_numeric(**bound_value));
+        sync_numeric_value(**bound_value);
         return;
     }
 
@@ -976,6 +956,12 @@ QString QUI_FieldRow::label_text() const
 void QUI_FieldRow::set_unit_text(const QString &text)
 {
     m_unit_text = text.trimmed();
+    const QString storage_unit = m_unit_text == "mm" ? "m" : m_unit_text;
+    if (UnitSystem::is_supported(m_unit_text) && UnitSystem::is_supported(storage_unit))
+    {
+        m_primary_editor->set_unit_conversion(m_unit_text, storage_unit);
+        m_secondary_editor->set_unit_conversion(m_unit_text, storage_unit);
+    }
     update_label_display();
 }
 
@@ -1164,6 +1150,54 @@ void QUI_SpinBox::sync_from_binding()
 void QUI_LineEdit::sync_bound_value()
 {
     sync_from_binding();
+}
+
+void QUI_LineEdit::sync_numeric_value(double storage_value)
+{
+    if (m_display_unit.isEmpty())
+    {
+        sync_text(format_double_value(storage_value));
+        return;
+    }
+
+    bool conversion_ok = false;
+    const double display_value = UnitSystem::convert(
+        storage_value, m_storage_unit, m_display_unit, &conversion_ok);
+    sync_text(conversion_ok ? format_double_value(display_value) : QString());
+}
+
+bool QUI_LineEdit::numeric_value_in_storage(double &storage_value, QString *error_message) const
+{
+    QString local_error;
+    double display_value = 0.0;
+    QString normalized;
+    if (!commit_numeric_value(display_value, normalized, local_error))
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = local_error;
+        }
+        return false;
+    }
+
+    bool conversion_ok = true;
+    storage_value = m_display_unit.isEmpty()
+        ? display_value
+        : UnitSystem::convert(display_value, m_display_unit, m_storage_unit, &conversion_ok);
+    if (!conversion_ok || !std::isfinite(storage_value))
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = "Unit conversion failed.";
+        }
+        return false;
+    }
+
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+    return true;
 }
 
 void QUI_SpinBox::initialize()
