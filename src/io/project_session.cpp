@@ -10,7 +10,6 @@
 #include <QSaveFile>
 #include <QSet>
 
-#include <cmath>
 
 namespace
 {
@@ -489,30 +488,9 @@ bool validate(const Data &data, QString *error_message)
         }
     }
 
-    QSet<QString> material_names;
-    for (const MaterialConfigEntry &entry : data.materials)
+    if (!validate_material_entries(data.materials, error_message))
     {
-        const QString name = entry.name.trimmed();
-        if (name.isEmpty())
-        {
-            set_error(error_message, "Project contains a material with an empty name.");
-            return false;
-        }
-
-        const QString key = name.toCaseFolded();
-        if (material_names.contains(key))
-        {
-            set_error(error_message, QString("Project contains duplicate material: %1").arg(name));
-            return false;
-        }
-        material_names.insert(key);
-
-        if (!std::isfinite(entry.density) || entry.density <= 0.0)
-        {
-            set_error(error_message,
-                      QString("Material density must be positive and finite: %1").arg(name));
-            return false;
-        }
+        return false;
     }
 
     for (auto it = data.species_colors.constBegin();

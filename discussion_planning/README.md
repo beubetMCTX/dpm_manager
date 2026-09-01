@@ -531,6 +531,17 @@ References:
 - Failed loads preserve the caller's existing material list.
 - Added `app_config_regression` coverage.
 
+### 2026-09-02 Shared Material Validation
+
+- Project sessions now reuse the same material validation routine as `material_cfg`.
+- This prevents project and standalone material files from accepting different data rules.
+
+### 2026-09-02 Shared Validation Linkage
+
+- Project-session validation now reuses the public Materials validation routine instead of duplicating rules.
+- Added the required `UnitSystem` implementation to the project-session regression target after the shared configuration dependency was introduced.
+- Focused project-session and configuration regressions passed.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

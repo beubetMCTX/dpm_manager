@@ -81,8 +81,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
         ${COMMON_DIR}/global_functions.h
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
-        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
         ${UI_COMPONENTS_DIR}/qUI_components.h ${UI_COMPONENTS_DIR}/qUI_components.cpp
         ${UI_DIALOGS_DIR}/unit_edit_dialog.h ${UI_DIALOGS_DIR}/unit_edit_dialog.cpp ${UI_DIALOGS_DIR}/unit_edit_dialog.ui
         ${UI_DIALOGS_DIR}/unit_preferences_dialog.h ${UI_DIALOGS_DIR}/unit_preferences_dialog.cpp
@@ -169,6 +169,8 @@ if(DPM_BUILD_TESTS)
         tests/project_session_test.cpp
         ${IO_DIR}/project_session.h ${IO_DIR}/project_session.cpp
         ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
     )
     target_include_directories(project_session_regression PRIVATE
