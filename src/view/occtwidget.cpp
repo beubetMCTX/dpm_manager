@@ -62,6 +62,7 @@ OCCTWidget::~OCCTWidget()
     }
 
     unit_hash.clear();
+    m_unit_visibility.clear();
     reference_geometry.Nullify();
     base_geometry.Nullify();
     trihedron_main.Nullify();
@@ -159,6 +160,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
             }
         }
         unit_hash.clear();
+        m_unit_visibility.clear();
     }
 
     static const Quantity_Color palette[] = {
@@ -175,6 +177,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         const Unit &unit = units[i];
         const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
         unit_hash.insert(stored_unit->inj.uuid, stored_unit);
+        m_unit_visibility.insert(stored_unit->inj.uuid, true);
 
         stored_unit->ais_display->Set(stored_unit->inj.shape);
         stored_unit->u_owner->set_unit(stored_unit.get());
@@ -230,6 +233,75 @@ bool OCCTWidget::select_reference_geometry()
     return true;
 }
 
+bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
+{
+    if (uuid.isNull() || m_context.IsNull())
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit->ais_display.IsNull())
+    {
+        return false;
+    }
+
+    m_unit_visibility.insert(uuid, visible);
+    if (visible)
+    {
+        m_context->Display(unit->ais_display, Standard_False);
+    }
+    else
+    {
+        m_context->Erase(unit->ais_display, Standard_False);
+    }
+
+    if (!visible && selected_shape == unit->ais_display)
+    {
+        clear_context_selection_safely();
+    }
+    m_view->Redraw();
+    return true;
+}
+
+bool OCCTWidget::set_reference_geometry_visible(bool visible)
+{
+    if (base_geometry.IsNull() || m_context.IsNull() || ref_geom.IsNull())
+    {
+        return false;
+    }
+
+    m_reference_geometry_visible = visible;
+    if (visible)
+    {
+        m_context->Display(base_geometry, Standard_False);
+        if (!face_trihedron.IsNull())
+        {
+            m_context->Display(face_trihedron, Standard_False);
+        }
+    }
+    else
+    {
+        m_context->Erase(base_geometry, Standard_False);
+        if (!face_trihedron.IsNull())
+        {
+            m_context->Erase(face_trihedron, Standard_False);
+        }
+    }
+
+    if (!visible && selected_shape == base_geometry)
+    {
+        clear_context_selection_safely();
+    }
+    m_view->Redraw();
+    return true;
+}
+
+bool OCCTWidget::unit_visible(const QUuid &uuid) const
+{
+    return m_unit_visibility.value(uuid, false);
+}
+
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;
@@ -267,6 +339,7 @@ void OCCTWidget::add_readed_geometry()
     builder.Add(compound,ref_geom);
 
     base_geometry->Set(compound);
+    m_reference_geometry_visible = true;
 
     m_context->Redisplay(base_geometry, Standard_True);
     m_view->FitAll();

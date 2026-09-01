@@ -747,6 +747,28 @@ void MainWindow::create_object_list_panel()
             update_object_list_panel();
         }
     });
+    connect(m_object_list, &QListWidget::itemChanged, this,
+            [this](QListWidgetItem *item)
+    {
+        if (item == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        const bool visible = item->checkState() == Qt::Checked;
+        const QString object_id = item->data(Qt::UserRole).toString();
+        if (object_id == QStringLiteral("reference"))
+        {
+            m_3d_widget->set_reference_geometry_visible(visible);
+            return;
+        }
+
+        const QUuid uuid(object_id);
+        if (!uuid.isNull())
+        {
+            m_3d_widget->set_unit_visible(uuid, visible);
+        }
+    });
 
     update_object_list_panel();
 }
@@ -765,6 +787,10 @@ void MainWindow::update_object_list_panel()
     {
         auto *reference_item = new QListWidgetItem("Reference Geometry", m_object_list);
         reference_item->setData(Qt::UserRole, QStringLiteral("reference"));
+        reference_item->setFlags(reference_item->flags() | Qt::ItemIsUserCheckable);
+        reference_item->setCheckState(m_3d_widget->reference_geometry_visible()
+                                          ? Qt::Checked
+                                          : Qt::Unchecked);
     }
 
     for (auto it = m_3d_widget->unit_hash.cbegin();
@@ -785,6 +811,10 @@ void MainWindow::update_object_list_panel()
         unit_item->setData(Qt::UserRole,
                            it.key().toString(QUuid::WithoutBraces));
         unit_item->setToolTip(it.key().toString(QUuid::WithoutBraces));
+        unit_item->setFlags(unit_item->flags() | Qt::ItemIsUserCheckable);
+        unit_item->setCheckState(m_3d_widget->unit_visible(it.key())
+                                     ? Qt::Checked
+                                     : Qt::Unchecked);
     }
 }
 
