@@ -57,6 +57,30 @@ int main(int argc, char *argv[])
     source.reference_geometry.locked = true;
     source.reference_geometry.visible = false;
 
+    QString validation_error;
+    if (!check(project_session::validate(source, &validation_error), validation_error))
+    {
+        return 1;
+    }
+
+    project_session::Data invalid = source;
+    invalid.materials.first().density = 0.0;
+    if (!check(!project_session::validate(invalid, &validation_error) &&
+                   validation_error.contains("density"),
+               "non-positive material density should fail validation"))
+    {
+        return 1;
+    }
+
+    invalid = source;
+    invalid.units.append(source.units.first());
+    if (!check(!project_session::validate(invalid, &validation_error) &&
+                   validation_error.contains("duplicate unit UUIDs"),
+               "duplicate unit UUID should fail validation"))
+    {
+        return 1;
+    }
+
     const QString session_path = temporary_directory.filePath("round_trip.dpmproj");
     QString error_message;
     if (!check(project_session::save(session_path, source, &error_message), error_message))

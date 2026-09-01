@@ -20,6 +20,8 @@ struct Data
     ReferenceGeometryConfig reference_geometry;
 };
 
+bool validate(const Data &data, QString *error_message = nullptr);
+
 bool save(const QString &file_path,
           const Data &data,
           QString *error_message = nullptr);

@@ -466,6 +466,12 @@ References:
 - Covered `5+6`, degree-based `sin(30)`, incompatible unit rejection, and protection of bound values after rejected input.
 - Release build and the focused regression test passed.
 
+### 2026-09-02 Project Session Save Validation
+
+- Added `project_session::validate` and invoked it before writing `.dpmproj` files.
+- Rejected empty or duplicate unit UUIDs, invalid unit types, empty or duplicate material names, non-positive/non-finite material densities, and invalid Species color entries.
+- Extended `project_session_regression`; Release build and focused session/input tests passed.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

@@ -8,6 +8,9 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QSaveFile>
+#include <QSet>
+
+#include <cmath>
 
 namespace
 {
@@ -461,11 +464,85 @@ void set_error(QString *error_message, const QString &message)
 
 namespace project_session
 {
+bool validate(const Data &data, QString *error_message)
+{
+    QSet<QUuid> unit_ids;
+    for (const Unit &unit : data.units)
+    {
+        if (unit.inj.uuid.isNull())
+        {
+            set_error(error_message, "Project contains a unit with an empty UUID.");
+            return false;
+        }
+
+        if (unit_ids.contains(unit.inj.uuid))
+        {
+            set_error(error_message, "Project contains duplicate unit UUIDs.");
+            return false;
+        }
+        unit_ids.insert(unit.inj.uuid);
+
+        if (unit.type < injector || unit.type > Assebly)
+        {
+            set_error(error_message, "Project contains an invalid unit type.");
+            return false;
+        }
+    }
+
+    QSet<QString> material_names;
+    for (const MaterialConfigEntry &entry : data.materials)
+    {
+        const QString name = entry.name.trimmed();
+        if (name.isEmpty())
+        {
+            set_error(error_message, "Project contains a material with an empty name.");
+            return false;
+        }
+
+        const QString key = name.toCaseFolded();
+        if (material_names.contains(key))
+        {
+            set_error(error_message, QString("Project contains duplicate material: %1").arg(name));
+            return false;
+        }
+        material_names.insert(key);
+
+        if (!std::isfinite(entry.density) || entry.density <= 0.0)
+        {
+            set_error(error_message,
+                      QString("Material density must be positive and finite: %1").arg(name));
+            return false;
+        }
+    }
+
+    for (auto it = data.species_colors.constBegin();
+         it != data.species_colors.constEnd();
+         ++it)
+    {
+        if (it.key().trimmed().isEmpty() || !it.value().isValid())
+        {
+            set_error(error_message, "Project contains an invalid species color entry.");
+            return false;
+        }
+    }
+
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+    return true;
+}
+
 bool save(const QString &file_path, const Data &data, QString *error_message)
 {
     if (file_path.trimmed().isEmpty())
     {
         set_error(error_message, "Project session path is empty.");
+        return false;
+    }
+
+    if (!validate(data, error_message))
+    {
         return false;
     }
 
