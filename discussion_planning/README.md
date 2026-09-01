@@ -472,6 +472,13 @@ References:
 - Rejected empty or duplicate unit UUIDs, invalid unit types, empty or duplicate material names, non-positive/non-finite material densities, and invalid Species color entries.
 - Extended `project_session_regression`; Release build and focused session/input tests passed.
 
+### 2026-09-02 Strict Project Session Loading
+
+- Project loading now rejects malformed material and Species color entries instead of silently skipping them.
+- Parsed session data is validated before replacing the caller's current data.
+- A failed load therefore preserves the existing session and avoids exposing partial state.
+- Release build and focused project-session/input regressions passed.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

@@ -605,10 +605,6 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
 
 bool load(const QString &file_path, Data *data, QString *error_message)
 {
-    if (data != nullptr)
-    {
-        *data = Data();
-    }
     if (file_path.trimmed().isEmpty())
     {
         set_error(error_message, "Project session path is empty.");
@@ -645,11 +641,21 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     const QJsonObject species_colors = root.value("species_colors").toObject();
     for (auto it = species_colors.constBegin(); it != species_colors.constEnd(); ++it)
     {
-        const QColor color(it.value().toString());
-        if (color.isValid())
+        if (it.key().trimmed().isEmpty())
         {
-            parsed.species_colors.insert(it.key(), color);
+            set_error(error_message, "Project session contains an empty species color key.");
+            return false;
         }
+
+        const QColor color(it.value().toString());
+        if (!color.isValid())
+        {
+            set_error(error_message,
+                      QString("Project session contains an invalid color for species: %1")
+                          .arg(it.key()));
+            return false;
+        }
+        parsed.species_colors.insert(it.key(), color);
     }
 
     for (const QJsonValue &unit_value : root.value("units").toArray())
@@ -665,11 +671,18 @@ bool load(const QString &file_path, Data *data, QString *error_message)
 
     for (const QJsonValue &material_value : root.value("materials").toArray())
     {
+        if (!material_value.isObject())
+        {
+            set_error(error_message, "Project session contains an invalid material entry.");
+            return false;
+        }
+
         const QJsonObject material = material_value.toObject();
         const QString name = material.value("name").toString().trimmed();
         if (name.isEmpty())
         {
-            continue;
+            set_error(error_message, "Project session contains a material with an empty name.");
+            return false;
         }
         MaterialConfigEntry entry;
         entry.name = name;
@@ -683,6 +696,11 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     vector_from_json(reference_geometry.value("rotation"), &parsed.reference_geometry.rotation);
     parsed.reference_geometry.locked = reference_geometry.value("locked").toBool(false);
     parsed.reference_geometry.visible = reference_geometry.value("visible").toBool(true);
+
+    if (!validate(parsed, error_message))
+    {
+        return false;
+    }
 
     if (data != nullptr)
     {

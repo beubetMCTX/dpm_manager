@@ -3,6 +3,9 @@
 #include <QColor>
 #include <QCoreApplication>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QDebug>
 
@@ -120,6 +123,32 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString malformed_path = temporary_directory.filePath("malformed.dpmproj");
+    QJsonObject malformed_root;
+    malformed_root.insert("schema_version", 1);
+    malformed_root.insert("units", QJsonArray());
+    malformed_root.insert("materials", QJsonArray{QJsonObject{{"name", "water"},
+                                                               {"density", 0.0}}});
+    QFile malformed_file(malformed_path);
+    if (!check(malformed_file.open(QIODevice::WriteOnly | QIODevice::Text),
+               "Unable to create malformed project fixture"))
+    {
+        return 1;
+    }
+    malformed_file.write(QJsonDocument(malformed_root).toJson());
+    malformed_file.close();
+
+    project_session::Data preserved = source;
+    if (!check(!project_session::load(malformed_path, &preserved, &error_message) &&
+                   error_message.contains("density"),
+               "malformed project should be rejected during load") ||
+        !check(preserved.units.size() == source.units.size(),
+               "failed project load should not expose partial data"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
+    QFile::remove(malformed_path);
     return 0;
 }
