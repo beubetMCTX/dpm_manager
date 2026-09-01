@@ -66,6 +66,29 @@ int main(int argc, char *argv[])
     source.unit_preferences.angle = "rad";
     source.has_unit_preferences = true;
 
+    source.units.first().inj.injector_data.material = "water";
+    source.units.first().inj.injector_data.product_species = "O2";
+    QString reference_error;
+    if (!check(project_session::validate_references(source, {"O2", "N2"}, &reference_error),
+               reference_error))
+    {
+        return 1;
+    }
+
+    project_session::Data invalid_reference = source;
+    invalid_reference.units.first().inj.injector_data.material = "missing-liquid";
+    invalid_reference.units.first().inj.injector_data.product_species = "CH4";
+    if (!check(!project_session::validate_references(invalid_reference,
+                                                     {"O2", "N2"},
+                                                     &reference_error) &&
+                   reference_error.contains("2 problem(s)") &&
+                   reference_error.contains("missing-liquid") &&
+                   reference_error.contains("CH4"),
+               "missing material and species references should fail together"))
+    {
+        return 1;
+    }
+
     QString validation_error;
     if (!check(project_session::validate(source, &validation_error), validation_error))
     {

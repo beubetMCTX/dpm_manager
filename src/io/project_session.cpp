@@ -571,6 +571,91 @@ bool validate(const Data &data, QString *error_message)
     return true;
 }
 
+bool validate_references(const Data &data,
+                         const QStringList &chemkin_species_names,
+                         QString *error_message)
+{
+    QStringList errors;
+    QStringList material_names;
+    for (const MaterialConfigEntry &entry : data.materials)
+    {
+        const QString name = entry.name.trimmed();
+        if (!name.isEmpty() && !material_names.contains(name, Qt::CaseInsensitive))
+        {
+            material_names.append(name);
+        }
+    }
+
+    QStringList species_names;
+    for (const QString &species : chemkin_species_names)
+    {
+        const QString name = species.trimmed();
+        if (!name.isEmpty() && !species_names.contains(name, Qt::CaseInsensitive))
+        {
+            species_names.append(name);
+        }
+    }
+
+    for (int index = 0; index < data.units.size(); ++index)
+    {
+        const Injector &injector = data.units.at(index).inj.injector_data;
+        const QString label = injector.name.trimmed().isEmpty()
+            ? QString("unit %1").arg(index + 1)
+            : injector.name.trimmed();
+
+        const QList<QPair<const char *, const QString *>> material_fields = {
+            {"material", &injector.material},
+            {"evaporating-material", &injector.evaporating_material}
+        };
+        for (const auto &field : material_fields)
+        {
+            const QString value = field.second->trimmed();
+            if (!value.isEmpty() && !material_names.contains(value, Qt::CaseInsensitive))
+            {
+                errors.append(QString("%1 references missing material '%2' in %3.")
+                                  .arg(label, value, QString::fromLatin1(field.first)));
+            }
+        }
+
+        if (!data.chemkin_file_path.trimmed().isEmpty())
+        {
+            const QList<QPair<const char *, const QString *>> species_fields = {
+                {"devolatilizing-species", &injector.devolatilizing_species},
+                {"evaporating-species", &injector.evaporating_species},
+                {"oxidizing-species", &injector.oxidizing_species},
+                {"product-species", &injector.product_species}
+            };
+            for (const auto &field : species_fields)
+            {
+                const QString value = field.second->trimmed();
+                if (!value.isEmpty() && !species_names.contains(value, Qt::CaseInsensitive))
+                {
+                    errors.append(QString("%1 references missing Chemkin species '%2' in %3.")
+                                      .arg(label, value, QString::fromLatin1(field.first)));
+                }
+            }
+        }
+    }
+
+    errors.removeDuplicates();
+    if (errors.isEmpty())
+    {
+        if (error_message != nullptr)
+        {
+            error_message->clear();
+        }
+        return true;
+    }
+
+    if (error_message != nullptr)
+    {
+        *error_message = QString("Project reference preflight found %1 problem(s):\\n- %2")
+                             .arg(errors.size())
+                             .arg(errors.join("\\n- "));
+    }
+    return false;
+}
+
 bool save(const QString &file_path, const Data &data, QString *error_message)
 {
     if (file_path.trimmed().isEmpty())

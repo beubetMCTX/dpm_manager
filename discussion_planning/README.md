@@ -30,6 +30,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added round-trip coverage for relative path storage and runtime resolution.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Project Reference Preflight
+
+- Added project-session reference validation for injector materials and Chemkin species.
+- Saving and loading now report all missing references before project data is applied or written.
+- Case differences in material and species names are accepted consistently with the existing tables.
+- Release build and all 9 CTest regressions passed.
+
 ## Candidate Next Work
 
 ### High Priority

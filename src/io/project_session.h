@@ -5,6 +5,7 @@
 #include <QHash>
 #include <QColor>
 #include <QString>
+#include <QStringList>
 
 #include "app_config.h"
 #include "unit.h"
@@ -23,6 +24,10 @@ struct Data
 };
 
 bool validate(const Data &data, QString *error_message = nullptr);
+
+bool validate_references(const Data &data,
+                         const QStringList &chemkin_species_names,
+                         QString *error_message = nullptr);
 
 bool save(const QString &file_path,
           const Data &data,

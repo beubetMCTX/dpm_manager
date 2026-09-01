@@ -645,6 +645,14 @@ bool MainWindow::save_project_session(const QString &file_path)
     }
 
     QString error_message;
+    if (!project_session::validate_references(data,
+                                               m_chemkin_species_names,
+                                               &error_message))
+    {
+        QMessageBox::warning(this, "Project Reference Preflight", error_message);
+        statusBar()->showMessage(error_message, 8000);
+        return false;
+    }
     if (!project_session::save(file_path, data, &error_message))
     {
         QMessageBox::critical(this, "Project Session Error", error_message);
@@ -663,6 +671,7 @@ bool MainWindow::save_project_session(const QString &file_path)
 bool MainWindow::load_project_session(const QString &file_path)
 {
     project_session::Data data;
+    QStringList project_species_names;
     QString error_message;
     if (!project_session::load(file_path, &data, &error_message))
     {
@@ -675,10 +684,10 @@ bool MainWindow::load_project_session(const QString &file_path)
     {
         bool chemkin_ok = false;
         QString chemkin_error;
-        read_chemkin_species_names(data.chemkin_file_path,
-                                   &chemkin_ok,
-                                   &chemkin_error,
-                                   false);
+        project_species_names = read_chemkin_species_names(data.chemkin_file_path,
+                                                           &chemkin_ok,
+                                                           &chemkin_error,
+                                                           false);
         if (!chemkin_ok)
         {
             const QString message = chemkin_error.trimmed().isEmpty()
@@ -688,6 +697,15 @@ bool MainWindow::load_project_session(const QString &file_path)
             statusBar()->showMessage(message, 8000);
             return false;
         }
+    }
+
+    if (!project_session::validate_references(data,
+                                               project_species_names,
+                                               &error_message))
+    {
+        QMessageBox::critical(this, "Project Session Error", error_message);
+        statusBar()->showMessage(error_message, 8000);
+        return false;
     }
 
     if (!data.reference_geometry.file_path.trimmed().isEmpty())
