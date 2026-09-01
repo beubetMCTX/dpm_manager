@@ -288,3 +288,7 @@ References:
 - Release compilation passed after the change; commit `dc31075` was pushed to `origin/main`.
 - Startup recovery now removes a missing or unparseable saved Chemkin path, preventing the same stale import failure from recurring on every launch.
 - Release compilation passed again; commit `3f3cec7` was pushed to `origin/main`.
+- Added optional reference-geometry session persistence: the loaded file path, transform, lock state, and visibility are stored in `config.json` and restored on startup.
+- The geometry reader now exposes the successful absolute source path and clears it after a failed read.
+- Release compilation passed after each step; commits `19f5e50`, `27bb84f`, and `972acec` were pushed to `origin/main`.
+- A Release startup check remained alive for six seconds when run with the existing deployed dependency DLL set; the bare build directory correctly fails because it contains no runtime DLL deployment.
