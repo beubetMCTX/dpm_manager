@@ -107,6 +107,8 @@ public:
     void align_view_to_selected_face();
 
     void display_units(const QList<Unit> &units, bool clear_existing = true);
+    bool select_unit_by_uuid(const QUuid &uuid);
+    bool select_reference_geometry();
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
@@ -123,6 +125,8 @@ signals:
     void face_reference_info_changed(const QVector3D &origin,
                                      const QVector3D &normal);
     void reference_geometry_lock_changed(bool locked);
+    void unit_display_list_changed();
+    void selection_changed(const QUuid &uuid, bool reference_geometry);
 
 private:
 

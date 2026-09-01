@@ -189,6 +189,45 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
 
     m_view->FitAll();
     m_view->Redraw();
+    emit unit_display_list_changed();
+}
+
+bool OCCTWidget::select_unit_by_uuid(const QUuid &uuid)
+{
+    if (uuid.isNull() || m_context.IsNull() || m_view.IsNull())
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit->ais_display.IsNull())
+    {
+        return false;
+    }
+
+    clear_face_reference();
+    m_context->ClearSelected(Standard_False);
+    selected_shape = unit->ais_display;
+    m_context->AddOrRemoveSelected(selected_shape, Standard_True);
+    m_view->Redraw();
+    emit selection_changed(uuid, false);
+    return true;
+}
+
+bool OCCTWidget::select_reference_geometry()
+{
+    if (base_geometry.IsNull() || m_context.IsNull() || m_view.IsNull() ||
+        ref_geom.IsNull())
+    {
+        return false;
+    }
+
+    m_context->ClearSelected(Standard_False);
+    selected_shape = base_geometry;
+    m_context->AddOrRemoveSelected(base_geometry, Standard_True);
+    m_view->Redraw();
+    emit selection_changed(QUuid(), true);
+    return true;
 }
 
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
@@ -321,6 +360,7 @@ void OCCTWidget::clear_face_reference()
     const bool had_face_reference = !selected_face.IsNull() ||
                                     !face_trihedron.IsNull();
     selected_face.Nullify();
+    emit selection_changed(QUuid(), false);
 
     if (!face_trihedron.IsNull() && !m_context.IsNull())
     {
@@ -451,6 +491,7 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
                                      QVector3D(static_cast<float>(normal.X()),
                                                static_cast<float>(normal.Y()),
                                                static_cast<float>(normal.Z())));
+    emit selection_changed(QUuid(), true);
 }
 
 bool OCCTWidget::select_face_reference()
@@ -620,10 +661,11 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         m_y_max=pos.y();
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
 
-        if (select_face_reference())
+    if (select_face_reference())
         {
             selected_shape = base_geometry;
             myIsDragging = !m_reference_geometry_locked;
+            emit selection_changed(QUuid(), true);
             return;
         }
 
@@ -734,11 +776,13 @@ bool OCCTWidget::select_injector()
 
     if (select(TopAbs_COMPOUND) && get_unit(selected_shape) != nullptr)
     {
+        emit selection_changed(get_unit(selected_shape)->inj.uuid, false);
         return true;
     }
 
     if (select(TopAbs_SHAPE) && get_unit(selected_shape) != nullptr)
     {
+        emit selection_changed(get_unit(selected_shape)->inj.uuid, false);
         return true;
     }
 
