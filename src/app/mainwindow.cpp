@@ -110,6 +110,13 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     runtime_debug::trace("MainWindow ui->setupUi finished");
 
+    QString config_error_message;
+    if (!ensure_app_config_directories(&config_error_message) &&
+        !config_error_message.trimmed().isEmpty())
+    {
+        qWarning() << config_error_message;
+    }
+
     //tab_widget = new QTabWidget();
 
     //this->setCentralWidget(m_3d_widget);
