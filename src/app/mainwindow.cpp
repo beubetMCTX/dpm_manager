@@ -110,6 +110,7 @@ MainWindow::MainWindow(QWidget *parent)
     runtime_debug::trace("MainWindow constructor begin");
     ui->setupUi(this);
     runtime_debug::trace("MainWindow ui->setupUi finished");
+    update_project_session_title();
 
     QString config_error_message;
     if (!ensure_app_config_directories(&config_error_message) &&
@@ -233,6 +234,7 @@ MainWindow::MainWindow(QWidget *parent)
             if (it->inj.uuid == uuid)
             {
                 units.erase(it);
+                mark_project_dirty();
                 break;
             }
         }
@@ -281,6 +283,7 @@ MainWindow::MainWindow(QWidget *parent)
                 stored_unit.inj.shape = changed_unit->inj.shape;
                 update_object_list_item(stored_unit.inj.uuid,
                                         stored_unit.inj.injector_data.name);
+                mark_project_dirty();
                 return;
             }
         }
@@ -407,6 +410,9 @@ void MainWindow::on_actionRead_triggered()
         units.clear();
         units = temp;
         m_3d_widget->display_units(units, true);
+        m_project_session_file_path.clear();
+        update_project_session_title();
+        mark_project_dirty();
 
         qDebug() << "Loaded injector count:" << units.size();
         for (int i = 0; i < units.size(); ++i)
@@ -442,6 +448,17 @@ void MainWindow::on_actionOpen_Project_triggered()
 }
 
 void MainWindow::on_actionSave_Project_triggered()
+{
+    if (!m_project_session_file_path.trimmed().isEmpty())
+    {
+        save_project_session(m_project_session_file_path);
+        return;
+    }
+
+    on_actionSave_Project_As_triggered();
+}
+
+void MainWindow::on_actionSave_Project_As_triggered()
 {
     const QString file_path = QFileDialog::getSaveFileName(
         this,
@@ -491,6 +508,9 @@ bool MainWindow::save_project_session(const QString &file_path)
         return false;
     }
 
+    m_project_session_file_path = QFileInfo(file_path).absoluteFilePath();
+    m_project_dirty = false;
+    update_project_session_title();
     statusBar()->showMessage(QString("Project session saved: %1").arg(file_path), 8000);
     return true;
 }
@@ -538,6 +558,7 @@ bool MainWindow::load_project_session(const QString &file_path)
         }
     }
 
+    m_loading_project_session = true;
     m_3d_widget->discard_auxiliary_dialogs();
     units = data.units;
     m_3d_widget->display_units(units, true);
@@ -556,6 +577,7 @@ bool MainWindow::load_project_session(const QString &file_path)
     }
     else if (!load_chemkin_file(data.chemkin_file_path, false, false))
     {
+        m_loading_project_session = false;
         return false;
     }
 
@@ -589,6 +611,7 @@ bool MainWindow::load_project_session(const QString &file_path)
             const QString message = m_3d_widget->geometry.last_error_message();
             QMessageBox::critical(this, "Project Session Error", message);
             statusBar()->showMessage(message, 8000);
+            m_loading_project_session = false;
             return false;
         }
 
@@ -601,8 +624,32 @@ bool MainWindow::load_project_session(const QString &file_path)
 
     update_object_list_panel();
     update_reference_geometry_panel();
+    m_project_session_file_path = QFileInfo(file_path).absoluteFilePath();
+    m_project_dirty = false;
+    m_loading_project_session = false;
+    update_project_session_title();
     statusBar()->showMessage(QString("Project session loaded: %1").arg(file_path), 8000);
     return true;
+}
+
+void MainWindow::mark_project_dirty()
+{
+    if (m_loading_project_session || m_project_dirty)
+    {
+        return;
+    }
+
+    m_project_dirty = true;
+    update_project_session_title();
+}
+
+void MainWindow::update_project_session_title()
+{
+    const QString project_name = m_project_session_file_path.trimmed().isEmpty()
+        ? QString("DPM Manager")
+        : QString("DPM Manager - %1")
+              .arg(QFileInfo(m_project_session_file_path).fileName());
+    setWindowTitle(project_name + (m_project_dirty ? " *" : QString()));
 }
 
 
@@ -614,6 +661,7 @@ void MainWindow::on_actionRead_Base_Geometry_triggered()
     {
         qDebug() << "true";
         m_3d_widget->add_readed_geometry();
+        mark_project_dirty();
         save_reference_geometry_state();
         statusBar()->showMessage("Base geometry loaded successfully", 5000);
     }
@@ -632,7 +680,10 @@ void MainWindow::on_actionRead_Chemkin_Files_triggered()
         return;
     }
 
-    load_chemkin_file(file_path, true, true);
+    if (load_chemkin_file(file_path, true, true))
+    {
+        mark_project_dirty();
+    }
 }
 
 void MainWindow::on_actionSpecies_Colors_triggered()
@@ -910,6 +961,7 @@ void MainWindow::apply_material_entries(const QList<MaterialConfigEntry> &entrie
 
     if (save_to_config)
     {
+        mark_project_dirty();
         QString error_message;
         if (!save_material_table_config(m_material_entries, &error_message))
         {
@@ -1031,6 +1083,7 @@ void MainWindow::create_reference_geometry_panel()
     {
         m_3d_widget->set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
                                               QVector3D(0.0f, 0.0f, 0.0f));
+        mark_project_dirty();
         save_reference_geometry_state();
     });
     connect(m_align_reference_face, &QPushButton::clicked, m_3d_widget,
@@ -1038,6 +1091,7 @@ void MainWindow::create_reference_geometry_panel()
     connect(m_reference_geometry_lock, &QCheckBox::toggled, this, [this](bool locked)
     {
         m_3d_widget->set_reference_geometry_locked(locked);
+        mark_project_dirty();
         save_reference_geometry_state();
         const bool enabled = !locked;
         m_reference_position_x->setEnabled(enabled);
@@ -1566,6 +1620,7 @@ void MainWindow::apply_reference_geometry_transform()
         QVector3D(static_cast<float>(m_reference_rotation_x->value()),
                   static_cast<float>(m_reference_rotation_y->value()),
                   static_cast<float>(m_reference_rotation_z->value())));
+    mark_project_dirty();
     save_reference_geometry_state();
 }
 

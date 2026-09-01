@@ -57,6 +57,8 @@ private slots:
 
     void on_actionSave_Project_triggered();
 
+    void on_actionSave_Project_As_triggered();
+
     void on_actionRead_Base_Geometry_triggered();
 
     void on_actionRead_Chemkin_Files_triggered();
@@ -77,6 +79,8 @@ private:
     void save_reference_geometry_state();
     bool save_project_session(const QString &file_path);
     bool load_project_session(const QString &file_path);
+    void mark_project_dirty();
+    void update_project_session_title();
     void apply_material_entries(const QList<MaterialConfigEntry> &entries,
                                 bool save_to_config,
                                 bool show_status_feedback);
@@ -95,6 +99,9 @@ private:
     Ui::MainWindow *ui;
     QStringList m_chemkin_species_names;
     QString m_chemkin_file_path;
+    QString m_project_session_file_path;
+    bool m_project_dirty = false;
+    bool m_loading_project_session = false;
     QList<MaterialConfigEntry> m_material_entries;
     QToolBar *m_chemkin_toolbar = nullptr;
     QLabel *m_chemkin_status_label = nullptr;
