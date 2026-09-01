@@ -271,6 +271,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Implemented injector copy/paste-to-replace data handling in commit `b395c74`, connected it to the 3D context menu in `6ad3e51`, and exposed it in the Objects panel in `bfaf19f`.
 - Connected the previously inactive 3D injector Delete action in commit `bcec0ea`; it now uses the same confirmation and safe-removal path as the Objects panel.
 - Cleared the in-memory copied injector when replacing the displayed DPM object set in commit `1647b71`, preventing cross-file paste of stale data.
+- Made the View-menu dock actions checkable and synchronized with Dock visibility in commit `7cfeaab`, so menu state and close buttons remain consistent.
 
 References:
 
