@@ -2,12 +2,14 @@
 
 #include <QCoreApplication>
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonParseError>
 #include <QSaveFile>
 
 namespace
@@ -36,6 +38,8 @@ QString color_config_file_path(const QString &chemkin_file_path,
     return QDir(app_color_config_directory_path()).filePath(QString::fromLatin1(digest.toHex()) + ".json");
 }
 
+QString backup_invalid_config(const QString &file_path);
+
 bool read_json_object(const QString &file_path,
                       QJsonObject *json_object,
                       QString *error_message)
@@ -50,12 +54,24 @@ bool read_json_object(const QString &file_path,
         return false;
     }
 
-    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
-    if (!document.isObject())
+    const QByteArray contents = file.readAll();
+    file.close();
+
+    QJsonParseError parse_error;
+    const QJsonDocument document = QJsonDocument::fromJson(contents, &parse_error);
+    if (parse_error.error != QJsonParseError::NoError || !document.isObject())
     {
+        const QString backup_path = backup_invalid_config(file_path);
         if (error_message != nullptr)
         {
-            *error_message = QString("Invalid JSON object in config file: %1").arg(file_path);
+            *error_message = QString("Invalid JSON object in config file: %1 (%2)%3")
+                                 .arg(file_path,
+                                      parse_error.error != QJsonParseError::NoError
+                                          ? parse_error.errorString()
+                                          : QString("root value is not an object"),
+                                      backup_path.isEmpty()
+                                          ? QString()
+                                          : QString("; backup: %1").arg(backup_path));
         }
         return false;
     }
@@ -65,6 +81,27 @@ bool read_json_object(const QString &file_path,
         *json_object = document.object();
     }
     return true;
+}
+
+QString backup_invalid_config(const QString &file_path)
+{
+    const QFileInfo file_info(file_path);
+    const QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss_zzz");
+    QString backup_path = file_path + ".corrupt-" + timestamp + ".bak";
+    int suffix = 1;
+    while (QFileInfo::exists(backup_path))
+    {
+        backup_path = file_path + ".corrupt-" + timestamp + "-" + QString::number(suffix++) + ".bak";
+    }
+
+    if (QFile::rename(file_info.absoluteFilePath(), backup_path))
+    {
+        qWarning() << "Backed up invalid config file to" << backup_path;
+        return backup_path;
+    }
+
+    qWarning() << "Unable to back up invalid config file" << file_path;
+    return {};
 }
 
 bool write_json_object(const QString &file_path,
