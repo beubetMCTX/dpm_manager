@@ -56,6 +56,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - The prompt appears only after the selected DPM file has parsed successfully, so invalid files and canceled file dialogs do not interrupt the current project.
 - The close path now shares one confirmation implementation, reducing divergence between replacement and shutdown behavior.
 
+### 2026-09-02 Make Replacement Discard Explicit
+
+- When replacing a project, choosing `Discard` now reloads the last saved project before continuing if a session file exists.
+- Unsaved temporary projects are explicitly described as being abandoned; the dialog no longer silently implies that every auxiliary state has been reverted.
+- If restoring the saved project fails, the replacement is canceled to avoid a partially restored state.
+
 ## Candidate Next Work
 
 ### High Priority

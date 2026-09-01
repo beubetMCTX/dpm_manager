@@ -488,7 +488,7 @@ void MainWindow::on_actionRead_triggered()
     const QList<Unit> temp = read_dpm_file(file_path, &ok, &error_message, true);
     if (ok)
     {
-        if (!confirm_project_change("importing a DPM file"))
+        if (!confirm_project_change("importing a DPM file", true))
         {
             return;
         }
@@ -568,7 +568,7 @@ void MainWindow::on_actionOpen_Project_triggered()
         return;
     }
 
-    if (!confirm_project_change("opening another project"))
+    if (!confirm_project_change("opening another project", true))
     {
         return;
     }
@@ -576,18 +576,24 @@ void MainWindow::on_actionOpen_Project_triggered()
     load_project_session(file_path);
 }
 
-bool MainWindow::confirm_project_change(const QString &action_description)
+bool MainWindow::confirm_project_change(const QString &action_description,
+                                        bool restore_saved_project_on_discard)
 {
     if (!m_project_dirty)
     {
         return true;
     }
 
+    const QString discard_hint = restore_saved_project_on_discard
+        ? (m_project_session_file_path.trimmed().isEmpty()
+               ? " Discard will abandon the current unsaved temporary project."
+               : " Discard will restore the last saved project before continuing.")
+        : QString();
     const QMessageBox::StandardButton answer = QMessageBox::warning(
         this,
         "Unsaved Project Changes",
-        QString("The current project has unsaved changes. Save before %1?")
-            .arg(action_description),
+        QString("The current project has unsaved changes. Save before %1?%2")
+            .arg(action_description, discard_hint),
         QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
         QMessageBox::Save);
     if (answer == QMessageBox::Cancel)
@@ -595,7 +601,19 @@ bool MainWindow::confirm_project_change(const QString &action_description)
         return false;
     }
 
-    return answer != QMessageBox::Save || save_current_project_session();
+    if (answer == QMessageBox::Save)
+    {
+        return save_current_project_session();
+    }
+
+    if (answer == QMessageBox::Discard &&
+        restore_saved_project_on_discard &&
+        !m_project_session_file_path.trimmed().isEmpty())
+    {
+        return load_project_session(m_project_session_file_path);
+    }
+
+    return true;
 }
 
 void MainWindow::on_actionSave_Project_triggered()

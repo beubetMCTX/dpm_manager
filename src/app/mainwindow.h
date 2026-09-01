@@ -73,7 +73,8 @@ private slots:
 
 private:
     void closeEvent(QCloseEvent *event) override;
-    bool confirm_project_change(const QString &action_description);
+    bool confirm_project_change(const QString &action_description,
+                                bool restore_saved_project_on_discard = false);
     QList<Unit> build_test_injector_units() const;
     bool load_chemkin_file(const QString &file_path,
                            bool show_error_message_box,
