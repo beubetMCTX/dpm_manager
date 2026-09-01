@@ -736,10 +736,14 @@ void MainWindow::update_project_session_title()
 
 void MainWindow::on_actionRead_Base_Geometry_triggered()
 {
-    const bool ok = m_3d_widget->geometry.Read_Geometry_Dialog();
+    // Parse into a temporary reader so a failed import cannot destroy the
+    // currently displayed reference geometry.
+    Base_Geom_Read loaded_geometry;
+    const bool ok = loaded_geometry.Read_Geometry_Dialog();
     if (ok)
     {
         qDebug() << "true";
+        m_3d_widget->geometry.adopt_loaded_geometry(loaded_geometry);
         m_3d_widget->add_readed_geometry();
         mark_project_dirty();
         save_reference_geometry_state();

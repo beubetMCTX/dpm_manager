@@ -390,3 +390,9 @@ References:
 - Added `chemkin_io_regression` with temporary-file coverage for a valid multi-line `SPECIES` section, inline comments, missing `END`, and a missing file path.
 - The test verifies that invalid imports return no species and a useful error instead of exposing partial data.
 - CMake registers the focused test without restoring the removed legacy smoke targets.
+
+### 2026-09-02 Safe Reference-Geometry Import Replacement
+
+- Reference geometry selected from the main window is now parsed into a temporary `Base_Geom_Read` instance.
+- The displayed geometry is replaced only after the new file is read successfully, so a canceled, missing, unsupported, or malformed file cannot clear the current scene.
+- Project dirty-state and persistence updates still occur only after a successful replacement.
