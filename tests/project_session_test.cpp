@@ -312,10 +312,35 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString malformed_structure_path =
+        temporary_directory.filePath("malformed_structure.dpmproj");
+    QJsonObject malformed_structure_root;
+    malformed_structure_root.insert("schema_version", 1);
+    malformed_structure_root.insert("materials", QJsonObject());
+    QFile malformed_structure_file(malformed_structure_path);
+    if (!check(malformed_structure_file.open(QIODevice::WriteOnly | QIODevice::Text),
+               "Unable to create malformed structure fixture"))
+    {
+        return 1;
+    }
+    malformed_structure_file.write(QJsonDocument(malformed_structure_root).toJson());
+    malformed_structure_file.close();
+
+    error_message.clear();
+    if (!check(!project_session::load(malformed_structure_path, &preserved, &error_message) &&
+                   error_message.contains("units array"),
+               "project session with missing units array should be rejected") ||
+        !check(preserved.units.size() == source.units.size(),
+               "failed structural project load should not expose partial data"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
     QFile::remove(malformed_path);
     QFile::remove(malformed_transform_path);
     QFile::remove(malformed_unit_path);
     QFile::remove(malformed_units_path);
+    QFile::remove(malformed_structure_path);
     return 0;
 }

@@ -104,6 +104,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Project-session validation now rejects duplicate injector names case-insensitively, matching DPM import/export behavior.
 - Added regression coverage using distinct UUIDs with the same injector name.
 
+### 2026-09-02 Reject Malformed Project Structure
+
+- Project-session loading now requires a valid `units` array and validates the JSON types of optional top-level arrays/objects and the Chemkin path.
+- Missing or incorrectly typed structural fields are rejected before any session data is exposed.
+- Added regression coverage for a missing units array.
+
 ## Candidate Next Work
 
 ### High Priority

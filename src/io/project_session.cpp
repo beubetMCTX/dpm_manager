@@ -792,6 +792,39 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         return false;
     }
 
+    const QJsonValue units_value = root.value("units");
+    if (!units_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session is missing a valid units array.");
+        return false;
+    }
+
+    const QJsonValue materials_value = root.value("materials");
+    if (!materials_value.isUndefined() && !materials_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid materials array.");
+        return false;
+    }
+
+    const QJsonValue reference_geometry_value = root.value("reference_geometry");
+    if (!reference_geometry_value.isUndefined() &&
+        !reference_geometry_value.isObject())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference_geometry object.");
+        return false;
+    }
+
+    const QJsonValue chemkin_path_value = root.value("chemkin_file_path");
+    if (!chemkin_path_value.isUndefined() && !chemkin_path_value.isString())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid Chemkin file path.");
+        return false;
+    }
+
     Data parsed;
     parsed.chemkin_file_path = session_path_for_runtime(
         root.value("chemkin_file_path").toString(), file_path);
