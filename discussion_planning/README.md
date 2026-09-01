@@ -247,6 +247,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added a dockable Objects panel in commit `818abeb`. It lists the loaded reference geometry and injectors and lets the user select them from the list.
 - Added incremental injector-name refresh in commit `e6157c8`, avoiding a full list rebuild during ordinary model updates.
 - All three commits were pushed to `origin/main`, and the Release target compiled successfully after each code change.
+- Added per-object visibility toggles to the Objects panel in commit `9a5ef73`. Visibility changes affect only OCCT display state and safely clear selection when the selected object is hidden.
 
 References:
 
