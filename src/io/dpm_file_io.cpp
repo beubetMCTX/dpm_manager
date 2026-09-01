@@ -1859,6 +1859,26 @@ QList<Unit> read_dpm_file(const QString &file_path,
             return QList<Unit>();
         }
         active_parse_error_message = nullptr;
+
+        for (const Unit &existing_unit : units)
+        {
+            if (existing_unit.inj.injector_data.name.compare(
+                    unit.inj.injector_data.name, Qt::CaseInsensitive) == 0)
+            {
+                const QString message = QString(
+                    "DPM file contains duplicate injector name '%1': %2")
+                    .arg(unit.inj.injector_data.name, file_name);
+                if (error_message != nullptr)
+                {
+                    *error_message = message;
+                }
+                if (show_error_message_box)
+                {
+                    QMessageBox::critical(nullptr, "DPM Parse Error", message);
+                }
+                return QList<Unit>();
+            }
+        }
         units.push_back(unit);
     }
 

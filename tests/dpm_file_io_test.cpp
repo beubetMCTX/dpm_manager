@@ -155,6 +155,24 @@ int main(int argc, char *argv[])
         return 1;
     }
     const QString written_contents = QString::fromUtf8(written_input.readAll());
+    QString duplicate_name_contents = written_contents;
+    duplicate_name_contents.replace("writer_second", "writer_first");
+    const QString duplicate_name_path = temporary_directory.filePath("duplicate-name.dpm");
+    if (!check(write_file(duplicate_name_path, duplicate_name_contents),
+               "Unable to create duplicate-name DPM fixture"))
+    {
+        return 1;
+    }
+    error_message.clear();
+    const QList<Unit> duplicate_name_import = read_dpm_file(
+        duplicate_name_path, &ok, &error_message, false);
+    if (!check(!ok && duplicate_name_import.isEmpty() &&
+                   error_message.contains("duplicate injector name"),
+               "DPM import should reject duplicate injector names"))
+    {
+        return 1;
+    }
+
     QString invalid_enum_contents = written_contents;
     invalid_enum_contents.replace(
         "(injection-type . single)",

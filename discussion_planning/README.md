@@ -68,6 +68,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - The later duplicate is reported with its list position, while the first occurrence remains the reference for diagnostics.
 - Added regression coverage for duplicate names.
 
+### 2026-09-02 Reject Duplicate Names During DPM Import
+
+- DPM parsing now rejects duplicate injector names case-insensitively before exposing any partial unit list.
+- Import and export now enforce the same name-uniqueness invariant.
+- Added regression coverage for a duplicate-name input file.
+
 ## Candidate Next Work
 
 ### High Priority
