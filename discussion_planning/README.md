@@ -450,6 +450,11 @@ References:
 - Added `auxiliary_dialog_lifetime_regression` as a focused offscreen test for simultaneous Species/Colors and Materials dialogs.
 - The test verifies that both child dialogs are owned and safely destroyed with their Qt parent, without restoring the removed legacy application-wide smoke target.
 
+### 2026-09-02 Unit Editor Lifetime Coverage
+
+- Added `unit_edit_dialog_lifetime_regression` for construction, close-without-delete-on-close, and parent destruction of a unit editor.
+- The test runs offscreen and verifies that the editor remains valid after an ordinary close, then is released safely with its parent.
+
 ### 2026-09-02 Reference Lock Status Feedback
 
 - The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.
