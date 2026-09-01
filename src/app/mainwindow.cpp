@@ -902,6 +902,20 @@ void MainWindow::create_object_list_panel()
             update_object_list_panel();
         }
     });
+    connect(m_object_list, &QListWidget::itemDoubleClicked, this,
+            [this](QListWidgetItem *item)
+    {
+        if (item == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        const QUuid uuid(item->data(Qt::UserRole).toString());
+        if (!uuid.isNull())
+        {
+            m_3d_widget->edit_unit_by_uuid(uuid);
+        }
+    });
     connect(m_object_list, &QListWidget::itemChanged, this,
             [this](QListWidgetItem *item)
     {
