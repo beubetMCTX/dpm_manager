@@ -80,6 +80,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Invalid cone and volume geometry is rejected without exposing partial units.
 - Added regression coverage for an invalid ring-cone import.
 
+### 2026-09-02 Fix Preflight Error Formatting
+
+- Corrected project and DPM preflight summaries to use real line breaks instead of displaying literal `\\n` text.
+- Validation behavior is unchanged; only diagnostic readability was corrected.
+- Release build and all 9 CTest regressions passed.
+
 ## Candidate Next Work
 
 ### High Priority

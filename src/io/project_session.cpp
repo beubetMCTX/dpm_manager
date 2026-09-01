@@ -649,9 +649,9 @@ bool validate_references(const Data &data,
 
     if (error_message != nullptr)
     {
-        *error_message = QString("Project reference preflight found %1 problem(s):\\n- %2")
+        *error_message = QString("Project reference preflight found %1 problem(s):\n- %2")
                              .arg(errors.size())
-                             .arg(errors.join("\\n- "));
+                             .arg(errors.join("\n- "));
     }
     return false;
 }

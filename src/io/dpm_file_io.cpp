@@ -2418,9 +2418,9 @@ bool validate_dpm_units(const QList<Unit> &units, QString *error_message)
 
     if (error_message != nullptr)
     {
-        *error_message = QString("DPM export preflight found %1 problem(s):\\n- %2")
+        *error_message = QString("DPM validation found %1 problem(s):\n- %2")
                              .arg(errors.size())
-                             .arg(errors.join("\\n- "));
+                             .arg(errors.join("\n- "));
     }
     return false;
 }
