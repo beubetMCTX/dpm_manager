@@ -277,6 +277,7 @@ MainWindow::MainWindow(QWidget *parent)
     runtime_debug::trace("MainWindow material table restored");
     restore_last_chemkin_file();
     runtime_debug::trace("MainWindow chemkin file restore finished");
+    restore_window_layout();
     runtime_debug::trace("MainWindow constructor end");
 
 }
@@ -327,6 +328,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
         m_species_material_dialog->close();
         m_species_material_dialog = nullptr;
     }
+
+    save_window_layout();
 
     QMainWindow::closeEvent(event);
     runtime_debug::trace("MainWindow closeEvent end");
@@ -750,6 +753,46 @@ void MainWindow::update_reference_geometry_panel()
     m_reference_rotation_x->setValue(rotation.x());
     m_reference_rotation_y->setValue(rotation.y());
     m_reference_rotation_z->setValue(rotation.z());
+}
+
+void MainWindow::restore_window_layout()
+{
+    QByteArray saved_geometry;
+    QByteArray saved_state;
+    QString error_message;
+    if (!load_main_window_state(&saved_geometry, &saved_state, &error_message))
+    {
+        if (!error_message.trimmed().isEmpty())
+        {
+            qWarning() << error_message;
+        }
+        return;
+    }
+
+    if (!saved_geometry.isEmpty())
+    {
+        restoreGeometry(saved_geometry);
+    }
+    if (!saved_state.isEmpty())
+    {
+        restoreState(saved_state);
+    }
+
+    if (m_reference_geometry_dock != nullptr &&
+        m_3d_widget != nullptr && m_3d_widget->geometry.getShape().IsNull())
+    {
+        m_reference_geometry_dock->hide();
+    }
+}
+
+void MainWindow::save_window_layout()
+{
+    QString error_message;
+    if (!save_main_window_state(saveGeometry(), saveState(), &error_message) &&
+        !error_message.trimmed().isEmpty())
+    {
+        qWarning() << error_message;
+    }
 }
 
 void MainWindow::create_object_list_panel()
