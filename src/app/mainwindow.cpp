@@ -1940,6 +1940,15 @@ void MainWindow::update_object_list_panel()
         }
         auto *reference_item = new QListWidgetItem(reference_name, m_object_list);
         reference_item->setData(Qt::UserRole, QStringLiteral("reference"));
+        reference_item->setToolTip(
+            QString("File: %1\nVisible: %2\nLocked: %3")
+                .arg(m_3d_widget->geometry.file_path(),
+                     m_3d_widget->reference_geometry_visible()
+                         ? QStringLiteral("Yes")
+                         : QStringLiteral("No"),
+                     m_3d_widget->reference_geometry_locked()
+                         ? QStringLiteral("Yes")
+                         : QStringLiteral("No")));
         reference_item->setFlags(reference_item->flags() | Qt::ItemIsUserCheckable);
         reference_item->setCheckState(m_3d_widget->reference_geometry_visible()
                                           ? Qt::Checked

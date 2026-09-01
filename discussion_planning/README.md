@@ -75,6 +75,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Assigned runtime editor controls now have stable object names for regression tests and UI automation.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Add Reference Geometry Tooltip
+
+- The reference-geometry object entry now shows its source file, visibility, and lock state in a tooltip.
+- The list label, sorting, and selection behavior remain unchanged.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
