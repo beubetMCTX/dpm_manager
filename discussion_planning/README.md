@@ -250,6 +250,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added per-object visibility toggles to the Objects panel in commit `9a5ef73`. Visibility changes affect only OCCT display state and safely clear selection when the selected object is hidden.
 - Added injector lock and rename APIs in commit `792ef42`, then exposed them through the Objects panel context menu in commit `8bd312d`. Locking prevents 3D movement only; editing and selection remain available.
 - Added direct editor opening from the Objects panel in commit `776b23e`, reusing the existing dialog lifetime and duplicate-window protection.
+- Added safe injector deletion in commit `1bde00f` and exposed a confirmation action in commit `5c1cdaf`. Deletion closes the matching editor and synchronizes OCCT, MainWindow data, selection, and object-list state.
 
 References:
 
