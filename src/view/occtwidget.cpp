@@ -699,6 +699,39 @@ void OCCTWidget::add_readed_geometry()
 
 }
 
+bool OCCTWidget::clear_reference_geometry()
+{
+    clear_face_reference();
+    set_reference_geometry_locked(false);
+
+    if (!m_context.IsNull() && !base_geometry.IsNull())
+    {
+        m_context->Remove(base_geometry, Standard_False);
+    }
+
+    if (!compound.IsNull() && !ref_geom.IsNull())
+    {
+        builder.Remove(compound, ref_geom);
+    }
+
+    base_geometry.Nullify();
+    reference_geometry.Nullify();
+    ref_geom.Nullify();
+    m_reference_position = QVector3D();
+    m_reference_rotation = QVector3D();
+    m_reference_transform = gp_Trsf();
+    m_reference_geometry_visible = true;
+
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+
+    emit reference_geometry_available(false);
+    emit reference_transform_changed(m_reference_position, m_reference_rotation);
+    return true;
+}
+
 void OCCTWidget::set_reference_transform(const QVector3D &position,
                                          const QVector3D &rotation_degrees)
 {

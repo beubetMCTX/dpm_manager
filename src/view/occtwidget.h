@@ -101,6 +101,7 @@ public:
     Base_Geom_Read geometry;
 
     void add_readed_geometry();
+    bool clear_reference_geometry();
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }
     QVector3D reference_rotation() const { return m_reference_rotation; }
