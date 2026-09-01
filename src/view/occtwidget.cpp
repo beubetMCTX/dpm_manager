@@ -1590,11 +1590,17 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         QAction* act_copy  = menu.addAction(label_copy  );
         QAction* act_paste = menu.addAction(label_paste );
         QAction* act_delte = menu.addAction(label_delete);
+        act_paste->setEnabled(m_copied_unit.has_value());
 
 
         const Handle(AIS_Shape) target_shape = selected_shape;
         connect(act_edit, &QAction::triggered, this,
                 [this, target_shape]() { open_edit_widget(target_shape); });
+        const QUuid target_uuid = selected_unit->inj.uuid;
+        connect(act_copy, &QAction::triggered, this,
+                [this, target_uuid]() { copy_unit_by_uuid(target_uuid); });
+        connect(act_paste, &QAction::triggered, this,
+                [this, target_uuid]() { paste_unit_by_uuid(target_uuid); });
 
 
         menu.exec(event->globalPos());	// 右键菜单被模态显示出来了
