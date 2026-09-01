@@ -1705,7 +1705,9 @@ void OCCTWidget::schedule_unit_visual_refresh(Unit *unit)
     }
 
     m_pending_visual_refreshes.insert(uuid);
-    QTimer::singleShot(0, this, [this, uuid]()
+    // Give a burst of field commits one short coalescing window. Data remains
+    // synchronized immediately; only the expensive OCCT rebuild is deferred.
+    QTimer::singleShot(30, this, [this, uuid]()
     {
         m_pending_visual_refreshes.remove(uuid);
         const std::shared_ptr<Unit> current_unit = unit_hash.value(uuid);

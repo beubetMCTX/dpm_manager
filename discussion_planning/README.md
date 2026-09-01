@@ -559,3 +559,9 @@ References:
 - Geometry edits already publish `unit_data_updated` before the deferred OCCT rebuild.
 - Removed the second identical signal from `refresh_unit_visual()` to avoid redundant editor synchronization and main-window updates.
 - Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Coalesce Burst Geometry Rebuilds
+
+- Kept injector data synchronization immediate while adding a 30 ms coalescing window to the expensive OCCT geometry rebuild.
+- Multiple geometry-field commits in a short burst now rebuild from the latest data once instead of rebuilding for each commit.
+- Release build and all 9 CTest regressions passed. Desktop verification should confirm that the short delay remains visually imperceptible.
