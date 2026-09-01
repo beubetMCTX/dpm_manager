@@ -512,6 +512,7 @@ namespace project_session
 bool validate(const Data &data, QString *error_message)
 {
     QSet<QUuid> unit_ids;
+    QStringList injector_names;
     for (const Unit &unit : data.units)
     {
         if (unit.inj.uuid.isNull())
@@ -526,6 +527,21 @@ bool validate(const Data &data, QString *error_message)
             return false;
         }
         unit_ids.insert(unit.inj.uuid);
+
+        if (unit.type == injector)
+        {
+            const QString name = unit.inj.injector_data.name.trimmed();
+            if (!name.isEmpty() && injector_names.contains(name, Qt::CaseInsensitive))
+            {
+                set_error(error_message,
+                          QString("Project contains duplicate injector name: %1").arg(name));
+                return false;
+            }
+            if (!name.isEmpty())
+            {
+                injector_names.append(name);
+            }
+        }
 
         if (unit.type < injector || unit.type > Assebly)
         {

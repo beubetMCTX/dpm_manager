@@ -114,6 +114,17 @@ int main(int argc, char *argv[])
     }
 
     invalid = source;
+    Unit duplicate_name = source.units.first();
+    duplicate_name.inj.uuid = QUuid::createUuid();
+    invalid.units.append(duplicate_name);
+    if (!check(!project_session::validate(invalid, &validation_error) &&
+                   validation_error.contains("duplicate injector name"),
+               "duplicate injector names should fail project validation"))
+    {
+        return 1;
+    }
+
+    invalid = source;
     invalid.reference_geometry.position.setX(std::numeric_limits<float>::quiet_NaN());
     if (!check(!project_session::validate(invalid, &validation_error) &&
                    validation_error.contains("non-finite"),

@@ -99,6 +99,11 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - The main window logs these warnings and shows a status-bar summary instead of silently discarding them.
 - Added regression coverage confirming unsupported fields do not abort a multi-injector import.
 
+### 2026-09-02 Enforce Unique Names in Project Sessions
+
+- Project-session validation now rejects duplicate injector names case-insensitively, matching DPM import/export behavior.
+- Added regression coverage using distinct UUIDs with the same injector name.
+
 ## Candidate Next Work
 
 ### High Priority
