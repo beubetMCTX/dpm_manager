@@ -417,3 +417,8 @@ References:
 - Added independent undo/redo history for reference-geometry transforms.
 - Apply/Reset actions and complete 3D reference-geometry drags are recorded as one transform operation.
 - Added `Ctrl+Alt+Z` and `Ctrl+Alt+Y` actions so reference-transform history remains separate from injector movement and unit-edit history.
+
+### 2026-09-02 Reference Selection Opens Properties
+
+- Selecting reference geometry from the 3D view or Objects panel now opens and raises its properties Dock automatically.
+- The Dock values are refreshed before selection highlighting is updated, so the displayed transform always belongs to the selected reference object.

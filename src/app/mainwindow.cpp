@@ -1716,6 +1716,13 @@ void MainWindow::update_object_list_selection(const QUuid &uuid,
         return;
     }
 
+    if (reference_geometry && m_reference_geometry_dock != nullptr)
+    {
+        m_reference_geometry_dock->show();
+        m_reference_geometry_dock->raise();
+        update_reference_geometry_panel();
+    }
+
     const QSignalBlocker blocker(m_object_list);
     m_object_list->clearSelection();
     const QString object_id = reference_geometry
