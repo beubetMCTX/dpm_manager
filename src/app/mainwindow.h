@@ -103,5 +103,6 @@ private:
     QLabel *m_reference_face_normal = nullptr;
     QDockWidget *m_object_list_dock = nullptr;
     QListWidget *m_object_list = nullptr;
+    QLineEdit *m_object_filter = nullptr;
 };
 #endif // MAINWINDOW_H

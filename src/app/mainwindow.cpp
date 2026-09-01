@@ -732,6 +732,11 @@ void MainWindow::create_object_list_panel()
     auto *layout = new QVBoxLayout(panel);
     layout->setContentsMargins(8, 8, 8, 8);
 
+    m_object_filter = new QLineEdit(panel);
+    m_object_filter->setPlaceholderText("Filter objects...");
+    m_object_filter->setClearButtonEnabled(true);
+    layout->addWidget(m_object_filter);
+
     m_object_list = new QListWidget(panel);
     m_object_list->setSelectionMode(QAbstractItemView::SingleSelection);
     m_object_list->setAlternatingRowColors(true);
@@ -782,6 +787,25 @@ void MainWindow::create_object_list_panel()
         {
             m_3d_widget->set_unit_visible(uuid, visible);
             }
+    });
+    connect(m_object_filter, &QLineEdit::textChanged, this,
+            [this](const QString &text)
+    {
+        if (m_object_list == nullptr)
+        {
+            return;
+        }
+
+        const QString filter = text.trimmed();
+        for (int row = 0; row < m_object_list->count(); ++row)
+        {
+            QListWidgetItem *item = m_object_list->item(row);
+            const bool matches = filter.isEmpty() ||
+                                 item->text().contains(filter, Qt::CaseInsensitive) ||
+                                 item->data(Qt::UserRole).toString()
+                                     .contains(filter, Qt::CaseInsensitive);
+            item->setHidden(!matches);
+        }
     });
     m_object_list->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_object_list, &QListWidget::customContextMenuRequested, this,
@@ -908,6 +932,19 @@ void MainWindow::update_object_list_panel()
         unit_item->setCheckState(m_3d_widget->unit_visible(it.key())
                                      ? Qt::Checked
                                      : Qt::Unchecked);
+    }
+
+    if (m_object_filter != nullptr)
+    {
+        const QString filter = m_object_filter->text().trimmed();
+        for (int row = 0; row < m_object_list->count(); ++row)
+        {
+            QListWidgetItem *item = m_object_list->item(row);
+            item->setHidden(!filter.isEmpty() &&
+                            !item->text().contains(filter, Qt::CaseInsensitive) &&
+                            !item->data(Qt::UserRole).toString()
+                                 .contains(filter, Qt::CaseInsensitive));
+        }
     }
 }
 
