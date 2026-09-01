@@ -179,7 +179,78 @@ bool save_last_chemkin_file_path(const QString &file_path, QString *error_messag
     }
 
     QJsonObject root_object;
+    if (QFileInfo::exists(app_settings_file_path()))
+    {
+        QString read_error;
+        if (!read_json_object(app_settings_file_path(), &root_object, &read_error))
+        {
+            root_object = QJsonObject();
+        }
+    }
     root_object.insert("last_chemkin_file_path", normalize_chemkin_path(file_path));
+    return write_json_object(app_settings_file_path(), root_object, error_message);
+}
+
+bool load_main_window_state(QByteArray *geometry,
+                            QByteArray *window_state,
+                            QString *error_message)
+{
+    if (geometry != nullptr)
+    {
+        geometry->clear();
+    }
+    if (window_state != nullptr)
+    {
+        window_state->clear();
+    }
+
+    if (!QFileInfo::exists(app_settings_file_path()))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (!read_json_object(app_settings_file_path(), &root_object, error_message))
+    {
+        return false;
+    }
+
+    if (geometry != nullptr)
+    {
+        *geometry = QByteArray::fromBase64(
+            root_object.value("window_geometry").toString().toLatin1());
+    }
+    if (window_state != nullptr)
+    {
+        *window_state = QByteArray::fromBase64(
+            root_object.value("window_state").toString().toLatin1());
+    }
+    return true;
+}
+
+bool save_main_window_state(const QByteArray &geometry,
+                            const QByteArray &window_state,
+                            QString *error_message)
+{
+    if (!ensure_app_config_directories(error_message))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (QFileInfo::exists(app_settings_file_path()))
+    {
+        QString read_error;
+        if (!read_json_object(app_settings_file_path(), &root_object, &read_error))
+        {
+            root_object = QJsonObject();
+        }
+    }
+
+    root_object.insert("window_geometry",
+                       QString::fromLatin1(geometry.toBase64()));
+    root_object.insert("window_state",
+                       QString::fromLatin1(window_state.toBase64()));
     return write_json_object(app_settings_file_path(), root_object, error_message);
 }
 
