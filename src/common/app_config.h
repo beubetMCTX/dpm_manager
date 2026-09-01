@@ -23,6 +23,7 @@ bool ensure_app_config_directories(QString *error_message = nullptr);
 
 bool load_last_chemkin_file_path(QString *file_path, QString *error_message = nullptr);
 bool save_last_chemkin_file_path(const QString &file_path, QString *error_message = nullptr);
+bool clear_last_chemkin_file_path(QString *error_message = nullptr);
 bool load_main_window_state(QByteArray *geometry,
                             QByteArray *window_state,
                             QString *error_message = nullptr);

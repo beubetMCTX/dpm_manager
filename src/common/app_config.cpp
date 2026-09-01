@@ -231,6 +231,28 @@ bool save_last_chemkin_file_path(const QString &file_path, QString *error_messag
     return write_json_object(app_settings_file_path(), root_object, error_message);
 }
 
+bool clear_last_chemkin_file_path(QString *error_message)
+{
+    if (!ensure_app_config_directories(error_message))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (QFileInfo::exists(app_settings_file_path()))
+    {
+        QString read_error;
+        if (!read_json_object(app_settings_file_path(), &root_object, &read_error))
+        {
+            root_object = QJsonObject();
+        }
+    }
+
+    root_object.remove("last_chemkin_file_path");
+    root_object.insert("schema_version", kConfigSchemaVersion);
+    return write_json_object(app_settings_file_path(), root_object, error_message);
+}
+
 bool load_main_window_state(QByteArray *geometry,
                             QByteArray *window_state,
                             QString *error_message)

@@ -581,6 +581,11 @@ void MainWindow::restore_last_chemkin_file()
         const QString message = QString("Last Chemkin file was not found: %1").arg(saved_file_path);
         qWarning() << message;
         statusBar()->showMessage(message, 8000);
+        QString clear_error;
+        if (!clear_last_chemkin_file_path(&clear_error) && !clear_error.trimmed().isEmpty())
+        {
+            qWarning() << clear_error;
+        }
         return;
     }
 
@@ -589,6 +594,14 @@ void MainWindow::restore_last_chemkin_file()
         statusBar()->showMessage(
             QString("Restored Chemkin species from %1").arg(saved_file_path),
             5000);
+    }
+    else
+    {
+        QString clear_error;
+        if (!clear_last_chemkin_file_path(&clear_error) && !clear_error.trimmed().isEmpty())
+        {
+            qWarning() << clear_error;
+        }
     }
 }
 
