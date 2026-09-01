@@ -53,6 +53,10 @@ public:
 private slots:
     void on_actionRead_triggered();
 
+    void on_actionOpen_Project_triggered();
+
+    void on_actionSave_Project_triggered();
+
     void on_actionRead_Base_Geometry_triggered();
 
     void on_actionRead_Chemkin_Files_triggered();
@@ -71,6 +75,8 @@ private:
     void restore_material_table();
     void restore_reference_geometry();
     void save_reference_geometry_state();
+    bool save_project_session(const QString &file_path);
+    bool load_project_session(const QString &file_path);
     void apply_material_entries(const QList<MaterialConfigEntry> &entries,
                                 bool save_to_config,
                                 bool show_status_feedback);

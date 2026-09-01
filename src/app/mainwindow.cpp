@@ -3,6 +3,7 @@
 #include "app_config.h"
 #include "chemkin_io.h"
 #include "dpm_file_io.h"
+#include "project_session.h"
 #include "runtime_debug.h"
 #include "species_color_dialog.h"
 #include "species_material_dialog.h"
@@ -412,6 +413,156 @@ void MainWindow::on_actionRead_triggered()
             error_message.trimmed().isEmpty() ? "DPM file import failed" : error_message,
             8000);
     }
+}
+
+void MainWindow::on_actionOpen_Project_triggered()
+{
+    const QString file_path = QFileDialog::getOpenFileName(
+        this,
+        "Open Project Session",
+        ".",
+        "DPM Manager Project (*.dpmproj);;All Files (*.*)");
+    if (file_path.trimmed().isEmpty())
+    {
+        statusBar()->showMessage("Project session open canceled", 5000);
+        return;
+    }
+
+    load_project_session(file_path);
+}
+
+void MainWindow::on_actionSave_Project_triggered()
+{
+    const QString file_path = QFileDialog::getSaveFileName(
+        this,
+        "Save Project Session",
+        ".",
+        "DPM Manager Project (*.dpmproj);;All Files (*.*)");
+    if (file_path.trimmed().isEmpty())
+    {
+        statusBar()->showMessage("Project session save canceled", 5000);
+        return;
+    }
+
+    save_project_session(file_path);
+}
+
+bool MainWindow::save_project_session(const QString &file_path)
+{
+    project_session::Data data;
+    data.units = units;
+    data.chemkin_file_path = m_chemkin_file_path;
+    data.materials = m_material_entries;
+    if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
+    {
+        data.reference_geometry.file_path = m_3d_widget->geometry.file_path();
+        data.reference_geometry.position = m_3d_widget->reference_position();
+        data.reference_geometry.rotation = m_3d_widget->reference_rotation();
+        data.reference_geometry.locked = m_3d_widget->reference_geometry_locked();
+        data.reference_geometry.visible = m_3d_widget->reference_geometry_visible();
+    }
+
+    QString error_message;
+    if (!project_session::save(file_path, data, &error_message))
+    {
+        QMessageBox::critical(this, "Project Session Error", error_message);
+        statusBar()->showMessage(error_message, 8000);
+        return false;
+    }
+
+    statusBar()->showMessage(QString("Project session saved: %1").arg(file_path), 8000);
+    return true;
+}
+
+bool MainWindow::load_project_session(const QString &file_path)
+{
+    project_session::Data data;
+    QString error_message;
+    if (!project_session::load(file_path, &data, &error_message))
+    {
+        QMessageBox::critical(this, "Project Session Error", error_message);
+        statusBar()->showMessage(error_message, 8000);
+        return false;
+    }
+
+    if (!data.chemkin_file_path.trimmed().isEmpty())
+    {
+        bool chemkin_ok = false;
+        QString chemkin_error;
+        read_chemkin_species_names(data.chemkin_file_path,
+                                   &chemkin_ok,
+                                   &chemkin_error,
+                                   false);
+        if (!chemkin_ok)
+        {
+            const QString message = chemkin_error.trimmed().isEmpty()
+                ? QString("Project Chemkin file cannot be read: %1").arg(data.chemkin_file_path)
+                : chemkin_error;
+            QMessageBox::critical(this, "Project Session Error", message);
+            statusBar()->showMessage(message, 8000);
+            return false;
+        }
+    }
+
+    if (!data.reference_geometry.file_path.trimmed().isEmpty())
+    {
+        const QFileInfo geometry_info(data.reference_geometry.file_path);
+        if (!geometry_info.exists() || !geometry_info.isFile())
+        {
+            const QString message = QString("Project reference geometry was not found: %1")
+                                        .arg(data.reference_geometry.file_path);
+            QMessageBox::critical(this, "Project Session Error", message);
+            statusBar()->showMessage(message, 8000);
+            return false;
+        }
+    }
+
+    m_3d_widget->discard_auxiliary_dialogs();
+    units = data.units;
+    m_3d_widget->display_units(units, true);
+
+    if (data.chemkin_file_path.trimmed().isEmpty())
+    {
+        m_chemkin_file_path.clear();
+        m_chemkin_species_names.clear();
+        m_3d_widget->set_chemkin_species_names({});
+        update_chemkin_status();
+        QString clear_error;
+        if (!clear_last_chemkin_file_path(&clear_error) && !clear_error.trimmed().isEmpty())
+        {
+            qWarning() << clear_error;
+        }
+    }
+    else if (!load_chemkin_file(data.chemkin_file_path, false, false))
+    {
+        return false;
+    }
+
+    apply_material_entries(data.materials, true, false);
+
+    m_3d_widget->clear_reference_geometry();
+    if (!data.reference_geometry.file_path.trimmed().isEmpty())
+    {
+        QString geometry_path = QFileInfo(data.reference_geometry.file_path).absoluteFilePath();
+        if (!m_3d_widget->geometry.readFile(geometry_path))
+        {
+            const QString message = m_3d_widget->geometry.last_error_message();
+            QMessageBox::critical(this, "Project Session Error", message);
+            statusBar()->showMessage(message, 8000);
+            return false;
+        }
+
+        m_3d_widget->add_readed_geometry();
+        m_3d_widget->set_reference_transform(data.reference_geometry.position,
+                                              data.reference_geometry.rotation);
+        m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
+        m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
+    }
+
+    update_object_list_panel();
+    update_reference_geometry_panel();
+    statusBar()->showMessage(QString("Project session loaded: %1").arg(file_path), 8000);
+    return true;
 }
 
 
