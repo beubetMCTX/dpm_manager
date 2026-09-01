@@ -251,6 +251,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added injector lock and rename APIs in commit `792ef42`, then exposed them through the Objects panel context menu in commit `8bd312d`. Locking prevents 3D movement only; editing and selection remain available.
 - Added direct editor opening from the Objects panel in commit `776b23e`, reusing the existing dialog lifetime and duplicate-window protection.
 - Added safe injector deletion in commit `1bde00f` and exposed a confirmation action in commit `5c1cdaf`. Deletion closes the matching editor and synchronizes OCCT, MainWindow data, selection, and object-list state.
+- Added object-name/UUID filtering to the Objects panel in commit `e99d26b`; list refreshes preserve the active filter.
 
 References:
 
