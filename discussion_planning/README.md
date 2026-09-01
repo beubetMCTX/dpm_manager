@@ -632,3 +632,9 @@ References:
 - Project-session loading now checks the return value of reference position and rotation array parsing.
 - A loaded reference geometry with missing or incorrectly sized transform arrays is rejected instead of silently becoming a zero transform.
 - Added regression coverage for a two-component position array; Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Avoid Redundant Combo-Box Rebuilds
+
+- `QUI_ComboBox::set_options()` now compares the incoming labels with the existing options before clearing and repopulating the widget.
+- External unit-data synchronization therefore preserves unchanged combo-box contents without rebuilding the selection or emitting extra selection changes.
+- Added regression coverage for unchanged options; Release build and all 9 CTest regressions passed.

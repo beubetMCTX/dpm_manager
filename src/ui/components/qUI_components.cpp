@@ -1095,9 +1095,25 @@ QUI_ComboBox::QUI_ComboBox(QWidget *parent)
 
 void QUI_ComboBox::set_options(const QStringList &options)
 {
+    bool options_changed = count() != options.size();
+    if (!options_changed)
+    {
+        for (int index = 0; index < options.size(); ++index)
+        {
+            if (itemText(index) != options.at(index))
+            {
+                options_changed = true;
+                break;
+            }
+        }
+    }
+
     const QSignalBlocker blocker(this);
-    clear();
-    addItems(options);
+    if (options_changed)
+    {
+        clear();
+        addItems(options);
+    }
     sync_from_binding();
 }
 

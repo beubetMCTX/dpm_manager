@@ -125,5 +125,26 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QString selected_option = "Second";
+    QUI_ComboBox combo;
+    int selection_change_count = 0;
+    QObject::connect(&combo,
+                     &QComboBox::currentIndexChanged,
+                     [&selection_change_count](int)
+                     {
+                         ++selection_change_count;
+                     });
+    combo.set_options({"First", "Second"});
+    combo.bind_current_text(&selected_option);
+    selection_change_count = 0;
+    combo.set_options({"First", "Second"});
+    if (!check(combo.currentText() == "Second",
+               "unchanged combo options should preserve the selected value") ||
+        !check(selection_change_count == 0,
+               "unchanged combo options should not rebuild the selection"))
+    {
+        return 1;
+    }
+
     return 0;
 }
