@@ -607,3 +607,10 @@ References:
 - Strict matching remains enabled after quote removal, so malformed substrings are still rejected.
 - Added round-trip coverage for quoted drag-law values.
 - Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Reject Unbalanced DPM Imports
+
+- Added a structural validation pass before DPM block parsing.
+- Parentheses inside quoted strings and escaped characters are ignored correctly.
+- Truncated or malformed DPM files now fail safely with an explicit error instead of entering partial parsing.
+- Added regression coverage for an unbalanced DPM file; the Release build and all 9 CTest regressions passed.

@@ -83,6 +83,54 @@ QString normalize_dpm_content(const QString& content)
     return normalized.trimmed();
 }
 
+bool has_balanced_parentheses(const QString& content)
+{
+    bool in_quotes = false;
+    bool escaped = false;
+    int depth = 0;
+
+    for (const QChar character : content)
+    {
+        if (escaped)
+        {
+            escaped = false;
+            continue;
+        }
+
+        if (in_quotes && character == '\\')
+        {
+            escaped = true;
+            continue;
+        }
+
+        if (character == '"')
+        {
+            in_quotes = !in_quotes;
+            continue;
+        }
+
+        if (in_quotes)
+        {
+            continue;
+        }
+
+        if (character == '(')
+        {
+            ++depth;
+        }
+        else if (character == ')')
+        {
+            if (depth == 0)
+            {
+                return false;
+            }
+            --depth;
+        }
+    }
+
+    return !in_quotes && depth == 0;
+}
+
 bool is_wrapped_unit_list(const QString& content)
 {
     if (content.isEmpty() || content.front() != '(')
@@ -1747,6 +1795,21 @@ QList<Unit> read_dpm_file(const QString &file_path,
     if (content.trimmed().isEmpty())
     {
         const QString message = QString("DPM file is empty: %1").arg(file_name);
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_error_message_box)
+        {
+            QMessageBox::critical(nullptr, "DPM Parse Error", message);
+        }
+        return units;
+    }
+
+    if (!has_balanced_parentheses(content))
+    {
+        const QString message = QString("DPM file has unbalanced parentheses: %1")
+                                    .arg(file_name);
         if (error_message != nullptr)
         {
             *error_message = message;

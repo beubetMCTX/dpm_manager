@@ -88,6 +88,24 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString unbalanced_path = temporary_directory.filePath("unbalanced.dpm");
+    if (!check(write_file(unbalanced_path, "((injector ((type . droplet)") ,
+               "Unable to create unbalanced DPM fixture"))
+    {
+        return 1;
+    }
+
+    error_message.clear();
+    const QList<Unit> unbalanced_file = read_dpm_file(
+        unbalanced_path, &ok, &error_message, false);
+    if (!check(!ok && unbalanced_file.isEmpty(),
+               "Unbalanced DPM file should fail safely") ||
+        !check(error_message.contains("unbalanced parentheses"),
+               "Unbalanced DPM file should provide a useful error"))
+    {
+        return 1;
+    }
+
     Unit first;
     first.inj.injector_data.name = "writer_first";
     first.inj.injector_data.pos = QVector3D(1.0f, 2.0f, 3.0f);
