@@ -860,6 +860,36 @@ void MainWindow::create_object_list_panel()
         const QString object_id = item->data(Qt::UserRole).toString();
         if (object_id == QStringLiteral("reference"))
         {
+            QMenu menu(m_object_list);
+            QAction *fit_all_action = menu.addAction("Fit All");
+            QAction *clear_face_action = menu.addAction("Clear Selected Face");
+            QAction *align_face_action = menu.addAction("Align View to Selected Face");
+            align_face_action->setEnabled(m_align_reference_face != nullptr &&
+                                           m_align_reference_face->isEnabled());
+            menu.addSeparator();
+            QAction *lock_action = menu.addAction(
+                m_3d_widget->reference_geometry_locked()
+                    ? "Unlock Reference Geometry"
+                    : "Lock Reference Geometry");
+            QAction *chosen_action = menu.exec(
+                m_object_list->viewport()->mapToGlobal(position));
+            if (chosen_action == fit_all_action)
+            {
+                m_3d_widget->fit_all_view();
+            }
+            else if (chosen_action == clear_face_action)
+            {
+                m_3d_widget->clear_selection();
+            }
+            else if (chosen_action == align_face_action)
+            {
+                m_3d_widget->align_view_to_selected_face();
+            }
+            else if (chosen_action == lock_action)
+            {
+                m_3d_widget->set_reference_geometry_locked(
+                    !m_3d_widget->reference_geometry_locked());
+            }
             return;
         }
 
