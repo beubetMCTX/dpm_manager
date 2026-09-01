@@ -14,6 +14,7 @@
 #include <QDoubleSpinBox>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QListWidget>
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -75,6 +76,9 @@ private:
     void create_reference_geometry_panel();
     void update_reference_geometry_panel();
     void apply_reference_geometry_transform();
+    void create_object_list_panel();
+    void update_object_list_panel();
+    void update_object_list_selection(const QUuid &uuid, bool reference_geometry);
 
     Ui::MainWindow *ui;
     QStringList m_chemkin_species_names;
@@ -96,5 +100,7 @@ private:
     QPushButton *m_align_reference_face = nullptr;
     QLabel *m_reference_face_origin = nullptr;
     QLabel *m_reference_face_normal = nullptr;
+    QDockWidget *m_object_list_dock = nullptr;
+    QListWidget *m_object_list = nullptr;
 };
 #endif // MAINWINDOW_H

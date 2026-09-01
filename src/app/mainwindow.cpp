@@ -115,6 +115,7 @@ MainWindow::MainWindow(QWidget *parent)
     runtime_debug::trace("MainWindow OCCTWidget created");
 
     create_reference_geometry_panel();
+    create_object_list_panel();
     connect(m_3d_widget, &OCCTWidget::reference_geometry_available, this,
             [this](bool available)
     {
@@ -123,6 +124,7 @@ MainWindow::MainWindow(QWidget *parent)
             m_reference_geometry_dock->setVisible(available);
         }
         update_reference_geometry_panel();
+        update_object_list_panel();
     });
     connect(m_3d_widget, &OCCTWidget::reference_transform_changed, this,
             [this](const QVector3D &, const QVector3D &)
@@ -164,6 +166,10 @@ MainWindow::MainWindow(QWidget *parent)
             m_reference_geometry_lock->setChecked(locked);
         }
     });
+    connect(m_3d_widget, &OCCTWidget::unit_display_list_changed,
+            this, &MainWindow::update_object_list_panel);
+    connect(m_3d_widget, &OCCTWidget::selection_changed,
+            this, &MainWindow::update_object_list_selection);
 
     // OCCT owns editable Unit copies so that interactive handles remain stable.
     // Keep the MainWindow list synchronized whenever one of those copies changes.
@@ -696,6 +702,113 @@ void MainWindow::update_reference_geometry_panel()
     m_reference_rotation_x->setValue(rotation.x());
     m_reference_rotation_y->setValue(rotation.y());
     m_reference_rotation_z->setValue(rotation.z());
+}
+
+void MainWindow::create_object_list_panel()
+{
+    m_object_list_dock = new QDockWidget("Objects", this);
+    m_object_list_dock->setObjectName("objectListDock");
+    m_object_list_dock->setAllowedAreas(Qt::LeftDockWidgetArea |
+                                        Qt::RightDockWidgetArea);
+    m_object_list_dock->setMinimumWidth(220);
+
+    auto *panel = new QWidget(m_object_list_dock);
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(8, 8, 8, 8);
+
+    m_object_list = new QListWidget(panel);
+    m_object_list->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_object_list->setAlternatingRowColors(true);
+    layout->addWidget(m_object_list);
+
+    m_object_list_dock->setWidget(panel);
+    addDockWidget(Qt::LeftDockWidgetArea, m_object_list_dock);
+
+    connect(m_object_list, &QListWidget::itemClicked, this,
+            [this](QListWidgetItem *item)
+    {
+        if (item == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        const QString object_id = item->data(Qt::UserRole).toString();
+        if (object_id == QStringLiteral("reference"))
+        {
+            m_3d_widget->select_reference_geometry();
+            return;
+        }
+
+        const QUuid uuid(object_id);
+        if (uuid.isNull() || !m_3d_widget->select_unit_by_uuid(uuid))
+        {
+            update_object_list_panel();
+        }
+    });
+
+    update_object_list_panel();
+}
+
+void MainWindow::update_object_list_panel()
+{
+    if (m_object_list == nullptr || m_3d_widget == nullptr)
+    {
+        return;
+    }
+
+    const QSignalBlocker blocker(m_object_list);
+    m_object_list->clear();
+
+    if (!m_3d_widget->geometry.getShape().IsNull())
+    {
+        auto *reference_item = new QListWidgetItem("Reference Geometry", m_object_list);
+        reference_item->setData(Qt::UserRole, QStringLiteral("reference"));
+    }
+
+    for (auto it = m_3d_widget->unit_hash.cbegin();
+         it != m_3d_widget->unit_hash.cend(); ++it)
+    {
+        if (it.value() == nullptr)
+        {
+            continue;
+        }
+
+        QString name = it.value()->inj.injector_data.name.trimmed();
+        if (name.isEmpty())
+        {
+            name = it.key().toString(QUuid::WithoutBraces);
+        }
+
+        auto *unit_item = new QListWidgetItem(name, m_object_list);
+        unit_item->setData(Qt::UserRole,
+                           it.key().toString(QUuid::WithoutBraces));
+        unit_item->setToolTip(it.key().toString(QUuid::WithoutBraces));
+    }
+}
+
+void MainWindow::update_object_list_selection(const QUuid &uuid,
+                                               bool reference_geometry)
+{
+    if (m_object_list == nullptr)
+    {
+        return;
+    }
+
+    const QSignalBlocker blocker(m_object_list);
+    m_object_list->clearSelection();
+    const QString object_id = reference_geometry
+                                  ? QStringLiteral("reference")
+                                  : uuid.toString(QUuid::WithoutBraces);
+    for (int row = 0; row < m_object_list->count(); ++row)
+    {
+        QListWidgetItem *item = m_object_list->item(row);
+        if (item->data(Qt::UserRole).toString() == object_id)
+        {
+            item->setSelected(true);
+            m_object_list->scrollToItem(item);
+            break;
+        }
+    }
 }
 
 void MainWindow::apply_reference_geometry_transform()
