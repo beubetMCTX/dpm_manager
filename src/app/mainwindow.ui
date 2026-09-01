@@ -31,6 +31,7 @@
      <string>File</string>
     </property>
     <addaction name="actionRead"/>
+    <addaction name="actionSave_DPM"/>
     <addaction name="actionRead_Base_Geometry"/>
     <addaction name="actionOpen_Project"/>
     <addaction name="actionSave_Project"/>
@@ -105,6 +106,11 @@
   <action name="actionSpecies_Colors">
    <property name="text">
     <string>Species/Colors</string>
+   </property>
+  </action>
+  <action name="actionSave_DPM">
+   <property name="text">
+    <string>Save DPM File</string>
    </property>
   </action>
   <action name="actionOpen_Project">

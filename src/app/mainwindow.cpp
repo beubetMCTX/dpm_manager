@@ -526,6 +526,41 @@ void MainWindow::on_actionRead_triggered()
     }
 }
 
+void MainWindow::on_actionSave_DPM_triggered()
+{
+    if (units.isEmpty())
+    {
+        const QString message = "There are no injectors to write to a DPM file.";
+        QMessageBox::warning(this, "DPM Export", message);
+        statusBar()->showMessage(message, 5000);
+        return;
+    }
+
+    const QString file_path = QFileDialog::getSaveFileName(
+        this,
+        "Save DPM File",
+        ".",
+        "DPM Files (*.dpm);;Text Files (*.txt);;All Files (*.*)");
+    if (file_path.trimmed().isEmpty())
+    {
+        statusBar()->showMessage("DPM export canceled", 5000);
+        return;
+    }
+
+    QString error_message;
+    if (!write_dpm_file(file_path, units, &error_message))
+    {
+        const QString message = error_message.trimmed().isEmpty()
+            ? "DPM export failed."
+            : error_message;
+        QMessageBox::critical(this, "DPM Export Error", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    statusBar()->showMessage(QString("DPM file saved: %1").arg(file_path), 8000);
+}
+
 void MainWindow::on_actionOpen_Project_triggered()
 {
     const QString file_path = QFileDialog::getOpenFileName(

@@ -486,6 +486,12 @@ References:
 - Added round-trip coverage: write two injectors, read them back, and verify names, positions, and enum values.
 - Release DPM I/O regression passed after correcting the existing `madahushi` member spelling.
 
+### 2026-09-02 DPM Export Menu
+
+- Added `Save DPM File` to the main File menu.
+- The action exports the current edited injector list through `write_dpm_file(...)` and reports cancel, empty-list, and write failures without replacing the current scene.
+- Release application build and all 8 regression tests passed.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.
