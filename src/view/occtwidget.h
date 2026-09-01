@@ -117,6 +117,7 @@ public:
     bool unit_locked(const QUuid &uuid) const;
     bool set_unit_name(const QUuid &uuid, const QString &name);
     bool edit_unit_by_uuid(const QUuid &uuid);
+    bool remove_unit_by_uuid(const QUuid &uuid);
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
@@ -134,6 +135,7 @@ signals:
                                      const QVector3D &normal);
     void reference_geometry_lock_changed(bool locked);
     void unit_display_list_changed();
+    void unit_removed(const QUuid &uuid);
     void selection_changed(const QUuid &uuid, bool reference_geometry);
 
 private:

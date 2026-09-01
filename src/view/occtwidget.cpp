@@ -357,6 +357,51 @@ bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
     return true;
 }
 
+bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr)
+    {
+        return false;
+    }
+
+    const quintptr target_unit_ptr = reinterpret_cast<quintptr>(unit.get());
+    const QList<QPointer<unit_edit_dialog>> dialogs = m_open_edit_dialogs;
+    for (const QPointer<unit_edit_dialog> &dialog : dialogs)
+    {
+        if (dialog != nullptr &&
+            dialog->property("unit_ptr").value<quintptr>() == target_unit_ptr)
+        {
+            m_open_edit_dialogs.removeAll(dialog);
+            dialog->close();
+            delete dialog.data();
+        }
+    }
+
+    if (!m_context.IsNull() && !unit->ais_display.IsNull())
+    {
+        m_context->Remove(unit->ais_display, Standard_False);
+    }
+
+    if (selected_shape == unit->ais_display)
+    {
+        clear_context_selection_safely();
+    }
+
+    m_pending_visual_refreshes.remove(uuid);
+    m_unit_visibility.remove(uuid);
+    m_unit_locks.remove(uuid);
+    unit_hash.remove(uuid);
+    emit unit_removed(uuid);
+    emit unit_display_list_changed();
+
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;
