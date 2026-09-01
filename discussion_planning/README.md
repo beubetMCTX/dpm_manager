@@ -252,6 +252,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added direct editor opening from the Objects panel in commit `776b23e`, reusing the existing dialog lifetime and duplicate-window protection.
 - Added safe injector deletion in commit `1bde00f` and exposed a confirmation action in commit `5c1cdaf`. Deletion closes the matching editor and synchronizes OCCT, MainWindow data, selection, and object-list state.
 - Added object-name/UUID filtering to the Objects panel in commit `e99d26b`; list refreshes preserve the active filter.
+- Fixed stale object-list highlighting after OCCT selection is cleared in commit `f7b00d0`; drag/release and context-menu cleanup now notify the list.
 
 References:
 
