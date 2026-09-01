@@ -32,9 +32,16 @@ if (-not (Test-Path -LiteralPath $dependencyPath -PathType Container)) {
 New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
 Copy-Item -LiteralPath $executablePath -Destination (Join-Path $outputPath "dpm_manager.exe") -Force
 
-# Preserve the complete known runtime DLL set. Some vcpkg libraries depend on
-# other DLLs that windeployqt cannot discover.
+# The output directory may have been populated by an older package that copied
+# Debug runtimes. Remove only those generated DLLs before rebuilding the set.
+Get-ChildItem -LiteralPath $outputPath -Recurse -Filter "*_debug.dll" -File |
+    Remove-Item -Force
+
+# Preserve the complete Release runtime DLL set. Some vcpkg libraries depend on
+# other DLLs that windeployqt cannot discover, but Debug runtimes must not be
+# mixed into a Release package.
 Get-ChildItem -LiteralPath $dependencyPath -Filter "*.dll" -File |
+    Where-Object { $_.BaseName -notlike "*_debug" } |
     Copy-Item -Destination $outputPath -Force
 
 $runtimeDirectories = @(
@@ -64,6 +71,12 @@ if (-not $SkipQtDeployment) {
     if ($LASTEXITCODE -ne 0) {
         throw "windeployqt failed with exit code $LASTEXITCODE"
     }
+}
+
+$debugDlls = Get-ChildItem -LiteralPath $outputPath -Recurse -Filter "*_debug.dll" -File
+if ($debugDlls.Count -gt 0) {
+    $names = ($debugDlls | ForEach-Object { $_.FullName }) -join ", "
+    throw "Release package contains Debug runtime DLLs: $names"
 }
 
 $manifestPath = Join-Path $outputPath "deployment-manifest.txt"

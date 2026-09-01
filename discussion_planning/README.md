@@ -644,3 +644,9 @@ References:
 - `Injector_OCCT::create_injector()` now keeps the previous compound when a geometry generator fails.
 - Invalid edits can no longer silently replace a valid displayed injector with an empty shape; callers can report the failure while retaining the last valid preview.
 - Added regression coverage for a failed rebuild caused by a zero velocity; Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Keep Debug Runtimes Out of Release Packages
+
+- Release packaging now removes stale `*_debug.dll` files from the output directory before copying dependencies.
+- Dependency copying excludes Debug-suffixed DLLs and the final package is checked for any remaining Debug runtime.
+- Verified that the Release executable dependency list does not require the removed Debug TBB chain; startup/shutdown verification remains part of the packaging check.
