@@ -281,6 +281,15 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Unit duplicate_name = second;
+    duplicate_name.inj.injector_data.name = first.inj.injector_data.name;
+    if (!check(!validate_dpm_units({first, duplicate_name}, &preflight_error) &&
+                   preflight_error.contains("duplicate name"),
+               "DPM export preflight should reject duplicate injector names"))
+    {
+        return 1;
+    }
+
     if (!check(written_file.open(QIODevice::ReadOnly),
                "Unable to reopen DPM output fixture") ||
         !check(written_file.readAll() == original_output,

@@ -62,6 +62,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Unsaved temporary projects are explicitly described as being abandoned; the dialog no longer silently implies that every auxiliary state has been reverted.
 - If restoring the saved project fails, the replacement is canceled to avoid a partially restored state.
 
+### 2026-09-02 Require Unique DPM Injector Names
+
+- DPM export preflight now rejects duplicate injector names case-insensitively.
+- The later duplicate is reported with its list position, while the first occurrence remains the reference for diagnostics.
+- Added regression coverage for duplicate names.
+
 ## Candidate Next Work
 
 ### High Priority

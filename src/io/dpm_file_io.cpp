@@ -2326,6 +2326,7 @@ bool validate_dpm_units(const QList<Unit> &units, QString *error_message)
     }
 
     QStringList errors;
+    QStringList injector_names;
     if (units.isEmpty())
     {
         errors.append("There are no injector units to export.");
@@ -2352,6 +2353,16 @@ bool validate_dpm_units(const QList<Unit> &units, QString *error_message)
             errors.append(QString("Injector %1 has a name containing whitespace or parentheses: %2")
                               .arg(index + 1)
                               .arg(name));
+        }
+        else if (injector_names.contains(name, Qt::CaseInsensitive))
+        {
+            errors.append(QString("Injector %1 has a duplicate name: %2")
+                              .arg(index + 1)
+                              .arg(name));
+        }
+        else
+        {
+            injector_names.append(name);
         }
 
         QString injector_error;
