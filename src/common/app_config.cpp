@@ -12,6 +12,8 @@
 
 namespace
 {
+constexpr int kConfigSchemaVersion = 1;
+
 QString normalize_chemkin_path(const QString &file_path)
 {
     const QFileInfo file_info(file_path);
@@ -188,6 +190,7 @@ bool save_last_chemkin_file_path(const QString &file_path, QString *error_messag
         }
     }
     root_object.insert("last_chemkin_file_path", normalize_chemkin_path(file_path));
+    root_object.insert("schema_version", kConfigSchemaVersion);
     return write_json_object(app_settings_file_path(), root_object, error_message);
 }
 
@@ -251,6 +254,7 @@ bool save_main_window_state(const QByteArray &geometry,
                        QString::fromLatin1(geometry.toBase64()));
     root_object.insert("window_state",
                        QString::fromLatin1(window_state.toBase64()));
+    root_object.insert("schema_version", kConfigSchemaVersion);
     return write_json_object(app_settings_file_path(), root_object, error_message);
 }
 
@@ -333,6 +337,7 @@ bool save_species_color_config(const QString &chemkin_file_path,
     }
 
     QJsonObject root_object;
+    root_object.insert("schema_version", kConfigSchemaVersion);
     root_object.insert("chemkin_file_path", normalize_chemkin_path(chemkin_file_path));
     root_object.insert("species", species_array);
     root_object.insert("species_colors", colors_object);
@@ -415,6 +420,7 @@ bool save_material_table_config(const QList<MaterialConfigEntry> &materials,
     }
 
     QJsonObject root_object;
+    root_object.insert("schema_version", kConfigSchemaVersion);
     root_object.insert("materials", materials_array);
     return write_json_object(QDir(app_material_config_directory_path()).filePath("materials.json"),
                              root_object,
