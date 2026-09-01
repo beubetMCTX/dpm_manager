@@ -424,6 +424,11 @@ References:
 - Selecting reference geometry from the 3D view or Objects panel now opens and raises its properties Dock automatically.
 - The Dock values are refreshed before selection highlighting is updated, so the displayed transform always belongs to the selected reference object.
 
+### 2026-09-02 Clear Reference Geometry From Properties
+
+- Added a confirmed `Clear Reference Geometry` action to the reference-geometry properties Dock.
+- The action uses the existing safe clear path and persists the cleared state, including removal of the selected-face coordinate reference and Objects-panel entry.
+
 ### 2026-09-02 Reference Lock Status Feedback
 
 - The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.

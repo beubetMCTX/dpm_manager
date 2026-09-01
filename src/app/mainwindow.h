@@ -124,6 +124,7 @@ private:
     QPushButton *m_apply_reference_transform = nullptr;
     QPushButton *m_reset_reference_transform = nullptr;
     QPushButton *m_align_reference_face = nullptr;
+    QPushButton *m_clear_reference_geometry = nullptr;
     QLabel *m_reference_face_origin = nullptr;
     QLabel *m_reference_face_normal = nullptr;
     QDockWidget *m_object_list_dock = nullptr;

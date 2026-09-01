@@ -1168,6 +1168,7 @@ void MainWindow::create_reference_geometry_panel()
     m_apply_reference_transform = new QPushButton("Apply Transform", panel);
     m_reset_reference_transform = new QPushButton("Reset Transform", panel);
     m_align_reference_face = new QPushButton("Align View to Selected Face", panel);
+    m_clear_reference_geometry = new QPushButton("Clear Reference Geometry", panel);
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
 
@@ -1183,6 +1184,7 @@ void MainWindow::create_reference_geometry_panel()
     panel_layout->addWidget(m_apply_reference_transform);
     panel_layout->addWidget(m_reset_reference_transform);
     panel_layout->addWidget(m_align_reference_face);
+    panel_layout->addWidget(m_clear_reference_geometry);
     panel_layout->addWidget(face_info_group);
     panel_layout->addWidget(m_reference_geometry_lock);
     panel_layout->addStretch();
@@ -1204,6 +1206,24 @@ void MainWindow::create_reference_geometry_panel()
     });
     connect(m_align_reference_face, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::align_view_to_selected_face);
+    connect(m_clear_reference_geometry, &QPushButton::clicked, this, [this]()
+    {
+        const QMessageBox::StandardButton answer = QMessageBox::question(
+            this,
+            "Clear Reference Geometry",
+            "Remove the currently loaded reference geometry?",
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+        if (answer != QMessageBox::Yes)
+        {
+            return;
+        }
+
+        m_3d_widget->clear_reference_geometry();
+        mark_project_dirty();
+        save_reference_geometry_state();
+        statusBar()->showMessage("Reference geometry cleared", 5000);
+    });
     connect(m_reference_geometry_lock, &QCheckBox::toggled, this, [this](bool locked)
     {
         m_3d_widget->set_reference_geometry_locked(locked);
