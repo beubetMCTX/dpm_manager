@@ -41,6 +41,13 @@
     <addaction name="actionSpecies_Colors"/>
     <addaction name="actionSpecies_Materials"/>
    </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Edit</string>
+    </property>
+    <addaction name="actionUndo_Move"/>
+    <addaction name="actionRedo_Move"/>
+   </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
      <string>Settings</string>
@@ -57,6 +64,7 @@
    </widget>
    <addaction name="menureaddile"/>
    <addaction name="menuSpecies"/>
+   <addaction name="menuEdit"/>
    <addaction name="menuSettings"/>
    <addaction name="menuView"/>
   </widget>
@@ -103,7 +111,29 @@
   </action>
   <action name="actionReference_Geometry">
    <property name="text">
-    <string>Reference Geometry Panel</string>
+   <string>Reference Geometry Panel</string>
+   </property>
+  </action>
+  <action name="actionUndo_Move">
+   <property name="text">
+    <string>Undo Move</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Z</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRedo_Move">
+   <property name="text">
+    <string>Redo Move</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Y</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
    </property>
   </action>
  </widget>

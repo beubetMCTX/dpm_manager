@@ -206,6 +206,16 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_3d_widget, &OCCTWidget::selection_changed,
             this, &MainWindow::update_object_list_selection);
+    connect(ui->actionUndo_Move, &QAction::triggered, m_3d_widget,
+            &OCCTWidget::undo_last_move);
+    connect(ui->actionRedo_Move, &QAction::triggered, m_3d_widget,
+            &OCCTWidget::redo_move);
+    connect(m_3d_widget, &OCCTWidget::move_history_changed, this,
+            [this](bool can_undo, bool can_redo)
+    {
+        ui->actionUndo_Move->setEnabled(can_undo);
+        ui->actionRedo_Move->setEnabled(can_redo);
+    });
 
     // OCCT owns editable Unit copies so that interactive handles remain stable.
     // Keep the MainWindow list synchronized whenever one of those copies changes.
