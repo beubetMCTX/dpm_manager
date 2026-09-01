@@ -61,6 +61,7 @@
     </property>
     <addaction name="actionObjects"/>
     <addaction name="actionReference_Geometry"/>
+    <addaction name="actionReset_Window_Layout"/>
    </widget>
    <addaction name="menureaddile"/>
    <addaction name="menuSpecies"/>
@@ -112,6 +113,11 @@
   <action name="actionReference_Geometry">
    <property name="text">
    <string>Reference Geometry Panel</string>
+   </property>
+  </action>
+  <action name="actionReset_Window_Layout">
+   <property name="text">
+    <string>Reset Window Layout</string>
    </property>
   </action>
   <action name="actionUndo_Move">

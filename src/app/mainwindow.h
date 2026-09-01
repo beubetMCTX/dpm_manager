@@ -82,6 +82,7 @@ private:
     void update_object_list_selection(const QUuid &uuid, bool reference_geometry);
     void restore_window_layout();
     void save_window_layout();
+    void reset_window_layout();
 
     Ui::MainWindow *ui;
     QStringList m_chemkin_species_names;

@@ -136,6 +136,8 @@ MainWindow::MainWindow(QWidget *parent)
             m_reference_geometry_dock->raise();
         }
     });
+    connect(ui->actionReset_Window_Layout, &QAction::triggered, this,
+            &MainWindow::reset_window_layout);
     connect(m_3d_widget, &OCCTWidget::reference_geometry_available, this,
             [this](bool available)
     {
@@ -793,6 +795,27 @@ void MainWindow::save_window_layout()
     {
         qWarning() << error_message;
     }
+}
+
+void MainWindow::reset_window_layout()
+{
+    resize(1280, 720);
+
+    if (m_object_list_dock != nullptr)
+    {
+        addDockWidget(Qt::LeftDockWidgetArea, m_object_list_dock);
+        m_object_list_dock->show();
+    }
+
+    if (m_reference_geometry_dock != nullptr)
+    {
+        addDockWidget(Qt::RightDockWidgetArea, m_reference_geometry_dock);
+        m_reference_geometry_dock->setVisible(
+            m_3d_widget != nullptr &&
+            !m_3d_widget->geometry.getShape().IsNull());
+    }
+
+    save_window_layout();
 }
 
 void MainWindow::create_object_list_panel()
