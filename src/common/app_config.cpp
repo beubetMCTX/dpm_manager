@@ -253,6 +253,102 @@ bool clear_last_chemkin_file_path(QString *error_message)
     return write_json_object(app_settings_file_path(), root_object, error_message);
 }
 
+bool load_reference_geometry_config(ReferenceGeometryConfig *config,
+                                    QString *error_message)
+{
+    if (config != nullptr)
+    {
+        *config = ReferenceGeometryConfig();
+    }
+
+    if (!QFileInfo::exists(app_settings_file_path()))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (!read_json_object(app_settings_file_path(), &root_object, error_message))
+    {
+        return false;
+    }
+
+    const QJsonObject geometry_object = root_object.value("reference_geometry").toObject();
+    const QString file_path = geometry_object.value("file_path").toString().trimmed();
+    if (file_path.isEmpty())
+    {
+        return false;
+    }
+
+    if (config != nullptr)
+    {
+        const QJsonArray position = geometry_object.value("position").toArray();
+        const QJsonArray rotation = geometry_object.value("rotation").toArray();
+        if (position.size() == 3)
+        {
+            config->position = QVector3D(static_cast<float>(position.at(0).toDouble()),
+                                         static_cast<float>(position.at(1).toDouble()),
+                                         static_cast<float>(position.at(2).toDouble()));
+        }
+        if (rotation.size() == 3)
+        {
+            config->rotation = QVector3D(static_cast<float>(rotation.at(0).toDouble()),
+                                         static_cast<float>(rotation.at(1).toDouble()),
+                                         static_cast<float>(rotation.at(2).toDouble()));
+        }
+        config->file_path = file_path;
+        config->locked = geometry_object.value("locked").toBool(false);
+        config->visible = geometry_object.value("visible").toBool(true);
+    }
+    return true;
+}
+
+bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
+                                    QString *error_message)
+{
+    if (!ensure_app_config_directories(error_message))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (QFileInfo::exists(app_settings_file_path()))
+    {
+        QString read_error;
+        if (!read_json_object(app_settings_file_path(), &root_object, &read_error))
+        {
+            root_object = QJsonObject();
+        }
+    }
+
+    if (config.file_path.trimmed().isEmpty())
+    {
+        root_object.remove("reference_geometry");
+    }
+    else
+    {
+        const auto vector_to_json = [](const QVector3D &value)
+        {
+            QJsonArray result;
+            result.append(value.x());
+            result.append(value.y());
+            result.append(value.z());
+            return result;
+        };
+
+        QJsonObject geometry_object;
+        geometry_object.insert("file_path", QDir::toNativeSeparators(
+            QFileInfo(config.file_path).absoluteFilePath()));
+        geometry_object.insert("position", vector_to_json(config.position));
+        geometry_object.insert("rotation", vector_to_json(config.rotation));
+        geometry_object.insert("locked", config.locked);
+        geometry_object.insert("visible", config.visible);
+        root_object.insert("reference_geometry", geometry_object);
+    }
+
+    root_object.insert("schema_version", kConfigSchemaVersion);
+    return write_json_object(app_settings_file_path(), root_object, error_message);
+}
+
 bool load_main_window_state(QByteArray *geometry,
                             QByteArray *window_state,
                             QString *error_message)

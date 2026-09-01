@@ -7,11 +7,21 @@
 #include <QList>
 #include <QString>
 #include <QStringList>
+#include <QVector3D>
 
 struct MaterialConfigEntry
 {
     QString name;
     double density = 0.0;
+};
+
+struct ReferenceGeometryConfig
+{
+    QString file_path;
+    QVector3D position;
+    QVector3D rotation;
+    bool locked = false;
+    bool visible = true;
 };
 
 QString app_config_directory_path();
@@ -24,6 +34,10 @@ bool ensure_app_config_directories(QString *error_message = nullptr);
 bool load_last_chemkin_file_path(QString *file_path, QString *error_message = nullptr);
 bool save_last_chemkin_file_path(const QString &file_path, QString *error_message = nullptr);
 bool clear_last_chemkin_file_path(QString *error_message = nullptr);
+bool load_reference_geometry_config(ReferenceGeometryConfig *config,
+                                    QString *error_message = nullptr);
+bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
+                                    QString *error_message = nullptr);
 bool load_main_window_state(QByteArray *geometry,
                             QByteArray *window_state,
                             QString *error_message = nullptr);
