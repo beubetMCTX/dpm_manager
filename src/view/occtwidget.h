@@ -16,6 +16,7 @@
 
 #include <QApplication>
 #include <memory>
+#include <optional>
 
 #include <AIS_InteractiveContext.hxx>
 #include <OpenGl_GraphicDriver.hxx>
@@ -120,6 +121,9 @@ public:
     bool set_unit_name(const QUuid &uuid, const QString &name);
     bool edit_unit_by_uuid(const QUuid &uuid);
     bool remove_unit_by_uuid(const QUuid &uuid);
+    bool copy_unit_by_uuid(const QUuid &uuid);
+    bool paste_unit_by_uuid(const QUuid &uuid);
+    bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
     void clear_selection();
     bool undo_last_move();
@@ -191,6 +195,11 @@ private:
         QUuid uuid;
         UnitMoveSnapshot before;
         UnitMoveSnapshot after;
+    };
+    struct CopiedUnit
+    {
+        Unit_Type type = injector;
+        Injector injector_data;
     };
     UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
     bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,
@@ -276,6 +285,7 @@ private:
     QHash<QUuid, bool> m_unit_visibility;
     QHash<QUuid, bool> m_unit_locks;
     bool m_reference_geometry_visible = true;
+    std::optional<CopiedUnit> m_copied_unit;
     QVector<UnitMoveHistoryEntry> m_move_history;
     int m_move_history_index = 0;
     QUuid m_drag_unit_uuid;

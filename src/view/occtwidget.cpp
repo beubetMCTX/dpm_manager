@@ -401,6 +401,52 @@ bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
     return true;
 }
 
+bool OCCTWidget::copy_unit_by_uuid(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr)
+    {
+        return false;
+    }
+
+    CopiedUnit copied;
+    copied.type = unit->type;
+    copied.injector_data = unit->inj.injector_data;
+    m_copied_unit = std::move(copied);
+    return true;
+}
+
+bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
+{
+    if (!m_copied_unit.has_value())
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
+    {
+        return false;
+    }
+
+    unit->type = m_copied_unit->type;
+    unit->inj.injector_data = m_copied_unit->injector_data;
+    if (!unit->inj.create_injector())
+    {
+        return false;
+    }
+
+    unit->ais_display->SetLocalTransformation(gp_Trsf());
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(
+        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    clear_move_history();
+    m_view->Redraw();
+    emit unit_data_updated(unit.get());
+    return true;
+}
+
 bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
