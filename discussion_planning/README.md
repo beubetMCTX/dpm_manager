@@ -672,3 +672,9 @@ References:
 - Project-session loading now propagates vector parsing failures for injector fields such as `pos`, `vel`, and `axis`.
 - Incorrectly sized vector arrays are rejected before injector geometry creation instead of silently retaining default values.
 - Added regression coverage for a malformed injector position array; Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Persist Unit Preferences in Project Sessions
+
+- Project sessions can now store and restore the active display-unit preferences alongside the model data.
+- Older sessions without the optional `unit_preferences` object remain compatible and keep the current global preferences.
+- Unit preferences are validated on save and load; incompatible settings are rejected before partial project data is exposed.

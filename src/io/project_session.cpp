@@ -514,6 +514,12 @@ bool validate(const Data &data, QString *error_message)
         return false;
     }
 
+    if (data.has_unit_preferences &&
+        !UnitSystem::validate_preferences(data.unit_preferences, error_message))
+    {
+        return false;
+    }
+
     for (auto it = data.species_colors.constBegin();
          it != data.species_colors.constEnd();
          ++it)
@@ -557,6 +563,20 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
     root.insert("schema_version", kSessionSchemaVersion);
     root.insert("created_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     root.insert("chemkin_file_path", data.chemkin_file_path);
+
+    if (data.has_unit_preferences)
+    {
+        QJsonObject unit_preferences;
+        unit_preferences.insert("length", data.unit_preferences.length);
+        unit_preferences.insert("angle", data.unit_preferences.angle);
+        unit_preferences.insert("velocity", data.unit_preferences.velocity);
+        unit_preferences.insert("mass", data.unit_preferences.mass);
+        unit_preferences.insert("mass_flow", data.unit_preferences.mass_flow);
+        unit_preferences.insert("time", data.unit_preferences.time);
+        unit_preferences.insert("pressure", data.unit_preferences.pressure);
+        unit_preferences.insert("temperature", data.unit_preferences.temperature);
+        root.insert("unit_preferences", unit_preferences);
+    }
 
     QJsonObject species_colors;
     for (auto it = data.species_colors.constBegin();
@@ -645,6 +665,36 @@ bool load(const QString &file_path, Data *data, QString *error_message)
 
     Data parsed;
     parsed.chemkin_file_path = root.value("chemkin_file_path").toString();
+
+    const QJsonValue unit_preferences_value = root.value("unit_preferences");
+    if (!unit_preferences_value.isUndefined())
+    {
+        if (!unit_preferences_value.isObject())
+        {
+            set_error(error_message,
+                      "Project session contains invalid unit preferences.");
+            return false;
+        }
+
+        const QJsonObject unit_preferences = unit_preferences_value.toObject();
+        parsed.unit_preferences.length =
+            unit_preferences.value("length").toString(parsed.unit_preferences.length);
+        parsed.unit_preferences.angle =
+            unit_preferences.value("angle").toString(parsed.unit_preferences.angle);
+        parsed.unit_preferences.velocity =
+            unit_preferences.value("velocity").toString(parsed.unit_preferences.velocity);
+        parsed.unit_preferences.mass =
+            unit_preferences.value("mass").toString(parsed.unit_preferences.mass);
+        parsed.unit_preferences.mass_flow =
+            unit_preferences.value("mass_flow").toString(parsed.unit_preferences.mass_flow);
+        parsed.unit_preferences.time =
+            unit_preferences.value("time").toString(parsed.unit_preferences.time);
+        parsed.unit_preferences.pressure =
+            unit_preferences.value("pressure").toString(parsed.unit_preferences.pressure);
+        parsed.unit_preferences.temperature =
+            unit_preferences.value("temperature").toString(parsed.unit_preferences.temperature);
+        parsed.has_unit_preferences = true;
+    }
     const QJsonObject species_colors = root.value("species_colors").toObject();
     for (auto it = species_colors.constBegin(); it != species_colors.constEnd(); ++it)
     {

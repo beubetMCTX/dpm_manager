@@ -61,6 +61,9 @@ int main(int argc, char *argv[])
     source.reference_geometry.rotation = QVector3D(10.0f, 20.0f, 30.0f);
     source.reference_geometry.locked = true;
     source.reference_geometry.visible = false;
+    source.unit_preferences.length = "cm";
+    source.unit_preferences.angle = "rad";
+    source.has_unit_preferences = true;
 
     QString validation_error;
     if (!check(project_session::validate(source, &validation_error), validation_error))
@@ -129,7 +132,11 @@ int main(int argc, char *argv[])
         !check(restored.reference_geometry.position == QVector3D(9.0f, 8.0f, 7.0f),
                "Reference position did not round-trip") ||
         !check(restored.reference_geometry.locked && !restored.reference_geometry.visible,
-               "Reference visibility/lock state did not round-trip"))
+               "Reference visibility/lock state did not round-trip") ||
+        !check(restored.has_unit_preferences &&
+                   restored.unit_preferences.length == "cm" &&
+                   restored.unit_preferences.angle == "rad",
+               "Unit preferences did not round-trip"))
     {
         return 1;
     }
@@ -218,9 +225,37 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString malformed_units_path = temporary_directory.filePath("malformed_units.dpmproj");
+    QJsonObject malformed_units_root;
+    malformed_units_root.insert("schema_version", 1);
+    malformed_units_root.insert("units", QJsonArray());
+    malformed_units_root.insert("materials", QJsonArray());
+    malformed_units_root.insert(
+        "unit_preferences",
+        QJsonObject{{"length", "rad"}, {"angle", "deg"}});
+    QFile malformed_units_file(malformed_units_path);
+    if (!check(malformed_units_file.open(QIODevice::WriteOnly | QIODevice::Text),
+               "Unable to create malformed unit preferences fixture"))
+    {
+        return 1;
+    }
+    malformed_units_file.write(QJsonDocument(malformed_units_root).toJson());
+    malformed_units_file.close();
+
+    error_message.clear();
+    if (!check(!project_session::load(malformed_units_path, &preserved, &error_message) &&
+                   error_message.contains("display unit"),
+               "incompatible project unit preferences should be rejected") ||
+        !check(preserved.units.size() == source.units.size(),
+               "failed unit preference load should not expose partial data"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
     QFile::remove(malformed_path);
     QFile::remove(malformed_transform_path);
     QFile::remove(malformed_unit_path);
+    QFile::remove(malformed_units_path);
     return 0;
 }

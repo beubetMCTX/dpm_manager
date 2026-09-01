@@ -619,6 +619,8 @@ bool MainWindow::save_project_session(const QString &file_path)
     data.units = units;
     data.chemkin_file_path = m_chemkin_file_path;
     data.materials = m_material_entries;
+    data.unit_preferences = UnitSystem::active_preferences();
+    data.has_unit_preferences = true;
     if (m_species_color_dialog != nullptr)
     {
         data.species_colors = m_species_color_dialog->species_colors();
@@ -717,6 +719,10 @@ bool MainWindow::load_project_session(const QString &file_path)
     }
 
     m_loading_project_session = true;
+    if (data.has_unit_preferences)
+    {
+        UnitSystem::set_active_preferences(data.unit_preferences);
+    }
     m_3d_widget->discard_auxiliary_dialogs();
     units = data.units;
     m_3d_widget->display_units(units, true);

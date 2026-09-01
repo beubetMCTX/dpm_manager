@@ -18,6 +18,8 @@ struct Data
     QHash<QString, QColor> species_colors;
     QList<MaterialConfigEntry> materials;
     ReferenceGeometryConfig reference_geometry;
+    Unit_Preferences unit_preferences = UnitSystem::default_preferences();
+    bool has_unit_preferences = false;
 };
 
 bool validate(const Data &data, QString *error_message = nullptr);
