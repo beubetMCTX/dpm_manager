@@ -85,5 +85,43 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Unit first;
+    first.inj.injector_data.name = "writer_first";
+    first.inj.injector_data.pos = QVector3D(1.0f, 2.0f, 3.0f);
+    first.inj.injector_data.vel = QVector3D(4.0f, 5.0f, 6.0f);
+    first.inj.injector_data.axis = QVector3D(1.0f, 0.0f, 0.0f);
+    first.inj.injector_data.atomizer_axis = QVector3D(0.0f, 0.0f, 1.0f);
+    first.inj.injector_data.total_flow_rate = 0.25;
+    first.inj.injector_data.cone_angle = 37.0;
+    first.inj.injector_data.material = "water";
+
+    Unit second = first;
+    second.inj.injector_data.name = "writer_second";
+    second.inj.injector_data.pos = QVector3D(7.0f, 8.0f, 9.0f);
+    second.inj.injector_data.injection_type = cone;
+    second.inj.injector_data.cone_type = hollow;
+
+    const QString written_path = temporary_directory.filePath("written.dpm");
+    if (!check(write_dpm_file(written_path, {first, second}, &error_message), error_message))
+    {
+        return 1;
+    }
+
+    const QList<Unit> round_trip = read_dpm_file(written_path, &ok, &error_message, false);
+    if (!check(ok && round_trip.size() == 2,
+               "written DPM should be readable with both injector blocks") ||
+        !check(round_trip.at(0).inj.injector_data.name == "writer_first" &&
+                   round_trip.at(1).inj.injector_data.name == "writer_second",
+               "written DPM should preserve injector names") ||
+        !check(round_trip.at(0).inj.injector_data.pos == QVector3D(1.0f, 2.0f, 3.0f) &&
+                   round_trip.at(1).inj.injector_data.pos == QVector3D(7.0f, 8.0f, 9.0f),
+               "written DPM should preserve injector positions") ||
+        !check(round_trip.at(1).inj.injector_data.injection_type == cone &&
+                   round_trip.at(1).inj.injector_data.cone_type == hollow,
+               "written DPM should preserve enum fields"))
+    {
+        return 1;
+    }
+
     return 0;
 }

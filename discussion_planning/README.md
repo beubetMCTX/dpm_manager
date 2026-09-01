@@ -479,6 +479,13 @@ References:
 - A failed load therefore preserves the existing session and avoids exposing partial state.
 - Release build and focused project-session/input regressions passed.
 
+### 2026-09-02 DPM Writer Round-Trip
+
+- Added `write_dpm_file(...)` using the same field names and S-expression structure consumed by the current DPM reader.
+- The writer supports multiple injector blocks, atomic file replacement, enum serialization, vectors, and integer lists.
+- Added round-trip coverage: write two injectors, read them back, and verify names, positions, and enum values.
+- Release DPM I/O regression passed after correcting the existing `madahushi` member spelling.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

@@ -1,6 +1,7 @@
 #include "dpm_file_io.h"
 
 #include <QFileInfo>
+#include <QSaveFile>
 #include <QRegularExpression>
 #define  Kill_Read  *ok=false;delete(in);delete(file);return unit;
 
@@ -1715,6 +1716,326 @@ QList<Unit> read_dpm_file(const QString &file_path,
         *ok = true;
     }
     return units;
+}
+
+namespace
+{
+QString dpm_output_scalar(const QString &name, const QString &value)
+{
+    return QString("(%1 . %2)").arg(name, value.trimmed().isEmpty() ? QStringLiteral("#f") : value.trimmed());
+}
+
+QString dpm_output_bool(const QString &name, bool value)
+{
+    return dpm_output_scalar(name, value ? QStringLiteral("#t") : QStringLiteral("#f"));
+}
+
+QString dpm_output_int(const QString &name, int value)
+{
+    return dpm_output_scalar(name, QString::number(value));
+}
+
+QString dpm_output_double(const QString &name, double value)
+{
+    return dpm_output_scalar(name, QString::number(value, 'g', 17));
+}
+
+QString dpm_output_list(const QString &name, const QVector<int> &values)
+{
+    QStringList tokens;
+    for (const int value : values)
+    {
+        tokens.append(QString::number(value));
+    }
+    return QString("(%1%2)").arg(name,
+                                  tokens.isEmpty()
+                                      ? QString()
+                                      : QStringLiteral(" ") + tokens.join(' '));
+}
+
+QString dpm_output_vector(const char *x_name,
+                          const char *y_name,
+                          const char *z_name,
+                          const QVector3D &value)
+{
+    return dpm_output_double(QString::fromLatin1(x_name), value.x()) + " " +
+           dpm_output_double(QString::fromLatin1(y_name), value.y()) + " " +
+           dpm_output_double(QString::fromLatin1(z_name), value.z());
+}
+
+QString dpm_type_name(DPM_Type value)
+{
+    switch (value)
+    {
+    case Massless: return "massless";
+    case Inert: return "inert";
+    case Droplet: return "droplet";
+    case Combusting: return "combusting";
+    case Multicomponent: return "multicomponent";
+    }
+    return "droplet";
+}
+
+QString injection_type_name(Injection_Type value)
+{
+    switch (value)
+    {
+    case single: return "single";
+    case group: return "group";
+    case surface: return "surface";
+    case volume: return "volume";
+    case cone: return "cone";
+    case plain_oriface_atomizer: return "plain-orifice-atomizer";
+    case pressure_swirl_atomizer: return "pressure-swirl-atomizer";
+    case air_blast_atomizer: return "air-blast_atomizer";
+    case flat_fan_atomizer: return "flat-fan-atomizer";
+    case effervescent_atomizer: return "effervescent-atomizer";
+    case file_: return "file";
+    case condensate: return "condensate";
+    }
+    return "single";
+}
+
+QString cone_type_name(Cone_Type value)
+{
+    switch (value)
+    {
+    case point: return "point";
+    case hollow: return "hollow-cone";
+    case ring: return "ring-cone";
+    case solid: return "solid-cone";
+    }
+    return "point";
+}
+
+QString drag_law_name(Drag_Law value)
+{
+    switch (value)
+    {
+    case spherical: return "spherical";
+    case nonspherical: return "nonspherical";
+    case Strokes_Cunningham: return "stokes-cunningham";
+    case high_Mach_number: return "high-mach-number";
+    case dynamic_drag: return "dynamic-drag";
+    }
+    return "spherical";
+}
+
+QString dpm_unit_block(const Unit &unit)
+{
+    const Injector &injector = unit.inj.injector_data;
+    QStringList fields;
+    fields << dpm_output_scalar("type", dpm_type_name(injector.type));
+    fields << dpm_output_scalar("injection-type", injection_type_name(injector.injection_type));
+    fields << dpm_output_scalar("local-reference-frame", injector.local_reference_frame);
+    fields << dpm_output_int("numpts", injector.numpts);
+    fields << dpm_output_scalar("dpm-fname", injector.dpm_fname);
+    fields << dpm_output_list("surfaces", injector.surfaces);
+    fields << dpm_output_list("boundary", injector.boundary);
+    fields << dpm_output_bool("stochastic-on", injector.stochastic);
+    fields << dpm_output_bool("random-eddy-on", injector.random_eddy);
+    fields << dpm_output_int("ntries", injector.ntries);
+    fields << dpm_output_double("time-scale-constant", injector.time_scale_constant);
+    fields << dpm_output_bool("cloud-on", injector.cloud);
+    fields << dpm_output_double("cloud-min-dia", injector.cloud_min_dia);
+    fields << dpm_output_double("cloud-max-dia", injector.cloud_max_dia);
+    fields << dpm_output_scalar("material", injector.material);
+    fields << dpm_output_bool("scale-by-area", injector.scale_by_area);
+    fields << dpm_output_bool("use-face-normal", injector.use_face_normal);
+    fields << dpm_output_bool("random-surface?", injector.random_surface);
+    fields << dpm_output_bool("tabulated-diam-dist?", injector.tabulated_diam_dist);
+    fields << dpm_output_scalar("tabulated-diam-table-name", injector.tabulated_diam_table_name);
+    fields << dpm_output_int("tabulated-diam-ref-diam-col", injector.tabulated_diam_ref_diam_col);
+    fields << dpm_output_int("tabulated-diam-num-frac-col", injector.tabulated_diam_num_frac_col);
+    fields << dpm_output_int("tabulated-diam-mas-frac-col", injector.tabulated_diam_mas_frac_col);
+    fields << dpm_output_bool("tabulated-diam-num-frac-accum?", injector.tabulated_diam_num_frac_accum);
+    fields << dpm_output_bool("tabulated-diam-mas-frac-accum?", injector.tabulated_diam_mas_frac_accum);
+    fields << dpm_output_scalar("devolatilizing-species", injector.devolatilizing_species);
+    fields << dpm_output_scalar("evaporating-species", injector.evaporating_species);
+    fields << dpm_output_scalar("oxidizing-species", injector.oxidizing_species);
+    fields << dpm_output_scalar("product-species", injector.product_species);
+    fields << dpm_output_bool("rr-distrib", injector.rr_disturb);
+    fields << dpm_output_bool("rr-uniform-ln-d", injector.rr_uniform_ln_d);
+    fields << dpm_output_bool("evaporating-liquid-on", injector.evaporating_liquid);
+    fields << dpm_output_scalar("evaporating-material", injector.evaporating_material);
+    fields << dpm_output_double("liquid-fraction", injector.liquid_fraction);
+    fields << dpm_output_scalar("dpm-domain", injector.dpm_domain);
+    fields << dpm_output_scalar("collision-partner", injector.collision_partner);
+    fields << dpm_output_int("parcel-number", injector.parcel_number);
+    fields << dpm_output_double("parcel-mass", injector.parcel_mass);
+    fields << dpm_output_double("parcel-diameter", injector.parcel_diameter);
+    fields << dpm_output_int("parcel-model", static_cast<int>(injector.parcel_model));
+    fields << dpm_output_scalar("drag-law", drag_law_name(injector.drag_law));
+    fields << dpm_output_double("shape-factor", injector.shape_factor);
+    fields << dpm_output_double("cunningham-correction", injector.cunningham_correction);
+    fields << dpm_output_scalar("drag-fcn", injector.drag_fcn);
+    fields << dpm_output_bool("brownian-motion", injector.brownian_motion);
+    fields << dpm_output_bool("seco-breakup-on?", injector.seco_breakup_on);
+    fields << dpm_output_bool("seco-breakup-tab?", injector.seco_breakup_tab);
+    fields << dpm_output_bool("seco-breakup-wave?", injector.seco_breakup_wave);
+    fields << dpm_output_bool("seco-breakup-khrt?", injector.seco_break_up_khrt);
+    fields << dpm_output_bool("seco-breakup-ssd?", injector.seco_breakup_ssd);
+    fields << dpm_output_bool("seco-breakup-madabhushi?", injector.seco_breakup_madahushi);
+    fields << dpm_output_bool("seco-breakup-schmehl?", injector.seco_breakup_schmehl);
+    fields << dpm_output_double("seco-breakup-tab-y0", injector.seco_breakup_tab_y0);
+    fields << dpm_output_int("number-tab-diameters", injector.number_tab_diameters);
+    fields << dpm_output_double("seco-breakup-wave-b1", injector.seco_breakup_wave_b1);
+    fields << dpm_output_double("seco-breakup-wave-b0", injector.seco_breakup_wave_b0);
+    fields << dpm_output_double("seco-breakup-khrt-cl", injector.seco_breakup_khrt_cl);
+    fields << dpm_output_double("seco-breakup-khrt-ctau", injector.seco_breakup_khrt_ctau);
+    fields << dpm_output_double("seco-breakup-khrt-crt", injector.seco_breakup_khrt_crt);
+    fields << dpm_output_double("seco-breakup-ssd-we-cr", injector.seco_breakup_ssd_we_cr);
+    fields << dpm_output_double("seco-breakup-ssd-core-bu", injector.seco_breakup_ssd_core_bu);
+    fields << dpm_output_double("seco-breakup-ssd-np-target", injector.seco_breakup_ssd_np_target);
+    fields << dpm_output_double("seco-breakup-ssd-x-si", injector.seco_breakup_ssd_x_si);
+    fields << dpm_output_double("seco-breakup-madabhushi-c0", injector.seco_breakup_madabushi_c0);
+    fields << dpm_output_double("seco-breakup-madabhushi-column-drag-cd", injector.seco_breakup_madabushi_column_drag_cd);
+    fields << dpm_output_double("seco-breakup-madabhushi-ligament-factor", injector.seco_breakup_madabushi_ligament_factor);
+    fields << dpm_output_double("seco-breakup-madabhushi-jet-diameter", injector.seco_breakup_madabushi_jet_diameter);
+    fields << dpm_output_double("seco-breakup-schmehl-np", injector.seco_breakup_schmehl_np);
+    fields << dpm_output_scalar("volume-specification", injector.volume_specification == bouning_geometry ? "bouning-geometry" : "zone");
+    fields << dpm_output_list("volume-zones", injector.volume_zones);
+    fields << dpm_output_scalar("volume-streams-spec", injector.volume_streams_spec == parcel_per_cell ? "parcel-per-cell" : "total-parcel-count");
+    fields << dpm_output_int("volume-streams-total", injector.volume_streams_total);
+    fields << dpm_output_int("volume-streams-per-cell", injector.volume_streams_per_cell);
+    fields << dpm_output_double("volume-packing-limit-per-cell", injector.volume_packing_limit_per_cell);
+    QString volume_shape = "hexahedron";
+    if (injector.volume_bgeom_shapes == sphere) volume_shape = "sphere";
+    else if (injector.volume_bgeom_shapes == cylinder) volume_shape = "cylinder";
+    else if (injector.volume_bgeom_shapes == cone_) volume_shape = "cone";
+    fields << dpm_output_scalar("volume-bgeom-shapes", volume_shape);
+    fields << dpm_output_vector("volume-bgeom-xmin", "volume-bgeom-ymin", "volume-bgeom-zmin", injector.volume_bgeom_min);
+    fields << dpm_output_vector("volume-bgeom-xmax", "volume-bgeom-ymax", "volume-bgeom-zmax", injector.volume_bgeom_max);
+    fields << dpm_output_double("volume-bgeom-radius", injector.volume_bgeom_radius);
+    fields << dpm_output_double("volume-bgeom-viconeangle", injector.volume_bgeom_viconeangle);
+    fields << dpm_output_bool("mass-input-on", injector.mass_input_on);
+    fields << dpm_output_bool("volfrac-input-on", injector.volfrac_input_on);
+    fields << dpm_output_bool("rotation-on?", injector.rotation_on);
+    fields << dpm_output_scalar("rot-drag-law", injector.rot_drag_law == Dennis_et_al ? "dennis-et-al" : "none");
+    QString rot_lift = "none";
+    if (injector.rot_lift_law == Oesterle_Bui_Dinh) rot_lift = "oesterle-bui-dinh";
+    else if (injector.rot_lift_law == Tsuji_et_al) rot_lift = "tsuji-et-al";
+    else if (injector.rot_lift_law == Rubinow_Keller) rot_lift = "rubinow-keller";
+    fields << dpm_output_scalar("rot-lift-law", rot_lift);
+    fields << dpm_output_scalar("cone-type", cone_type_name(injector.cone_type));
+    fields << dpm_output_bool("uniform-mass-dist-on?", injector.uniform_mass_dist_on);
+    fields << dpm_output_bool("spatial-staggering/std-inj/on?", injector.spatial_staggering_std_inj_on);
+    fields << dpm_output_bool("spatial-staggering/atomizer/on?", injector.spatial_staggering_atomizer_on);
+    fields << dpm_output_double("stagger-radius", injector.stagger_radius);
+    fields << dpm_output_bool("rough-wall-on?", injector.rough_wall_on);
+    fields << dpm_output_scalar("cphase-domain", injector.cphace_domain);
+    fields << dpm_output_vector("x-pos", "y-pos", "z-pos", injector.pos);
+    fields << dpm_output_vector("x-pos2", "y-pos2", "z-pos2", injector.pos2);
+    fields << dpm_output_vector("ff-center-x", "ff-center-y", "ff-center-z", injector.ff_center);
+    fields << dpm_output_vector("ff-virtual-origin-x", "ff-virtual-origin-y", "ff-virtual-origin-z", injector.ff_virtual_origin);
+    fields << dpm_output_vector("ff-normal-x", "ff-normal-y", "ff-normal-z", injector.ff_normal);
+    fields << dpm_output_vector("x-vel", "y-vel", "z-vel", injector.vel);
+    fields << dpm_output_vector("x-vel2", "y-vel2", "z-vel2", injector.vel2);
+    fields << dpm_output_vector("x-ang-vel", "y-ang-vel", "z-ang-vel", injector.ang_vel);
+    fields << dpm_output_vector("x-ang-vel2", "y-ang-vel2", "z-ang-vel2", injector.ang_vel2);
+    fields << dpm_output_vector("atomizer-x-axis", "atomizer-y-axis", "atomizer-z-axis", injector.atomizer_axis);
+    fields << dpm_output_double("diameter", injector.diameter);
+    fields << dpm_output_double("diameter2", injector.diameter2);
+    fields << dpm_output_double("temperature", injector.temperature);
+    fields << dpm_output_double("temperature2", injector.temperature2);
+    fields << dpm_output_double("flow-rate", injector.flow_rate);
+    fields << dpm_output_double("flow-rate2", injector.flow_rate2);
+    fields << dpm_output_double("unsteady-start", injector.unsteady_start);
+    fields << dpm_output_double("unsteady-stop", injector.unsteady_stop);
+    fields << dpm_output_double("start-at-flow-time-in-unsteady-inj-file", injector.start_at_flow_time_in_unsteady_inj_file);
+    fields << dpm_output_double("interval-to-repeat-in-unsteady-inj-file", injector.interval_to_repeat_in_unsteady_inj_file);
+    fields << dpm_output_double("unsteady-ca-start", injector.unsteady_ca_start);
+    fields << dpm_output_double("unsteady-ca-stop", injector.unsteady_ca_stop);
+    fields << dpm_output_double("vapor-pressure", injector.vapor_pressure);
+    fields << dpm_output_double("inner-diameter", injector.inner_diameter);
+    fields << dpm_output_double("outer-diameter", injector.outer_diameter);
+    fields << dpm_output_double("half-angle", injector.half_angle);
+    fields << dpm_output_double("plain-length", injector.plain_length);
+    fields << dpm_output_double("plain-corner-size", injector.plain_corner_size);
+    fields << dpm_output_double("plain-const-a", injector.plain_const_a);
+    fields << dpm_output_double("pswirl-inj-press", injector.pswirl_inj_press);
+    fields << dpm_output_double("airbl-rel-vel", injector.airbl_rel_vel);
+    fields << dpm_output_double("effer-quality", injector.effer_quality);
+    fields << dpm_output_double("effer-t-sat", injector.effer_t_sat);
+    fields << dpm_output_double("ff-orifice-width", injector.ff_oriface_width);
+    fields << dpm_output_double("phi-start", injector.phi_start);
+    fields << dpm_output_double("phi-stop", injector.phi_stop);
+    fields << dpm_output_double("sheet-const", injector.sheet_const);
+    fields << dpm_output_double("lig-const", injector.lig_const);
+    fields << dpm_output_double("effer-const", injector.effer_const);
+    fields << dpm_output_double("effer-half-angle-max", injector.effer_half_angle_max);
+    fields << dpm_output_double("ff-sheet-const", injector.ff_sheet_const);
+    fields << dpm_output_double("atomizer-disp-angle", injector.atomizer_disp_angle);
+    fields << dpm_output_vector("x-axis", "y-axis", "z-axis", injector.axis);
+    fields << dpm_output_double("vel-mag", injector.vel_mag);
+    fields << dpm_output_double("ang-vel-mag", injector.ang_vel_mag);
+    fields << dpm_output_double("cone-angle", injector.cone_angle);
+    fields << dpm_output_double("inner-radius", injector.inner_radius);
+    fields << dpm_output_double("radius", injector.radius);
+    fields << dpm_output_double("swirl-frac", injector.swirl_frac);
+    fields << dpm_output_double("total-flow-rate", injector.total_flow_rate);
+    fields << dpm_output_double("total-mass", injector.total_mass);
+    fields << dpm_output_double("volume-fraction", injector.volume_fraction);
+    fields << dpm_output_double("rr-min", injector.rr_min);
+    fields << dpm_output_double("rr-max", injector.rr_max);
+    fields << dpm_output_double("rr-mean", injector.rr_mean);
+    fields << dpm_output_double("rr-spread", injector.rr_spread);
+    fields << dpm_output_int("rr-numdia", injector.rr_numdia);
+    fields << dpm_output_vector("x-posr", "y-posr", "z-posr", injector.posr);
+    fields << dpm_output_vector("x-posu", "y-posu", "z-posu", injector.posu);
+    return QString("(%1 (%2))").arg(injector.name.trimmed(), fields.join(' '));
+}
+}
+
+bool write_dpm_file(const QString &file_path,
+                    const QList<Unit> &units,
+                    QString *error_message)
+{
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+    if (file_path.trimmed().isEmpty())
+    {
+        if (error_message != nullptr) *error_message = "DPM output path is empty.";
+        return false;
+    }
+    if (units.isEmpty())
+    {
+        if (error_message != nullptr) *error_message = "Cannot write an empty DPM injector list.";
+        return false;
+    }
+
+    QStringList blocks;
+    for (const Unit &unit : units)
+    {
+        const QString name = unit.inj.injector_data.name.trimmed();
+        if (name.isEmpty() || name.contains(QRegularExpression("[\\s()]")))
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = "DPM injector names must be non-empty and contain no whitespace or parentheses.";
+            }
+            return false;
+        }
+        blocks.append(dpm_unit_block(unit));
+    }
+
+    QSaveFile file(file_path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        if (error_message != nullptr) *error_message = QString("Unable to write DPM file: %1").arg(file_path);
+        return false;
+    }
+    const QByteArray content = (blocks.size() == 1
+        ? blocks.first()
+        : QString("(%1)").arg(blocks.join(' '))).toUtf8();
+    if (file.write(content) != content.size() || !file.commit())
+    {
+        if (error_message != nullptr) *error_message = QString("Unable to finalize DPM file: %1").arg(file_path);
+        return false;
+    }
+    return true;
 }
 
 [[deprecated("Use read_dpm_file(file_path, ...) instead.")]]

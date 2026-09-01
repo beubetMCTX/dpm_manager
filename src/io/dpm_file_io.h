@@ -46,6 +46,10 @@ QList<Unit> read_dpm_file(const QString &file_path,
                           QString *error_message = nullptr,
                           bool show_error_message_box = true);
 
+bool write_dpm_file(const QString &file_path,
+                    const QList<Unit> &units,
+                    QString *error_message = nullptr);
+
 
 
 #endif // DPM_FILE_IO_H
