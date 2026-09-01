@@ -118,12 +118,33 @@ MainWindow::MainWindow(QWidget *parent)
 
     create_reference_geometry_panel();
     create_object_list_panel();
+    connect(ui->actionObjects, &QAction::triggered, this, [this]()
+    {
+        if (m_object_list_dock != nullptr)
+        {
+            m_object_list_dock->show();
+            m_object_list_dock->raise();
+        }
+    });
+    connect(ui->actionReference_Geometry, &QAction::triggered, this, [this]()
+    {
+        if (m_reference_geometry_dock != nullptr &&
+            !m_3d_widget->geometry.getShape().IsNull())
+        {
+            m_reference_geometry_dock->show();
+            m_reference_geometry_dock->raise();
+        }
+    });
     connect(m_3d_widget, &OCCTWidget::reference_geometry_available, this,
             [this](bool available)
     {
         if (m_reference_geometry_dock != nullptr)
         {
             m_reference_geometry_dock->setVisible(available);
+        }
+        if (ui->actionReference_Geometry != nullptr)
+        {
+            ui->actionReference_Geometry->setEnabled(available);
         }
         update_reference_geometry_panel();
         update_object_list_panel();

@@ -48,9 +48,17 @@
     <addaction name="actionUnit_of_Measurement"/>
     <addaction name="actionLanguage"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionObjects"/>
+    <addaction name="actionReference_Geometry"/>
+   </widget>
    <addaction name="menureaddile"/>
    <addaction name="menuSpecies"/>
    <addaction name="menuSettings"/>
+   <addaction name="menuView"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionRead">
@@ -85,7 +93,17 @@
   </action>
   <action name="actionSpecies_Materials">
    <property name="text">
-    <string>Materials</string>
+   <string>Materials</string>
+   </property>
+  </action>
+  <action name="actionObjects">
+   <property name="text">
+    <string>Objects Panel</string>
+   </property>
+  </action>
+  <action name="actionReference_Geometry">
+   <property name="text">
+    <string>Reference Geometry Panel</string>
    </property>
   </action>
  </widget>
