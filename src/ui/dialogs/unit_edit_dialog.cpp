@@ -585,6 +585,11 @@ void unit_edit_dialog::closeEvent(QCloseEvent *event)
     QDialog::closeEvent(event);
 }
 
+void unit_edit_dialog::reset_edit_state()
+{
+    m_data_modified = false;
+}
+
 void unit_edit_dialog::setup_action_buttons()
 {
     if (ui == nullptr || ui->verticalLayout_frame == nullptr)
@@ -613,6 +618,7 @@ void unit_edit_dialog::setup_action_buttons()
     });
     connect(m_cancel_button, &QPushButton::clicked, this, [this]()
     {
+        m_data_modified = false;
         emit dialog_cancelled(control_unit);
         close();
     });
@@ -830,6 +836,7 @@ void unit_edit_dialog::setup_custom_controls()
     ui->comboBox_unit->hide();
 
     m_injection_name_edit = new QUI_LineEdit(this);
+    m_injection_name_edit->setObjectName("injectionNameEditor");
     m_injection_name_edit->set_string_mode();
     m_injection_name_edit->set_allow_empty_string(false);
     m_injection_name_edit->bind_value(&control_unit->inj.injector_data.name);

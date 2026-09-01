@@ -68,6 +68,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Keyboard or programmatic list selection therefore works the same as mouse selection.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Reset Reused Unit Editors
+
+- Reopening a previously closed unit editor now starts a fresh edit transaction and refreshes its controls.
+- Explicit cancellation clears the editor's modified flag before closing.
+- Assigned runtime editor controls now have stable object names for regression tests and UI automation.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.

@@ -1716,6 +1716,13 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
 
         if (dialog->property("unit_ptr").value<quintptr>() == target_unit_ptr)
         {
+            if (!dialog->isVisible())
+            {
+                begin_unit_edit_transaction(unit);
+                dialog->reset_edit_state();
+                dialog->refresh_from_unit_data(unit);
+                dialog->show();
+            }
             dialog->raise();
             dialog->activateWindow();
             return;

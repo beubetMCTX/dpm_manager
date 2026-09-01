@@ -50,9 +50,25 @@ int main(int argc, char *argv[])
     {
         cancel_signal_received = true;
     });
+    auto *name_editor = dialog->findChild<QUI_LineEdit*>("injectionNameEditor");
+    if (!check(name_editor != nullptr,
+               "Unit editor should expose its injection name editor"))
+    {
+        delete parent;
+        return 1;
+    }
+    name_editor->setText("cancelled-edit");
+    name_editor->commit();
+    if (!check(dialog->has_unsaved_changes(),
+               "Committed editor input should mark the dialog modified"))
+    {
+        delete parent;
+        return 1;
+    }
     dialog->findChild<QPushButton*>("cancelChangesButton")->click();
     application.processEvents();
-    if (!check(cancel_signal_received && !dialog->isVisible(),
+    if (!check(cancel_signal_received && !dialog->isVisible() &&
+                   !dialog->has_unsaved_changes(),
                "Cancel Changes should emit its signal and close the editor"))
     {
         delete parent;
