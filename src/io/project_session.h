@@ -2,6 +2,8 @@
 #define PROJECT_SESSION_H
 
 #include <QList>
+#include <QHash>
+#include <QColor>
 #include <QString>
 
 #include "app_config.h"
@@ -13,6 +15,7 @@ struct Data
 {
     QList<Unit> units;
     QString chemkin_file_path;
+    QHash<QString, QColor> species_colors;
     QList<MaterialConfigEntry> materials;
     ReferenceGeometryConfig reference_geometry;
 };

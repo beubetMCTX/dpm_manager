@@ -474,6 +474,18 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
     root.insert("created_at", QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
     root.insert("chemkin_file_path", data.chemkin_file_path);
 
+    QJsonObject species_colors;
+    for (auto it = data.species_colors.constBegin();
+         it != data.species_colors.constEnd();
+         ++it)
+    {
+        if (it.value().isValid())
+        {
+            species_colors.insert(it.key(), it.value().name(QColor::HexRgb).toUpper());
+        }
+    }
+    root.insert("species_colors", species_colors);
+
     QJsonArray units;
     for (const Unit &unit : data.units)
     {
@@ -553,6 +565,15 @@ bool load(const QString &file_path, Data *data, QString *error_message)
 
     Data parsed;
     parsed.chemkin_file_path = root.value("chemkin_file_path").toString();
+    const QJsonObject species_colors = root.value("species_colors").toObject();
+    for (auto it = species_colors.constBegin(); it != species_colors.constEnd(); ++it)
+    {
+        const QColor color(it.value().toString());
+        if (color.isValid())
+        {
+            parsed.species_colors.insert(it.key(), color);
+        }
+    }
 
     for (const QJsonValue &unit_value : root.value("units").toArray())
     {
