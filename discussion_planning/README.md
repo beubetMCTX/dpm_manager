@@ -254,6 +254,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added object-name/UUID filtering to the Objects panel in commit `e99d26b`; list refreshes preserve the active filter.
 - Fixed stale object-list highlighting after OCCT selection is cleared in commit `f7b00d0`; drag/release and context-menu cleanup now notify the list.
 - Added `Fit All` and `Clear Selection` controls to the Objects panel in commit `17b3223`; these operate on the view/selection state only.
+- Added a `View` menu for reopening the Objects and Reference Geometry dock panels in commit `00a01d6`; the reference panel action is disabled until geometry is loaded.
 
 References:
 
