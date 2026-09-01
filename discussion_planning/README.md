@@ -297,3 +297,6 @@ References:
 - Added File-menu Open/Save Project Session actions and a safe reference-geometry clear API.
 - Release compilation and a six-second deployed-DLL startup check passed; commits `473fc3b`, `3bf33ab`, `85dca0a`, and `8e404cf` were pushed to `origin/main`.
 - Interactive save/open verification remains to be performed in the real GUI, especially editing a field, saving, reopening, and comparing the displayed geometry.
+- Added File-menu project-session actions in `mainwindow.ui`; opening validates external files before replacing the current model, while saving captures the current edited `Unit` list.
+- Added `OCCTWidget::clear_reference_geometry()` so a session without reference geometry cannot leave stale geometry visible.
+- Release compilation and a six-second deployed-DLL startup check passed; commits `85dca0a`, `473fc3b`, `3bf33ab`, and `8e404cf` were pushed to `origin/main`.
