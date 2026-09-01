@@ -301,6 +301,9 @@ MainWindow::~MainWindow()
     {
         m_species_material_dialog->close();
     }
+    // Keep layout persistence reliable even when the window is destroyed
+    // through an application-exit path that bypasses closeEvent.
+    save_window_layout();
     delete ui;
     runtime_debug::trace("MainWindow destructor end");
 }
