@@ -109,10 +109,25 @@
    <property name="text">
     <string>Objects Panel</string>
    </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
   </action>
   <action name="actionReference_Geometry">
    <property name="text">
-   <string>Reference Geometry Panel</string>
+    <string>Reference Geometry Panel</string>
+   </property>
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>false</bool>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
    </property>
   </action>
   <action name="actionReset_Window_Layout">

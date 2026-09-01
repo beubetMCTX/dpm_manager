@@ -126,22 +126,41 @@ MainWindow::MainWindow(QWidget *parent)
 
     create_reference_geometry_panel();
     create_object_list_panel();
-    connect(ui->actionObjects, &QAction::triggered, this, [this]()
+    connect(ui->actionObjects, &QAction::toggled, this, [this](bool visible)
     {
         if (m_object_list_dock != nullptr)
         {
-            m_object_list_dock->show();
-            m_object_list_dock->raise();
+            m_object_list_dock->setVisible(visible);
+            if (visible)
+            {
+                m_object_list_dock->raise();
+            }
         }
     });
-    connect(ui->actionReference_Geometry, &QAction::triggered, this, [this]()
+    connect(m_object_list_dock, &QDockWidget::visibilityChanged, this,
+            [this](bool visible)
+    {
+        const QSignalBlocker blocker(ui->actionObjects);
+        ui->actionObjects->setChecked(visible);
+    });
+    connect(ui->actionReference_Geometry, &QAction::toggled, this,
+            [this](bool visible)
     {
         if (m_reference_geometry_dock != nullptr &&
             !m_3d_widget->geometry.getShape().IsNull())
         {
-            m_reference_geometry_dock->show();
-            m_reference_geometry_dock->raise();
+            m_reference_geometry_dock->setVisible(visible);
+            if (visible)
+            {
+                m_reference_geometry_dock->raise();
+            }
         }
+    });
+    connect(m_reference_geometry_dock, &QDockWidget::visibilityChanged, this,
+            [this](bool visible)
+    {
+        const QSignalBlocker blocker(ui->actionReference_Geometry);
+        ui->actionReference_Geometry->setChecked(visible);
     });
     connect(ui->actionReset_Window_Layout, &QAction::triggered, this,
             &MainWindow::reset_window_layout);
@@ -155,6 +174,10 @@ MainWindow::MainWindow(QWidget *parent)
         if (ui->actionReference_Geometry != nullptr)
         {
             ui->actionReference_Geometry->setEnabled(available);
+            const QSignalBlocker blocker(ui->actionReference_Geometry);
+            ui->actionReference_Geometry->setChecked(available &&
+                                                       m_reference_geometry_dock != nullptr &&
+                                                       m_reference_geometry_dock->isVisible());
         }
         update_reference_geometry_panel();
         update_object_list_panel();
