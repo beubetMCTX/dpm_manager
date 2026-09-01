@@ -1998,6 +1998,56 @@ bool validate_dpm_output_injector(const Injector &injector, QString *error_messa
         }
     }
 
+    if (injector.injection_type == cone)
+    {
+        if (injector.axis.lengthSquared() <= 1.0e-12f)
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = "Cone injector axis must be non-zero.";
+            }
+            return false;
+        }
+        if (injector.cone_angle < 0.0 || injector.cone_angle >= 180.0)
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = "Cone angle must be in the range [0, 180) degrees.";
+            }
+            return false;
+        }
+        if (injector.cone_type == ring &&
+            (injector.inner_radius < 0.0 ||
+             injector.radius <= injector.inner_radius))
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = "Ring-cone requires radius > inner-radius >= 0.";
+            }
+            return false;
+        }
+        if ((injector.cone_type == hollow || injector.cone_type == solid) &&
+            injector.radius <= 0.0)
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = "Hollow- and solid-cone radii must be positive.";
+            }
+            return false;
+        }
+    }
+
+    if (injector.injection_type == volume &&
+        injector.volume_bgeom_shapes != hexahedron &&
+        injector.volume_bgeom_radius <= 0.0)
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = "Volume geometry radius must be positive for curved shapes.";
+        }
+        return false;
+    }
+
     return true;
 }
 

@@ -37,6 +37,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Case differences in material and species names are accepted consistently with the existing tables.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 DPM Geometry Semantic Validation
+
+- Extended DPM export preflight beyond finite-value checks for cone and volume geometry.
+- Zero cone axes, invalid cone angles, inverted ring-cone radii, non-positive hollow/solid radii, and invalid curved volume radii are now rejected with specific messages.
+- Added regression coverage for invalid ring-cone radii.
+- Release build and all 9 CTest regressions passed.
+
 ## Candidate Next Work
 
 ### High Priority

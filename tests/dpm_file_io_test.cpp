@@ -268,6 +268,19 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Unit invalid_ring = first;
+    invalid_ring.inj.injector_data.injection_type = cone;
+    invalid_ring.inj.injector_data.cone_type = ring;
+    invalid_ring.inj.injector_data.axis = QVector3D(1.0f, 0.0f, 0.0f);
+    invalid_ring.inj.injector_data.inner_radius = 10.0;
+    invalid_ring.inj.injector_data.radius = 5.0;
+    if (!check(!validate_dpm_units({invalid_ring}, &preflight_error) &&
+                   preflight_error.contains("radius > inner-radius"),
+               "DPM export preflight should reject invalid ring-cone radii"))
+    {
+        return 1;
+    }
+
     if (!check(written_file.open(QIODevice::ReadOnly),
                "Unable to reopen DPM output fixture") ||
         !check(written_file.readAll() == original_output,
