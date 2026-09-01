@@ -6,6 +6,7 @@
 #include <QLayoutItem>
 #include <QSignalBlocker>
 
+#include "unit_system.h"
 #include <tinyexpr.h>
 
 #include <array>
@@ -672,6 +673,31 @@ QUI_LineEdit::Value_Mode QUI_LineEdit::value_mode() const
     return m_value_mode;
 }
 
+bool QUI_LineEdit::set_unit_conversion(const QString &display_unit, const QString &storage_unit)
+{
+    if (!UnitSystem::are_compatible(display_unit, storage_unit))
+    {
+        m_display_unit.clear();
+        m_storage_unit.clear();
+        return false;
+    }
+
+    m_display_unit = display_unit.trimmed();
+    m_storage_unit = storage_unit.trimmed();
+    sync_from_binding();
+    return true;
+}
+
+QString QUI_LineEdit::display_unit() const
+{
+    return m_display_unit;
+}
+
+QString QUI_LineEdit::storage_unit() const
+{
+    return m_storage_unit;
+}
+
 void QUI_LineEdit::bind_value(int *value)
 {
     m_bound_value = value;
@@ -728,7 +754,17 @@ bool QUI_LineEdit::commit()
             return false;
         }
 
-        const int final_value = static_cast<int>(rounded_value);
+        bool conversion_ok = true;
+        const double storage_value = m_display_unit.isEmpty()
+            ? rounded_value
+            : UnitSystem::convert(rounded_value, m_display_unit, m_storage_unit, &conversion_ok);
+        if (!conversion_ok || !std::isfinite(storage_value))
+        {
+            mark_invalid("Unit conversion failed.");
+            return false;
+        }
+
+        const int final_value = static_cast<int>(std::round(storage_value));
         if (auto *bound_value = std::get_if<int *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
         {
             **bound_value = final_value;
@@ -746,13 +782,23 @@ bool QUI_LineEdit::commit()
             return false;
         }
 
+        bool conversion_ok = true;
+        const double storage_value = m_display_unit.isEmpty()
+            ? numeric_value
+            : UnitSystem::convert(numeric_value, m_display_unit, m_storage_unit, &conversion_ok);
+        if (!conversion_ok || !std::isfinite(storage_value))
+        {
+            mark_invalid("Unit conversion failed.");
+            return false;
+        }
+
         if (auto *bound_value = std::get_if<double *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
         {
-            **bound_value = numeric_value;
+            **bound_value = storage_value;
         }
         else if (auto *bound_value = std::get_if<float *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
         {
-            **bound_value = static_cast<float>(numeric_value);
+            **bound_value = static_cast<float>(storage_value);
         }
 
         normalized = format_double_value(numeric_value);
@@ -795,21 +841,41 @@ void QUI_LineEdit::initialize()
 
 void QUI_LineEdit::sync_from_binding()
 {
+    auto format_bound_numeric = [this](double value)
+    {
+        if (m_display_unit.isEmpty())
+        {
+            return format_double_value(value);
+        }
+
+        bool conversion_ok = false;
+        const double display_value = UnitSystem::convert(
+            value, m_storage_unit, m_display_unit, &conversion_ok);
+        return conversion_ok ? format_double_value(display_value) : QString();
+    };
+
     if (auto *bound_value = std::get_if<int *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
-        sync_text(QString::number(**bound_value));
+        if (m_display_unit.isEmpty())
+        {
+            sync_text(QString::number(**bound_value));
+        }
+        else
+        {
+            sync_text(format_bound_numeric(static_cast<double>(**bound_value)));
+        }
         return;
     }
 
     if (auto *bound_value = std::get_if<float *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
-        sync_text(format_double_value(static_cast<double>(**bound_value)));
+        sync_text(format_bound_numeric(static_cast<double>(**bound_value)));
         return;
     }
 
     if (auto *bound_value = std::get_if<double *>(&m_bound_value); bound_value != nullptr && *bound_value != nullptr)
     {
-        sync_text(format_double_value(**bound_value));
+        sync_text(format_bound_numeric(**bound_value));
         return;
     }
 
@@ -1093,6 +1159,11 @@ void QUI_SpinBox::sync_from_binding()
     {
         setValue(*m_bound_value);
     }
+}
+
+void QUI_LineEdit::sync_bound_value()
+{
+    sync_from_binding();
 }
 
 void QUI_SpinBox::initialize()

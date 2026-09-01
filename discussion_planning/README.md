@@ -323,3 +323,10 @@ References:
 - Added `unit_system_regression` coverage for length, angle, temperature, pressure, incompatible units, and non-finite input.
 - Registered the module in the main target and CTest; Release build and regression test passed.
 - This increment intentionally does not change existing editor bindings. The next increment can opt fields into display-unit to internal-unit conversion safely.
+
+### 2026-09-02 Unit-Aware Line Edit
+
+- Extended `QUI_LineEdit` with opt-in display-unit and storage-unit conversion.
+- Numeric expressions are evaluated in the displayed unit, then converted before writing to the bound model value; bound values are converted back when synchronized.
+- Existing fields remain unchanged until they explicitly configure a conversion pair.
+- Release build passed. `unit_system_regression` and `project_session_regression` passed with the deployed Qt DLL directory on `PATH`.

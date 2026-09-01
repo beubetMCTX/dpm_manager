@@ -1,7 +1,5 @@
 #include "unit_system.h"
 
-#include <QCoreApplication>
-
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -26,7 +24,8 @@ bool expect(bool condition, const char *message)
 
 int main(int argc, char **argv)
 {
-    QCoreApplication application(argc, argv);
+    (void)argc;
+    (void)argv;
 
     bool ok = false;
     if (!expect(UnitSystem::is_supported("mm"), "mm should be supported") ||

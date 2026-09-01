@@ -53,6 +53,10 @@ public:
     void set_string_mode();
     Value_Mode value_mode() const;
 
+    bool set_unit_conversion(const QString &display_unit, const QString &storage_unit);
+    QString display_unit() const;
+    QString storage_unit() const;
+
     void bind_value(int *value);
     void bind_value(float *value);
     void bind_value(double *value);
@@ -60,6 +64,7 @@ public:
 
     void set_allow_empty_string(bool allow);
     bool commit();
+    void sync_bound_value();
 
 signals:
     void value_committed();
@@ -81,6 +86,8 @@ private:
     Value_Mode m_value_mode = Value_Mode::String;
     QString m_last_valid_text;
     bool m_allow_empty_string = true;
+    QString m_display_unit;
+    QString m_storage_unit;
 };
 
 class QUI_FieldRow : public QWidget
