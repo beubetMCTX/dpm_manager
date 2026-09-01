@@ -15,9 +15,10 @@ void append_species_tokens(const QString& text,
     const QStringList tokens = text.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
     for (const QString& token : tokens)
     {
-        if (!seen_species.contains(token))
+        const QString normalized_token = token.toLower();
+        if (!seen_species.contains(normalized_token))
         {
-            seen_species.insert(token);
+            seen_species.insert(normalized_token);
             species_names.push_back(token);
         }
     }

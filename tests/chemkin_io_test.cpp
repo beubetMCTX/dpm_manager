@@ -68,6 +68,28 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString duplicate_path = temporary_directory.filePath("duplicate.inp");
+    if (!check(write_file(duplicate_path,
+                          "SPECIES\n"
+                          "H2 h2 O2\n"
+                          "o2 OH\n"
+                          "END\n"),
+                "Unable to create duplicate-species Chemkin fixture"))
+    {
+        return 1;
+    }
+
+    error_message.clear();
+    const QStringList duplicate_species = read_chemkin_species_names(
+        duplicate_path, &ok, &error_message, false);
+    if (!check(ok && duplicate_species == QStringList({"H2", "O2", "OH"}),
+               "Chemkin species should be deduplicated case-insensitively") ||
+        !check(error_message.isEmpty(),
+               "Duplicate-species Chemkin parse should not report an error"))
+    {
+        return 1;
+    }
+
     const QString missing_end_path = temporary_directory.filePath("missing_end.inp");
     if (!check(write_file(missing_end_path, "SPECIES\nN2\n"),
                 "Unable to create missing-END Chemkin fixture"))

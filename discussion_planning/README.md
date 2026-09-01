@@ -586,3 +586,10 @@ References:
 - Propagated the `show_error_message_box` option through the new parser so headless callers do not create widgets.
 - Preserved detailed field-level parse errors instead of replacing them with a generic block error.
 - Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Case-Insensitive Chemkin Species Deduplication
+
+- Chemkin species collection now treats names differing only by case as duplicates.
+- The first spelling is preserved for display and later duplicates are omitted.
+- Added regression coverage for duplicate species across multiple lines.
+- Release build and all 9 CTest regressions passed.
