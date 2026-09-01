@@ -1649,8 +1649,32 @@ void MainWindow::create_object_list_panel()
 
     connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::fit_all_view);
-    connect(fit_selected_button, &QPushButton::clicked, m_3d_widget,
-            &OCCTWidget::fit_selected_view);
+    connect(fit_selected_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_3d_widget == nullptr || m_object_list == nullptr)
+        {
+            return;
+        }
+
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item != nullptr)
+        {
+            const QString object_id = item->data(Qt::UserRole).toString();
+            if (object_id == QStringLiteral("reference"))
+            {
+                m_3d_widget->select_reference_geometry();
+            }
+            else
+            {
+                const QUuid uuid(object_id);
+                if (!uuid.isNull())
+                {
+                    m_3d_widget->select_unit_by_uuid(uuid);
+                }
+            }
+        }
+        m_3d_widget->fit_selected_view();
+    });
     connect(view_selector, &QComboBox::currentIndexChanged, this,
             [this, view_selector](int index)
     {

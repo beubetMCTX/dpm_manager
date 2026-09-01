@@ -62,6 +62,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Display names, sorting, visibility, and selection behavior remain unchanged.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Make Fit-Selected Toolbar Deterministic
+
+- The object-panel `Fit Selected` button now resolves the current list row before fitting.
+- Keyboard or programmatic list selection therefore works the same as mouse selection.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
