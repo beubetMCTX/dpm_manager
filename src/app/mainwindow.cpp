@@ -170,6 +170,18 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_3d_widget, &OCCTWidget::unit_display_list_changed,
             this, &MainWindow::update_object_list_panel);
+    connect(m_3d_widget, &OCCTWidget::unit_removed, this,
+            [this](const QUuid &uuid)
+    {
+        for (auto it = units.begin(); it != units.end(); ++it)
+        {
+            if (it->inj.uuid == uuid)
+            {
+                units.erase(it);
+                break;
+            }
+        }
+    });
     connect(m_3d_widget, &OCCTWidget::selection_changed,
             this, &MainWindow::update_object_list_selection);
 
@@ -804,6 +816,8 @@ void MainWindow::create_object_list_panel()
         QAction *lock_action = menu.addAction(
             m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
                                             : "Lock Movement");
+        menu.addSeparator();
+        QAction *delete_action = menu.addAction("Delete");
         QAction *chosen_action = menu.exec(m_object_list->viewport()->mapToGlobal(position));
         if (chosen_action == edit_action)
         {
@@ -829,6 +843,19 @@ void MainWindow::create_object_list_panel()
             update_object_list_item(
                 uuid, m_3d_widget->unit_hash.value(uuid)
                            ->inj.injector_data.name);
+        }
+        else if (chosen_action == delete_action)
+        {
+            const QString name = m_3d_widget->unit_hash.value(uuid)
+                                     ->inj.injector_data.name;
+            const auto answer = QMessageBox::question(
+                this, "Delete Injector",
+                QString("Delete injector \"%1\"?").arg(name),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+            if (answer == QMessageBox::Yes)
+            {
+                m_3d_widget->remove_unit_by_uuid(uuid);
+            }
         }
     });
 
