@@ -261,6 +261,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Cleared move history on DPM reload and removed entries for deleted injectors in commit `d061b0d`, preventing undo/redo from targeting stale objects.
 - Prevented hidden injectors and hidden reference geometry from being selected through the Objects panel in commit `5aa52d3`; management actions remain available.
 - Added JSON-backed main-window geometry/dock-state persistence in commits `eb268c2` and `47cd6e5`; existing Chemkin settings are preserved. Release compilation passed. Full drag/dock/restart verification still requires a real interactive desktop session because the current execution environment exposes no GUI window handle.
+- Added `Reset Window Layout` to the `View` menu in commit `743c965`, restoring the default size and dock positions and persisting the reset state.
 
 References:
 
