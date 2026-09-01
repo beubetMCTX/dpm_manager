@@ -113,6 +113,9 @@ MainWindow::MainWindow(QWidget *parent)
     runtime_debug::trace("MainWindow ui->setupUi finished");
     update_project_session_title();
 
+    m_recent_projects_menu = ui->menureaddile->addMenu("Recent Projects");
+    restore_recent_projects();
+
     QString config_error_message;
     if (!ensure_app_config_directories(&config_error_message) &&
         !config_error_message.trimmed().isEmpty())
@@ -610,6 +613,7 @@ bool MainWindow::save_project_session(const QString &file_path)
     }
 
     m_project_session_file_path = QFileInfo(file_path).absoluteFilePath();
+    remember_project_path(m_project_session_file_path);
     m_project_dirty = false;
     update_project_session_title();
     statusBar()->showMessage(QString("Project session saved: %1").arg(file_path), 8000);
@@ -735,11 +739,99 @@ bool MainWindow::load_project_session(const QString &file_path)
     update_object_list_panel();
     update_reference_geometry_panel();
     m_project_session_file_path = QFileInfo(file_path).absoluteFilePath();
+    remember_project_path(m_project_session_file_path);
     m_project_dirty = false;
     m_loading_project_session = false;
     update_project_session_title();
     statusBar()->showMessage(QString("Project session loaded: %1").arg(file_path), 8000);
     return true;
+}
+
+void MainWindow::restore_recent_projects()
+{
+    QString error_message;
+    if (!load_recent_project_paths(&m_recent_project_paths, &error_message) &&
+        !error_message.trimmed().isEmpty())
+    {
+        qWarning() << error_message;
+    }
+    update_recent_projects_menu();
+}
+
+void MainWindow::remember_project_path(const QString &file_path)
+{
+    const QFileInfo file_info(file_path);
+    if (!file_info.exists() || !file_info.isFile())
+    {
+        return;
+    }
+
+    const QString absolute_path = file_info.absoluteFilePath();
+    for (int index = m_recent_project_paths.size() - 1; index >= 0; --index)
+    {
+        if (m_recent_project_paths.at(index).compare(absolute_path,
+                                                     Qt::CaseInsensitive) == 0)
+        {
+            m_recent_project_paths.removeAt(index);
+        }
+    }
+    m_recent_project_paths.prepend(absolute_path);
+    while (m_recent_project_paths.size() > 10)
+    {
+        m_recent_project_paths.removeLast();
+    }
+
+    QString error_message;
+    if (!save_recent_project_paths(m_recent_project_paths, &error_message) &&
+        !error_message.trimmed().isEmpty())
+    {
+        qWarning() << error_message;
+    }
+    update_recent_projects_menu();
+}
+
+void MainWindow::update_recent_projects_menu()
+{
+    if (m_recent_projects_menu == nullptr)
+    {
+        return;
+    }
+
+    m_recent_projects_menu->clear();
+    QStringList existing_paths;
+    for (const QString &path : m_recent_project_paths)
+    {
+        const QFileInfo file_info(path);
+        if (file_info.exists() && file_info.isFile() &&
+            !existing_paths.contains(file_info.absoluteFilePath(), Qt::CaseInsensitive))
+        {
+            existing_paths.append(file_info.absoluteFilePath());
+        }
+    }
+    m_recent_project_paths = existing_paths;
+
+    if (m_recent_project_paths.isEmpty())
+    {
+        QAction *empty_action = m_recent_projects_menu->addAction("No Recent Projects");
+        empty_action->setEnabled(false);
+        return;
+    }
+
+    for (const QString &path : m_recent_project_paths)
+    {
+        QAction *action = m_recent_projects_menu->addAction(QFileInfo(path).fileName());
+        action->setToolTip(path);
+        action->setData(path);
+        connect(action, &QAction::triggered, this, [this, action]()
+        {
+            const QString path = action->data().toString();
+            if (!load_project_session(path))
+            {
+                return;
+            }
+            remember_project_path(path);
+        });
+    }
 }
 
 void MainWindow::mark_project_dirty()

@@ -328,6 +328,106 @@ bool clear_last_chemkin_file_path(QString *error_message)
     return write_json_object(app_settings_file_path(), root_object, error_message);
 }
 
+bool load_recent_project_paths(QStringList *file_paths, QString *error_message)
+{
+    if (file_paths != nullptr)
+    {
+        file_paths->clear();
+    }
+
+    if (!QFileInfo::exists(app_settings_file_path()))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (!read_json_object(app_settings_file_path(), &root_object, error_message))
+    {
+        return false;
+    }
+
+    if (file_paths == nullptr)
+    {
+        return true;
+    }
+
+    const QJsonValue recent_value = root_object.value("recent_project_paths");
+    if (!recent_value.isArray())
+    {
+        return true;
+    }
+
+    for (const QJsonValue &value : recent_value.toArray())
+    {
+        const QString path = value.toString().trimmed();
+        if (path.isEmpty())
+        {
+            continue;
+        }
+
+        const QFileInfo file_info(path);
+        const QString absolute_path = file_info.absoluteFilePath();
+        if (file_info.exists() && file_info.isFile() &&
+            !file_paths->contains(absolute_path, Qt::CaseInsensitive))
+        {
+            file_paths->append(absolute_path);
+        }
+
+        if (file_paths->size() >= 10)
+        {
+            break;
+        }
+    }
+    return true;
+}
+
+bool save_recent_project_paths(const QStringList &file_paths,
+                               QString *error_message)
+{
+    if (!ensure_app_config_directories(error_message))
+    {
+        return false;
+    }
+
+    QJsonObject root_object;
+    if (QFileInfo::exists(app_settings_file_path()))
+    {
+        QString read_error;
+        if (!read_json_object(app_settings_file_path(), &root_object, &read_error))
+        {
+            root_object = QJsonObject();
+        }
+    }
+
+    QJsonArray recent_array;
+    QStringList normalized_paths;
+    for (const QString &path : file_paths)
+    {
+        const QFileInfo file_info(path.trimmed());
+        if (!file_info.exists() || !file_info.isFile())
+        {
+            continue;
+        }
+
+        const QString absolute_path = file_info.absoluteFilePath();
+        if (normalized_paths.contains(absolute_path, Qt::CaseInsensitive))
+        {
+            continue;
+        }
+
+        normalized_paths.append(absolute_path);
+        recent_array.append(absolute_path);
+        if (normalized_paths.size() >= 10)
+        {
+            break;
+        }
+    }
+
+    root_object.insert("recent_project_paths", recent_array);
+    root_object.insert("schema_version", kConfigSchemaVersion);
+    return write_json_object(app_settings_file_path(), root_object, error_message);
+}
+
 bool load_reference_geometry_config(ReferenceGeometryConfig *config,
                                     QString *error_message)
 {

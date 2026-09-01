@@ -35,6 +35,7 @@ QT_END_NAMESPACE
 class SpeciesColorDialog;
 class SpeciesMaterialDialog;
 class UnitPreferencesDialog;
+class QMenu;
 
 class MainWindow : public QMainWindow
 {
@@ -75,6 +76,9 @@ private:
                            bool show_error_message_box,
                            bool show_success_feedback);
     void restore_last_chemkin_file();
+    void restore_recent_projects();
+    void remember_project_path(const QString &file_path);
+    void update_recent_projects_menu();
     void restore_material_table();
     void restore_reference_geometry();
     void save_reference_geometry_state();
@@ -111,6 +115,8 @@ private:
     QToolBar *m_chemkin_toolbar = nullptr;
     QLabel *m_chemkin_status_label = nullptr;
     QLineEdit *m_chemkin_path_edit = nullptr;
+    QMenu *m_recent_projects_menu = nullptr;
+    QStringList m_recent_project_paths;
     QPointer<SpeciesColorDialog> m_species_color_dialog;
     QPointer<SpeciesMaterialDialog> m_species_material_dialog;
     QDockWidget *m_reference_geometry_dock = nullptr;

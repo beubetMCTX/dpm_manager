@@ -36,6 +36,10 @@ bool ensure_app_config_directories(QString *error_message = nullptr);
 bool load_last_chemkin_file_path(QString *file_path, QString *error_message = nullptr);
 bool save_last_chemkin_file_path(const QString &file_path, QString *error_message = nullptr);
 bool clear_last_chemkin_file_path(QString *error_message = nullptr);
+bool load_recent_project_paths(QStringList *file_paths,
+                               QString *error_message = nullptr);
+bool save_recent_project_paths(const QStringList &file_paths,
+                               QString *error_message = nullptr);
 bool load_reference_geometry_config(ReferenceGeometryConfig *config,
                                     QString *error_message = nullptr);
 bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
