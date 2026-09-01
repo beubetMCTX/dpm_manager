@@ -292,3 +292,8 @@ References:
 - The geometry reader now exposes the successful absolute source path and clears it after a failed read.
 - Release compilation passed after each step; commits `19f5e50`, `27bb84f`, and `972acec` were pushed to `origin/main`.
 - A Release startup check remained alive for six seconds when run with the existing deployed dependency DLL set; the bare build directory correctly fails because it contains no runtime DLL deployment.
+- Added versioned `.dpmproj` project-session JSON serialization for all current `Injector` fields, unit UUIDs/types, Chemkin path, materials, and reference-geometry state.
+- Session loading rebuilds injector geometry, validates external Chemkin/geometry files before replacement, and clears stale reference geometry when the session has none.
+- Added File-menu Open/Save Project Session actions and a safe reference-geometry clear API.
+- Release compilation and a six-second deployed-DLL startup check passed; commits `473fc3b`, `3bf33ab`, `85dca0a`, and `8e404cf` were pushed to `origin/main`.
+- Interactive save/open verification remains to be performed in the real GUI, especially editing a field, saving, reopening, and comparing the displayed geometry.
