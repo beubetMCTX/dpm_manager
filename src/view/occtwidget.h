@@ -108,6 +108,12 @@ public:
     void set_reference_geometry_locked(bool locked);
     bool reference_geometry_locked() const { return m_reference_geometry_locked; }
     void align_view_to_selected_face();
+    void begin_reference_transform_transaction();
+    void finish_reference_transform_transaction();
+    bool undo_reference_transform();
+    bool redo_reference_transform();
+    bool can_undo_reference_transform() const;
+    bool can_redo_reference_transform() const;
 
     void display_units(const QList<Unit> &units, bool clear_existing = true);
     bool select_unit_by_uuid(const QUuid &uuid);
@@ -160,6 +166,7 @@ signals:
     void selection_changed(const QUuid &uuid, bool reference_geometry);
     void move_history_changed(bool can_undo, bool can_redo);
     void edit_history_changed(bool can_undo, bool can_redo);
+    void reference_transform_history_changed(bool can_undo, bool can_redo);
 
 private:
 
@@ -225,6 +232,13 @@ private:
         Unit_Type type = injector;
         Injector injector_data;
     };
+    struct ReferenceTransformHistoryEntry
+    {
+        QVector3D before_position;
+        QVector3D before_rotation;
+        QVector3D after_position;
+        QVector3D after_rotation;
+    };
     UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
     bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,
                              const UnitMoveSnapshot &snapshot);
@@ -238,6 +252,13 @@ private:
     void record_edit(const UnitEditTransaction &transaction,
                      const Unit &unit);
     void clear_edit_history();
+    void record_reference_transform(const QVector3D &before_position,
+                                    const QVector3D &before_rotation,
+                                    const QVector3D &after_position,
+                                    const QVector3D &after_rotation);
+    void clear_reference_transform_history();
+    bool apply_reference_transform_snapshot(const QVector3D &position,
+                                            const QVector3D &rotation);
 
 protected:
 
@@ -307,6 +328,11 @@ private:
     QVector3D m_reference_rotation;
     gp_Trsf m_reference_transform;
     bool m_reference_geometry_locked = false;
+    QVector<ReferenceTransformHistoryEntry> m_reference_transform_history;
+    int m_reference_transform_history_index = 0;
+    bool m_reference_transform_transaction_active = false;
+    QVector3D m_reference_transform_before_position;
+    QVector3D m_reference_transform_before_rotation;
 
     QStringList m_chemkin_species_names;
     QStringList m_material_names;

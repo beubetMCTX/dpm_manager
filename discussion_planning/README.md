@@ -411,3 +411,9 @@ References:
 
 - Added `base_geom_read_regression` for empty paths, missing files, empty files, and unsupported geometry extensions.
 - The test confirms that these failures return `false` and preserve a descriptive reader error without requiring a GUI message box.
+
+### 2026-09-02 Reference Transform History
+
+- Added independent undo/redo history for reference-geometry transforms.
+- Apply/Reset actions and complete 3D reference-geometry drags are recorded as one transform operation.
+- Added `Ctrl+Alt+Z` and `Ctrl+Alt+Y` actions so reference-transform history remains separate from injector movement and unit-edit history.

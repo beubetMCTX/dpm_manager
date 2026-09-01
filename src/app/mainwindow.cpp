@@ -281,6 +281,10 @@ MainWindow::MainWindow(QWidget *parent)
             &OCCTWidget::undo_last_edit);
     connect(ui->actionRedo_Edit, &QAction::triggered, m_3d_widget,
             &OCCTWidget::redo_edit);
+    connect(ui->actionUndo_Reference_Transform, &QAction::triggered,
+            m_3d_widget, &OCCTWidget::undo_reference_transform);
+    connect(ui->actionRedo_Reference_Transform, &QAction::triggered,
+            m_3d_widget, &OCCTWidget::redo_reference_transform);
     connect(m_3d_widget, &OCCTWidget::move_history_changed, this,
             [this](bool can_undo, bool can_redo)
     {
@@ -292,6 +296,17 @@ MainWindow::MainWindow(QWidget *parent)
     {
         ui->actionUndo_Edit->setEnabled(can_undo);
         ui->actionRedo_Edit->setEnabled(can_redo);
+    });
+    connect(m_3d_widget, &OCCTWidget::reference_transform_history_changed,
+            this, [this](bool can_undo, bool can_redo)
+    {
+        ui->actionUndo_Reference_Transform->setEnabled(can_undo);
+        ui->actionRedo_Reference_Transform->setEnabled(can_redo);
+        if (!m_loading_project_session && (can_undo || can_redo))
+        {
+            mark_project_dirty();
+            save_reference_geometry_state();
+        }
     });
 
     // OCCT owns editable Unit copies so that interactive handles remain stable.
@@ -1179,8 +1194,10 @@ void MainWindow::create_reference_geometry_panel()
             &MainWindow::apply_reference_geometry_transform);
     connect(m_reset_reference_transform, &QPushButton::clicked, this, [this]()
     {
+        m_3d_widget->begin_reference_transform_transaction();
         m_3d_widget->set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
                                               QVector3D(0.0f, 0.0f, 0.0f));
+        m_3d_widget->finish_reference_transform_transaction();
         mark_project_dirty();
         save_reference_geometry_state();
     });
@@ -1752,6 +1769,7 @@ void MainWindow::apply_reference_geometry_transform()
         return;
     }
 
+    m_3d_widget->begin_reference_transform_transaction();
     m_3d_widget->set_reference_transform(
         QVector3D(static_cast<float>(m_reference_position_x->value()),
                   static_cast<float>(m_reference_position_y->value()),
@@ -1759,6 +1777,7 @@ void MainWindow::apply_reference_geometry_transform()
         QVector3D(static_cast<float>(m_reference_rotation_x->value()),
                   static_cast<float>(m_reference_rotation_y->value()),
                   static_cast<float>(m_reference_rotation_z->value())));
+    m_3d_widget->finish_reference_transform_transaction();
     mark_project_dirty();
     save_reference_geometry_state();
 }

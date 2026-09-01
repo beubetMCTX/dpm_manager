@@ -52,6 +52,8 @@
     <addaction name="actionRedo_Move"/>
     <addaction name="actionUndo_Edit"/>
     <addaction name="actionRedo_Edit"/>
+    <addaction name="actionUndo_Reference_Transform"/>
+    <addaction name="actionRedo_Reference_Transform"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
@@ -197,6 +199,28 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+Y</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionUndo_Reference_Transform">
+   <property name="text">
+    <string>Undo Reference Transform</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+Z</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRedo_Reference_Transform">
+   <property name="text">
+    <string>Redo Reference Transform</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+Y</string>
    </property>
    <property name="enabled">
     <bool>false</bool>
