@@ -50,6 +50,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Closing the application after an unsaved color change can now participate in the existing save/discard prompt, and project-session saving can capture the latest colors.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Protect Unsaved Projects Before Replacement
+
+- DPM import and project opening now use the same Save/Discard/Cancel confirmation as application shutdown.
+- The prompt appears only after the selected DPM file has parsed successfully, so invalid files and canceled file dialogs do not interrupt the current project.
+- The close path now shares one confirmation implementation, reducing divergence between replacement and shutdown behavior.
+
 ## Candidate Next Work
 
 ### High Priority

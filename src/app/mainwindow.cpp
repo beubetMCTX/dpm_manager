@@ -434,24 +434,10 @@ void MainWindow::closeEvent(QCloseEvent *event)
 {
     runtime_debug::trace("MainWindow closeEvent begin");
 
-    if (m_project_dirty)
+    if (!confirm_project_change("closing"))
     {
-        const QMessageBox::StandardButton answer = QMessageBox::warning(
-            this,
-            "Unsaved Project Changes",
-            "The current project has unsaved changes. Save before closing?",
-            QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
-            QMessageBox::Save);
-        if (answer == QMessageBox::Cancel)
-        {
-            event->ignore();
-            return;
-        }
-        if (answer == QMessageBox::Save && !save_current_project_session())
-        {
-            event->ignore();
-            return;
-        }
+        event->ignore();
+        return;
     }
 
     // Close OCCT-owned editors first so their selection-clearing callbacks run
@@ -502,6 +488,11 @@ void MainWindow::on_actionRead_triggered()
     const QList<Unit> temp = read_dpm_file(file_path, &ok, &error_message, true);
     if (ok)
     {
+        if (!confirm_project_change("importing a DPM file"))
+        {
+            return;
+        }
+
         units.clear();
         units = temp;
         m_3d_widget->display_units(units, true);
@@ -577,7 +568,34 @@ void MainWindow::on_actionOpen_Project_triggered()
         return;
     }
 
+    if (!confirm_project_change("opening another project"))
+    {
+        return;
+    }
+
     load_project_session(file_path);
+}
+
+bool MainWindow::confirm_project_change(const QString &action_description)
+{
+    if (!m_project_dirty)
+    {
+        return true;
+    }
+
+    const QMessageBox::StandardButton answer = QMessageBox::warning(
+        this,
+        "Unsaved Project Changes",
+        QString("The current project has unsaved changes. Save before %1?")
+            .arg(action_description),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel,
+        QMessageBox::Save);
+    if (answer == QMessageBox::Cancel)
+    {
+        return false;
+    }
+
+    return answer != QMessageBox::Save || save_current_project_session();
 }
 
 void MainWindow::on_actionSave_Project_triggered()
