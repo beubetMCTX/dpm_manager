@@ -10,6 +10,8 @@
 #include <QSaveFile>
 #include <QSet>
 
+#include <cmath>
+
 
 namespace
 {
@@ -459,6 +461,13 @@ void set_error(QString *error_message, const QString &message)
         *error_message = message;
     }
 }
+
+bool is_finite_vector(const QVector3D &value)
+{
+    return std::isfinite(static_cast<double>(value.x())) &&
+           std::isfinite(static_cast<double>(value.y())) &&
+           std::isfinite(static_cast<double>(value.z()));
+}
 }
 
 namespace project_session
@@ -502,6 +511,14 @@ bool validate(const Data &data, QString *error_message)
             set_error(error_message, "Project contains an invalid species color entry.");
             return false;
         }
+    }
+
+    if (!is_finite_vector(data.reference_geometry.position) ||
+        !is_finite_vector(data.reference_geometry.rotation))
+    {
+        set_error(error_message,
+                  "Project contains a reference geometry transform with non-finite values.");
+        return false;
     }
 
     if (error_message != nullptr)

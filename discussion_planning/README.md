@@ -620,3 +620,9 @@ References:
 - Reference-face recovery now deactivates every selection mode on the reference geometry before enabling `TopAbs_FACE`.
 - This prevents global injector selection modes such as `COMPOUND` from remaining active and interfering with face picking after injector selection or lock/unlock operations.
 - Release build and all 9 CTest regressions passed; interactive OCCT mouse verification remains required.
+
+### 2026-09-02 Validate Project Reference Transforms
+
+- Project-session validation now rejects non-finite reference-geometry position and rotation values before they reach OCCT.
+- Added regression coverage for a `NaN` transform component.
+- Release build and all 9 CTest regressions passed.

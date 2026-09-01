@@ -9,6 +9,8 @@
 #include <QTemporaryDir>
 #include <QDebug>
 
+#include <limits>
+
 namespace
 {
 bool check(bool condition, const QString &message)
@@ -80,6 +82,15 @@ int main(int argc, char *argv[])
     if (!check(!project_session::validate(invalid, &validation_error) &&
                    validation_error.contains("duplicate unit UUIDs"),
                "duplicate unit UUID should fail validation"))
+    {
+        return 1;
+    }
+
+    invalid = source;
+    invalid.reference_geometry.position.setX(std::numeric_limits<float>::quiet_NaN());
+    if (!check(!project_session::validate(invalid, &validation_error) &&
+                   validation_error.contains("non-finite"),
+               "non-finite reference transform should fail validation"))
     {
         return 1;
     }
