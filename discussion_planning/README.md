@@ -376,3 +376,11 @@ References:
 - It emits a SHA-256 deployment manifest for checking package contents.
 - Generated packages under `/release/` are ignored by Git and can be tested locally without polluting the source tree.
 - Generated package was started without an external DLL `PATH` override, remained alive for five seconds, then closed through the window message path with exit code `0`.
+
+### 2026-09-02 Reference Geometry Lock-State Synchronization
+
+- Centralized the enabled/disabled state of reference-geometry transform controls.
+- Position and rotation editors plus Apply/Reset are now refreshed after project restore, external lock-state changes, and panel synchronization; they no longer depend solely on a checkbox `toggled` signal.
+- Locking continues to restrict movement and transform edits only. Face selection, face clearing, and view alignment remain available while locked.
+- Release compilation passed. `project_session_regression` and `unit_system_regression` both passed.
+- Real mouse interaction with a locked and then unlocked reference geometry still requires manual GUI verification.

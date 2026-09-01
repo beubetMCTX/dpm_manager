@@ -90,6 +90,7 @@ private:
     void update_chemkin_status();
     void create_reference_geometry_panel();
     void update_reference_geometry_panel();
+    void update_reference_geometry_controls();
     void apply_reference_geometry_transform();
     void create_object_list_panel();
     void update_object_list_panel();
@@ -120,6 +121,8 @@ private:
     QDoubleSpinBox *m_reference_rotation_y = nullptr;
     QDoubleSpinBox *m_reference_rotation_z = nullptr;
     QCheckBox *m_reference_geometry_lock = nullptr;
+    QPushButton *m_apply_reference_transform = nullptr;
+    QPushButton *m_reset_reference_transform = nullptr;
     QPushButton *m_align_reference_face = nullptr;
     QLabel *m_reference_face_origin = nullptr;
     QLabel *m_reference_face_normal = nullptr;

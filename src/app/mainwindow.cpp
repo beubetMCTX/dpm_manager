@@ -240,6 +240,7 @@ MainWindow::MainWindow(QWidget *parent)
         {
             m_reference_geometry_lock->setChecked(locked);
         }
+        update_reference_geometry_controls();
     });
     connect(m_3d_widget, &OCCTWidget::unit_display_list_changed,
             this, &MainWindow::update_object_list_panel);
@@ -1130,8 +1131,8 @@ void MainWindow::create_reference_geometry_panel()
     m_reference_rotation_z = create_spin_box("Z", rotation_layout);
     panel_layout->addWidget(rotation_group);
 
-    auto *apply_button = new QPushButton("Apply Transform", panel);
-    auto *reset_button = new QPushButton("Reset Transform", panel);
+    m_apply_reference_transform = new QPushButton("Apply Transform", panel);
+    m_reset_reference_transform = new QPushButton("Reset Transform", panel);
     m_align_reference_face = new QPushButton("Align View to Selected Face", panel);
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
@@ -1145,8 +1146,8 @@ void MainWindow::create_reference_geometry_panel()
     face_info_layout->addRow("Origin", m_reference_face_origin);
     face_info_layout->addRow("Normal", m_reference_face_normal);
 
-    panel_layout->addWidget(apply_button);
-    panel_layout->addWidget(reset_button);
+    panel_layout->addWidget(m_apply_reference_transform);
+    panel_layout->addWidget(m_reset_reference_transform);
     panel_layout->addWidget(m_align_reference_face);
     panel_layout->addWidget(face_info_group);
     panel_layout->addWidget(m_reference_geometry_lock);
@@ -1156,9 +1157,9 @@ void MainWindow::create_reference_geometry_panel()
     addDockWidget(Qt::RightDockWidgetArea, m_reference_geometry_dock);
     m_reference_geometry_dock->hide();
 
-    connect(apply_button, &QPushButton::clicked, this,
+    connect(m_apply_reference_transform, &QPushButton::clicked, this,
             &MainWindow::apply_reference_geometry_transform);
-    connect(reset_button, &QPushButton::clicked, this, [this]()
+    connect(m_reset_reference_transform, &QPushButton::clicked, this, [this]()
     {
         m_3d_widget->set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
                                               QVector3D(0.0f, 0.0f, 0.0f));
@@ -1179,12 +1180,52 @@ void MainWindow::create_reference_geometry_panel()
         m_reference_rotation_x->setEnabled(enabled);
         m_reference_rotation_y->setEnabled(enabled);
         m_reference_rotation_z->setEnabled(enabled);
+        update_reference_geometry_controls();
     });
 
-    connect(m_reference_geometry_lock, &QCheckBox::toggled, apply_button,
-            [apply_button](bool locked) { apply_button->setEnabled(!locked); });
-    connect(m_reference_geometry_lock, &QCheckBox::toggled, reset_button,
-            [reset_button](bool locked) { reset_button->setEnabled(!locked); });
+    update_reference_geometry_controls();
+}
+
+void MainWindow::update_reference_geometry_controls()
+{
+    if (m_3d_widget == nullptr || m_reference_geometry_lock == nullptr)
+    {
+        return;
+    }
+
+    const bool editable = !m_3d_widget->reference_geometry_locked();
+    if (m_reference_position_x != nullptr)
+    {
+        m_reference_position_x->setEnabled(editable);
+    }
+    if (m_reference_position_y != nullptr)
+    {
+        m_reference_position_y->setEnabled(editable);
+    }
+    if (m_reference_position_z != nullptr)
+    {
+        m_reference_position_z->setEnabled(editable);
+    }
+    if (m_reference_rotation_x != nullptr)
+    {
+        m_reference_rotation_x->setEnabled(editable);
+    }
+    if (m_reference_rotation_y != nullptr)
+    {
+        m_reference_rotation_y->setEnabled(editable);
+    }
+    if (m_reference_rotation_z != nullptr)
+    {
+        m_reference_rotation_z->setEnabled(editable);
+    }
+    if (m_apply_reference_transform != nullptr)
+    {
+        m_apply_reference_transform->setEnabled(editable);
+    }
+    if (m_reset_reference_transform != nullptr)
+    {
+        m_reset_reference_transform->setEnabled(editable);
+    }
 }
 
 void MainWindow::update_reference_geometry_panel()
@@ -1208,6 +1249,7 @@ void MainWindow::update_reference_geometry_panel()
     m_reference_rotation_x->setValue(rotation.x());
     m_reference_rotation_y->setValue(rotation.y());
     m_reference_rotation_z->setValue(rotation.z());
+    update_reference_geometry_controls();
 }
 
 void MainWindow::restore_window_layout()
