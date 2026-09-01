@@ -7,6 +7,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTemporaryDir>
+#include <QUuid>
 
 #include <cmath>
 #include <iostream>
@@ -119,6 +121,88 @@ int main(int argc, char **argv)
 
     if (!check(backup_test_ok,
                "invalid material config should be backed up before rejection"))
+    {
+        return 1;
+    }
+
+    QTemporaryDir temporary_directory;
+    if (!check(temporary_directory.isValid(),
+               "Unable to create temporary directory for color backup test"))
+    {
+        return 1;
+    }
+
+    const QString chemkin_path = temporary_directory.filePath(
+        QString("chemkin-%1.inp").arg(QUuid::createUuid().toString(QUuid::WithoutBraces)));
+    QFile chemkin_file(chemkin_path);
+    if (!check(chemkin_file.open(QIODevice::WriteOnly | QIODevice::Text),
+               "Unable to create temporary Chemkin file for color backup test"))
+    {
+        return 1;
+    }
+    chemkin_file.write("SPECIES O2 N2 END\n");
+    chemkin_file.close();
+
+    const QStringList color_species = {"O2", "N2"};
+    const QDir color_directory(app_color_config_directory_path());
+    const QStringList color_configs_before = color_directory.entryList(
+        {"*.json"}, QDir::Files);
+    QHash<QString, QColor> colors;
+    colors.insert("O2", QColor("#112233"));
+    colors.insert("N2", QColor("#445566"));
+    bool color_backup_test_ok = save_species_color_config(
+        chemkin_path, color_species, colors, &config_error);
+    QString color_config_name;
+    if (color_backup_test_ok)
+    {
+        const QStringList color_configs_after = color_directory.entryList(
+            {"*.json"}, QDir::Files);
+        for (const QString &name : color_configs_after)
+        {
+            if (!color_configs_before.contains(name))
+            {
+                color_config_name = name;
+                break;
+            }
+        }
+        color_backup_test_ok = !color_config_name.isEmpty();
+    }
+
+    const QString color_config_path = color_directory.filePath(color_config_name);
+    if (color_backup_test_ok)
+    {
+        QFile invalid_color_file(color_config_path);
+        color_backup_test_ok = invalid_color_file.open(
+            QIODevice::WriteOnly | QIODevice::Text);
+        if (color_backup_test_ok)
+        {
+            const QJsonObject invalid_color_root{
+                {"schema_version", 1},
+                {"species_colors", QJsonObject{{"O2", "not-a-color"}}}};
+            invalid_color_file.write(QJsonDocument(invalid_color_root).toJson());
+            invalid_color_file.close();
+        }
+    }
+
+    if (color_backup_test_ok)
+    {
+        QHash<QString, QColor> ignored_colors;
+        color_backup_test_ok = !load_species_color_config(
+            chemkin_path, color_species, &ignored_colors, &config_error) &&
+            config_error.contains("backup:");
+    }
+
+    const QStringList color_backups = color_directory.entryList(
+        {color_config_name + ".corrupt-*.bak"}, QDir::Files);
+    color_backup_test_ok = color_backup_test_ok && !color_backups.isEmpty();
+    QFile::remove(color_config_path);
+    for (const QString &backup_name : color_backups)
+    {
+        QFile::remove(color_directory.filePath(backup_name));
+    }
+
+    if (!check(color_backup_test_ok,
+               "invalid species color config should be backed up before rejection"))
     {
         return 1;
     }

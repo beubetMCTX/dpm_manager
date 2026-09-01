@@ -90,7 +90,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 
 - Material and species-color configuration files that contain valid JSON but invalid content are now backed up as `.corrupt-*.bak` before rejection.
 - Invalid material entries and invalid color values no longer disappear silently during recovery.
-- Added regression coverage for material-config backup behavior.
+- Added regression coverage for material and species-color config backup behavior.
 - Release build and all 9 CTest regressions passed.
 
 ### 2026-09-02 Report Unsupported DPM Fields
