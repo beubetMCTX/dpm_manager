@@ -524,6 +524,13 @@ References:
 - Species/Colors now clears the active row when filtering hides it, preventing the color picker from editing an invisible Species entry.
 - Added regression coverage for hidden-selection clearing.
 
+### 2026-09-02 Material Configuration Validation
+
+- Added shared material-entry validation for the standalone `material_cfg` file.
+- Material configuration now rejects empty/duplicate names and non-positive/non-finite densities instead of silently skipping invalid rows.
+- Failed loads preserve the caller's existing material list.
+- Added `app_config_regression` coverage.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.

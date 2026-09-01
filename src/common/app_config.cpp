@@ -783,11 +783,6 @@ bool save_species_color_config(const QString &chemkin_file_path,
 bool load_material_table_config(QList<MaterialConfigEntry> *materials,
                                 QString *error_message)
 {
-    if (materials != nullptr)
-    {
-        materials->clear();
-    }
-
     const QString file_path = QDir(app_material_config_directory_path()).filePath("materials.json");
     if (!QFileInfo::exists(file_path))
     {
@@ -800,30 +795,70 @@ bool load_material_table_config(QList<MaterialConfigEntry> *materials,
         return false;
     }
 
+    QList<MaterialConfigEntry> parsed_materials;
     const QJsonArray materials_array = root_object.value("materials").toArray();
+    for (const QJsonValue &value : materials_array)
+    {
+        if (!value.isObject())
+        {
+            if (error_message != nullptr) *error_message = "Material configuration contains an invalid entry.";
+            return false;
+        }
+
+        const QJsonObject material_object = value.toObject();
+        MaterialConfigEntry entry;
+        entry.name = material_object.value("name").toString().trimmed();
+        entry.density = material_object.value("density").toDouble(0.0);
+        parsed_materials.append(entry);
+    }
+
+    if (!validate_material_entries(parsed_materials, error_message))
+    {
+        return false;
+    }
+
     if (materials != nullptr)
     {
-        for (const QJsonValue &value : materials_array)
+        *materials = std::move(parsed_materials);
+    }
+
+    return true;
+}
+
+bool validate_material_entries(const QList<MaterialConfigEntry> &materials,
+                               QString *error_message)
+{
+    QStringList names;
+    for (const MaterialConfigEntry &entry : materials)
+    {
+        const QString name = entry.name.trimmed();
+        if (name.isEmpty())
         {
-            if (!value.isObject())
-            {
-                continue;
-            }
+            if (error_message != nullptr) *error_message = "Material name cannot be empty.";
+            return false;
+        }
 
-            const QJsonObject material_object = value.toObject();
-            const QString name = material_object.value("name").toString().trimmed();
-            if (name.isEmpty())
+        if (names.contains(name, Qt::CaseInsensitive))
+        {
+            if (error_message != nullptr)
             {
-                continue;
+                *error_message = QString("Duplicate material name: %1").arg(name);
             }
+            return false;
+        }
+        names.append(name);
 
-            MaterialConfigEntry entry;
-            entry.name = name;
-            entry.density = material_object.value("density").toDouble(0.0);
-            materials->append(entry);
+        if (!std::isfinite(entry.density) || entry.density <= 0.0)
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = QString("Material density must be positive and finite: %1").arg(name);
+            }
+            return false;
         }
     }
 
+    if (error_message != nullptr) error_message->clear();
     return true;
 }
 
@@ -835,21 +870,20 @@ bool save_material_table_config(const QList<MaterialConfigEntry> &materials,
         return false;
     }
 
+    if (!validate_material_entries(materials, error_message))
+    {
+        return false;
+    }
+
     QJsonArray materials_array;
-    QStringList saved_names;
     for (const MaterialConfigEntry &entry : materials)
     {
         const QString name = entry.name.trimmed();
-        if (name.isEmpty() || saved_names.contains(name))
-        {
-            continue;
-        }
 
         QJsonObject material_object;
         material_object.insert("name", name);
         material_object.insert("density", entry.density);
         materials_array.append(material_object);
-        saved_names.append(name);
     }
 
     QJsonObject root_object;

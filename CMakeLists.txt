@@ -198,6 +198,18 @@ if(DPM_BUILD_TESTS)
     target_link_libraries(unit_system_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME unit_system_regression COMMAND unit_system_regression)
 
+    add_executable(app_config_regression
+        tests/app_config_test.cpp
+        ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
+    )
+    target_include_directories(app_config_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${COMMON_DIR}
+    )
+    target_link_libraries(app_config_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    add_test(NAME app_config_regression COMMAND app_config_regression)
+
     add_executable(qui_line_edit_regression
         tests/qui_line_edit_test.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp

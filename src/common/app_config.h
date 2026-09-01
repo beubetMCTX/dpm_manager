@@ -68,6 +68,8 @@ bool load_material_table_config(QList<MaterialConfigEntry> *materials,
                                 QString *error_message = nullptr);
 bool save_material_table_config(const QList<MaterialConfigEntry> &materials,
                                 QString *error_message = nullptr);
+bool validate_material_entries(const QList<MaterialConfigEntry> &materials,
+                               QString *error_message = nullptr);
 QStringList material_names_from_entries(const QList<MaterialConfigEntry> &materials);
 
 #endif // APP_CONFIG_H
