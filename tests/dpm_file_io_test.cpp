@@ -141,5 +141,16 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Unit spacer;
+    spacer.type = line_spacer;
+    if (!check(!write_dpm_file(temporary_directory.filePath("spacer.dpm"),
+                               {spacer},
+                               &error_message) &&
+                   error_message.contains("injector units"),
+               "non-injector units should be rejected by DPM export"))
+    {
+        return 1;
+    }
+
     return 0;
 }

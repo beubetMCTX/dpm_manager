@@ -2141,6 +2141,15 @@ bool write_dpm_file(const QString &file_path,
     QStringList blocks;
     for (const Unit &unit : units)
     {
+        if (unit.type != injector)
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = "DPM export supports injector units only.";
+            }
+            return false;
+        }
+
         const QString name = unit.inj.injector_data.name.trimmed();
         if (name.isEmpty() || name.contains(QRegularExpression("[\\s()]")))
         {

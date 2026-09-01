@@ -498,6 +498,11 @@ References:
 - Added regression coverage for `NaN` and empty-list rejection.
 - Focused DPM I/O regression passed.
 
+### 2026-09-02 DPM Export Unit-Type Guard
+
+- DPM export now rejects non-injector `Unit` entries instead of serializing them as injectors.
+- Added regression coverage for spacer-unit rejection.
+
 ### 2026-09-02 Repeatable Release Shutdown Probe
 
 - Added `scripts/verify_release_shutdown.ps1` to launch the deployed Release executable without an external DLL `PATH`, wait for its main window, send a normal `WM_CLOSE`, and require exit code `0`.
