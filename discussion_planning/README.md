@@ -656,3 +656,8 @@ References:
 - The packaging script now clears the generated output directory before copying the executable and dependencies.
 - A filesystem-root safety check prevents an accidental broad deletion when a custom output path is supplied.
 - This prevents stale logs, plugins, and removed dependencies from leaking into later Release packages.
+
+### 2026-09-02 Make CMake Dependency Paths Overridable
+
+- OpenCASCADE and VTK paths are now CMake Cache variables instead of fixed non-overridable assignments.
+- Existing defaults preserve the current development environment, while another machine can provide its own paths during configuration with `-D...` options.

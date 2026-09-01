@@ -11,14 +11,21 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(OpenCASCADE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/cmake")
-set(OpenCASCADE_INCLUDE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/inc")
-set(OpenCASCADE_LIB_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/lib")
-set(OpenCASCADE_BIN_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/bin")
+set(OpenCASCADE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/cmake" CACHE PATH
+    "OpenCASCADE CMake package directory")
+set(OpenCASCADE_INCLUDE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/inc" CACHE PATH
+    "OpenCASCADE include directory")
+set(OpenCASCADE_LIB_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/lib" CACHE PATH
+    "OpenCASCADE library directory")
+set(OpenCASCADE_BIN_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/bin" CACHE PATH
+    "OpenCASCADE runtime directory")
 
-set(VTK_INCLUDEDIRS "D:/vcpkg/VTK/VTK-Install/include/vtk-9.5")
-set(VTK_DIR "D:/vcpkg/VTK/VTK-Install/lib/cmake/vtk-9.5")
-set(VTK_BIN_DIR "D:/vcpkg/VTK/VTK-Install/bin")
+set(VTK_INCLUDEDIRS "D:/vcpkg/VTK/VTK-Install/include/vtk-9.5" CACHE PATH
+    "VTK include directory")
+set(VTK_DIR "D:/vcpkg/VTK/VTK-Install/lib/cmake/vtk-9.5" CACHE PATH
+    "VTK CMake package directory")
+set(VTK_BIN_DIR "D:/vcpkg/VTK/VTK-Install/bin" CACHE PATH
+    "VTK runtime directory")
 
 option(USE_QT "Use Qt with VTK" ON)
 add_definitions(-DWNT)
