@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QSaveFile>
 #include <QRegularExpression>
+#include <QSet>
 
 #include <cmath>
 #define  Kill_Read  *ok=false;delete(in);delete(file);return unit;
@@ -694,7 +695,8 @@ struct VectorFieldRule
 bool parse_dpm_unit_block(const QString& block,
                           Unit& unit,
                           const QString& file_name,
-                          bool show_error_message_box)
+                          bool show_error_message_box,
+                          QStringList *warning_messages)
 {
     auto& injector = unit.inj.injector_data;
 
@@ -892,6 +894,42 @@ bool parse_dpm_unit_block(const QString& block,
                                            show_error_message_box))
         {
             return false;
+        }
+    }
+
+    if (warning_messages != nullptr)
+    {
+        QSet<QString> known_fields;
+        for (const ScalarFieldRule &rule : scalar_rules)
+        {
+            known_fields.insert(QString::fromLatin1(rule.title));
+        }
+        for (const ListFieldRule &rule : list_rules)
+        {
+            known_fields.insert(QString::fromLatin1(rule.title));
+        }
+        for (const VectorFieldRule &rule : vector_rules)
+        {
+            known_fields.insert(QString::fromLatin1(rule.x_title));
+            known_fields.insert(QString::fromLatin1(rule.y_title));
+            known_fields.insert(QString::fromLatin1(rule.z_title));
+        }
+
+        const QRegularExpression field_expression(
+            "\\(([A-Za-z][A-Za-z0-9?/_-]*)\\s+\\.");
+        QRegularExpressionMatchIterator matches = field_expression.globalMatch(block);
+        while (matches.hasNext())
+        {
+            const QString field_name = matches.next().captured(1);
+            if (!known_fields.contains(field_name))
+            {
+                const QString warning = QString("Injector %1: unsupported field ignored: %2")
+                                             .arg(unit.inj.injector_data.name, field_name);
+                if (!warning_messages->contains(warning))
+                {
+                    warning_messages->append(warning);
+                }
+            }
         }
     }
 
@@ -1746,7 +1784,8 @@ QList<Unit> read_single_dpm_file(bool *ok)
 QList<Unit> read_dpm_file(const QString &file_path,
                           bool *ok,
                           QString *error_message,
-                          bool show_error_message_box)
+                          bool show_error_message_box,
+                          QStringList *warning_messages)
 {
     if (ok != nullptr)
     {
@@ -1756,6 +1795,10 @@ QList<Unit> read_dpm_file(const QString &file_path,
     if (error_message != nullptr)
     {
         error_message->clear();
+    }
+    if (warning_messages != nullptr)
+    {
+        warning_messages->clear();
     }
 
     QList<Unit> units;
@@ -1842,7 +1885,8 @@ QList<Unit> read_dpm_file(const QString &file_path,
         Unit unit;
         active_parse_error_message = error_message;
         if (!parse_dpm_unit_block(block, unit, file_name,
-                                  show_error_message_box))
+                                  show_error_message_box,
+                                  warning_messages))
         {
             const QString detailed_error = error_message != nullptr
                                                ? error_message->trimmed()

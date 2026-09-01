@@ -155,6 +155,28 @@ int main(int argc, char *argv[])
         return 1;
     }
     const QString written_contents = QString::fromUtf8(written_input.readAll());
+    QString unsupported_field_contents = written_contents;
+    unsupported_field_contents.replace(
+        "(type . droplet)",
+        "(type . droplet) (future-fluent-field . 1)");
+    const QString unsupported_field_path = temporary_directory.filePath("unsupported-field.dpm");
+    if (!check(write_file(unsupported_field_path, unsupported_field_contents),
+               "Unable to create unsupported-field DPM fixture"))
+    {
+        return 1;
+    }
+    QStringList warning_messages;
+    error_message.clear();
+    const QList<Unit> unsupported_field_import = read_dpm_file(
+        unsupported_field_path, &ok, &error_message, false, &warning_messages);
+    if (!check(ok && unsupported_field_import.size() == 2 &&
+                   warning_messages.size() == 2 &&
+                   warning_messages.first().contains("future-fluent-field"),
+               "DPM import should report unsupported fields without failing"))
+    {
+        return 1;
+    }
+
     QString duplicate_name_contents = written_contents;
     duplicate_name_contents.replace("writer_second", "writer_first");
     const QString duplicate_name_path = temporary_directory.filePath("duplicate-name.dpm");

@@ -93,6 +93,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added regression coverage for material-config backup behavior.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Report Unsupported DPM Fields
+
+- The field-table-driven DPM reader now optionally reports unknown Fluent fields while continuing to import supported data.
+- The main window logs these warnings and shows a status-bar summary instead of silently discarding them.
+- Added regression coverage confirming unsupported fields do not abort a multi-injector import.
+
 ## Candidate Next Work
 
 ### High Priority

@@ -474,6 +474,7 @@ void MainWindow::on_actionRead_triggered()
 {
     bool ok = false;
     QString error_message;
+    QStringList warning_messages;
     const QString file_path = QFileDialog::getOpenFileName(
         this,
         "选择 DPM 文件",
@@ -485,7 +486,11 @@ void MainWindow::on_actionRead_triggered()
         return;
     }
 
-    const QList<Unit> temp = read_dpm_file(file_path, &ok, &error_message, true);
+    const QList<Unit> temp = read_dpm_file(file_path,
+                                           &ok,
+                                           &error_message,
+                                           true,
+                                           &warning_messages);
     if (ok)
     {
         if (!confirm_project_change("importing a DPM file", true))
@@ -508,6 +513,17 @@ void MainWindow::on_actionRead_triggered()
 
         statusBar()->showMessage(
             QString("Loaded %1 injectors from DPM file").arg(units.size()), 5000);
+        if (!warning_messages.isEmpty())
+        {
+            for (const QString &warning : warning_messages)
+            {
+                qWarning() << warning;
+            }
+            statusBar()->showMessage(
+                QString("DPM imported with %1 unsupported field warning(s)")
+                    .arg(warning_messages.size()),
+                8000);
+        }
     }
     else
     {

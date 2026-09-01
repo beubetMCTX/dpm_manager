@@ -44,7 +44,8 @@ QList<Unit> read_single_dpm_file_regex(bool *ok);
 QList<Unit> read_dpm_file(const QString &file_path,
                           bool *ok = nullptr,
                           QString *error_message = nullptr,
-                          bool show_error_message_box = true);
+                          bool show_error_message_box = true,
+                          QStringList *warning_messages = nullptr);
 
 bool write_dpm_file(const QString &file_path,
                     const QList<Unit> &units,
