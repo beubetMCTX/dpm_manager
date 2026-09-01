@@ -28,6 +28,7 @@ void Base_Geom_Read::clear_loaded_state()
     m_rootShapesCount = 0;
     m_shapeNames.clear();
     m_last_error_message.clear();
+    m_file_path.clear();
     bounding_box.SetVoid();
     xyz_min = QVector3D(0.0f, 0.0f, 0.0f);
     xyz_max = QVector3D(0.0f, 0.0f, 0.0f);
@@ -124,6 +125,7 @@ bool Base_Geom_Read::readFile(QString& filePath)
         if (m_shape.IsNull()) {
             return report_error("成功读取文件但未获取到有效几何数据");
         }
+        m_file_path = fileInfo.absoluteFilePath();
         emit fileReadSuccess(fileInfo.fileName());
         return true;
     }

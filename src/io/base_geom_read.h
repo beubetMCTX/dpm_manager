@@ -39,6 +39,7 @@ public:
     // 文件读取功能
     bool readFile(QString& filePath);
     TopoDS_Shape getShape() const { return m_shape; }
+    QString file_path() const { return m_file_path; }
 
     // 装配结构相关功能（用于STEP文件）
     bool hasAssemblyStructure() const { return m_hasAssembly; }
@@ -77,6 +78,7 @@ private:
     int m_rootShapesCount;
     QStringList m_shapeNames;
     QString m_last_error_message;
+    QString m_file_path;
 
     Bnd_Box bounding_box;
 
