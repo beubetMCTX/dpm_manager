@@ -375,3 +375,4 @@ References:
 - The script copies the Release executable, all known runtime DLLs, Qt plugin directories, and runs matching `windeployqt` when available.
 - It emits a SHA-256 deployment manifest for checking package contents.
 - Generated packages under `/release/` are ignored by Git and can be tested locally without polluting the source tree.
+- Generated package was started without an external DLL `PATH` override, remained alive for five seconds, then closed through the window message path with exit code `0`.
