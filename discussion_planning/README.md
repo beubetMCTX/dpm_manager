@@ -272,6 +272,7 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Connected the previously inactive 3D injector Delete action in commit `bcec0ea`; it now uses the same confirmation and safe-removal path as the Objects panel.
 - Cleared the in-memory copied injector when replacing the displayed DPM object set in commit `1647b71`, preventing cross-file paste of stale data.
 - Made the View-menu dock actions checkable and synchronized with Dock visibility in commit `7cfeaab`, so menu state and close buttons remain consistent.
+- Changed reference-geometry double-click behavior in commit `3191360` to select the reference object and open its property Dock; injector double-click behavior remains editor opening.
 
 References:
 
