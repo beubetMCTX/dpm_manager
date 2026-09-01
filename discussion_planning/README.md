@@ -286,3 +286,5 @@ References:
 - Invalid JSON configuration files are now detected with `QJsonParseError` details.
 - Before falling back to defaults, the invalid file is renamed to a timestamped `.corrupt-*.bak` backup instead of being overwritten.
 - Release compilation passed after the change; commit `dc31075` was pushed to `origin/main`.
+- Startup recovery now removes a missing or unparseable saved Chemkin path, preventing the same stale import failure from recurring on every launch.
+- Release compilation passed again; commit `3f3cec7` was pushed to `origin/main`.
