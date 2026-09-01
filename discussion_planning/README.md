@@ -396,3 +396,8 @@ References:
 - Reference geometry selected from the main window is now parsed into a temporary `Base_Geom_Read` instance.
 - The displayed geometry is replaced only after the new file is read successfully, so a canceled, missing, unsupported, or malformed file cannot clear the current scene.
 - Project dirty-state and persistence updates still occur only after a successful replacement.
+
+### 2026-09-02 DPM Import Regression Coverage
+
+- Added `dpm_file_io_regression` for missing, empty, and malformed DPM files.
+- The test verifies that failed imports return an empty unit list, set `ok` to false, and expose a useful error without showing a modal dialog.

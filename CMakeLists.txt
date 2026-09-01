@@ -208,6 +208,28 @@ if(DPM_BUILD_TESTS)
     )
     target_link_libraries(chemkin_io_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
     add_test(NAME chemkin_io_regression COMMAND chemkin_io_regression)
+
+    add_executable(dpm_file_io_regression
+        tests/dpm_file_io_test.cpp
+        ${IO_DIR}/dpm_file_io.h ${IO_DIR}/dpm_file_io.cpp
+        ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+    )
+    target_include_directories(dpm_file_io_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${IO_DIR}
+        ${MODEL_DIR}
+        ${COMMON_DIR}
+    )
+    target_link_libraries(dpm_file_io_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(dpm_file_io_regression PRIVATE ${GLEW_LIBRARIES})
+    target_link_libraries(dpm_file_io_regression PRIVATE glfw)
+    target_link_libraries(dpm_file_io_regression PRIVATE assimp::assimp)
+    target_link_libraries(dpm_file_io_regression PRIVATE unofficial::tinyexpr::tinyexpr)
+    target_link_libraries(dpm_file_io_regression PRIVATE OpenGL::GL)
+    target_link_libraries(dpm_file_io_regression PRIVATE Qt6::OpenGLWidgets)
+    target_link_libraries(dpm_file_io_regression PRIVATE ${OpenCASCADE_LIBRARIES})
+    add_test(NAME dpm_file_io_regression COMMAND dpm_file_io_regression)
 endif()
 
 
