@@ -278,6 +278,8 @@ protected:
 
     void wheelEvent(QWheelEvent *event) override;
 
+    void keyPressEvent(QKeyEvent *event) override;
+
     void contextMenuEvent(QContextMenuEvent *event) override;
 
     void on_menu_closed();

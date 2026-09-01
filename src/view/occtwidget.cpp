@@ -1940,6 +1940,23 @@ void OCCTWidget::wheelEvent(QWheelEvent *event)
 
 }
 
+void OCCTWidget::keyPressEvent(QKeyEvent *event)
+{
+    if (event == nullptr)
+    {
+        return;
+    }
+
+    if (event->key() == Qt::Key_Escape)
+    {
+        clear_selection();
+        event->accept();
+        return;
+    }
+
+    QWidget::keyPressEvent(event);
+}
+
 void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
 {
     if (m_context.IsNull() || m_view.IsNull())

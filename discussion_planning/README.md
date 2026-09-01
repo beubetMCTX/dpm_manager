@@ -81,6 +81,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - The list label, sorting, and selection behavior remain unchanged.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Add Escape Selection Reset
+
+- Pressing `Esc` in the OCCT view now clears the current face/object selection and stops active dragging state.
+- The shortcut does not modify injector or reference geometry data.
+- Release build and all 9 CTest regressions passed.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
