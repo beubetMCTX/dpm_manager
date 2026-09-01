@@ -553,3 +553,9 @@ References:
 - Added an explicit face-selection-mode restoration before left-click and context-menu detection.
 - Reference-geometry locking still only prevents dragging and transform edits; face selection and view alignment remain available.
 - Release build passed and all 9 CTest regressions passed. Desktop verification of lock/unlock, face picking, and alignment remains required because the current automated tests run offscreen.
+
+### 2026-09-02 Remove Duplicate Geometry Refresh Synchronization
+
+- Geometry edits already publish `unit_data_updated` before the deferred OCCT rebuild.
+- Removed the second identical signal from `refresh_unit_visual()` to avoid redundant editor synchronization and main-window updates.
+- Release build and all 9 CTest regressions passed.

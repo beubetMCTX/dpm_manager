@@ -1741,7 +1741,6 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
     m_context->Redisplay(unit->ais_display, Standard_False);
     m_view->Redraw();
-    emit unit_data_updated(unit);
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
