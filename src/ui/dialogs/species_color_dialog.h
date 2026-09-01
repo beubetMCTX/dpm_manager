@@ -32,6 +32,7 @@ protected:
 
 signals:
     void warning_message_requested(const QString &message);
+    void species_colors_changed();
 
 private:
     bool can_assign_color(const QString &species_name,

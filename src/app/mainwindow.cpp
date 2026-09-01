@@ -968,6 +968,8 @@ void MainWindow::on_actionSpecies_Colors_triggered()
         {
             statusBar()->showMessage(message, 8000);
         });
+        connect(m_species_color_dialog, &SpeciesColorDialog::species_colors_changed,
+                this, &MainWindow::mark_project_dirty);
     }
 
     m_species_color_dialog->set_chemkin_context(m_chemkin_file_path, m_chemkin_species_names);

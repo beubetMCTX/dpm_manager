@@ -447,6 +447,7 @@ void SpeciesColorDialog::set_color_for_species(const QString &species_name, cons
     }
 
     m_species_colors.insert(species_name, color);
+    emit species_colors_changed();
 
     for (int row = 0; row < ui->speciesTable->rowCount(); ++row)
     {

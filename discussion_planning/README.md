@@ -44,6 +44,12 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Added regression coverage for invalid ring-cone radii.
 - Release build and all 9 CTest regressions passed.
 
+### 2026-09-02 Track Species Color Edits in Project State
+
+- Species color edits now notify `MainWindow` and mark the project dirty.
+- Closing the application after an unsaved color change can now participate in the existing save/discard prompt, and project-session saving can capture the latest colors.
+- Release build and all 9 CTest regressions passed.
+
 ## Candidate Next Work
 
 ### High Priority
