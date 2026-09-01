@@ -439,6 +439,12 @@ References:
 - Repackaged the current Release executable with the app-local runtime DLL set.
 - The self-contained package contains 257 runtime files and passed the repeatable startup/shutdown probe with exit code `0`.
 
+### 2026-09-02 Recent Project Sessions
+
+- Added a `Recent Projects` submenu under File.
+- Project session paths are stored in the versioned application configuration, deduplicated case-insensitively, limited to the 10 most recent existing files, and pruned when files disappear.
+- A project is added only after a successful load or save; failed opens do not alter the current project or recent-project list.
+
 ### 2026-09-02 Reference Lock Status Feedback
 
 - The Objects panel now prefixes the reference-geometry row with `[Locked]` when movement and transform editing are locked.
