@@ -12,6 +12,8 @@
 #include <QJsonParseError>
 #include <QSaveFile>
 
+#include <cmath>
+
 namespace
 {
 constexpr int kConfigSchemaVersion = 1;
@@ -39,6 +41,75 @@ QString color_config_file_path(const QString &chemkin_file_path,
 }
 
 QString backup_invalid_config(const QString &file_path);
+
+bool migrate_config_schema(QJsonObject *json_object,
+                           const QString &file_path,
+                           QString *error_message)
+{
+    if (json_object == nullptr)
+    {
+        return true;
+    }
+
+    const QJsonValue version_value = json_object->value("schema_version");
+    if (version_value.isUndefined())
+    {
+        // Version 0 was written before schema_version existed. All keys used
+        // by that format remain compatible, so only normalize its in-memory
+        // version marker.
+        json_object->insert("schema_version", kConfigSchemaVersion);
+        return true;
+    }
+
+    if (!version_value.isDouble())
+    {
+        const QString backup_path = backup_invalid_config(file_path);
+        if (error_message != nullptr)
+        {
+            *error_message = QString("Invalid schema_version in config file: %1%2")
+                                 .arg(file_path,
+                                      backup_path.isEmpty()
+                                          ? QString()
+                                          : QString("; backup: %1").arg(backup_path));
+        }
+        return false;
+    }
+
+    const double version_number = version_value.toDouble();
+    const int version = static_cast<int>(version_number);
+    if (!std::isfinite(version_number) || version_number < 0.0 || version_number != version)
+    {
+        const QString backup_path = backup_invalid_config(file_path);
+        if (error_message != nullptr)
+        {
+            *error_message = QString("Invalid schema_version in config file: %1%2")
+                                 .arg(file_path,
+                                      backup_path.isEmpty()
+                                          ? QString()
+                                          : QString("; backup: %1").arg(backup_path));
+        }
+        return false;
+    }
+
+    if (version > kConfigSchemaVersion)
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QString("Config file %1 requires newer schema version %2.")
+                                 .arg(file_path)
+                                 .arg(version);
+        }
+        return false;
+    }
+
+    if (version < kConfigSchemaVersion)
+    {
+        // Reserved migration point for future key renames. Current version 1
+        // only needs the version marker because its key layout is unchanged.
+        json_object->insert("schema_version", kConfigSchemaVersion);
+    }
+    return true;
+}
 
 bool read_json_object(const QString &file_path,
                       QJsonObject *json_object,
@@ -79,6 +150,10 @@ bool read_json_object(const QString &file_path,
     if (json_object != nullptr)
     {
         *json_object = document.object();
+        if (!migrate_config_schema(json_object, file_path, error_message))
+        {
+            return false;
+        }
     }
     return true;
 }

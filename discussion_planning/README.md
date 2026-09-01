@@ -343,3 +343,10 @@ References:
 - Injection type, cone type, and geometry-affecting property rows retain geometry refresh behavior.
 - Release build passed. `unit_system_regression` and `project_session_regression` both passed with deployed Qt DLLs.
 - Interactive timing comparison remains useful because the current automated tests do not expose a real OCCT window.
+
+### 2026-09-02 Configuration Schema Handling
+
+- Configuration readers now normalize missing and older schema markers in memory while preserving existing keys.
+- Malformed schema markers are backed up with the same `.corrupt-*.bak` recovery path as malformed JSON.
+- Configurations from a newer schema are rejected without being overwritten, protecting settings written by a newer application.
+- Release build, `unit_system_regression`, and `project_session_regression` passed.
