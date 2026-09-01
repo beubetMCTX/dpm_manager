@@ -3,6 +3,7 @@
 #include <AIS_ViewCube.hxx>
 #include <QTimer>
 #include <QtMath>
+#include <QMessageBox>
 
 namespace
 {
@@ -1601,6 +1602,25 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
                 [this, target_uuid]() { copy_unit_by_uuid(target_uuid); });
         connect(act_paste, &QAction::triggered, this,
                 [this, target_uuid]() { paste_unit_by_uuid(target_uuid); });
+        connect(act_delte, &QAction::triggered, this,
+                [this, target_uuid]()
+        {
+            const std::shared_ptr<Unit> unit = unit_hash.value(target_uuid);
+            if (unit == nullptr)
+            {
+                return;
+            }
+
+            const auto answer = QMessageBox::question(
+                this, "Delete Injector",
+                QString("Delete injector \"%1\"?")
+                    .arg(unit->inj.injector_data.name),
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+            if (answer == QMessageBox::Yes)
+            {
+                remove_unit_by_uuid(target_uuid);
+            }
+        });
 
 
         menu.exec(event->globalPos());	// 右键菜单被模态显示出来了
