@@ -333,6 +333,7 @@ void OCCTWidget::clear_face_reference()
     if (had_face_reference)
     {
         emit face_reference_changed(false);
+        emit face_reference_info_changed(QVector3D(), QVector3D());
     }
 }
 
@@ -446,6 +447,10 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
     m_context->Display(face_trihedron, Standard_False);
     m_context->Deactivate(face_trihedron, TopAbs_SHAPE);
     emit face_reference_changed(true);
+    emit face_reference_info_changed(to_qvector3d(origin),
+                                     QVector3D(static_cast<float>(normal.X()),
+                                               static_cast<float>(normal.Y()),
+                                               static_cast<float>(normal.Z())));
 }
 
 bool OCCTWidget::select_face_reference()

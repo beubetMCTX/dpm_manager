@@ -120,6 +120,8 @@ signals:
                                      const QVector3D &rotation_degrees);
     void reference_geometry_available(bool available);
     void face_reference_changed(bool available);
+    void face_reference_info_changed(const QVector3D &origin,
+                                     const QVector3D &normal);
     void reference_geometry_lock_changed(bool locked);
 
 private:

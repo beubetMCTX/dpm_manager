@@ -94,5 +94,7 @@ private:
     QDoubleSpinBox *m_reference_rotation_z = nullptr;
     QCheckBox *m_reference_geometry_lock = nullptr;
     QPushButton *m_align_reference_face = nullptr;
+    QLabel *m_reference_face_origin = nullptr;
+    QLabel *m_reference_face_normal = nullptr;
 };
 #endif // MAINWINDOW_H

@@ -137,6 +137,24 @@ MainWindow::MainWindow(QWidget *parent)
             m_align_reference_face->setEnabled(available);
         }
     });
+    connect(m_3d_widget, &OCCTWidget::face_reference_info_changed, this,
+            [this](const QVector3D &origin, const QVector3D &normal)
+    {
+        if (m_reference_face_origin == nullptr || m_reference_face_normal == nullptr)
+        {
+            return;
+        }
+
+        const auto format_vector = [](const QVector3D &value)
+        {
+            return QString("(%1, %2, %3)")
+                .arg(value.x(), 0, 'f', 3)
+                .arg(value.y(), 0, 'f', 3)
+                .arg(value.z(), 0, 'f', 3);
+        };
+        m_reference_face_origin->setText(format_vector(origin));
+        m_reference_face_normal->setText(format_vector(normal));
+    });
     connect(m_3d_widget, &OCCTWidget::reference_geometry_lock_changed,
             this, [this](bool locked)
     {
@@ -610,9 +628,19 @@ void MainWindow::create_reference_geometry_panel()
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
 
+    auto *face_info_group = new QGroupBox("Selected Face Coordinate", panel);
+    auto *face_info_layout = new QFormLayout(face_info_group);
+    m_reference_face_origin = new QLabel("-", face_info_group);
+    m_reference_face_normal = new QLabel("-", face_info_group);
+    m_reference_face_origin->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_reference_face_normal->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    face_info_layout->addRow("Origin", m_reference_face_origin);
+    face_info_layout->addRow("Normal", m_reference_face_normal);
+
     panel_layout->addWidget(apply_button);
     panel_layout->addWidget(reset_button);
     panel_layout->addWidget(m_align_reference_face);
+    panel_layout->addWidget(face_info_group);
     panel_layout->addWidget(m_reference_geometry_lock);
     panel_layout->addStretch();
 
