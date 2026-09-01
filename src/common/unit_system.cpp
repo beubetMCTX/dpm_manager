@@ -98,6 +98,12 @@ bool validate_preference(const QString &value,
     }
     return true;
 }
+
+Unit_Preferences &active_preferences_storage()
+{
+    static Unit_Preferences preferences = UnitSystem::default_preferences();
+    return preferences;
+}
 }
 
 Unit_Preferences UnitSystem::default_preferences()
@@ -116,6 +122,57 @@ bool UnitSystem::validate_preferences(const Unit_Preferences &preferences,
            validate_preference(preferences.time, Unit_Dimension::Time, "time", error_message) &&
            validate_preference(preferences.pressure, Unit_Dimension::Pressure, "pressure", error_message) &&
            validate_preference(preferences.temperature, Unit_Dimension::Temperature, "temperature", error_message);
+}
+
+void UnitSystem::set_active_preferences(const Unit_Preferences &preferences)
+{
+    if (validate_preferences(preferences, nullptr))
+    {
+        active_preferences_storage() = preferences;
+    }
+}
+
+Unit_Preferences UnitSystem::active_preferences()
+{
+    return active_preferences_storage();
+}
+
+QString UnitSystem::base_unit(Unit_Dimension dimension)
+{
+    return base_unit_for(dimension);
+}
+
+QString UnitSystem::preferred_display_unit(const QString &semantic_unit)
+{
+    const Unit_Definition definition_value = definition(semantic_unit);
+    if (definition_value.symbol.isEmpty())
+    {
+        return semantic_unit.trimmed();
+    }
+
+    const Unit_Preferences preferences = active_preferences_storage();
+    switch (definition_value.dimension)
+    {
+    case Unit_Dimension::Length:
+        return preferences.length;
+    case Unit_Dimension::Angle:
+        return preferences.angle;
+    case Unit_Dimension::Velocity:
+        return preferences.velocity;
+    case Unit_Dimension::Mass:
+        return preferences.mass;
+    case Unit_Dimension::MassFlow:
+        return preferences.mass_flow;
+    case Unit_Dimension::Time:
+        return preferences.time;
+    case Unit_Dimension::Pressure:
+        return preferences.pressure;
+    case Unit_Dimension::Temperature:
+        return preferences.temperature;
+    case Unit_Dimension::Dimensionless:
+    default:
+        return semantic_unit.trimmed();
+    }
 }
 
 Unit_Definition UnitSystem::definition(const QString &symbol)

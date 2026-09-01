@@ -357,3 +357,9 @@ References:
 - Added JSON persistence under `config.json` with safe defaults when the preference block is absent.
 - Invalid or dimension-incompatible unit preferences are rejected without being applied.
 - Added default/validation regression coverage; settings UI integration remains the next increment.
+
+### 2026-09-02 Unit Preference Runtime Integration
+
+- Application startup now loads valid unit preferences and activates them before editors are opened.
+- `QUI_FieldRow` maps semantic dimensions to configured display units while preserving field-specific internal storage units.
+- Length and temperature use base storage units; angle fields preserve their existing degree/radian storage semantics.

@@ -955,12 +955,30 @@ QString QUI_FieldRow::label_text() const
 
 void QUI_FieldRow::set_unit_text(const QString &text)
 {
-    m_unit_text = text.trimmed();
-    const QString storage_unit = m_unit_text == "mm" ? "m" : m_unit_text;
-    if (UnitSystem::is_supported(m_unit_text) && UnitSystem::is_supported(storage_unit))
+    const QString semantic_unit = text.trimmed();
+    m_unit_text = UnitSystem::preferred_display_unit(semantic_unit);
+
+    const Unit_Definition semantic_definition = UnitSystem::definition(semantic_unit);
+    m_storage_unit = semantic_unit;
+    if (semantic_definition.dimension == Unit_Dimension::Length)
     {
-        m_primary_editor->set_unit_conversion(m_unit_text, storage_unit);
-        m_secondary_editor->set_unit_conversion(m_unit_text, storage_unit);
+        m_storage_unit = UnitSystem::base_unit(Unit_Dimension::Length);
+    }
+    else if (semantic_definition.dimension == Unit_Dimension::Temperature)
+    {
+        m_storage_unit = UnitSystem::base_unit(Unit_Dimension::Temperature);
+    }
+    else if (semantic_definition.dimension != Unit_Dimension::Angle &&
+             !semantic_definition.symbol.isEmpty())
+    {
+        m_storage_unit = UnitSystem::base_unit(semantic_definition.dimension);
+    }
+
+    if (UnitSystem::is_supported(m_unit_text) && UnitSystem::is_supported(m_storage_unit) &&
+        UnitSystem::are_compatible(m_unit_text, m_storage_unit))
+    {
+        m_primary_editor->set_unit_conversion(m_unit_text, m_storage_unit);
+        m_secondary_editor->set_unit_conversion(m_unit_text, m_storage_unit);
     }
     update_label_display();
 }

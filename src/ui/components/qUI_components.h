@@ -131,6 +131,7 @@ private:
     QUI_LineEdit *m_secondary_editor = nullptr;
     QString m_label_text;
     QString m_unit_text;
+    QString m_storage_unit;
     Layout_Mode m_layout_mode = Layout_Mode::SingleValue;
     bool m_show_secondary_editor = true;
 };

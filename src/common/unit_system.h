@@ -43,6 +43,10 @@ public:
     static Unit_Preferences default_preferences();
     static bool validate_preferences(const Unit_Preferences &preferences,
                                      QString *error_message = nullptr);
+    static void set_active_preferences(const Unit_Preferences &preferences);
+    static Unit_Preferences active_preferences();
+    static QString base_unit(Unit_Dimension dimension);
+    static QString preferred_display_unit(const QString &semantic_unit);
 
     static Unit_Definition definition(const QString &symbol);
     static bool is_supported(const QString &symbol);

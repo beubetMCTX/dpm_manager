@@ -44,6 +44,19 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    Unit_Preferences custom = defaults;
+    custom.length = "cm";
+    custom.angle = "rad";
+    UnitSystem::set_active_preferences(custom);
+    if (!expect(UnitSystem::preferred_display_unit("m") == "cm",
+                "length fields should use configured display unit") ||
+        !expect(UnitSystem::preferred_display_unit("deg") == "rad",
+                "angle fields should use configured display unit"))
+    {
+        return 1;
+    }
+    UnitSystem::set_active_preferences(defaults);
+
     if (!expect(UnitSystem::is_supported("mm"), "mm should be supported") ||
         !expect(UnitSystem::are_compatible("mm", "m"), "length units should be compatible") ||
         !expect(!UnitSystem::are_compatible("mm", "rad"), "length and angle should be incompatible") ||

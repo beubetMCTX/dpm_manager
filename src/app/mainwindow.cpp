@@ -119,6 +119,17 @@ MainWindow::MainWindow(QWidget *parent)
         qWarning() << config_error_message;
     }
 
+    Unit_Preferences unit_preferences;
+    QString unit_preferences_error;
+    if (load_unit_preferences(&unit_preferences, &unit_preferences_error))
+    {
+        UnitSystem::set_active_preferences(unit_preferences);
+    }
+    else if (!unit_preferences_error.trimmed().isEmpty())
+    {
+        qWarning() << unit_preferences_error;
+    }
+
     //tab_widget = new QTabWidget();
 
     //this->setCentralWidget(m_3d_widget);
