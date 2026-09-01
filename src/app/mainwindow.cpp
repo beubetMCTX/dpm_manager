@@ -934,7 +934,16 @@ void MainWindow::create_object_list_panel()
         }
 
         const QUuid uuid(item->data(Qt::UserRole).toString());
-        if (!uuid.isNull())
+        if (item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+        {
+            if (m_3d_widget->select_reference_geometry() &&
+                m_reference_geometry_dock != nullptr)
+            {
+                m_reference_geometry_dock->show();
+                m_reference_geometry_dock->raise();
+            }
+        }
+        else if (!uuid.isNull())
         {
             m_3d_widget->edit_unit_by_uuid(uuid);
         }
