@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(dpm_manager VERSION 0.1 LANGUAGES CXX)
 
+option(DPM_BUILD_TESTS "Build focused regression tests" ON)
+
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -157,6 +159,31 @@ install(TARGETS dpm_manager
 
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(dpm_manager)
+endif()
+
+if(DPM_BUILD_TESTS)
+    enable_testing()
+    add_executable(project_session_regression
+        tests/project_session_test.cpp
+        ${IO_DIR}/project_session.h ${IO_DIR}/project_session.cpp
+        ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+    )
+    target_include_directories(project_session_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${IO_DIR}
+        ${MODEL_DIR}
+        ${COMMON_DIR}
+    )
+    target_link_libraries(project_session_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(project_session_regression PRIVATE ${GLEW_LIBRARIES})
+    target_link_libraries(project_session_regression PRIVATE glfw)
+    target_link_libraries(project_session_regression PRIVATE assimp::assimp)
+    target_link_libraries(project_session_regression PRIVATE unofficial::tinyexpr::tinyexpr)
+    target_link_libraries(project_session_regression PRIVATE OpenGL::GL)
+    target_link_libraries(project_session_regression PRIVATE Qt6::OpenGLWidgets)
+    target_link_libraries(project_session_regression PRIVATE ${OpenCASCADE_LIBRARIES})
+    add_test(NAME project_session_regression COMMAND project_session_regression)
 endif()
 
 
