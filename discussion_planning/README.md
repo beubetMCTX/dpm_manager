@@ -16,6 +16,13 @@ Record product discussions, implementation priorities, unresolved issues, and fu
 - Injector geometry preview supports several injector types, with complex models selectively disabled where implementation is incomplete.
 - A Release build has been generated with Qt/OpenCASCADE/runtime DLL deployment for testing.
 
+### 2026-09-02 Reference Geometry Face Selection Isolation
+
+- Reference geometry face picking now uses an object-level, single active selection mode.
+- Switching injector selection modes can no longer leave stale modes active on the reference object.
+- The reference geometry lock remains a movement lock only; it does not disable face selection.
+- Release build and all 9 CTest regressions passed. Real OCCT mouse interaction still needs manual verification.
+
 ### 2026-09-02 DPM Export Preflight
 
 - Added `validate_dpm_units()` to validate the complete injector list before showing the save dialog.
