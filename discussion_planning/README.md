@@ -1059,3 +1059,4 @@ References:
 - Reference geometry position and rotation must now be finite 3-component arrays.
 - Reference geometry `locked` and `visible` values must be booleans; malformed settings are rejected and backed up instead of silently defaulting.
 - The existing settings JSON structure and valid configuration behavior remain unchanged.
+- Release build, focused app-config/unit-system/Chemkin regressions, package deployment, and startup/shutdown verification passed.
