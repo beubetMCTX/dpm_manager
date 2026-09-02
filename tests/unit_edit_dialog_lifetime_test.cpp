@@ -44,6 +44,71 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    auto *material_editor = dialog->findChild<QUI_ComboBox*>("materialEditor");
+    auto *diameter_editor = dialog->findChild<QUI_ComboBox*>("diameterDistributionEditor");
+    auto *evaporating_species_editor =
+        dialog->findChild<QUI_ComboBox*>("evaporatingSpeciesEditor");
+    auto *devolatilizing_species_editor =
+        dialog->findChild<QUI_ComboBox*>("devolatilizingSpeciesEditor");
+    if (!check(material_editor != nullptr && diameter_editor != nullptr &&
+                   evaporating_species_editor != nullptr &&
+                   devolatilizing_species_editor != nullptr,
+               "Particle-dependent editors should be discoverable"))
+    {
+        delete parent;
+        return 1;
+    }
+
+    const QList<QPair<DPM_Type, QList<bool>>> particle_expectations = {
+        {Massless, {false, false, false, false}},
+        {Inert, {false, false, false, false}},
+        {Droplet, {true, true, true, false}},
+        {Combusting, {true, false, false, true}},
+        {Multicomponent, {true, false, false, false}}
+    };
+    for (const auto &expectation : particle_expectations)
+    {
+        unit.inj.injector_data.type = expectation.first;
+        dialog->refresh_from_unit_data(&unit);
+        application.processEvents();
+        const QList<bool> actual = {
+            material_editor->isEnabled(),
+            diameter_editor->isEnabled(),
+            evaporating_species_editor->isEnabled(),
+            devolatilizing_species_editor->isEnabled()
+        };
+        if (!check(actual == expectation.second,
+                   "Particle-dependent editor enablement is incorrect"))
+        {
+            delete parent;
+            return 1;
+        }
+    }
+
+    auto *cone_type_editor = dialog->findChild<QComboBox*>("comboBox_conetype");
+    if (!check(cone_type_editor != nullptr,
+               "Cone type editor should be available"))
+    {
+        delete parent;
+        return 1;
+    }
+    unit.inj.injector_data.injection_type = single;
+    dialog->refresh_from_unit_data(&unit);
+    if (!check(!cone_type_editor->isVisible(),
+               "Cone parameter panel should be hidden for non-cone injections"))
+    {
+        delete parent;
+        return 1;
+    }
+    unit.inj.injector_data.injection_type = cone;
+    dialog->refresh_from_unit_data(&unit);
+    if (!check(cone_type_editor->isVisible(),
+               "Cone parameter panel should be visible for cone injections"))
+    {
+        delete parent;
+        return 1;
+    }
+
     bool cancel_signal_received = false;
     QObject::connect(dialog, &unit_edit_dialog::dialog_cancelled,
                      [&cancel_signal_received](Unit *)

@@ -999,3 +999,9 @@ References:
 
 - Added a dedicated geometry regression target covering single, group, volume, and all four cone variants: point, hollow, ring, and solid.
 - The test also verifies that a failed rebuild caused by zero velocity preserves the previous valid shape.
+
+### 2026-09-02 Test Particle-Dependent Unit Editor Controls
+
+- Added stable object names for the material, diameter-distribution, and species editors.
+- The unit-editor regression now verifies the enablement matrix for all five particle types.
+- The same regression verifies that the cone parameter panel is hidden for non-cone injections and visible for cone injections.

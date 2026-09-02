@@ -860,11 +860,13 @@ void unit_edit_dialog::setup_custom_controls()
     particle_type_panel_layout->addWidget(create_group_title_label("Particle Type", particle_type_panel));
 
     m_particle_type_group = new QUI_RadioGroup(QString(), particle_type_panel);
+    m_particle_type_group->setObjectName("particleTypeGroup");
     particle_type_panel_layout->addWidget(m_particle_type_group);
     ui->horizontalLayout_particle_type->insertWidget(0, particle_type_panel);
     ui->groupBox_partical_type->hide();
 
     m_material_combo = new QUI_ComboBox(this);
+    m_material_combo->setObjectName("materialEditor");
     ui->gridLayout->addWidget(m_material_combo, 2, 0);
     m_material_combo->setEditable(true);
     if (m_material_combo->lineEdit() != nullptr)
@@ -876,26 +878,32 @@ void unit_edit_dialog::setup_custom_controls()
     ui->comboBox_material->hide();
 
     m_diameter_distribution_combo = new QUI_ComboBox(this);
+    m_diameter_distribution_combo->setObjectName("diameterDistributionEditor");
     ui->gridLayout->addWidget(m_diameter_distribution_combo, 2, 1);
     ui->comboBox_diameter_distribution->hide();
 
     m_discrete_phase_domain_combo = new QUI_ComboBox(this);
+    m_discrete_phase_domain_combo->setObjectName("discretePhaseDomainEditor");
     ui->gridLayout->addWidget(m_discrete_phase_domain_combo, 2, 3);
     ui->comboBox_discrete_phase_domain->hide();
 
     m_evaporating_species_combo = new QUI_ComboBox(this);
+    m_evaporating_species_combo->setObjectName("evaporatingSpeciesEditor");
     ui->gridLayout->addWidget(m_evaporating_species_combo, 4, 0);
     ui->comboBox_evaporating_species->hide();
 
     m_devolatilizing_species_combo = new QUI_ComboBox(this);
+    m_devolatilizing_species_combo->setObjectName("devolatilizingSpeciesEditor");
     ui->gridLayout->addWidget(m_devolatilizing_species_combo, 4, 1);
     ui->comboBox_devolatilizing_species->hide();
 
     m_product_species_combo = new QUI_ComboBox(this);
+    m_product_species_combo->setObjectName("productSpeciesEditor");
     ui->gridLayout->addWidget(m_product_species_combo, 4, 2);
     ui->comboBox_product_species->hide();
 
     m_oxidizing_species_combo = new QUI_ComboBox(this);
+    m_oxidizing_species_combo->setObjectName("oxidizingSpeciesEditor");
     ui->gridLayout->addWidget(m_oxidizing_species_combo, 2, 2);
     ui->comboBox_oxidizin_species->hide();
 
@@ -908,10 +916,12 @@ void unit_edit_dialog::setup_custom_controls()
     }
 
     m_stagger_check = new QUI_CheckBox("Stagger Options", ui->stagger_layout);
+    m_stagger_check->setObjectName("staggerOptionsEditor");
     ui->verticalLayout_4->insertWidget(0, m_stagger_check);
     ui->radioButton_stagger->hide();
 
     m_stagger_radius_edit = new QUI_LineEdit(ui->stagger_layout);
+    m_stagger_radius_edit->setObjectName("staggerRadiusEditor");
     m_stagger_radius_edit->set_double_mode();
     m_stagger_radius_edit->bind_value(&control_unit->inj.injector_data.stagger_radius);
     ui->verticalLayout_4->insertWidget(3, m_stagger_radius_edit);
