@@ -207,5 +207,44 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    bool duplicate_color_test_ok = save_species_color_config(
+        chemkin_path, color_species, colors, &config_error);
+    if (duplicate_color_test_ok)
+    {
+        QFile duplicate_color_file(color_config_path);
+        duplicate_color_test_ok = duplicate_color_file.open(
+            QIODevice::WriteOnly | QIODevice::Text);
+        if (duplicate_color_test_ok)
+        {
+            const QJsonObject duplicate_color_root{
+                {"schema_version", 1},
+                {"species_colors", QJsonObject{
+                    {"O2", "#112233"}, {"N2", "#112233"}}}};
+            duplicate_color_file.write(QJsonDocument(duplicate_color_root).toJson());
+            duplicate_color_file.close();
+        }
+    }
+
+    if (duplicate_color_test_ok)
+    {
+        QHash<QString, QColor> ignored_duplicate_colors;
+        duplicate_color_test_ok = !load_species_color_config(
+            chemkin_path, color_species, &ignored_duplicate_colors, &config_error) &&
+            config_error.contains("both O2 and N2") &&
+            config_error.contains("backup:");
+    }
+    const QStringList duplicate_color_backups = color_directory.entryList(
+        {color_config_name + ".corrupt-*.bak"}, QDir::Files);
+    QFile::remove(color_config_path);
+    for (const QString &backup_name : duplicate_color_backups)
+    {
+        QFile::remove(color_directory.filePath(backup_name));
+    }
+    if (!check(duplicate_color_test_ok,
+               "duplicate species colors should be rejected and backed up"))
+    {
+        return 1;
+    }
+
     return 0;
 }

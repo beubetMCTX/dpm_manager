@@ -755,6 +755,29 @@ bool load_species_color_config(const QString &chemkin_file_path,
                 error_message);
         }
     }
+
+    QHash<QString, QString> color_owners;
+    for (const QString &species_name : species_names)
+    {
+        const QColor color(colors_object.value(species_name).toString());
+        if (!color.isValid())
+        {
+            continue;
+        }
+
+        const QString normalized_color = color.name(QColor::HexRgb).toUpper();
+        const auto owner = color_owners.constFind(normalized_color);
+        if (owner != color_owners.constEnd())
+        {
+            return reject_invalid_config(
+                file_path,
+                QString("Species color configuration assigns %1 to both %2 and %3.")
+                    .arg(normalized_color, owner.value(), species_name),
+                error_message);
+        }
+        color_owners.insert(normalized_color, species_name);
+    }
+
     if (species_colors != nullptr)
     {
         for (const QString &species_name : species_names)

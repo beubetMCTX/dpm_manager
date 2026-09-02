@@ -1047,3 +1047,9 @@ References:
 - OCCT injector dragging now emits a position-only update signal while the MainWindow still receives model and dirty-state synchronization.
 - Open unit editors update only point-property rows during mouse movement instead of refreshing all selectors, model pages, and dynamic layouts.
 - Full data refresh remains used for property edits, paste, undo/redo, and other non-drag changes.
+
+### 2026-09-02 Validate Duplicate Species Colors on Load
+
+- Species color configuration loading now rejects duplicate explicit colors, matching the editor's collision rule.
+- Invalid duplicate-color files are backed up through the existing corrupt-config recovery path.
+- Added app-config regression coverage; the color file format itself is unchanged.
