@@ -434,6 +434,38 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
     return translated_count;
 }
 
+int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
+                                               const QString &material)
+{
+    const QString normalized_material = material.trimmed();
+    if (normalized_material.isEmpty())
+    {
+        return 0;
+    }
+
+    int changed_count = 0;
+    for (const QUuid &uuid : uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit == nullptr ||
+            unit->inj.injector_data.material.compare(
+                normalized_material, Qt::CaseSensitive) == 0)
+        {
+            continue;
+        }
+
+        UnitEditTransaction transaction;
+        transaction.uuid = uuid;
+        transaction.before_type = unit->type;
+        transaction.before_data = unit->inj.injector_data;
+        unit->inj.injector_data.material = normalized_material;
+        record_edit(transaction, *unit);
+        emit unit_data_updated(unit.get());
+        ++changed_count;
+    }
+    return changed_count;
+}
+
 bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);

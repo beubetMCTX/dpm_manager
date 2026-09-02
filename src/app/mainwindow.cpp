@@ -1917,6 +1917,8 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(paste_selected_button);
     auto *translate_selected_button = new QPushButton("Translate Selected", panel);
     layout->addWidget(translate_selected_button);
+    auto *material_selected_button = new QPushButton("Set Material Selected", panel);
+    layout->addWidget(material_selected_button);
 
     auto *view_selector = new QComboBox(panel);
     view_selector->setObjectName("standardViewSelector");
@@ -2197,6 +2199,61 @@ void MainWindow::create_object_list_panel()
         statusBar()->showMessage(
             QString("Translated %1 of %2 selected unit(s); locked units were skipped")
                 .arg(translated_count)
+                .arg(selected_units.size()),
+            5000);
+    });
+    connect(material_selected_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        QList<QUuid> selected_units;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+            {
+                selected_units.append(uuid);
+            }
+        }
+        if (selected_units.isEmpty())
+        {
+            statusBar()->showMessage("Select one or more injectors first", 4000);
+            return;
+        }
+
+        const QStringList material_names = material_names_from_entries(m_material_entries);
+        if (material_names.isEmpty())
+        {
+            statusBar()->showMessage("No materials are available", 4000);
+            return;
+        }
+
+        bool accepted = false;
+        const QString material = QInputDialog::getItem(
+            this,
+            "Set Material",
+            "Material:",
+            material_names,
+            0,
+            false,
+            &accepted);
+        if (!accepted)
+        {
+            return;
+        }
+
+        const int changed_count = m_3d_widget->set_material_for_units_by_uuid(
+            selected_units, material);
+        statusBar()->showMessage(
+            QString("Assigned material to %1 of %2 selected unit(s)")
+                .arg(changed_count)
                 .arg(selected_units.size()),
             5000);
     });

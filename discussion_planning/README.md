@@ -943,3 +943,9 @@ References:
 - Locked injectors are skipped, and each successful translation gets its own Move Undo/Redo entry.
 - Failed geometry rebuilds restore the original position fields.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Batch Assign Material
+
+- Added a `Set Material Selected` control to the multi-selection object panel.
+- Material choices come from the independent material table and are applied to selected injectors.
+- Each changed injector gets an independent Unit Edit Undo/Redo entry; movement locks do not block material edits.
+- Release build and all 9 CTest regressions passed.
