@@ -926,3 +926,9 @@ References:
 - Project validation now checks that the active Chemkin and reference-geometry paths still point to existing files.
 - Missing external files are reported before the deeper project validation result is shown.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Clean Stale Recent Projects
+
+- Missing recent project files are now removed from the menu and persisted back to configuration.
+- The same cleanup occurs if a file disappears after the menu was created.
+- Existing project files that fail parsing remain in the list for later retry.
+- Release build and all 9 CTest regressions passed.

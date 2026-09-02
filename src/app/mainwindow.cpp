@@ -1114,6 +1114,7 @@ void MainWindow::update_recent_projects_menu()
         return;
     }
 
+    const QStringList previous_paths = m_recent_project_paths;
     m_recent_projects_menu->clear();
     QStringList existing_paths;
     for (const QString &path : m_recent_project_paths)
@@ -1126,6 +1127,15 @@ void MainWindow::update_recent_projects_menu()
         }
     }
     m_recent_project_paths = existing_paths;
+    if (m_recent_project_paths != previous_paths)
+    {
+        QString save_error;
+        if (!save_recent_project_paths(m_recent_project_paths, &save_error) &&
+            !save_error.trimmed().isEmpty())
+        {
+            qWarning() << save_error;
+        }
+    }
 
     if (m_recent_project_paths.isEmpty())
     {
@@ -1142,6 +1152,24 @@ void MainWindow::update_recent_projects_menu()
         connect(action, &QAction::triggered, this, [this, action]()
         {
             const QString path = action->data().toString();
+            const QFileInfo file_info(path);
+            if (!file_info.exists() || !file_info.isFile())
+            {
+                for (int index = m_recent_project_paths.size() - 1; index >= 0; --index)
+                {
+                    if (m_recent_project_paths.at(index).compare(
+                            path, Qt::CaseInsensitive) == 0)
+                    {
+                        m_recent_project_paths.removeAt(index);
+                    }
+                }
+                QString save_error;
+                save_recent_project_paths(m_recent_project_paths, &save_error);
+                update_recent_projects_menu();
+                statusBar()->showMessage(
+                    QString("Recent project was not found: %1").arg(path), 8000);
+                return;
+            }
             if (!load_project_session(path))
             {
                 return;
