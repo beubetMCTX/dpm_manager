@@ -984,3 +984,8 @@ References:
 
 - `set_unit_locked()` now validates the stored `Unit` pointer before changing lock state or comparing its AIS object.
 - Lock/unlock requests during object removal or teardown now fail safely instead of dereferencing an empty hash entry.
+
+### 2026-09-02 Stabilize Chemkin Toolbar Layout Persistence
+
+- Assigned a stable object name to the runtime Chemkin status toolbar.
+- `QMainWindow::saveState()` can now serialize and restore the toolbar without the previous missing-`objectName` warning.

@@ -387,6 +387,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     m_chemkin_toolbar = new QToolBar("Chemkin Status", this);
+    m_chemkin_toolbar->setObjectName("chemkinStatusToolbar");
     m_chemkin_toolbar->setMovable(false);
     m_chemkin_toolbar->setFloatable(false);
     addToolBar(Qt::TopToolBarArea, m_chemkin_toolbar);
