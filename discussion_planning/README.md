@@ -955,3 +955,9 @@ References:
 - Chemkin files with a `SPECIES` section but no species are now rejected instead of being reported as successfully loaded.
 - The parser returns a field-specific error so the UI can keep the previous valid species list.
 - Added regression coverage for an empty `SPECIES ... END` block.
+
+### 2026-09-02 Enrich Object List Filtering
+
+- Object-list tooltips now include the assigned material for each injector.
+- The object filter now matches injector type, particle type, material, and UUID in addition to the display name.
+- This changes only object-list presentation and does not affect project data or save format.

@@ -2339,7 +2339,9 @@ void MainWindow::create_object_list_panel()
             const bool matches = filter.isEmpty() ||
                                  item->text().contains(filter, Qt::CaseInsensitive) ||
                                  item->data(Qt::UserRole).toString()
-                                     .contains(filter, Qt::CaseInsensitive);
+                                     .contains(filter, Qt::CaseInsensitive) ||
+                                 item->toolTip().contains(filter,
+                                                          Qt::CaseInsensitive);
             item->setHidden(!matches);
         }
     });
@@ -2593,9 +2595,12 @@ void MainWindow::update_object_list_panel()
         unit_item->setData(Qt::UserRole,
                            unit_id.toString(QUuid::WithoutBraces));
         unit_item->setToolTip(
-            QString("Injection: %1\nParticle: %2\nUUID: %3")
+            QString("Injection: %1\nParticle: %2\nMaterial: %3\nUUID: %4")
                 .arg(injection_type_name(unit.inj.injector_data.injection_type),
                      particle_type_name(unit.inj.injector_data.type),
+                     unit.inj.injector_data.material.trimmed().isEmpty()
+                         ? QStringLiteral("<none>")
+                         : unit.inj.injector_data.material,
                      unit_id.toString(QUuid::WithoutBraces)));
         unit_item->setFlags(unit_item->flags() | Qt::ItemIsUserCheckable);
         unit_item->setCheckState(m_3d_widget->unit_visible(unit_id)
@@ -2612,7 +2617,9 @@ void MainWindow::update_object_list_panel()
             item->setHidden(!filter.isEmpty() &&
                             !item->text().contains(filter, Qt::CaseInsensitive) &&
                             !item->data(Qt::UserRole).toString()
-                                 .contains(filter, Qt::CaseInsensitive));
+                                 .contains(filter, Qt::CaseInsensitive) &&
+                            !item->toolTip().contains(filter,
+                                                      Qt::CaseInsensitive));
         }
     }
 
