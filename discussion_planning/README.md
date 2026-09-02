@@ -979,3 +979,8 @@ References:
 - Injector picking now enables `TopAbs_COMPOUND` or `TopAbs_SHAPE` only on injector AIS objects and disables their previous modes first.
 - Removed the context-wide selection-mode activation from the injector picking path so reference-geometry face selection cannot inherit a stale injector mode.
 - The context-menu actions and geometry data remain unchanged.
+
+### 2026-09-02 Guard Injector Lock Updates During Cleanup
+
+- `set_unit_locked()` now validates the stored `Unit` pointer before changing lock state or comparing its AIS object.
+- Lock/unlock requests during object removal or teardown now fail safely instead of dereferencing an empty hash entry.

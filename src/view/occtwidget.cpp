@@ -362,13 +362,19 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
         return false;
     }
 
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr)
+    {
+        return false;
+    }
+
     if (m_unit_locks.value(uuid, false) == locked)
     {
         return true;
     }
 
     m_unit_locks.insert(uuid, locked);
-    if (locked && selected_shape == unit_hash.value(uuid)->ais_display)
+    if (locked && selected_shape == unit->ais_display)
     {
         myIsDragging = false;
     }
