@@ -1005,3 +1005,8 @@ References:
 - Added stable object names for the material, diameter-distribution, and species editors.
 - The unit-editor regression now verifies the enablement matrix for all five particle types.
 - The same regression verifies that the cone parameter panel is hidden for non-cone injections and visible for cone injections.
+
+### 2026-09-02 Strengthen Release Shutdown Verification
+
+- `verify_release_shutdown.ps1` now checks the newest runtime log after the process exits.
+- The probe fails if it finds `[ERROR]`, `[FATAL]`, or `QMainWindow::saveState()` warnings, instead of checking only the process exit code.

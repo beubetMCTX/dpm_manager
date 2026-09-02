@@ -2,7 +2,8 @@
 param(
     [string]$Executable = "release/dpm_manager/dpm_manager.exe",
     [int]$StartupTimeoutSeconds = 15,
-    [int]$ShutdownTimeoutSeconds = 15
+    [int]$ShutdownTimeoutSeconds = 15,
+    [string]$LogDirectory = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +19,13 @@ function Resolve-RepositoryPath([string]$path) {
 $executablePath = Resolve-RepositoryPath $Executable
 if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
     throw "Release executable not found: $executablePath"
+}
+
+if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
+    $LogDirectory = Join-Path (Split-Path -Parent $executablePath) "logs"
+}
+else {
+    $LogDirectory = Resolve-RepositoryPath $LogDirectory
 }
 
 Add-Type @"
@@ -62,6 +70,21 @@ try {
 
     if ($process.ExitCode -ne 0) {
         throw "Release executable exited with code $($process.ExitCode)."
+    }
+
+    if (Test-Path -LiteralPath $LogDirectory -PathType Container) {
+        $latestLog = Get-ChildItem -LiteralPath $LogDirectory -Filter "runtime_debug_*.log" -File |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($null -ne $latestLog) {
+            $runtimeFaults = Select-String -Path $latestLog.FullName `
+                -Pattern "\[(ERROR|FATAL)\]|QMainWindow::saveState\(\)" `
+                -AllMatches
+            if ($null -ne $runtimeFaults) {
+                throw "Release runtime log contains an error or layout warning: $($latestLog.FullName)"
+            }
+            Write-Host "Release runtime log check passed: $($latestLog.Name)"
+        }
     }
 
     Write-Host "Release startup/shutdown check passed (exit code 0)."
