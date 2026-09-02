@@ -72,7 +72,21 @@ int main(int argc, char **argv)
         !expect(UnitSystem::convert(1.0, "m", "rad", &ok) == 0.0 && !ok,
                 "incompatible conversion should fail") ||
         !expect(UnitSystem::convert(std::numeric_limits<double>::infinity(), "m", "mm", &ok) == 0.0 && !ok,
-                "non-finite conversion should fail"))
+                "non-finite conversion should fail") ||
+        !expect(UnitSystem::to_base(std::numeric_limits<double>::max(), "km", &ok) == 0.0 && !ok,
+                "to_base overflow should fail") ||
+        !expect(UnitSystem::from_base(std::numeric_limits<double>::max(), "mm", &ok) == 0.0 && !ok,
+                "from_base overflow should fail") ||
+        !expect(UnitSystem::convert(std::numeric_limits<double>::max(), "km", "m", &ok) == 0.0 && !ok,
+                "convert overflow should fail"))
+    {
+        return 1;
+    }
+
+    QString stale_error = "stale error";
+    if (!expect(UnitSystem::validate_preferences(defaults, &stale_error) &&
+                    stale_error.isEmpty(),
+                "successful preference validation should clear old errors"))
     {
         return 1;
     }

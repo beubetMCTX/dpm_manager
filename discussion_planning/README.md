@@ -1085,3 +1085,10 @@ References:
 - Changing the Chemkin species list now updates species selectors in every open Unit Editor.
 - The refresh changes only selector options and preserves the existing editor/model synchronization path.
 - Added Unit Editor regression coverage; Release build, geometry/GUI/numeric regressions, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Propagate Unit Conversion Overflow Failure
+
+- `UnitSystem::to_base()` and `from_base()` now reject non-finite conversion results instead of reporting overflow as success.
+- `UnitSystem::convert()` now propagates intermediate conversion failure and returns `ok=false` consistently.
+- Successful preference validation clears stale error text; overflow and validation regression coverage was added.
+- Release build, unit-system/numeric/project-session regressions, packaging, and startup/shutdown verification passed.

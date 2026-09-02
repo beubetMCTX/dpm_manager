@@ -114,6 +114,11 @@ Unit_Preferences UnitSystem::default_preferences()
 bool UnitSystem::validate_preferences(const Unit_Preferences &preferences,
                                       QString *error_message)
 {
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+
     return validate_preference(preferences.length, Unit_Dimension::Length, "length", error_message) &&
            validate_preference(preferences.angle, Unit_Dimension::Angle, "angle", error_message) &&
            validate_preference(preferences.velocity, Unit_Dimension::Velocity, "velocity", error_message) &&
@@ -204,26 +209,42 @@ double UnitSystem::convert(double value,
         return 0.0;
     }
 
-    const double base_value = to_base(value, from_symbol, nullptr);
-    const double converted = from_base(base_value, to_symbol, nullptr);
-    set_result(ok, std::isfinite(converted));
-    return converted;
+    bool base_ok = false;
+    const double base_value = to_base(value, from_symbol, &base_ok);
+    if (!base_ok)
+    {
+        set_result(ok, false);
+        return 0.0;
+    }
+
+    bool converted_ok = false;
+    const double converted = from_base(base_value, to_symbol, &converted_ok);
+    set_result(ok, converted_ok);
+    return converted_ok ? converted : 0.0;
 }
 
 double UnitSystem::to_base(double value, const QString &from_symbol, bool *ok)
 {
     const Unit_Definition from = definition(from_symbol);
-    const bool valid = !from.symbol.isEmpty() && std::isfinite(value);
+    const bool input_valid = !from.symbol.isEmpty() && std::isfinite(value);
+    const double converted = input_valid
+        ? value * from.scale_to_base + from.offset_to_base
+        : 0.0;
+    const bool valid = input_valid && std::isfinite(converted);
     set_result(ok, valid);
-    return valid ? value * from.scale_to_base + from.offset_to_base : 0.0;
+    return valid ? converted : 0.0;
 }
 
 double UnitSystem::from_base(double value, const QString &to_symbol, bool *ok)
 {
     const Unit_Definition to = definition(to_symbol);
-    const bool valid = !to.symbol.isEmpty() && std::isfinite(value);
+    const bool input_valid = !to.symbol.isEmpty() && std::isfinite(value);
+    const double converted = input_valid
+        ? (value - to.offset_to_base) / to.scale_to_base
+        : 0.0;
+    const bool valid = input_valid && std::isfinite(converted);
     set_result(ok, valid);
-    return valid ? (value - to.offset_to_base) / to.scale_to_base : 0.0;
+    return valid ? converted : 0.0;
 }
 
 QStringList UnitSystem::symbols(Unit_Dimension dimension)
