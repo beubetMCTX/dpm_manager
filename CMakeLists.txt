@@ -288,6 +288,26 @@ if(DPM_BUILD_TESTS)
     target_link_libraries(base_geom_read_regression PRIVATE ${OpenCASCADE_LIBRARIES})
     add_test(NAME base_geom_read_regression COMMAND base_geom_read_regression)
 
+    add_executable(injector_geometry_regression
+        tests/injector_geometry_test.cpp
+        ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+    )
+    target_include_directories(injector_geometry_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${MODEL_DIR}
+        ${COMMON_DIR}
+    )
+    target_link_libraries(injector_geometry_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(injector_geometry_regression PRIVATE ${GLEW_LIBRARIES})
+    target_link_libraries(injector_geometry_regression PRIVATE glfw)
+    target_link_libraries(injector_geometry_regression PRIVATE assimp::assimp)
+    target_link_libraries(injector_geometry_regression PRIVATE unofficial::tinyexpr::tinyexpr)
+    target_link_libraries(injector_geometry_regression PRIVATE OpenGL::GL)
+    target_link_libraries(injector_geometry_regression PRIVATE Qt6::OpenGLWidgets)
+    target_link_libraries(injector_geometry_regression PRIVATE ${OpenCASCADE_LIBRARIES})
+    add_test(NAME injector_geometry_regression COMMAND injector_geometry_regression)
+
     add_executable(auxiliary_dialog_lifetime_regression
         tests/auxiliary_dialog_lifetime_test.cpp
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp

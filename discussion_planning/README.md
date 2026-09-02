@@ -994,3 +994,8 @@ References:
 
 - Geometry rebuild failures now emit a dedicated OCCT widget signal and are shown in the main-window status bar.
 - The existing valid displayed geometry remains unchanged when a rebuild fails; the failure is no longer silent.
+
+### 2026-09-02 Add Injector Geometry Regression Coverage
+
+- Added a dedicated geometry regression target covering single, group, volume, and all four cone variants: point, hollow, ring, and solid.
+- The test also verifies that a failed rebuild caused by zero velocity preserves the previous valid shape.
