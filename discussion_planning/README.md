@@ -1060,3 +1060,9 @@ References:
 - Reference geometry `locked` and `visible` values must be booleans; malformed settings are rejected and backed up instead of silently defaulting.
 - The existing settings JSON structure and valid configuration behavior remain unchanged.
 - Release build, focused app-config/unit-system/Chemkin regressions, package deployment, and startup/shutdown verification passed.
+
+### 2026-09-02 Reject Invalid App Setting Field Types
+
+- Existing but malformed Chemkin path, recent-project list, window-state, and unit-preference fields are now rejected instead of silently becoming empty/default values.
+- Invalid settings are backed up through the existing corrupt-config recovery path; missing optional fields remain compatible with older configurations.
+- Added regression coverage for all four field groups; Release build, focused tests, packaging, and startup/shutdown verification passed.

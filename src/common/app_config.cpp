@@ -294,9 +294,18 @@ bool load_last_chemkin_file_path(QString *file_path, QString *error_message)
         return false;
     }
 
+    const QJsonValue saved_path_value = root_object.value("last_chemkin_file_path");
+    if (!saved_path_value.isUndefined() && !saved_path_value.isString())
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Last Chemkin file path must be a string.",
+            error_message);
+    }
+
     if (file_path != nullptr)
     {
-        *file_path = root_object.value("last_chemkin_file_path").toString();
+        *file_path = saved_path_value.toString();
     }
     return true;
 }
@@ -368,6 +377,14 @@ bool load_recent_project_paths(QStringList *file_paths, QString *error_message)
     }
 
     const QJsonValue recent_value = root_object.value("recent_project_paths");
+    if (!recent_value.isUndefined() && !recent_value.isArray())
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Recent project paths must be an array.",
+            error_message);
+    }
+
     if (!recent_value.isArray())
     {
         return true;
@@ -375,6 +392,14 @@ bool load_recent_project_paths(QStringList *file_paths, QString *error_message)
 
     for (const QJsonValue &value : recent_value.toArray())
     {
+        if (!value.isString())
+        {
+            return reject_invalid_config(
+                app_settings_file_path(),
+                "Recent project paths must contain only strings.",
+                error_message);
+        }
+
         const QString path = value.toString().trimmed();
         if (path.isEmpty())
         {
@@ -609,15 +634,26 @@ bool load_main_window_state(QByteArray *geometry,
         return false;
     }
 
+    const QJsonValue geometry_value = root_object.value("window_geometry");
+    const QJsonValue state_value = root_object.value("window_state");
+    if ((!geometry_value.isUndefined() && !geometry_value.isString()) ||
+        (!state_value.isUndefined() && !state_value.isString()))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Window geometry and state values must be strings.",
+            error_message);
+    }
+
     if (geometry != nullptr)
     {
         *geometry = QByteArray::fromBase64(
-            root_object.value("window_geometry").toString().toLatin1());
+            geometry_value.toString().toLatin1());
     }
     if (window_state != nullptr)
     {
         *window_state = QByteArray::fromBase64(
-            root_object.value("window_state").toString().toLatin1());
+            state_value.toString().toLatin1());
     }
     return true;
 }
@@ -668,7 +704,16 @@ bool load_unit_preferences(Unit_Preferences *preferences,
         return false;
     }
 
-    const QJsonObject units_object = root_object.value("unit_preferences").toObject();
+    const QJsonValue units_value = root_object.value("unit_preferences");
+    if (!units_value.isUndefined() && !units_value.isObject())
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Unit preferences must be an object.",
+            error_message);
+    }
+
+    const QJsonObject units_object = units_value.toObject();
     if (units_object.isEmpty())
     {
         return false;
@@ -678,19 +723,30 @@ bool load_unit_preferences(Unit_Preferences *preferences,
     const auto read_unit = [&units_object](const char *key, QString *target)
     {
         const QJsonValue value = units_object.value(QString::fromLatin1(key));
+        if (!value.isUndefined() && !value.isString())
+        {
+            return false;
+        }
         if (value.isString())
         {
             *target = value.toString().trimmed();
         }
+        return true;
     };
-    read_unit("length", &loaded.length);
-    read_unit("angle", &loaded.angle);
-    read_unit("velocity", &loaded.velocity);
-    read_unit("mass", &loaded.mass);
-    read_unit("mass_flow", &loaded.mass_flow);
-    read_unit("time", &loaded.time);
-    read_unit("pressure", &loaded.pressure);
-    read_unit("temperature", &loaded.temperature);
+    if (!read_unit("length", &loaded.length) ||
+        !read_unit("angle", &loaded.angle) ||
+        !read_unit("velocity", &loaded.velocity) ||
+        !read_unit("mass", &loaded.mass) ||
+        !read_unit("mass_flow", &loaded.mass_flow) ||
+        !read_unit("time", &loaded.time) ||
+        !read_unit("pressure", &loaded.pressure) ||
+        !read_unit("temperature", &loaded.temperature))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Unit preference values must be strings.",
+            error_message);
+    }
 
     QString validation_error;
     if (!UnitSystem::validate_preferences(loaded, &validation_error))

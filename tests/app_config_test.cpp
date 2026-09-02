@@ -260,6 +260,67 @@ int main(int argc, char **argv)
         original_settings = original_file.readAll();
     }
 
+    bool settings_type_test_ok = true;
+    const auto write_settings = [&settings_path](const QJsonObject &root)
+    {
+        QFile file(settings_path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            return false;
+        }
+        const QByteArray contents = QJsonDocument(root).toJson();
+        return file.write(contents) == contents.size();
+    };
+
+    settings_type_test_ok = write_settings(QJsonObject{
+        {"schema_version", 1},
+        {"last_chemkin_file_path", 42}});
+    QString ignored_path;
+    if (settings_type_test_ok)
+    {
+        settings_type_test_ok = !load_last_chemkin_file_path(
+            &ignored_path, &config_error) &&
+            config_error.contains("must be a string") &&
+            config_error.contains("backup:");
+    }
+
+    settings_type_test_ok = settings_type_test_ok && write_settings(QJsonObject{
+        {"schema_version", 1},
+        {"recent_project_paths", QJsonArray{"valid.dpm", 42}}});
+    QStringList ignored_paths;
+    if (settings_type_test_ok)
+    {
+        settings_type_test_ok = !load_recent_project_paths(
+            &ignored_paths, &config_error) &&
+            config_error.contains("only strings") &&
+            config_error.contains("backup:");
+    }
+
+    settings_type_test_ok = settings_type_test_ok && write_settings(QJsonObject{
+        {"schema_version", 1},
+        {"window_geometry", QJsonObject{}}});
+    QByteArray ignored_geometry;
+    QByteArray ignored_window_state;
+    if (settings_type_test_ok)
+    {
+        settings_type_test_ok = !load_main_window_state(
+            &ignored_geometry, &ignored_window_state, &config_error) &&
+            config_error.contains("must be strings") &&
+            config_error.contains("backup:");
+    }
+
+    settings_type_test_ok = settings_type_test_ok && write_settings(QJsonObject{
+        {"schema_version", 1},
+        {"unit_preferences", QJsonArray{}}});
+    Unit_Preferences ignored_preferences;
+    if (settings_type_test_ok)
+    {
+        settings_type_test_ok = !load_unit_preferences(
+            &ignored_preferences, &config_error) &&
+            config_error.contains("must be an object") &&
+            config_error.contains("backup:");
+    }
+
     ReferenceGeometryConfig reference_geometry;
     reference_geometry.file_path = temporary_directory.filePath("geometry/example.step");
     reference_geometry.position = QVector3D(1.0f, 2.0f, 3.0f);
@@ -334,6 +395,12 @@ int main(int argc, char **argv)
     }
     if (!check(reference_geometry_test_ok,
                "invalid reference geometry config should be backed up before rejection"))
+    {
+        return 1;
+    }
+
+    if (!check(settings_type_test_ok,
+               "invalid app settings field types should be backed up before rejection"))
     {
         return 1;
     }
