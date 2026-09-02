@@ -1125,3 +1125,9 @@ References:
 - Hiding reference geometry now clears the independent selected-face coordinate trihedron.
 - Face information and face-alignment actions can no longer remain active for an invisible reference shape.
 - Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Share Advanced Preview Switch With Debug Unit Builder
+
+- MainWindow debug injector construction now follows the same `DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW` switch as `Injector_OCCT`.
+- The default stable preview remains unchanged when the option is `OFF`.
+- Verified both option states compile in the configured Release environment; the default-off build passed all 10 CTest regressions.

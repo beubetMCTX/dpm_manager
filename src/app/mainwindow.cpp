@@ -36,8 +36,13 @@
 
 namespace
 {
-// Match injector.cpp: advanced atomizer previews are intentionally hidden for now.
+// Keep debug preview construction in sync with Injector's opt-in geometry
+// switch. The default remains the stable simplified preview.
+#ifdef DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW
+constexpr bool kEnableAdvancedAtomizerPreview = true;
+#else
 constexpr bool kEnableAdvancedAtomizerPreview = false;
+#endif
 
 bool material_entries_equal(const QList<MaterialConfigEntry> &lhs,
                             const QList<MaterialConfigEntry> &rhs)
