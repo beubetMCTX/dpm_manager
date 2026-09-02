@@ -1853,6 +1853,8 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(batch_controls);
     auto *delete_selected_button = new QPushButton("Delete Selected", panel);
     layout->addWidget(delete_selected_button);
+    auto *paste_selected_button = new QPushButton("Paste to Selected", panel);
+    layout->addWidget(paste_selected_button);
 
     auto *view_selector = new QComboBox(panel);
     view_selector->setObjectName("standardViewSelector");
@@ -2023,6 +2025,52 @@ void MainWindow::create_object_list_panel()
         {
             m_3d_widget->remove_unit_by_uuid(uuid);
         }
+    });
+    connect(paste_selected_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+        if (!m_3d_widget->has_copied_unit())
+        {
+            statusBar()->showMessage("Copy an injector before pasting", 4000);
+            return;
+        }
+
+        QList<QUuid> selected_units;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+            {
+                selected_units.append(uuid);
+            }
+        }
+
+        if (selected_units.isEmpty())
+        {
+            statusBar()->showMessage("Select one or more injectors first", 4000);
+            return;
+        }
+
+        int pasted_count = 0;
+        for (const QUuid &uuid : selected_units)
+        {
+            if (m_3d_widget->paste_unit_by_uuid(uuid))
+            {
+                ++pasted_count;
+            }
+        }
+        statusBar()->showMessage(
+            QString("Pasted injector parameters to %1 of %2 selected unit(s)")
+                .arg(pasted_count)
+                .arg(selected_units.size()),
+            5000);
     });
 
     connect(m_object_list, &QListWidget::itemClicked, this,

@@ -916,3 +916,8 @@ References:
 - Added a Settings-menu `Open Logs Folder` action for quickly locating runtime diagnostics.
 - The folder is created on demand and the existing log rotation and file format are unchanged.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Batch Paste Injector Parameters
+
+- Added a `Paste to Selected` action to the multi-selection object panel.
+- Copied injector parameters can now be applied to multiple selected injectors in one operation.
+- Each successful paste remains an independent Unit Edit history entry; reference geometry is excluded.
