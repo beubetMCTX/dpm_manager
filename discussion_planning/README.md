@@ -1099,3 +1099,9 @@ References:
 - Updating the Materials table refreshes those selectors directly instead of rebuilding all four model pages.
 - Existing material values remain visible when no longer present in the active material list.
 - Added Unit Editor regression coverage; Release build, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Make CTest Runtime Environment Reproducible
+
+- Regression tests now receive Qt plugin and Qt/OpenCASCADE/vcpkg DLL paths from CMake instead of relying on the developer shell environment.
+- All 10 Release CTest targets pass in a clean test invocation.
+- Release packaging and startup/shutdown verification passed.

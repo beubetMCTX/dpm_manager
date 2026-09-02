@@ -70,6 +70,14 @@ set(UI_DIALOGS_DIR src/ui/dialogs)
 set(UI_RESOURCES_DIR src/ui/resources)
 set(COMMON_DIR src/common)
 
+set(DPM_QT_BIN_DIR "E:/Qt/6.7.3/msvc2019_64/bin" CACHE PATH
+    "Qt runtime directory used by regression tests")
+set(DPM_QT_PLUGIN_DIR "E:/Qt/6.7.3/msvc2019_64/plugins" CACHE PATH
+    "Qt plugin directory used by regression tests")
+set(DPM_TEST_DEPENDENCY_DIR
+    "${CMAKE_SOURCE_DIR}/build/Desktop_Qt_6_7_3_MSVC2022_64bit-Release"
+    CACHE PATH "Additional runtime DLL directory used by regression tests")
+
 set(PROJECT_SOURCES
         ${APP_DIR}/main.cpp
         ${APP_DIR}/mainwindow.cpp
@@ -360,6 +368,28 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
     set_tests_properties(unit_edit_dialog_lifetime_regression
                          PROPERTIES ENVIRONMENT
                          "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins")
+
+    # Keep CTest independent from the developer shell's PATH. The regression
+    # executables link against the same Qt/OpenCASCADE/vcpkg runtime set as
+    # the Release package.
+    set(DPM_TEST_NAMES
+        project_session_regression
+        unit_system_regression
+        app_config_regression
+        qui_line_edit_regression
+        chemkin_io_regression
+        dpm_file_io_regression
+        base_geom_read_regression
+        injector_geometry_regression
+        auxiliary_dialog_lifetime_regression
+        unit_edit_dialog_lifetime_regression)
+    set(DPM_TEST_RUNTIME_PATH
+        "${CMAKE_BINARY_DIR};${DPM_TEST_DEPENDENCY_DIR};${OpenCASCADE_BIN_DIR};${DPM_QT_BIN_DIR}")
+    string(REPLACE ";" "\\;" DPM_TEST_RUNTIME_PATH_ESCAPED
+           "${DPM_TEST_RUNTIME_PATH}")
+    set_tests_properties(${DPM_TEST_NAMES}
+                         PROPERTIES ENVIRONMENT
+                         "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
 endif()
 
 
