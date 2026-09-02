@@ -929,8 +929,17 @@ bool load_material_table_config(QList<MaterialConfigEntry> *materials,
         return false;
     }
 
+    const QJsonValue materials_value = root_object.value("materials");
+    if (!materials_value.isArray())
+    {
+        return reject_invalid_config(
+            file_path,
+            "Material configuration materials must be an array.",
+            error_message);
+    }
+
     QList<MaterialConfigEntry> parsed_materials;
-    const QJsonArray materials_array = root_object.value("materials").toArray();
+    const QJsonArray materials_array = materials_value.toArray();
     for (const QJsonValue &value : materials_array)
     {
         if (!value.isObject())
@@ -942,9 +951,26 @@ bool load_material_table_config(QList<MaterialConfigEntry> *materials,
         }
 
         const QJsonObject material_object = value.toObject();
+        const QJsonValue name_value = material_object.value("name");
+        const QJsonValue density_value = material_object.value("density");
+        if (!name_value.isString())
+        {
+            return reject_invalid_config(
+                file_path,
+                "Material configuration name must be a string.",
+                error_message);
+        }
+        if (!density_value.isDouble() || !std::isfinite(density_value.toDouble()))
+        {
+            return reject_invalid_config(
+                file_path,
+                "Material configuration density must be a finite number.",
+                error_message);
+        }
+
         MaterialConfigEntry entry;
-        entry.name = material_object.value("name").toString().trimmed();
-        entry.density = material_object.value("density").toDouble(0.0);
+        entry.name = name_value.toString().trimmed();
+        entry.density = density_value.toDouble();
         parsed_materials.append(entry);
     }
 

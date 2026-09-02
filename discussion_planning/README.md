@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-02 Strict Material Configuration Parsing
+
+- Material configuration loading now requires a `materials` array, string material names, and finite numeric densities.
+- Malformed material files are rejected and backed up without clearing the caller's existing material list.
+- The existing material configuration format is unchanged.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-02 Make Configuration Reads Atomic
 
 - Configuration readers now parse into temporary values and update caller-owned state only after validation succeeds.

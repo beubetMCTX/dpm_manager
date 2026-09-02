@@ -89,17 +89,21 @@ int main(int argc, char **argv)
             const QJsonObject corrupt_root{
                 {"schema_version", 1},
                 {"materials", QJsonArray{
-                    QJsonObject{{"name", "water"}, {"density", 0.0}}}}};
+                    QJsonObject{{"name", 42}, {"density", 998.2}}}}};
             corrupt_file.write(QJsonDocument(corrupt_root).toJson());
             corrupt_file.close();
         }
     }
 
-    QList<MaterialConfigEntry> ignored_materials;
+    QList<MaterialConfigEntry> ignored_materials = {{"keep-material", 321.0}};
     if (backup_test_ok)
     {
         backup_test_ok = !load_material_table_config(&ignored_materials, &config_error) &&
-                         config_error.contains("backup:");
+                         config_error.contains("name must be a string") &&
+                         config_error.contains("backup:") &&
+                         ignored_materials.size() == 1 &&
+                         ignored_materials.first().name == "keep-material" &&
+                         ignored_materials.first().density == 321.0;
     }
 
     const QStringList backups_after = material_directory.entryList(
