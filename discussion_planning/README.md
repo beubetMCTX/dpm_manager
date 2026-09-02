@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-03 Enable Tabulated Diameter Distribution for Volume
+
+- Fluent v242 documents `tabulated` diameter distributions for cone, surface, and volume injections.
+- Added the missing Volume option; switching to an injection type without tabulated support still clears the stale selection.
+- Added Unit Editor regression coverage for Volume availability and Group normalization.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-03 Stabilize Dynamic Model Editor Callbacks
 
 - Dynamic model combo callbacks now capture stable injector pointers instead of references to local aliases.

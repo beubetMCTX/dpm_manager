@@ -448,10 +448,7 @@ QList<Diameter_Distribution_Option> diameter_distribution_options_for(Injection_
     case volume:
         options.push_back({1, "rosin-rammler"});
         options.push_back({2, "rosin-rammler-logarithmic"});
-        if (type == surface)
-        {
-            options.push_back({3, "tabulated"});
-        }
+        options.push_back({3, "tabulated"});
         break;
 
     case cone:

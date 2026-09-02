@@ -109,6 +109,31 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unit.inj.injector_data.type = Droplet;
+    unit.inj.injector_data.injection_type = volume;
+    unit.inj.injector_data.tabulated_diam_dist = true;
+    unit.inj.injector_data.rr_disturb = false;
+    unit.inj.injector_data.rr_uniform_ln_d = false;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    if (!check(diameter_editor->findData(3) >= 0 &&
+                   diameter_editor->currentData().toInt() == 3,
+               "Volume injections should support tabulated diameter distributions"))
+    {
+        delete parent;
+        return 1;
+    }
+    unit.inj.injector_data.injection_type = group;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    if (!check(diameter_editor->findData(3) < 0 &&
+                   !unit.inj.injector_data.tabulated_diam_dist,
+               "Unsupported tabulated distributions should be cleared on injection-type change"))
+    {
+        delete parent;
+        return 1;
+    }
+
     unit.inj.injector_data.injection_type = single;
     unit.inj.injector_data.stochastic = true;
     unit.inj.injector_data.cloud = true;
