@@ -114,6 +114,7 @@ public:
     void set_label_text(const QString &text);
     QString label_text() const;
     void set_unit_text(const QString &text);
+    void refresh_unit_display();
     QString unit_text() const;
 
     void set_layout_mode(Layout_Mode mode);
@@ -136,6 +137,7 @@ private:
     QUI_LineEdit *m_primary_editor = nullptr;
     QUI_LineEdit *m_secondary_editor = nullptr;
     QString m_label_text;
+    QString m_semantic_unit;
     QString m_unit_text;
     QString m_storage_unit;
     Layout_Mode m_layout_mode = Layout_Mode::SingleValue;

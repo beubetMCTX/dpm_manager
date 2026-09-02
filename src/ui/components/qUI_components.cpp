@@ -981,11 +981,11 @@ QString QUI_FieldRow::label_text() const
 
 void QUI_FieldRow::set_unit_text(const QString &text)
 {
-    const QString semantic_unit = text.trimmed();
-    m_unit_text = UnitSystem::preferred_display_unit(semantic_unit);
+    m_semantic_unit = text.trimmed();
+    m_unit_text = UnitSystem::preferred_display_unit(m_semantic_unit);
 
-    const Unit_Definition semantic_definition = UnitSystem::definition(semantic_unit);
-    m_storage_unit = semantic_unit;
+    const Unit_Definition semantic_definition = UnitSystem::definition(m_semantic_unit);
+    m_storage_unit = m_semantic_unit;
     if (semantic_definition.dimension == Unit_Dimension::Length)
     {
         m_storage_unit = UnitSystem::base_unit(Unit_Dimension::Length);
@@ -1007,6 +1007,11 @@ void QUI_FieldRow::set_unit_text(const QString &text)
         m_secondary_editor->set_unit_conversion(m_unit_text, m_storage_unit);
     }
     update_label_display();
+}
+
+void QUI_FieldRow::refresh_unit_display()
+{
+    set_unit_text(m_semantic_unit);
 }
 
 QString QUI_FieldRow::unit_text() const

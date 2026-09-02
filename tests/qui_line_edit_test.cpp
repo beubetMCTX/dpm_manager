@@ -1,4 +1,5 @@
 #include "qUI_components.h"
+#include "unit_system.h"
 
 #include <QApplication>
 
@@ -98,6 +99,30 @@ int main(int argc, char **argv)
     {
         return 1;
     }
+
+    const Unit_Preferences defaults = UnitSystem::default_preferences();
+    UnitSystem::set_active_preferences(defaults);
+    QUI_FieldRow field_row("Length", "m");
+    field_row.primary_editor()->set_double_mode();
+    field_row.primary_editor()->bind_value(&storage_length);
+    if (!check(field_row.unit_text() == "mm" && field_row.primary_editor()->text() == "30",
+               "field row should initially use the default length unit"))
+    {
+        return 1;
+    }
+
+    Unit_Preferences centimetres = defaults;
+    centimetres.length = "cm";
+    UnitSystem::set_active_preferences(centimetres);
+    field_row.refresh_unit_display();
+    if (!check(field_row.unit_text() == "cm" && field_row.primary_editor()->text() == "3",
+               "field row should refresh its display unit and value") ||
+        !check(close_enough(storage_length, 0.03),
+               "changing the display unit must not change the stored value"))
+    {
+        return 1;
+    }
+    UnitSystem::set_active_preferences(defaults);
 
     double bounded_value = 7.0;
     QUI_LineEdit bounded_editor;

@@ -15,6 +15,40 @@
 
 namespace
 {
+void refresh_field_rows(QLayout *layout)
+{
+    if (layout == nullptr)
+    {
+        return;
+    }
+
+    for (int index = 0; index < layout->count(); ++index)
+    {
+        QLayoutItem *item = layout->itemAt(index);
+        if (item == nullptr)
+        {
+            continue;
+        }
+
+        if (QWidget *widget = item->widget())
+        {
+            if (auto *row = dynamic_cast<QUI_FieldRow *>(widget))
+            {
+                row->refresh_unit_display();
+            }
+
+            if (QLayout *child_layout = widget->layout())
+            {
+                refresh_field_rows(child_layout);
+            }
+        }
+        else if (QLayout *child_layout = item->layout())
+        {
+            refresh_field_rows(child_layout);
+        }
+    }
+}
+
 QString unit_type_display_name(Unit_Type type)
 {
     switch (type)
@@ -2233,6 +2267,8 @@ void unit_edit_dialog::build_point_property_rows()
 
 void unit_edit_dialog::sync_point_property_rows()
 {
+    refresh_field_rows(ui->verticalLayout_3);
+
     for (const std::function<void()> &syncer : m_property_row_syncers)
     {
         if (syncer)
@@ -2698,6 +2734,16 @@ void unit_edit_dialog::build_model_property_rows()
 
 void unit_edit_dialog::sync_model_property_rows()
 {
+    QVBoxLayout *model_layouts[] = {
+        m_physical_models_layout,
+        m_turbulent_dispersion_layout,
+        m_parcel_layout,
+        m_wet_combustion_layout};
+    for (QVBoxLayout *layout : model_layouts)
+    {
+        refresh_field_rows(layout);
+    }
+
     for (const std::function<void()> &syncer : m_model_row_syncers)
     {
         if (syncer)

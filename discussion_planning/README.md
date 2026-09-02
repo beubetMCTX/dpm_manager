@@ -1010,3 +1010,11 @@ References:
 
 - `verify_release_shutdown.ps1` now checks the newest runtime log after the process exits.
 - The probe fails if it finds `[ERROR]`, `[FATAL]`, or `QMainWindow::saveState()` warnings, instead of checking only the process exit code.
+
+### 2026-09-02 Refresh Open Unit Editors After Display-Unit Changes
+
+- `QUI_FieldRow` now retains its semantic/storage unit and can refresh its display unit without changing the stored model value.
+- Open unit editors refresh point-property and physical-model rows when display-unit preferences change, so labels and displayed values update immediately.
+- Added regression coverage for changing a length display from millimetres to centimetres while preserving the internal metre value.
+- Project save-format work remains deferred as requested.
+- Release compilation passed. The standalone Qt GUI regression process hung without output in this environment, so full CTest completion still needs a clean GUI-capable test environment; the non-GUI unit-system regression passed.
