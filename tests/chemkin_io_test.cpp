@@ -108,6 +108,26 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QString empty_species_path = temporary_directory.filePath("empty_species.inp");
+    if (!check(write_file(empty_species_path,
+                          "SPECIES\n"
+                          "END\n"),
+                "Unable to create empty-SPECIES Chemkin fixture"))
+    {
+        return 1;
+    }
+
+    error_message.clear();
+    const QStringList empty_species = read_chemkin_species_names(
+        empty_species_path, &ok, &error_message, false);
+    if (!check(!ok && empty_species.isEmpty(),
+               "An empty SPECIES section should fail safely") ||
+        !check(error_message.contains("contains no species"),
+               "Empty SPECIES section should provide a useful error"))
+    {
+        return 1;
+    }
+
     error_message.clear();
     const QStringList missing_file_species = read_chemkin_species_names(
         temporary_directory.filePath("does-not-exist.inp"), &ok, &error_message, false);

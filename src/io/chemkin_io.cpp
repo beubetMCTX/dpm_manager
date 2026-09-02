@@ -156,6 +156,21 @@ QStringList read_chemkin_species_names(const QString& file_path,
         if (trimmed.compare("END", Qt::CaseInsensitive) == 0 ||
             trimmed.startsWith("END ", Qt::CaseInsensitive))
         {
+            if (species_names.isEmpty())
+            {
+                const QString message = QString("SPECIES section contains no species: %1")
+                                            .arg(file_path);
+                if (error_message != nullptr)
+                {
+                    *error_message = message;
+                }
+                if (show_message_box)
+                {
+                    QMessageBox::critical(nullptr, "Chemkin Parse Error", message);
+                }
+                return {};
+            }
+
             if (ok != nullptr)
             {
                 *ok = true;

@@ -949,3 +949,9 @@ References:
 - Material choices come from the independent material table and are applied to selected injectors.
 - Each changed injector gets an independent Unit Edit Undo/Redo entry; movement locks do not block material edits.
 - Release build and all 9 CTest regressions passed.
+
+### 2026-09-02 Reject Empty Chemkin Species Sections
+
+- Chemkin files with a `SPECIES` section but no species are now rejected instead of being reported as successfully loaded.
+- The parser returns a field-specific error so the UI can keep the previous valid species list.
+- Added regression coverage for an empty `SPECIES ... END` block.
