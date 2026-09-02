@@ -2246,9 +2246,12 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);
 
+    // A context menu is a new interaction boundary. Finalize any pending
+    // drag transaction before hit-testing so stale selection state cannot
+    // leak into the next mouse event.
+    clear_selection();
     ensure_reference_face_selection_mode();
     m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
-    selected_shape.Nullify();
 
     if (!m_context->HasDetected())
     {

@@ -967,3 +967,9 @@ References:
 - MainWindow now closes OCCT unit editors, Species Colors, and Materials dialogs from `QApplication::aboutToQuit` as well as the normal close path.
 - This covers application-exit paths that bypass `MainWindow::closeEvent` and keeps child dialogs from outliving the OCCT context.
 - The dialogs remain parent-owned; the change avoids duplicate manual destruction.
+
+### 2026-09-02 Finalize State Before OCCT Context Menus
+
+- Opening a 3D-view context menu now finalizes any active move transaction and clears stale face/object selection state before hit-testing.
+- This prevents a right-click after dragging from leaking old interaction state into the next mouse event.
+- The context-menu actions and geometry data remain unchanged.
