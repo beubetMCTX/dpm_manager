@@ -1834,7 +1834,23 @@ QList<Unit> read_dpm_file(const QString &file_path,
     }
 
     const QString file_name = file.fileName();
-    const QString content = QString::fromUtf8(file.readAll());
+    const QByteArray raw_content = file.readAll();
+    if (file.error() != QFile::NoError)
+    {
+        const QString message = QString("Unable to read DPM file: %1 (%2)")
+                                    .arg(file_name, file.errorString());
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_error_message_box)
+        {
+            QMessageBox::critical(nullptr, "DPM Parse Error", message);
+        }
+        return units;
+    }
+
+    const QString content = QString::fromUtf8(raw_content);
     if (content.trimmed().isEmpty())
     {
         const QString message = QString("DPM file is empty: %1").arg(file_name);

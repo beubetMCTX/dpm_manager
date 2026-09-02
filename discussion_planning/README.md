@@ -1030,3 +1030,9 @@ References:
 - `OCCTWidget` now marks the beginning of destruction before closing its auxiliary editors.
 - Selection cleanup triggered by editor-close callbacks still clears local OCCT selection, but no longer emits UI signals or queues a redraw after teardown has started.
 - Normal selection, context-menu, and drag behavior is unchanged.
+
+### 2026-09-02 Reject Truncated DPM and Chemkin Reads
+
+- DPM and Chemkin readers now check the underlying `QFile` error after consuming file contents.
+- A mid-read I/O failure returns no partial data and uses the existing error-message/UI feedback path.
+- File-format and project save formats remain unchanged.

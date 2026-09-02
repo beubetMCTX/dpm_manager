@@ -181,6 +181,21 @@ QStringList read_chemkin_species_names(const QString& file_path,
         append_species_tokens(trimmed, species_names, seen_species);
     }
 
+    if (file.error() != QFile::NoError)
+    {
+        const QString message = QString("Unable to read Chemkin file: %1 (%2)")
+                                    .arg(file_path, file.errorString());
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        if (show_message_box)
+        {
+            QMessageBox::critical(nullptr, "Chemkin Parse Error", message);
+        }
+        return {};
+    }
+
     if (!found_species_section)
     {
         const QString message = QString("No SPECIES section found in Chemkin file: %1").arg(file_path);
