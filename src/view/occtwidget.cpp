@@ -458,6 +458,10 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
     {
         return 0;
     }
+    if (!m_material_names.contains(normalized_material, Qt::CaseInsensitive))
+    {
+        return 0;
+    }
 
     int changed_count = 0;
     for (const QUuid &uuid : uuids)

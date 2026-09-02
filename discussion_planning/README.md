@@ -1131,3 +1131,9 @@ References:
 - MainWindow debug injector construction now follows the same `DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW` switch as `Injector_OCCT`.
 - The default stable preview remains unchanged when the option is `OFF`.
 - Verified both option states compile in the configured Release environment; the default-off build passed all 10 CTest regressions.
+
+### 2026-09-02 Enforce Material Table in Batch Assignment
+
+- Batch material assignment now rejects empty names and names absent from the current Materials table.
+- This keeps the programmatic multi-selection path consistent with the Unit Editor's read-only material selectors.
+- Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.
