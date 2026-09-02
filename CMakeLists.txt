@@ -366,8 +366,39 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
     add_test(NAME unit_edit_dialog_lifetime_regression
              COMMAND unit_edit_dialog_lifetime_regression)
     set_tests_properties(unit_edit_dialog_lifetime_regression
-                         PROPERTIES ENVIRONMENT
+             PROPERTIES ENVIRONMENT
                          "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins")
+
+    add_executable(occtwidget_edit_history_regression
+        tests/occtwidget_edit_history_test.cpp
+        ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
+        ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
+        ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
+        ${UI_COMPONENTS_DIR}/qUI_components.h ${UI_COMPONENTS_DIR}/qUI_components.cpp
+        ${UI_DIALOGS_DIR}/unit_edit_dialog.h ${UI_DIALOGS_DIR}/unit_edit_dialog.cpp ${UI_DIALOGS_DIR}/unit_edit_dialog.ui
+    )
+    target_include_directories(occtwidget_edit_history_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${VIEW_DIR}
+        ${IO_DIR}
+        ${MODEL_DIR}
+        ${COMMON_DIR}
+        ${UI_COMPONENTS_DIR}
+        ${UI_DIALOGS_DIR}
+    )
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE ${GLEW_LIBRARIES})
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE glfw)
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE assimp::assimp)
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE unofficial::tinyexpr::tinyexpr)
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE OpenGL::GL)
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE Qt6::OpenGLWidgets)
+    target_link_libraries(occtwidget_edit_history_regression PRIVATE ${OpenCASCADE_LIBRARIES})
+    add_test(NAME occtwidget_edit_history_regression
+             COMMAND occtwidget_edit_history_regression)
 
     # Keep CTest independent from the developer shell's PATH. The regression
     # executables link against the same Qt/OpenCASCADE/vcpkg runtime set as
@@ -382,7 +413,8 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
         base_geom_read_regression
         injector_geometry_regression
         auxiliary_dialog_lifetime_regression
-        unit_edit_dialog_lifetime_regression)
+        unit_edit_dialog_lifetime_regression
+        occtwidget_edit_history_regression)
     set(DPM_TEST_RUNTIME_PATH
         "${CMAKE_BINARY_DIR};${DPM_TEST_DEPENDENCY_DIR};${OpenCASCADE_BIN_DIR};${DPM_QT_BIN_DIR}")
     string(REPLACE ";" "\\;" DPM_TEST_RUNTIME_PATH_ESCAPED
@@ -390,6 +422,12 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
     set_tests_properties(${DPM_TEST_NAMES}
                          PROPERTIES ENVIRONMENT
                          "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
+
+    # OCCTWidget creates a native WNT window and cannot be exercised with
+    # Qt's offscreen platform. Keep this focused history test on Windows.
+    set_tests_properties(occtwidget_edit_history_regression
+                         PROPERTIES ENVIRONMENT
+                         "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
 endif()
 
 

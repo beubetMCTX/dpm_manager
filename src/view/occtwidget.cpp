@@ -1022,10 +1022,16 @@ bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
         return false;
     }
 
+    const Unit_Type previous_type = unit->type;
+    const Injector previous_data = unit->inj.injector_data;
+    const TopoDS_Compound previous_shape = unit->inj.shape;
     unit->type = type;
     unit->inj.injector_data = data;
     if (!unit->inj.create_injector())
     {
+        unit->type = previous_type;
+        unit->inj.injector_data = previous_data;
+        unit->inj.shape = previous_shape;
         return false;
     }
 

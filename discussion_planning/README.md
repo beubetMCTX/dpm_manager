@@ -1137,3 +1137,9 @@ References:
 - Batch material assignment now rejects empty names and names absent from the current Materials table.
 - This keeps the programmatic multi-selection path consistent with the Unit Editor's read-only material selectors.
 - Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Roll Back Failed Edit Snapshots Safely
+
+- Unit edit undo, redo, and cancel snapshot application now restores the previous type, data, and displayed shape when geometry rebuilding fails.
+- Added an OCCTWidget edit-history regression covering rejection of an invalid historical snapshot without damaging the valid current state.
+- The native OCCT test uses the Windows Qt platform instead of the incompatible offscreen platform; all 11 CTest regressions pass.
