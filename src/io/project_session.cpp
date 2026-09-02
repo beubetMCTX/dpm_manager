@@ -707,14 +707,26 @@ bool validate_references(const Data &data,
             }
         }
 
-        if (!data.chemkin_file_path.trimmed().isEmpty())
+        const QList<QPair<const char *, const QString *>> species_fields = {
+            {"devolatilizing-species", &injector.devolatilizing_species},
+            {"evaporating-species", &injector.evaporating_species},
+            {"oxidizing-species", &injector.oxidizing_species},
+            {"product-species", &injector.product_species}
+        };
+        if (data.chemkin_file_path.trimmed().isEmpty())
         {
-            const QList<QPair<const char *, const QString *>> species_fields = {
-                {"devolatilizing-species", &injector.devolatilizing_species},
-                {"evaporating-species", &injector.evaporating_species},
-                {"oxidizing-species", &injector.oxidizing_species},
-                {"product-species", &injector.product_species}
-            };
+            for (const auto &field : species_fields)
+            {
+                const QString value = field.second->trimmed();
+                if (!value.isEmpty())
+                {
+                    errors.append(QString("%1 references Chemkin species '%2' in %3, but no Chemkin file is loaded.")
+                                      .arg(label, value, QString::fromLatin1(field.first)));
+                }
+            }
+        }
+        else
+        {
             for (const auto &field : species_fields)
             {
                 const QString value = field.second->trimmed();

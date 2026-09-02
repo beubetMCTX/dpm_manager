@@ -75,6 +75,18 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data without_chemkin = source;
+    without_chemkin.chemkin_file_path.clear();
+    without_chemkin.units.first().inj.injector_data.product_species = "O2";
+    if (!check(!project_session::validate_references(without_chemkin,
+                                                     {},
+                                                     &reference_error) &&
+                   reference_error.contains("no Chemkin file is loaded"),
+               "species references should fail when no Chemkin file is loaded"))
+    {
+        return 1;
+    }
+
     project_session::Data invalid_reference = source;
     invalid_reference.units.first().inj.injector_data.material = "missing-liquid";
     invalid_reference.units.first().inj.injector_data.product_species = "CH4";

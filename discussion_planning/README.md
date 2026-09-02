@@ -862,3 +862,8 @@ References:
 - The report reuses DPM unit validation, project structure validation, and material/species reference validation before export or calculation.
 - Validation failures are shown in a warning dialog and the status bar; successful validation reports unit, material, and species-color counts.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Reject Species References Without Chemkin
+
+- Project reference validation now rejects non-empty species fields when no Chemkin file is loaded.
+- This prevents stale species references from surviving after the Chemkin source is cleared.
+- Added regression coverage for the no-Chemkin case.
