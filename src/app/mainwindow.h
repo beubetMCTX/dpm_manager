@@ -67,6 +67,8 @@ private slots:
 
     void on_actionValidate_Project_triggered();
 
+    void on_actionExport_Diagnostics_triggered();
+
     void on_actionRead_Base_Geometry_triggered();
 
     void on_actionRead_Chemkin_Files_triggered();

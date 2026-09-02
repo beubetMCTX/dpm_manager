@@ -9,6 +9,11 @@
 #include "species_material_dialog.h"
 #include "unit_preferences_dialog.h"
 #include <QFileInfo>
+#include <QFile>
+#include <QSaveFile>
+#include <QSysInfo>
+#include <QTextStream>
+#include <QDateTime>
 #include <QSizePolicy>
 #include <QtMath>
 #include <QDebug>
@@ -683,6 +688,73 @@ void MainWindow::on_actionValidate_Project_triggered()
                                  .arg(data.materials.size())
                                  .arg(data.species_colors.size()));
     statusBar()->showMessage("Project validation passed", 5000);
+}
+
+void MainWindow::on_actionExport_Diagnostics_triggered()
+{
+    const QString file_path = QFileDialog::getSaveFileName(
+        this,
+        "Export Diagnostics",
+        ".",
+        "Diagnostic Reports (*.txt);;All Files (*.*)");
+    if (file_path.trimmed().isEmpty())
+    {
+        statusBar()->showMessage("Diagnostic export canceled", 5000);
+        return;
+    }
+
+    const project_session::Data data = collect_project_data();
+    QSaveFile output(file_path);
+    if (!output.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        const QString message = QString("Unable to write diagnostic report: %1")
+                                    .arg(file_path);
+        QMessageBox::critical(this, "Diagnostic Export Error", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    QTextStream stream(&output);
+    stream << "DPM Manager Diagnostic Report\n"
+           << "Generated: " << QDateTime::currentDateTimeUtc().toString(Qt::ISODate)
+           << "\n"
+           << "Qt: " << QT_VERSION_STR << "\n"
+           << "Platform: " << QSysInfo::prettyProductName() << "\n"
+           << "Application directory: " << QCoreApplication::applicationDirPath() << "\n"
+           << "Project session: " << m_project_session_file_path << "\n"
+           << "Project dirty: " << (m_project_dirty ? "yes" : "no") << "\n"
+           << "Units: " << data.units.size() << "\n"
+           << "Materials: " << data.materials.size() << "\n"
+           << "Chemkin file: " << data.chemkin_file_path << "\n"
+           << "Chemkin species: " << m_chemkin_species_names.size() << "\n"
+           << "Reference geometry: "
+           << (data.reference_geometry.file_path.trimmed().isEmpty() ? "none" :
+               data.reference_geometry.file_path)
+           << "\n"
+           << "Runtime log: " << runtime_debug::current_log_file_path() << "\n\n"
+           << "Runtime log contents\n"
+           << "====================\n";
+
+    QFile log_file(runtime_debug::current_log_file_path());
+    if (log_file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        stream << log_file.readAll();
+    }
+    else
+    {
+        stream << "Unable to read the current runtime log.\n";
+    }
+
+    if (!output.commit())
+    {
+        const QString message = QString("Unable to finalize diagnostic report: %1")
+                                    .arg(file_path);
+        QMessageBox::critical(this, "Diagnostic Export Error", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    statusBar()->showMessage(QString("Diagnostics exported: %1").arg(file_path), 8000);
 }
 
 bool MainWindow::save_current_project_session()

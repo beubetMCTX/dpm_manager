@@ -874,3 +874,9 @@ References:
 - Reference geometry is intentionally excluded from batch injector operations.
 - These controls only change view/interaction state and do not alter the deferred project save format.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Export Diagnostic Report
+
+- Added a Settings-menu `Export Diagnostics` action.
+- The report records application/runtime environment, project summary, Chemkin and reference-geometry state, and the current runtime log.
+- Reports use atomic file replacement so an interrupted export does not leave a partial report.
+- Release build and all 9 CTest regressions passed.

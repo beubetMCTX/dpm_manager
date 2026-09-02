@@ -63,6 +63,7 @@
     </property>
     <addaction name="actionUnit_of_Measurement"/>
     <addaction name="actionLanguage"/>
+    <addaction name="actionExport_Diagnostics"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -107,6 +108,11 @@
   <action name="actionSpecies_Colors">
    <property name="text">
     <string>Species/Colors</string>
+   </property>
+  </action>
+  <action name="actionExport_Diagnostics">
+   <property name="text">
+    <string>Export Diagnostics</string>
    </property>
   </action>
   <action name="actionSave_DPM">
