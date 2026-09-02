@@ -121,6 +121,7 @@ int main(int argc, char *argv[])
     }
 
     unit.inj.injector_data.evaporating_liquid = true;
+    unit.inj.injector_data.evaporating_material = "water";
     dialog->refresh_from_unit_data(&unit);
     auto *evaporating_material_editor =
         dialog->findChild<QUI_ComboBox*>("evaporatingMaterialModelEditor");
@@ -135,6 +136,18 @@ int main(int argc, char *argv[])
                    evaporating_material_editor->itemText(0) == "ethanol" &&
                    evaporating_material_editor->itemText(1) == "water",
                "Open unit editor should refresh material context without stale options"))
+    {
+        delete parent;
+        return 1;
+    }
+
+    dialog->set_material_names({"ethanol"});
+    if (!check(evaporating_material_editor->currentText() == "water" &&
+                   evaporating_material_editor->findText("water") < 0 &&
+                   evaporating_material_editor->findText("ethanol") >= 0 &&
+                   evaporating_material_editor->lineEdit() != nullptr &&
+                   evaporating_material_editor->lineEdit()->isReadOnly(),
+               "Removed material should remain visible but not selectable"))
     {
         delete parent;
         return 1;

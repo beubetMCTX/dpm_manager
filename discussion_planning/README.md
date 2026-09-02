@@ -1105,3 +1105,10 @@ References:
 - Regression tests now receive Qt plugin and Qt/OpenCASCADE/vcpkg DLL paths from CMake instead of relying on the developer shell environment.
 - All 10 Release CTest targets pass in a clean test invocation.
 - Release packaging and startup/shutdown verification passed.
+
+### 2026-09-02 Keep Removed Materials Visible but Unselectable
+
+- Dynamic Wet Combustion material selectors now expose only the current Materials table entries.
+- A material value removed from the table remains visible as read-only text for compatibility, but is no longer an available selection.
+- Added regression coverage for stale-value display, selectable options, and read-only behavior.
+- Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.

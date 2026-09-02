@@ -739,20 +739,17 @@ void unit_edit_dialog::set_material_names(const QStringList &material_names)
             continue;
         }
 
-        QStringList options = material_options_for(m_material_names);
+        const QStringList options = material_options_for(m_material_names);
         const QString current_value = combo->currentText();
-        if (!current_value.isEmpty() && !options.contains(current_value))
-        {
-            options.prepend(current_value);
-        }
-        if (options.isEmpty())
-        {
-            options.append(QString());
-        }
 
         const QSignalBlocker blocker(combo);
         combo->set_options(options);
-        combo->setCurrentIndex(qMax(0, options.indexOf(current_value)));
+        const int current_index = combo->findText(current_value);
+        combo->setCurrentIndex(current_index);
+        if (current_index < 0)
+        {
+            combo->setEditText(current_value);
+        }
     }
 }
 
@@ -2549,10 +2546,6 @@ void unit_edit_dialog::build_model_property_rows()
             return;
         }
 
-        if (!value_ptr->isEmpty() && !options.contains(*value_ptr))
-        {
-            options.prepend(*value_ptr);
-        }
         if (options.isEmpty())
         {
             options.push_back(QString());
@@ -2572,7 +2565,17 @@ void unit_edit_dialog::build_model_property_rows()
             m_material_context_combos.append(combo);
         }
         combo->set_options(options);
-        combo->setCurrentIndex(qMax(0, options.indexOf(*value_ptr)));
+        combo->setEditable(true);
+        if (combo->lineEdit() != nullptr)
+        {
+            combo->lineEdit()->setReadOnly(true);
+        }
+        const int current_index = combo->findText(*value_ptr);
+        combo->setCurrentIndex(current_index);
+        if (current_index < 0)
+        {
+            combo->setEditText(*value_ptr);
+        }
         row_layout->addWidget(label_widget);
         row_layout->addWidget(combo, 1);
         m_model_row_syncers.push_back([combo, value_ptr]()
@@ -2581,7 +2584,11 @@ void unit_edit_dialog::build_model_property_rows()
             {
                 const QSignalBlocker blocker(combo);
                 const int index = combo->findText(*value_ptr);
-                combo->setCurrentIndex(qMax(0, index));
+                combo->setCurrentIndex(index);
+                if (index < 0)
+                {
+                    combo->setEditText(*value_ptr);
+                }
             }
         });
         connect(combo, &QUI_ComboBox::selection_committed, this,
