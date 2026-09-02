@@ -1717,6 +1717,7 @@ void unit_edit_dialog::build_point_property_rows()
     m_property_layout_key = current_property_layout_key();
 
     Injector &injector = control_unit->inj.injector_data;
+    Injector *injector_ptr = &injector;
 
     auto add_info_label = [this](const QString &text)
     {
@@ -2116,8 +2117,8 @@ void unit_edit_dialog::build_point_property_rows()
         add_combo_row(
             "Volume Specification",
             {"Zone", "Bounding Geometry"},
-            [&injector]() { return static_cast<int>(injector.volume_specification); },
-            [&injector](int value) { injector.volume_specification = static_cast<Volume_Specification>(value); });
+            [injector_ptr]() { return static_cast<int>(injector_ptr->volume_specification); },
+            [injector_ptr](int value) { injector_ptr->volume_specification = static_cast<Volume_Specification>(value); });
         if (injector.volume_specification == zone)
         {
             add_int_list_row("Volume Zones", &injector.volume_zones);
@@ -2127,8 +2128,8 @@ void unit_edit_dialog::build_point_property_rows()
             add_combo_row(
                 "Bounding Shape",
                 {"Sphere", "Cylinder", "Cone", "Hexahedron"},
-                 [&injector]() { return static_cast<int>(injector.volume_bgeom_shapes); },
-                 [&injector](int value) { injector.volume_bgeom_shapes = static_cast<Volume_Bgeom_Shapes>(value); });
+                 [injector_ptr]() { return static_cast<int>(injector_ptr->volume_bgeom_shapes); },
+                 [injector_ptr](int value) { injector_ptr->volume_bgeom_shapes = static_cast<Volume_Bgeom_Shapes>(value); });
 
             // Bounding geometry fields are meaningful only for the selected
             // shape. Zone-based volume injections do not expose any of them.
@@ -2173,8 +2174,8 @@ void unit_edit_dialog::build_point_property_rows()
         add_combo_row(
             "Stream Specification",
             {"Total Parcel Count", "Parcel Per Cell"},
-            [&injector]() { return static_cast<int>(injector.volume_streams_spec); },
-            [&injector](int value) { injector.volume_streams_spec = static_cast<Volume_Streams_Spec>(value); });
+            [injector_ptr]() { return static_cast<int>(injector_ptr->volume_streams_spec); },
+            [injector_ptr](int value) { injector_ptr->volume_streams_spec = static_cast<Volume_Streams_Spec>(value); });
         if (injector.volume_streams_spec == total_parcel_count)
         {
             add_single_int_row("Total Streams", "-", &injector.volume_streams_total);
@@ -2405,6 +2406,7 @@ void unit_edit_dialog::build_model_property_rows()
     m_material_context_combos.clear();
 
     Injector &injector = control_unit->inj.injector_data;
+    Injector *injector_ptr = &injector;
     // Normalize legacy or externally edited combinations before building rows.
     normalize_model_dependencies(injector);
     m_model_layout_key = current_model_layout_key();
@@ -2685,12 +2687,12 @@ void unit_edit_dialog::build_model_property_rows()
                 add_double_row(m_physical_models_layout, "Angular Velocity Magnitude", "rad/s", &injector.ang_vel_mag);
                 add_combo_row(m_physical_models_layout, "Rotational Drag Law",
                               {"Dennis et al.", "None"},
-                              [&injector]() { return static_cast<int>(injector.rot_drag_law); },
-                              [&injector](int value) { injector.rot_drag_law = static_cast<Rot_Drag_Law>(value); });
+                              [injector_ptr]() { return static_cast<int>(injector_ptr->rot_drag_law); },
+                              [injector_ptr](int value) { injector_ptr->rot_drag_law = static_cast<Rot_Drag_Law>(value); });
                 add_combo_row(m_physical_models_layout, "Rotational Lift Law",
                               {"Oesterle-Bui Dinh", "Tsuji et al.", "Rubinow-Keller", "None"},
-                              [&injector]() { return static_cast<int>(injector.rot_lift_law); },
-                              [&injector](int value) { injector.rot_lift_law = static_cast<Rot_Lift_Law>(value); });
+                              [injector_ptr]() { return static_cast<int>(injector_ptr->rot_lift_law); },
+                              [injector_ptr](int value) { injector_ptr->rot_lift_law = static_cast<Rot_Lift_Law>(value); });
             }
         }
         if (vapor_pressure_supported)
@@ -2719,8 +2721,8 @@ void unit_edit_dialog::build_model_property_rows()
             }
             add_combo_row(m_physical_models_layout, "Drag Law",
                           {"Spherical", "Nonspherical", "Stokes-Cunningham", "High Mach Number", "Dynamic Drag"},
-                          [&injector]() { return static_cast<int>(injector.drag_law); },
-                          [&injector](int value) { injector.drag_law = static_cast<Drag_Law>(value); });
+                          [injector_ptr]() { return static_cast<int>(injector_ptr->drag_law); },
+                          [injector_ptr](int value) { injector_ptr->drag_law = static_cast<Drag_Law>(value); });
             if (injector.drag_law == nonspherical)
             {
                 add_double_row(m_physical_models_layout, "Shape Factor", "-", &injector.shape_factor);
@@ -2914,11 +2916,11 @@ void unit_edit_dialog::build_model_property_rows()
         if (stochastic_check != nullptr)
         {
             connect(stochastic_check, &QUI_CheckBox::value_committed, this,
-                    [this, &injector](bool checked)
+                    [this, injector_ptr](bool checked)
             {
                 if (checked)
                 {
-                    injector.cloud = false;
+                    injector_ptr->cloud = false;
                 }
                 notify_injector_data_changed(false);
                 QMetaObject::invokeMethod(this, [this]()
@@ -2930,11 +2932,11 @@ void unit_edit_dialog::build_model_property_rows()
         if (cloud_check != nullptr)
         {
             connect(cloud_check, &QUI_CheckBox::value_committed, this,
-                    [this, &injector](bool checked)
+                    [this, injector_ptr](bool checked)
             {
                 if (checked)
                 {
-                    injector.stochastic = false;
+                    injector_ptr->stochastic = false;
                 }
                 notify_injector_data_changed(false);
                 QMetaObject::invokeMethod(this, [this]()
@@ -2970,8 +2972,8 @@ void unit_edit_dialog::build_model_property_rows()
     {
         add_combo_row(m_parcel_layout, "Parcel Model",
                       {"Standard", "Constant Number", "Constant Mass", "Constant Diameter"},
-                      [&injector]() { return static_cast<int>(injector.parcel_model); },
-                      [&injector](int value) { injector.parcel_model = static_cast<Parcel_Model>(value); });
+                      [injector_ptr]() { return static_cast<int>(injector_ptr->parcel_model); },
+                      [injector_ptr](int value) { injector_ptr->parcel_model = static_cast<Parcel_Model>(value); });
         switch (injector.parcel_model)
         {
         case const_number:

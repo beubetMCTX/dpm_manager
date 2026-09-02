@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-03 Stabilize Dynamic Model Editor Callbacks
+
+- Dynamic model combo callbacks now capture stable injector pointers instead of references to local aliases.
+- This prevents delayed refresh, selection, and model-layout synchronization callbacks from using dangling stack references.
+- Volume branch, rotational laws, drag law, Parcel model, and turbulent-dispersion callbacks are covered.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-03 Normalize Model Dependencies Before Every Editor Refresh
 
 - Model dependency normalization now runs before layout-key comparison, so externally changed flags cannot bypass validation when the visible layout key is unchanged.
