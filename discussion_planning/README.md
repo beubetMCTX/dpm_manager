@@ -1036,3 +1036,8 @@ References:
 - DPM and Chemkin readers now check the underlying `QFile` error after consuming file contents.
 - A mid-read I/O failure returns no partial data and uses the existing error-message/UI feedback path.
 - File-format and project save formats remain unchanged.
+
+### 2026-09-02 Report Empty Input Paths
+
+- DPM and Chemkin public readers now return explicit errors for empty paths instead of only returning an empty result.
+- Chemkin regression coverage verifies the new diagnostic while preserving the existing canceled-dialog behavior in the main window.

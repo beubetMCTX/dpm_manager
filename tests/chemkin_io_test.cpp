@@ -58,6 +58,15 @@ int main(int argc, char *argv[])
 
     bool ok = false;
     QString error_message;
+    const QStringList empty_path_species = read_chemkin_species_names(
+        QString(), &ok, &error_message, false);
+    if (!check(!ok && empty_path_species.isEmpty() &&
+                   error_message.contains("path is empty"),
+               "Empty Chemkin path should provide a useful error"))
+    {
+        return 1;
+    }
+
     const QStringList species = read_chemkin_species_names(
         valid_path, &ok, &error_message, false);
     if (!check(ok, "Valid Chemkin file should parse") ||

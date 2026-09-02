@@ -62,6 +62,10 @@ QStringList read_chemkin_species_names(const QString& file_path,
 
     if (file_path.trimmed().isEmpty())
     {
+        if (error_message != nullptr)
+        {
+            *error_message = "Chemkin file path is empty.";
+        }
         return {};
     }
 

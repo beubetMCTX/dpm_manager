@@ -48,6 +48,10 @@ bool validate_dpm_file_path(const QString& file_path, QString* error_message)
 
     if (file_path.trimmed().isEmpty())
     {
+        if (error_message != nullptr)
+        {
+            *error_message = "DPM file path is empty.";
+        }
         return false;
     }
 
