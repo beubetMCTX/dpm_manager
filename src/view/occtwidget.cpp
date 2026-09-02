@@ -1897,8 +1897,26 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
         return false;
     }
 
+    // Selection modes are object-scoped. Do not use the context-wide
+    // Activate() overload here, because it can leave an injector mode active
+    // while the next event is trying to pick a reference-geometry face.
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit == nullptr || unit->ais_display.IsNull())
+        {
+            continue;
+        }
+
+        m_context->SetSelectionModeActive(
+            unit->ais_display, -1, Standard_False,
+            AIS_SelectionModesConcurrency_Single);
+        m_context->SetSelectionModeActive(
+            unit->ais_display, select_mode, Standard_True,
+            AIS_SelectionModesConcurrency_Single, Standard_True);
+    }
+
     selected_shape.Nullify();
-    m_context->Activate(select_mode);
     if (!m_context->HasDetected())
     {
         return false;

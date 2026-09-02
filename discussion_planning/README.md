@@ -973,3 +973,9 @@ References:
 - Opening a 3D-view context menu now finalizes any active move transaction and clears stale face/object selection state before hit-testing.
 - This prevents a right-click after dragging from leaking old interaction state into the next mouse event.
 - The context-menu actions and geometry data remain unchanged.
+
+### 2026-09-02 Scope Injector Selection Modes Per Object
+
+- Injector picking now enables `TopAbs_COMPOUND` or `TopAbs_SHAPE` only on injector AIS objects and disables their previous modes first.
+- Removed the context-wide selection-mode activation from the injector picking path so reference-geometry face selection cannot inherit a stale injector mode.
+- The context-menu actions and geometry data remain unchanged.
