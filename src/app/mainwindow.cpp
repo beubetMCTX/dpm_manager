@@ -699,6 +699,36 @@ void MainWindow::on_actionValidate_Project_triggered()
         return;
     }
 
+    QStringList external_file_errors;
+    if (!data.chemkin_file_path.trimmed().isEmpty())
+    {
+        const QFileInfo chemkin_info(data.chemkin_file_path);
+        if (!chemkin_info.exists() || !chemkin_info.isFile())
+        {
+            external_file_errors.append(
+                QString("Chemkin file is missing: %1").arg(data.chemkin_file_path));
+        }
+    }
+    if (!data.reference_geometry.file_path.trimmed().isEmpty())
+    {
+        const QFileInfo geometry_info(data.reference_geometry.file_path);
+        if (!geometry_info.exists() || !geometry_info.isFile())
+        {
+            external_file_errors.append(
+                QString("Reference geometry file is missing: %1")
+                    .arg(data.reference_geometry.file_path));
+        }
+    }
+    if (!external_file_errors.isEmpty())
+    {
+        const QString message = QString("Project validation found %1 external file problem(s):\n- %2")
+                                    .arg(external_file_errors.size())
+                                    .arg(external_file_errors.join("\n- "));
+        QMessageBox::warning(this, "Project Validation", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
     if (!project_session::validate(data, &error_message) ||
         !project_session::validate_references(data,
                                                m_chemkin_species_names,

@@ -921,3 +921,8 @@ References:
 - Added a `Paste to Selected` action to the multi-selection object panel.
 - Copied injector parameters can now be applied to multiple selected injectors in one operation.
 - Each successful paste remains an independent Unit Edit history entry; reference geometry is excluded.
+### 2026-09-02 Validate External Project Files
+
+- Project validation now checks that the active Chemkin and reference-geometry paths still point to existing files.
+- Missing external files are reported before the deeper project validation result is shown.
+- Release build and all 9 CTest regressions passed.
