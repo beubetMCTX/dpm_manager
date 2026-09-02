@@ -2343,9 +2343,15 @@ void unit_edit_dialog::build_model_property_rows()
     reset_layout(m_wet_combustion_layout, "Wet Combustion");
     m_model_row_syncers.clear();
     m_material_context_combos.clear();
-    m_model_layout_key = current_model_layout_key();
 
     Injector &injector = control_unit->inj.injector_data;
+    // Fluent permits one turbulent-dispersion model at a time. Keep legacy
+    // data deterministic when both flags were loaded as enabled.
+    if (injector.stochastic && injector.cloud)
+    {
+        injector.cloud = false;
+    }
+    m_model_layout_key = current_model_layout_key();
 
     auto add_double_row = [this](QVBoxLayout *layout,
                                  const QString &label,
@@ -2358,6 +2364,7 @@ void unit_edit_dialog::build_model_property_rows()
         }
 
         auto *row = new QUI_FieldRow(label, unit, layout->parentWidget());
+        row->setObjectName(QString("modelRow_%1").arg(label.simplified().replace(' ', '_')));
         row->set_label_width(220);
         row->primary_editor()->set_double_mode();
         row->primary_editor()->bind_value(value_ptr);
@@ -2383,6 +2390,7 @@ void unit_edit_dialog::build_model_property_rows()
         }
 
         auto *row = new QUI_FieldRow(label, QString(), layout->parentWidget());
+        row->setObjectName(QString("modelRow_%1").arg(label.simplified().replace(' ', '_')));
         row->set_label_width(220);
         row->primary_editor()->set_integer_mode();
         row->primary_editor()->bind_value(value_ptr);
@@ -2463,14 +2471,15 @@ void unit_edit_dialog::build_model_property_rows()
 
     auto add_bool_row = [this](QVBoxLayout *layout,
                                const QString &label,
-                               bool *value_ptr)
+                               bool *value_ptr) -> QWidget *
     {
         if (layout == nullptr)
         {
-            return;
+            return nullptr;
         }
 
         auto *row = new QWidget(layout->parentWidget());
+        row->setObjectName(QString("modelRow_%1").arg(label.simplified().replace(' ', '_')));
         auto *row_layout = new QHBoxLayout(row);
         row_layout->setContentsMargins(0, 1, 0, 1);
         row_layout->setSpacing(6);
@@ -2494,6 +2503,7 @@ void unit_edit_dialog::build_model_property_rows()
             notify_injector_data_changed(false);
         });
         layout->addWidget(row);
+        return row;
     };
 
     auto add_combo_row = [this](QVBoxLayout *layout,
@@ -2712,14 +2722,70 @@ void unit_edit_dialog::build_model_property_rows()
 
     if (m_turbulent_dispersion_layout != nullptr)
     {
-        add_bool_row(m_turbulent_dispersion_layout, "Stochastic Tracking", &injector.stochastic);
+        auto *stochastic_row = add_bool_row(
+            m_turbulent_dispersion_layout, "Stochastic Tracking", &injector.stochastic);
+        auto *stochastic_check = stochastic_row != nullptr
+            ? stochastic_row->findChild<QUI_CheckBox*>()
+            : nullptr;
+        if (stochastic_check != nullptr)
+        {
+            stochastic_check->setObjectName("stochasticTrackingEditor");
+        }
         if (injector.stochastic)
         {
             add_bool_row(m_turbulent_dispersion_layout, "Random Eddy", &injector.random_eddy);
             add_int_row(m_turbulent_dispersion_layout, "Eddy Attempts", &injector.ntries);
             add_double_row(m_turbulent_dispersion_layout, "Time Scale Constant", "s", &injector.time_scale_constant);
         }
-        add_bool_row(m_turbulent_dispersion_layout, "Cloud Tracking", &injector.cloud);
+        auto *cloud_row = add_bool_row(
+            m_turbulent_dispersion_layout, "Cloud Tracking", &injector.cloud);
+        auto *cloud_check = cloud_row != nullptr
+            ? cloud_row->findChild<QUI_CheckBox*>()
+            : nullptr;
+        if (cloud_check != nullptr)
+        {
+            cloud_check->setObjectName("cloudTrackingEditor");
+        }
+        if (stochastic_row != nullptr)
+        {
+            stochastic_row->setEnabled(!injector.cloud);
+        }
+        if (cloud_row != nullptr)
+        {
+            cloud_row->setEnabled(!injector.stochastic);
+        }
+        if (stochastic_check != nullptr)
+        {
+            connect(stochastic_check, &QUI_CheckBox::value_committed, this,
+                    [this, &injector](bool checked)
+            {
+                if (checked)
+                {
+                    injector.cloud = false;
+                }
+                notify_injector_data_changed(false);
+                QMetaObject::invokeMethod(this, [this]()
+                {
+                    build_model_property_rows();
+                }, Qt::QueuedConnection);
+            });
+        }
+        if (cloud_check != nullptr)
+        {
+            connect(cloud_check, &QUI_CheckBox::value_committed, this,
+                    [this, &injector](bool checked)
+            {
+                if (checked)
+                {
+                    injector.stochastic = false;
+                }
+                notify_injector_data_changed(false);
+                QMetaObject::invokeMethod(this, [this]()
+                {
+                    build_model_property_rows();
+                }, Qt::QueuedConnection);
+            });
+        }
         if (injector.cloud)
         {
             add_double_row(m_turbulent_dispersion_layout, "Cloud Minimum Diameter", "m", &injector.cloud_min_dia);

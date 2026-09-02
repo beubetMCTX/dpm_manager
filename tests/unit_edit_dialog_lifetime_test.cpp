@@ -109,6 +109,70 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unit.inj.injector_data.injection_type = single;
+    unit.inj.injector_data.stochastic = true;
+    unit.inj.injector_data.cloud = true;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    auto *stochastic_editor = dialog->findChild<QUI_CheckBox*>("stochasticTrackingEditor");
+    auto *cloud_editor = dialog->findChild<QUI_CheckBox*>("cloudTrackingEditor");
+    if (!check(stochastic_editor != nullptr && cloud_editor != nullptr &&
+                   unit.inj.injector_data.stochastic &&
+                   !unit.inj.injector_data.cloud &&
+                   stochastic_editor->isEnabled() &&
+                   !cloud_editor->isEnabled() &&
+                   dialog->findChild<QWidget*>("modelRow_Random_Eddy") != nullptr &&
+                   dialog->findChild<QWidget*>("modelRow_Eddy_Attempts") != nullptr &&
+                   dialog->findChild<QWidget*>("modelRow_Time_Scale_Constant") != nullptr,
+               "Turbulent-dispersion models should normalize and expose stochastic controls"))
+    {
+        delete parent;
+        return 1;
+    }
+    stochastic_editor->click();
+    application.processEvents();
+    cloud_editor = dialog->findChild<QUI_CheckBox*>("cloudTrackingEditor");
+    if (!check(cloud_editor != nullptr && cloud_editor->isEnabled() &&
+                   !unit.inj.injector_data.stochastic &&
+                   !unit.inj.injector_data.cloud &&
+                   dialog->findChild<QWidget*>("modelRow_Random_Eddy") == nullptr &&
+                   dialog->findChild<QWidget*>("modelRow_Cloud_Minimum_Diameter") == nullptr,
+               "Disabling stochastic tracking should reveal cloud tracking"))
+    {
+        delete parent;
+        return 1;
+    }
+    cloud_editor->click();
+    application.processEvents();
+    stochastic_editor = dialog->findChild<QUI_CheckBox*>("stochasticTrackingEditor");
+    if (!check(stochastic_editor != nullptr && !stochastic_editor->isEnabled() &&
+                   unit.inj.injector_data.cloud &&
+                   !unit.inj.injector_data.stochastic &&
+                   dialog->findChild<QWidget*>("modelRow_Cloud_Minimum_Diameter") != nullptr &&
+                   dialog->findChild<QWidget*>("modelRow_Cloud_Maximum_Diameter") != nullptr &&
+                   dialog->findChild<QWidget*>("modelRow_Random_Eddy") == nullptr,
+               "Cloud tracking should disable stochastic tracking and expose cloud controls"))
+    {
+        delete parent;
+        return 1;
+    }
+    cloud_editor = dialog->findChild<QUI_CheckBox*>("cloudTrackingEditor");
+    if (!check(cloud_editor != nullptr,
+               "Cloud tracking editor should remain discoverable after rebuild"))
+    {
+        delete parent;
+        return 1;
+    }
+    cloud_editor->click();
+    application.processEvents();
+    if (!check(dialog->findChild<QUI_CheckBox*>("stochasticTrackingEditor") != nullptr &&
+                   dialog->findChild<QUI_CheckBox*>("stochasticTrackingEditor")->isEnabled(),
+               "Disabling cloud tracking should re-enable stochastic tracking"))
+    {
+        delete parent;
+        return 1;
+    }
+
     dialog->set_chemkin_species_names({"CO2", "H2O"});
     if (!check(devolatilizing_species_editor->count() == 3 &&
                    devolatilizing_species_editor->itemText(1) == "CO2" &&

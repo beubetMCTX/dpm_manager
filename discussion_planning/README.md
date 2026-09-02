@@ -1,5 +1,13 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-03 Make Turbulent Dispersion Models Mutually Exclusive
+
+- Stochastic Tracking and Cloud Tracking are now treated as mutually exclusive model choices.
+- Loading legacy data with both flags enabled keeps Stochastic Tracking and clears Cloud Tracking deterministically.
+- The active model locks the other model's row; disabling it restores the other choice.
+- Dynamic parameters remain scoped to their selected model and rebuild asynchronously after a toggle to avoid deleting the signal sender during delivery.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-02 Treat Missing Reference Geometry as Optional
 
 - A settings file without `reference_geometry` is now treated as a normal first-run state.
