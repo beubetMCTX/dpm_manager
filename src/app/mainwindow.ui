@@ -66,6 +66,7 @@
     <addaction name="actionUnit_of_Measurement"/>
     <addaction name="actionLanguage"/>
     <addaction name="actionExport_Diagnostics"/>
+    <addaction name="actionOpen_Config_Folder"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -115,6 +116,11 @@
   <action name="actionExport_Diagnostics">
    <property name="text">
     <string>Export Diagnostics</string>
+   </property>
+  </action>
+  <action name="actionOpen_Config_Folder">
+   <property name="text">
+    <string>Open Config Folder</string>
    </property>
   </action>
   <action name="actionSave_DPM">

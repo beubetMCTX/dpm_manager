@@ -14,6 +14,8 @@
 #include <QSysInfo>
 #include <QTextStream>
 #include <QDateTime>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QSizePolicy>
 #include <QtMath>
 #include <QDebug>
@@ -783,6 +785,31 @@ void MainWindow::on_actionExport_Diagnostics_triggered()
     }
 
     statusBar()->showMessage(QString("Diagnostics exported: %1").arg(file_path), 8000);
+}
+
+void MainWindow::on_actionOpen_Config_Folder_triggered()
+{
+    QString error_message;
+    if (!ensure_app_config_directories(&error_message))
+    {
+        const QString message = error_message.trimmed().isEmpty()
+            ? "Unable to create the application config folder."
+            : error_message;
+        QMessageBox::warning(this, "Open Config Folder", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    const QString config_path = app_config_directory_path();
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(config_path)))
+    {
+        const QString message = QString("Unable to open config folder: %1").arg(config_path);
+        QMessageBox::warning(this, "Open Config Folder", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    statusBar()->showMessage(QString("Config folder: %1").arg(config_path), 8000);
 }
 
 bool MainWindow::save_current_project_session()

@@ -902,3 +902,8 @@ References:
 - Reference geometry is excluded from this operation.
 - Each deleted injector is recorded separately, so existing Delete Undo/Redo can restore them individually.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Open Config Folder
+
+- Added a Settings-menu `Open Config Folder` action.
+- The action ensures the config, color, and material directories exist before opening them in the system file manager.
+- Existing configuration formats and paths are unchanged.
