@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-03 Constrain Brownian Motion by Drag Law
+
+- Fluent documentation requires Brownian Motion to use the Stokes-Cunningham drag law and a configured energy model.
+- Because this project has no global energy-equation field in `Injector`, the editor enforces the available local dependency: Brownian Motion is cleared and disabled for other drag laws.
+- Switching to Stokes-Cunningham restores the Brownian control without changing the stored format.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-03 Make SECO Breakup Models Mutually Exclusive
 
 - Fluent documentation defines `Breakup Model` as one selection among TAB, Wave, KHRT, SSD, Madabhushi, and Schmehl rather than parallel switches.

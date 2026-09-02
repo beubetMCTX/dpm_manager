@@ -2353,6 +2353,11 @@ void unit_edit_dialog::build_model_property_rows()
     {
         injector.cloud = false;
     }
+    if (!particle_type_supports_inertial_models(injector.type) ||
+        injector.drag_law != Strokes_Cunningham)
+    {
+        injector.brownian_motion = false;
+    }
     m_model_layout_key = current_model_layout_key();
 
     auto add_double_row = [this](QVBoxLayout *layout,
@@ -2657,7 +2662,12 @@ void unit_edit_dialog::build_model_property_rows()
         if (inertial_models_supported)
         {
             add_bool_row(m_physical_models_layout, "Rough Wall", &injector.rough_wall_on);
-            add_bool_row(m_physical_models_layout, "Brownian Motion", &injector.brownian_motion);
+            auto *brownian_row = add_bool_row(
+                m_physical_models_layout, "Brownian Motion", &injector.brownian_motion);
+            if (brownian_row != nullptr)
+            {
+                brownian_row->setEnabled(injector.drag_law == Strokes_Cunningham);
+            }
             add_combo_row(m_physical_models_layout, "Drag Law",
                           {"Spherical", "Nonspherical", "Stokes-Cunningham", "High Mach Number", "Dynamic Drag"},
                           [&injector]() { return static_cast<int>(injector.drag_law); },

@@ -222,6 +222,32 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unit.inj.injector_data.seco_breakup_on = false;
+    unit.inj.injector_data.drag_law = spherical;
+    unit.inj.injector_data.brownian_motion = true;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    auto *brownian_row = dialog->findChild<QWidget*>("modelRow_Brownian_Motion");
+    if (!check(brownian_row != nullptr && !brownian_row->isEnabled() &&
+                   !unit.inj.injector_data.brownian_motion,
+               "Brownian motion should be disabled outside Stokes-Cunningham drag"))
+    {
+        delete parent;
+        return 1;
+    }
+    unit.inj.injector_data.drag_law = Strokes_Cunningham;
+    unit.inj.injector_data.brownian_motion = true;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    brownian_row = dialog->findChild<QWidget*>("modelRow_Brownian_Motion");
+    if (!check(brownian_row != nullptr && brownian_row->isEnabled() &&
+                   unit.inj.injector_data.brownian_motion,
+               "Brownian motion should be available with Stokes-Cunningham drag"))
+    {
+        delete parent;
+        return 1;
+    }
+
     dialog->set_chemkin_species_names({"CO2", "H2O"});
     if (!check(devolatilizing_species_editor->count() == 3 &&
                    devolatilizing_species_editor->itemText(1) == "CO2" &&
