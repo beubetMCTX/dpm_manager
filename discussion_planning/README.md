@@ -936,3 +936,10 @@ References:
 
 - Renaming an injector now rejects names already used by another injector, case-insensitively.
 - The rejected rename does not enter the edit history and reports the reason in the status bar.
+### 2026-09-02 Batch Translate Selected Injectors
+
+- Added a `Translate Selected` control to the multi-selection object panel.
+- Users can apply an X/Y/Z offset to multiple injectors at once.
+- Locked injectors are skipped, and each successful translation gets its own Move Undo/Redo entry.
+- Failed geometry rebuilds restore the original position fields.
+- Release build and all 9 CTest regressions passed.

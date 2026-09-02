@@ -381,6 +381,59 @@ bool OCCTWidget::unit_locked(const QUuid &uuid) const
     return m_unit_locks.value(uuid, false);
 }
 
+int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
+                                        const QVector3D &delta)
+{
+    if (m_context.IsNull() || delta.isNull())
+    {
+        return 0;
+    }
+
+    int translated_count = 0;
+    for (const QUuid &uuid : uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit == nullptr || unit_locked(uuid) || unit->ais_display.IsNull())
+        {
+            continue;
+        }
+
+        const UnitMoveSnapshot before = make_move_snapshot(*unit);
+        Injector &injector = unit->inj.injector_data;
+        injector.pos += delta;
+        injector.pos2 += delta;
+        injector.ff_center += delta;
+        injector.ff_virtual_origin += delta;
+        injector.volume_bgeom_min += delta;
+        injector.volume_bgeom_max += delta;
+
+        if (!unit->inj.create_injector())
+        {
+            injector.pos = before.pos;
+            injector.pos2 = before.pos2;
+            injector.ff_center = before.ff_center;
+            injector.ff_virtual_origin = before.ff_virtual_origin;
+            injector.volume_bgeom_min = before.volume_bgeom_min;
+            injector.volume_bgeom_max = before.volume_bgeom_max;
+            continue;
+        }
+
+        unit->ais_display->SetLocalTransformation(gp_Trsf());
+        unit->ais_display->Set(unit->inj.shape);
+        m_context->Redisplay(unit->ais_display, Standard_False);
+        const UnitMoveSnapshot after = make_move_snapshot(*unit);
+        record_move(uuid, before, after);
+        emit unit_data_updated(unit.get());
+        ++translated_count;
+    }
+
+    if (translated_count > 0 && !m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return translated_count;
+}
+
 bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);

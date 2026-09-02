@@ -17,6 +17,8 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QSizePolicy>
 #include <QtMath>
 #include <QDebug>
@@ -1913,6 +1915,8 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(delete_selected_button);
     auto *paste_selected_button = new QPushButton("Paste to Selected", panel);
     layout->addWidget(paste_selected_button);
+    auto *translate_selected_button = new QPushButton("Translate Selected", panel);
+    layout->addWidget(translate_selected_button);
 
     auto *view_selector = new QComboBox(panel);
     view_selector->setObjectName("standardViewSelector");
@@ -2127,6 +2131,72 @@ void MainWindow::create_object_list_panel()
         statusBar()->showMessage(
             QString("Pasted injector parameters to %1 of %2 selected unit(s)")
                 .arg(pasted_count)
+                .arg(selected_units.size()),
+            5000);
+    });
+    connect(translate_selected_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        QList<QUuid> selected_units;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+            {
+                selected_units.append(uuid);
+            }
+        }
+
+        if (selected_units.isEmpty())
+        {
+            statusBar()->showMessage("Select one or more injectors first", 4000);
+            return;
+        }
+
+        QDialog dialog(this);
+        dialog.setWindowTitle("Translate Selected Injectors");
+        auto *form = new QFormLayout(&dialog);
+        auto create_offset_box = [&dialog]()
+        {
+            auto *box = new QDoubleSpinBox(&dialog);
+            box->setRange(-1.0e9, 1.0e9);
+            box->setDecimals(6);
+            box->setSingleStep(0.1);
+            return box;
+        };
+        auto *x_box = create_offset_box();
+        auto *y_box = create_offset_box();
+        auto *z_box = create_offset_box();
+        form->addRow("dX", x_box);
+        form->addRow("dY", y_box);
+        form->addRow("dZ", z_box);
+        auto *buttons = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        form->addRow(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+        if (dialog.exec() != QDialog::Accepted)
+        {
+            return;
+        }
+
+        const int translated_count = m_3d_widget->translate_units_by_uuid(
+            selected_units,
+            QVector3D(static_cast<float>(x_box->value()),
+                      static_cast<float>(y_box->value()),
+                      static_cast<float>(z_box->value())));
+        statusBar()->showMessage(
+            QString("Translated %1 of %2 selected unit(s); locked units were skipped")
+                .arg(translated_count)
                 .arg(selected_units.size()),
             5000);
     });

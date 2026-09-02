@@ -125,6 +125,8 @@ public:
     bool reference_geometry_visible() const { return m_reference_geometry_visible; }
     bool set_unit_locked(const QUuid &uuid, bool locked);
     bool unit_locked(const QUuid &uuid) const;
+    int translate_units_by_uuid(const QList<QUuid> &uuids,
+                                const QVector3D &delta);
     bool set_unit_name(const QUuid &uuid, const QString &name);
     bool edit_unit_by_uuid(const QUuid &uuid);
     bool remove_unit_by_uuid(const QUuid &uuid);
