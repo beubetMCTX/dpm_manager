@@ -731,7 +731,29 @@ void unit_edit_dialog::set_material_names(const QStringList &material_names)
 
     m_material_names = material_names;
     sync_material_combo();
-    build_model_property_rows();
+
+    for (const QPointer<QUI_ComboBox> &combo : m_material_context_combos)
+    {
+        if (combo == nullptr)
+        {
+            continue;
+        }
+
+        QStringList options = material_options_for(m_material_names);
+        const QString current_value = combo->currentText();
+        if (!current_value.isEmpty() && !options.contains(current_value))
+        {
+            options.prepend(current_value);
+        }
+        if (options.isEmpty())
+        {
+            options.append(QString());
+        }
+
+        const QSignalBlocker blocker(combo);
+        combo->set_options(options);
+        combo->setCurrentIndex(qMax(0, options.indexOf(current_value)));
+    }
 }
 
 void unit_edit_dialog::set_chemkin_species_names(const QStringList &species_names)
@@ -2323,6 +2345,7 @@ void unit_edit_dialog::build_model_property_rows()
     reset_layout(m_parcel_layout, "Parcel");
     reset_layout(m_wet_combustion_layout, "Wet Combustion");
     m_model_row_syncers.clear();
+    m_material_context_combos.clear();
     m_model_layout_key = current_model_layout_key();
 
     Injector &injector = control_unit->inj.injector_data;
@@ -2543,6 +2566,11 @@ void unit_edit_dialog::build_model_property_rows()
         label_widget->setMinimumWidth(220);
         label_widget->setMaximumWidth(220);
         auto *combo = new QUI_ComboBox(row);
+        if (label == "Evaporating Material")
+        {
+            combo->setObjectName("evaporatingMaterialModelEditor");
+            m_material_context_combos.append(combo);
+        }
         combo->set_options(options);
         combo->setCurrentIndex(qMax(0, options.indexOf(*value_ptr)));
         row_layout->addWidget(label_widget);

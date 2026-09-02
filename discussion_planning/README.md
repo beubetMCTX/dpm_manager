@@ -1092,3 +1092,10 @@ References:
 - `UnitSystem::convert()` now propagates intermediate conversion failure and returns `ok=false` consistently.
 - Successful preference validation clears stale error text; overflow and validation regression coverage was added.
 - Release build, unit-system/numeric/project-session regressions, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Refresh Material Context Without Full Model Rebuild
+
+- Open Unit Editors now retain references to dynamic Wet Combustion material selectors.
+- Updating the Materials table refreshes those selectors directly instead of rebuilding all four model pages.
+- Existing material values remain visible when no longer present in the active material list.
+- Added Unit Editor regression coverage; Release build, packaging, and startup/shutdown verification passed.

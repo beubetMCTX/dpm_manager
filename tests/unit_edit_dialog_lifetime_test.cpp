@@ -120,6 +120,26 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unit.inj.injector_data.evaporating_liquid = true;
+    dialog->refresh_from_unit_data(&unit);
+    auto *evaporating_material_editor =
+        dialog->findChild<QUI_ComboBox*>("evaporatingMaterialModelEditor");
+    if (!check(evaporating_material_editor != nullptr,
+               "Wet-combustion material editor should be available when enabled"))
+    {
+        delete parent;
+        return 1;
+    }
+    dialog->set_material_names({"ethanol", "water"});
+    if (!check(evaporating_material_editor->count() == 2 &&
+                   evaporating_material_editor->itemText(0) == "ethanol" &&
+                   evaporating_material_editor->itemText(1) == "water",
+               "Open unit editor should refresh material context without stale options"))
+    {
+        delete parent;
+        return 1;
+    }
+
     bool cancel_signal_received = false;
     QObject::connect(dialog, &unit_edit_dialog::dialog_cancelled,
                      [&cancel_signal_received](Unit *)

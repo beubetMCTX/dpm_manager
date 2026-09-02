@@ -5,6 +5,7 @@
 #include <QCloseEvent>
 #include <QGroupBox>
 #include <QLayout>
+#include <QPointer>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QString>
@@ -79,6 +80,7 @@ private:
     QString m_model_layout_key;
     QStringList m_chemkin_species_names;
     QStringList m_material_names;
+    QList<QPointer<QUI_ComboBox>> m_material_context_combos;
     std::vector<std::function<void()>> m_property_row_syncers;
     std::vector<std::function<void()>> m_model_row_syncers;
     QVBoxLayout *m_physical_models_layout = nullptr;
