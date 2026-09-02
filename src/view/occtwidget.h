@@ -372,6 +372,7 @@ private:
     QHash<QUuid, bool> m_unit_visibility;
     QHash<QUuid, bool> m_unit_locks;
     bool m_reference_geometry_visible = true;
+    bool m_is_destroying = false;
     std::optional<CopiedUnit> m_copied_unit;
     QVector<UnitMoveHistoryEntry> m_move_history;
     int m_move_history_index = 0;

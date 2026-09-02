@@ -38,6 +38,7 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
 OCCTWidget::~OCCTWidget()
 {
     runtime_debug::trace("OCCTWidget destructor begin");
+    m_is_destroying = true;
     discard_auxiliary_dialogs();
 
     try
@@ -1482,6 +1483,12 @@ void OCCTWidget::clear_context_selection_safely()
         m_context->ClearSelected(Standard_False);
     }
     selected_shape.Nullify();
+
+    if (m_is_destroying)
+    {
+        return;
+    }
+
     emit selection_changed(QUuid(), false);
 
     QTimer::singleShot(0, this, [this]()

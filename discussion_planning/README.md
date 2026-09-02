@@ -1024,3 +1024,9 @@ References:
 - Main-window auxiliary dialogs are now closed through a one-time shutdown guard.
 - Repeated calls from `closeEvent`, `aboutToQuit`, and the destructor no longer re-enter child-dialog cleanup after the first pass.
 - The existing parent ownership and OCCT editor cleanup order remain unchanged.
+
+### 2026-09-02 Suppress OCCT Callbacks During Widget Destruction
+
+- `OCCTWidget` now marks the beginning of destruction before closing its auxiliary editors.
+- Selection cleanup triggered by editor-close callbacks still clears local OCCT selection, but no longer emits UI signals or queues a redraw after teardown has started.
+- Normal selection, context-menu, and drag behavior is unchanged.
