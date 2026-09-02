@@ -961,3 +961,9 @@ References:
 - Object-list tooltips now include the assigned material for each injector.
 - The object filter now matches injector type, particle type, material, and UUID in addition to the display name.
 - This changes only object-list presentation and does not affect project data or save format.
+
+### 2026-09-02 Close Auxiliary Windows on Application Quit
+
+- MainWindow now closes OCCT unit editors, Species Colors, and Materials dialogs from `QApplication::aboutToQuit` as well as the normal close path.
+- This covers application-exit paths that bypass `MainWindow::closeEvent` and keeps child dialogs from outliving the OCCT context.
+- The dialogs remain parent-owned; the change avoids duplicate manual destruction.

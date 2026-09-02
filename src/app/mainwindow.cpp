@@ -22,6 +22,7 @@
 #include <QSizePolicy>
 #include <QtMath>
 #include <QDebug>
+#include <QApplication>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -157,6 +158,10 @@ MainWindow::MainWindow(QWidget *parent)
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
     runtime_debug::trace("MainWindow OCCTWidget created");
+
+    // QApplication::aboutToQuit also covers quit paths that bypass closeEvent.
+    connect(qApp, &QCoreApplication::aboutToQuit, this,
+            &MainWindow::close_auxiliary_windows_for_shutdown);
 
     create_reference_geometry_panel();
     create_object_list_panel();
@@ -451,12 +456,25 @@ void MainWindow::open_unit_preferences_dialog()
 MainWindow::~MainWindow()
 {
     runtime_debug::trace("MainWindow destructor begin");
-    // closeEvent is not guaranteed for every application-exit path. Close
-    // auxiliary windows here as a final lifetime boundary before UI teardown.
+    close_auxiliary_windows_for_shutdown();
+    // Keep layout persistence reliable even when the window is destroyed
+    // through an application-exit path that bypasses closeEvent.
+    save_window_layout();
+    save_reference_geometry_state();
+    delete ui;
+    runtime_debug::trace("MainWindow destructor end");
+}
+
+void MainWindow::close_auxiliary_windows_for_shutdown()
+{
+    // Close OCCT-owned editors before the context or view starts teardown.
     if (m_3d_widget != nullptr)
     {
         m_3d_widget->discard_auxiliary_dialogs();
     }
+
+    // These dialogs are reusable and parent-owned, so hide them here and let
+    // normal QObject ownership perform the final destruction.
     if (m_species_color_dialog != nullptr)
     {
         m_species_color_dialog->close();
@@ -465,12 +483,6 @@ MainWindow::~MainWindow()
     {
         m_species_material_dialog->close();
     }
-    // Keep layout persistence reliable even when the window is destroyed
-    // through an application-exit path that bypasses closeEvent.
-    save_window_layout();
-    save_reference_geometry_state();
-    delete ui;
-    runtime_debug::trace("MainWindow destructor end");
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -483,27 +495,8 @@ void MainWindow::closeEvent(QCloseEvent *event)
         return;
     }
 
-    // Close OCCT-owned editors first so their selection-clearing callbacks run
-    // while the interactive context and view are still valid.
-    if (m_3d_widget != nullptr)
-    {
-        runtime_debug::trace("Closing OCCT auxiliary dialogs from MainWindow closeEvent");
-        m_3d_widget->discard_auxiliary_dialogs();
-    }
-
-    if (m_species_color_dialog != nullptr)
-    {
-        runtime_debug::trace("Closing SpeciesColorDialog from MainWindow closeEvent");
-        m_species_color_dialog->close();
-        m_species_color_dialog = nullptr;
-    }
-
-    if (m_species_material_dialog != nullptr)
-    {
-        runtime_debug::trace("Closing SpeciesMaterialDialog from MainWindow closeEvent");
-        m_species_material_dialog->close();
-        m_species_material_dialog = nullptr;
-    }
+    runtime_debug::trace("Closing auxiliary windows from MainWindow closeEvent");
+    close_auxiliary_windows_for_shutdown();
 
     save_window_layout();
     save_reference_geometry_state();

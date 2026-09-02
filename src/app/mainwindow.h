@@ -117,6 +117,7 @@ private:
     void save_window_layout();
     void reset_window_layout();
     void open_unit_preferences_dialog();
+    void close_auxiliary_windows_for_shutdown();
     project_session::Data collect_project_data() const;
     void refresh_project_dirty_state();
 
