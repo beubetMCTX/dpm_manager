@@ -1053,3 +1053,9 @@ References:
 - Species color configuration loading now rejects duplicate explicit colors, matching the editor's collision rule.
 - Invalid duplicate-color files are backed up through the existing corrupt-config recovery path.
 - Added app-config regression coverage; the color file format itself is unchanged.
+
+### 2026-09-02 Validate Reference Geometry Configuration Types
+
+- Reference geometry position and rotation must now be finite 3-component arrays.
+- Reference geometry `locked` and `visible` values must be booleans; malformed settings are rejected and backed up instead of silently defaulting.
+- The existing settings JSON structure and valid configuration behavior remain unchanged.

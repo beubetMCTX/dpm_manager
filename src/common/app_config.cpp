@@ -463,32 +463,77 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
         return false;
     }
 
-    const QJsonObject geometry_object = root_object.value("reference_geometry").toObject();
+    const QJsonValue geometry_value = root_object.value("reference_geometry");
+    if (!geometry_value.isObject())
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry configuration must be an object.",
+            error_message);
+    }
+
+    const QJsonObject geometry_object = geometry_value.toObject();
     const QString file_path = geometry_object.value("file_path").toString().trimmed();
     if (file_path.isEmpty())
     {
-        return false;
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry configuration has an empty file path.",
+            error_message);
     }
+
+    const auto read_vector = [&geometry_object](const char *key, QVector3D *target)
+    {
+        const QJsonValue value = geometry_object.value(QString::fromLatin1(key));
+        if (!value.isArray() || value.toArray().size() != 3)
+        {
+            return false;
+        }
+
+        const QJsonArray array = value.toArray();
+        for (const QJsonValue &component : array)
+        {
+            if (!component.isDouble() || !std::isfinite(component.toDouble()))
+            {
+                return false;
+            }
+        }
+
+        if (target != nullptr)
+        {
+            *target = QVector3D(static_cast<float>(array.at(0).toDouble()),
+                                static_cast<float>(array.at(1).toDouble()),
+                                static_cast<float>(array.at(2).toDouble()));
+        }
+        return true;
+    };
+
+    ReferenceGeometryConfig loaded_config;
+    loaded_config.file_path = file_path;
+    if (!read_vector("position", &loaded_config.position) ||
+        !read_vector("rotation", &loaded_config.rotation))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry position and rotation must be finite 3D vectors.",
+            error_message);
+    }
+
+    const QJsonValue locked_value = geometry_object.value("locked");
+    const QJsonValue visible_value = geometry_object.value("visible");
+    if (!locked_value.isBool() || !visible_value.isBool())
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry locked and visible values must be boolean.",
+            error_message);
+    }
+    loaded_config.locked = locked_value.toBool();
+    loaded_config.visible = visible_value.toBool();
 
     if (config != nullptr)
     {
-        const QJsonArray position = geometry_object.value("position").toArray();
-        const QJsonArray rotation = geometry_object.value("rotation").toArray();
-        if (position.size() == 3)
-        {
-            config->position = QVector3D(static_cast<float>(position.at(0).toDouble()),
-                                         static_cast<float>(position.at(1).toDouble()),
-                                         static_cast<float>(position.at(2).toDouble()));
-        }
-        if (rotation.size() == 3)
-        {
-            config->rotation = QVector3D(static_cast<float>(rotation.at(0).toDouble()),
-                                         static_cast<float>(rotation.at(1).toDouble()),
-                                         static_cast<float>(rotation.at(2).toDouble()));
-        }
-        config->file_path = file_path;
-        config->locked = geometry_object.value("locked").toBool(false);
-        config->visible = geometry_object.value("visible").toBool(true);
+        *config = loaded_config;
     }
     return true;
 }
