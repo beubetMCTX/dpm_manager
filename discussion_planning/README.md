@@ -932,3 +932,7 @@ References:
 - The same cleanup occurs if a file disappears after the menu was created.
 - Existing project files that fail parsing remain in the list for later retry.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Prevent Duplicate Injector Rename
+
+- Renaming an injector now rejects names already used by another injector, case-insensitively.
+- The rejected rename does not enter the edit history and reports the reason in the status bar.

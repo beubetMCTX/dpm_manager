@@ -396,6 +396,19 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
         return false;
     }
 
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        if (it.key() == uuid || it.value() == nullptr)
+        {
+            continue;
+        }
+        if (it.value()->inj.injector_data.name.compare(
+                normalized_name, Qt::CaseInsensitive) == 0)
+        {
+            return false;
+        }
+    }
+
     UnitEditTransaction transaction;
     transaction.uuid = uuid;
     transaction.before_type = unit->type;

@@ -2319,7 +2319,11 @@ void MainWindow::create_object_list_panel()
                 old_name, &accepted);
             if (accepted)
             {
-                m_3d_widget->set_unit_name(uuid, new_name);
+                if (!m_3d_widget->set_unit_name(uuid, new_name))
+                {
+                    statusBar()->showMessage(
+                        "Injector name is empty, unchanged, or already in use", 5000);
+                }
             }
         }
         else if (chosen_action == lock_action)
