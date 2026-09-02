@@ -734,6 +734,17 @@ void unit_edit_dialog::set_material_names(const QStringList &material_names)
     build_model_property_rows();
 }
 
+void unit_edit_dialog::set_chemkin_species_names(const QStringList &species_names)
+{
+    if (m_chemkin_species_names == species_names)
+    {
+        return;
+    }
+
+    m_chemkin_species_names = species_names;
+    sync_species_combos();
+}
+
 inline bool unit_edit_dialog::initialize()
 {
     if (control_unit == nullptr)

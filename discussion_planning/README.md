@@ -1079,3 +1079,9 @@ References:
 - Injector dragging now updates the MainWindow model and marks the project dirty without recalculating the complete project fingerprint on every mouse move.
 - A full data update is emitted once when the drag is released, preserving final dirty-state verification and editor refresh behavior.
 - Release build, injector-geometry/Unit-Editor/numeric-input regressions, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Refresh Open Editors After Chemkin Changes
+
+- Changing the Chemkin species list now updates species selectors in every open Unit Editor.
+- The refresh changes only selector options and preserves the existing editor/model synchronization path.
+- Added Unit Editor regression coverage; Release build, geometry/GUI/numeric regressions, packaging, and startup/shutdown verification passed.

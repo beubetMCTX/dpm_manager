@@ -1159,6 +1159,14 @@ bool OCCTWidget::redo_move()
 void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;
+
+    for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
+    {
+        if (dialog != nullptr)
+        {
+            dialog->set_chemkin_species_names(m_chemkin_species_names);
+        }
+    }
 }
 
 void OCCTWidget::set_material_names(const QStringList &material_names)

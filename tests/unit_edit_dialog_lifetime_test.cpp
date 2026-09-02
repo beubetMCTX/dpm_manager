@@ -109,6 +109,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    dialog->set_chemkin_species_names({"CO2", "H2O"});
+    if (!check(devolatilizing_species_editor->count() == 3 &&
+                   devolatilizing_species_editor->itemText(1) == "CO2" &&
+                   devolatilizing_species_editor->itemText(2) == "H2O" &&
+                   evaporating_species_editor->count() == 3,
+               "Open unit editor should refresh species options after Chemkin changes"))
+    {
+        delete parent;
+        return 1;
+    }
+
     bool cancel_signal_received = false;
     QObject::connect(dialog, &unit_edit_dialog::dialog_cancelled,
                      [&cancel_signal_received](Unit *)

@@ -35,6 +35,7 @@ public:
 
     void refresh_from_unit_data(Unit *unit);
     void refresh_geometry_from_unit_data(Unit *unit);
+    void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void reset_edit_state();
     bool has_unsaved_changes() const { return m_data_modified; }
