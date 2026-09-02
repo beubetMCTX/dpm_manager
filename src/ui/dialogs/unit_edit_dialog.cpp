@@ -710,6 +710,18 @@ void unit_edit_dialog::refresh_from_unit_data(Unit *unit)
     }
 }
 
+void unit_edit_dialog::refresh_geometry_from_unit_data(Unit *unit)
+{
+    if (unit == nullptr || unit != control_unit || control_unit == nullptr)
+    {
+        return;
+    }
+
+    // Dragging changes only geometry fields. Avoid refreshing selectors and
+    // model pages for every mouse-move event.
+    sync_point_property_rows();
+}
+
 void unit_edit_dialog::set_material_names(const QStringList &material_names)
 {
     if (m_material_names == material_names)

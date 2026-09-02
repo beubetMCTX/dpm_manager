@@ -361,30 +361,10 @@ MainWindow::MainWindow(QWidget *parent)
 
     // OCCT owns editable Unit copies so that interactive handles remain stable.
     // Keep the MainWindow list synchronized whenever one of those copies changes.
-    connect(m_3d_widget, &OCCTWidget::unit_data_updated, this, [this](Unit *changed_unit)
-    {
-        if (changed_unit == nullptr)
-        {
-            return;
-        }
-
-        for (Unit &stored_unit : units)
-        {
-            if (stored_unit.inj.uuid == changed_unit->inj.uuid)
-            {
-                // Do not assign a whole Unit here. Unit::operator= rebuilds
-                // OpenCASCADE/OCAF runtime state, which is unsafe and
-                // unnecessarily expensive while an editor update is active.
-                stored_unit.type = changed_unit->type;
-                stored_unit.inj.injector_data = changed_unit->inj.injector_data;
-                stored_unit.inj.shape = changed_unit->inj.shape;
-                update_object_list_item(stored_unit.inj.uuid,
-                                        stored_unit.inj.injector_data.name);
-                mark_project_dirty();
-                return;
-            }
-        }
-    });
+    connect(m_3d_widget, &OCCTWidget::unit_data_updated,
+            this, &MainWindow::sync_unit_from_occt);
+    connect(m_3d_widget, &OCCTWidget::unit_position_updated,
+            this, &MainWindow::sync_unit_from_occt);
     connect(m_3d_widget, &OCCTWidget::unit_geometry_refresh_failed,
             this, [this](const QUuid &, const QString &message)
     {
@@ -497,6 +477,31 @@ void MainWindow::close_auxiliary_windows_for_shutdown()
     if (m_species_material_dialog != nullptr)
     {
         m_species_material_dialog->close();
+    }
+}
+
+void MainWindow::sync_unit_from_occt(Unit *changed_unit)
+{
+    if (changed_unit == nullptr)
+    {
+        return;
+    }
+
+    for (Unit &stored_unit : units)
+    {
+        if (stored_unit.inj.uuid == changed_unit->inj.uuid)
+        {
+            // Do not assign a whole Unit here. Unit::operator= rebuilds
+            // OpenCASCADE/OCAF runtime state, which is unsafe and
+            // unnecessarily expensive while an editor update is active.
+            stored_unit.type = changed_unit->type;
+            stored_unit.inj.injector_data = changed_unit->inj.injector_data;
+            stored_unit.inj.shape = changed_unit->inj.shape;
+            update_object_list_item(stored_unit.inj.uuid,
+                                    stored_unit.inj.injector_data.name);
+            mark_project_dirty();
+            return;
+        }
     }
 }
 

@@ -2080,7 +2080,10 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
     {
         schedule_unit_visual_refresh(changed_unit);
     });
-    connect(this, &OCCTWidget::unit_data_updated, inj_edit_dialog, &unit_edit_dialog::refresh_from_unit_data);
+    connect(this, &OCCTWidget::unit_data_updated,
+            inj_edit_dialog, &unit_edit_dialog::refresh_from_unit_data);
+    connect(this, &OCCTWidget::unit_position_updated,
+            inj_edit_dialog, &unit_edit_dialog::refresh_geometry_from_unit_data);
     inj_edit_dialog->show();
 }
 
@@ -2197,7 +2200,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             injector.ff_virtual_origin += delta_vec;
             injector.volume_bgeom_min += delta_vec;
             injector.volume_bgeom_max += delta_vec;
-            emit unit_data_updated(unit);
+            emit unit_position_updated(unit);
         }
 
 

@@ -1041,3 +1041,9 @@ References:
 
 - DPM and Chemkin public readers now return explicit errors for empty paths instead of only returning an empty result.
 - Chemkin regression coverage verifies the new diagnostic while preserving the existing canceled-dialog behavior in the main window.
+
+### 2026-09-02 Lightweight Injector Drag Synchronization
+
+- OCCT injector dragging now emits a position-only update signal while the MainWindow still receives model and dirty-state synchronization.
+- Open unit editors update only point-property rows during mouse movement instead of refreshing all selectors, model pages, and dynamic layouts.
+- Full data refresh remains used for property edits, paste, undo/redo, and other non-drag changes.
