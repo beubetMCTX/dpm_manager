@@ -477,6 +477,11 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     }
 
     const QJsonValue geometry_value = root_object.value("reference_geometry");
+    if (geometry_value.isUndefined())
+    {
+        return false;
+    }
+
     if (!geometry_value.isObject())
     {
         return reject_invalid_config(

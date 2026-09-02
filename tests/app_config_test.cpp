@@ -339,6 +339,33 @@ int main(int argc, char **argv)
             ignored_preferences.angle == "keep-angle";
     }
 
+    bool missing_reference_geometry_test_ok = write_settings(QJsonObject{
+        {"schema_version", 1}});
+    ReferenceGeometryConfig preserved_reference_geometry;
+    preserved_reference_geometry.file_path = "keep-geometry.step";
+    preserved_reference_geometry.position = QVector3D(7.0f, 8.0f, 9.0f);
+    const QDir settings_directory_for_missing_reference(app_config_directory_path());
+    const QStringList reference_backups_before_missing =
+        settings_directory_for_missing_reference.entryList(
+            {"config.json.corrupt-*.bak"}, QDir::Files);
+    if (missing_reference_geometry_test_ok)
+    {
+        missing_reference_geometry_test_ok =
+            !load_reference_geometry_config(&preserved_reference_geometry, &config_error) &&
+            preserved_reference_geometry.file_path == "keep-geometry.step" &&
+            preserved_reference_geometry.position == QVector3D(7.0f, 8.0f, 9.0f);
+    }
+    const QStringList reference_backups_after_missing =
+        settings_directory_for_missing_reference.entryList(
+            {"config.json.corrupt-*.bak"}, QDir::Files);
+    missing_reference_geometry_test_ok = missing_reference_geometry_test_ok &&
+        reference_backups_after_missing.size() == reference_backups_before_missing.size();
+    if (!check(missing_reference_geometry_test_ok,
+               "missing optional reference geometry config should be ignored safely"))
+    {
+        return 1;
+    }
+
     ReferenceGeometryConfig reference_geometry;
     reference_geometry.file_path = temporary_directory.filePath("geometry/example.step");
     reference_geometry.position = QVector3D(1.0f, 2.0f, 3.0f);

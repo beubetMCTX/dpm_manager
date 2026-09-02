@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-02 Treat Missing Reference Geometry as Optional
+
+- A settings file without `reference_geometry` is now treated as a normal first-run state.
+- The loader preserves the caller's existing value and does not create a corrupt-config backup when the optional section is absent.
+- Malformed present sections continue to be rejected and backed up.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-02 Strict Material Configuration Parsing
 
 - Material configuration loading now requires a `materials` array, string material names, and finite numeric densities.
