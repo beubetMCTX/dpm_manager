@@ -989,3 +989,8 @@ References:
 
 - Assigned a stable object name to the runtime Chemkin status toolbar.
 - `QMainWindow::saveState()` can now serialize and restore the toolbar without the previous missing-`objectName` warning.
+
+### 2026-09-02 Report Failed Injector Geometry Refreshes
+
+- Geometry rebuild failures now emit a dedicated OCCT widget signal and are shown in the main-window status bar.
+- The existing valid displayed geometry remains unchanged when a rebuild fails; the failure is no longer silent.

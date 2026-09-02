@@ -164,6 +164,8 @@ public:
 
 signals:
     void unit_data_updated(Unit *unit);
+    void unit_geometry_refresh_failed(const QUuid &uuid,
+                                      const QString &message);
     void unit_added(Unit *unit);
     void reference_transform_changed(const QVector3D &position,
                                      const QVector3D &rotation_degrees);

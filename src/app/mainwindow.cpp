@@ -385,6 +385,14 @@ MainWindow::MainWindow(QWidget *parent)
             }
         }
     });
+    connect(m_3d_widget, &OCCTWidget::unit_geometry_refresh_failed,
+            this, [this](const QUuid &, const QString &message)
+    {
+        if (!message.trimmed().isEmpty())
+        {
+            statusBar()->showMessage(message, 8000);
+        }
+    });
 
     m_chemkin_toolbar = new QToolBar("Chemkin Status", this);
     m_chemkin_toolbar->setObjectName("chemkinStatusToolbar");

@@ -2119,7 +2119,10 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
 
     if (!unit->inj.create_injector())
     {
-        qDebug() << "Failed to rebuild injector geometry for" << unit->inj.injector_data.name;
+        const QString message = QString("Failed to rebuild geometry for injector '%1'.")
+                                    .arg(unit->inj.injector_data.name);
+        qWarning() << message;
+        emit unit_geometry_refresh_failed(unit->inj.uuid, message);
         return;
     }
 
