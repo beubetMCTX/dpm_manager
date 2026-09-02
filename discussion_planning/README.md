@@ -885,3 +885,9 @@ References:
 - Object-list rename and paste operations now enter the existing Unit Edit undo/redo history.
 - Failed paste geometry creation restores the target unit's original type and data instead of leaving a partial update.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Undo and Redo Deleted Injectors
+
+- Deleting an injector now records its UUID, type, and complete injector data.
+- Added `Undo Delete` and `Redo Delete` actions with dedicated shortcuts.
+- Undo recreates the OCCT display object and synchronizes the restored unit back to MainWindow.
+- Failed or replayed deletions do not recursively corrupt the delete history.

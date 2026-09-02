@@ -156,6 +156,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         discard_auxiliary_dialogs();
         clear_move_history();
         clear_edit_history();
+        clear_delete_history();
         m_copied_unit.reset();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
         {
@@ -479,6 +480,15 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
         return false;
     }
 
+    if (!m_replaying_delete_history)
+    {
+        UnitDeleteHistoryEntry entry;
+        entry.uuid = uuid;
+        entry.type = unit->type;
+        entry.injector_data = unit->inj.injector_data;
+        record_delete(entry);
+    }
+
     const quintptr target_unit_ptr = reinterpret_cast<quintptr>(unit.get());
     const QList<QPointer<unit_edit_dialog>> dialogs = m_open_edit_dialogs;
     for (const QPointer<unit_edit_dialog> &dialog : dialogs)
@@ -543,6 +553,129 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     {
         m_view->Redraw();
     }
+    return true;
+}
+
+void OCCTWidget::record_delete(const UnitDeleteHistoryEntry &entry)
+{
+    if (entry.uuid.isNull())
+    {
+        return;
+    }
+
+    if (m_delete_history_index < m_delete_history.size())
+    {
+        m_delete_history.resize(m_delete_history_index);
+    }
+    m_delete_history.append(entry);
+    m_delete_history_index = m_delete_history.size();
+    emit delete_history_changed(can_undo_delete(), can_redo_delete());
+}
+
+void OCCTWidget::clear_delete_history()
+{
+    if (m_delete_history.isEmpty() && m_delete_history_index == 0)
+    {
+        return;
+    }
+
+    m_delete_history.clear();
+    m_delete_history_index = 0;
+    emit delete_history_changed(false, false);
+}
+
+bool OCCTWidget::restore_deleted_unit(const UnitDeleteHistoryEntry &entry)
+{
+    if (entry.uuid.isNull() || unit_hash.contains(entry.uuid) || m_context.IsNull())
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> restored_unit = std::make_shared<Unit>();
+    restored_unit->type = entry.type;
+    restored_unit->inj.uuid = entry.uuid;
+    restored_unit->inj.injector_data = entry.injector_data;
+    if (!restored_unit->inj.create_injector())
+    {
+        return false;
+    }
+
+    restored_unit->ais_display->Set(restored_unit->inj.shape);
+    restored_unit->u_owner->set_unit(restored_unit.get());
+    restored_unit->ais_display->SetOwner(restored_unit->u_owner);
+    const Quantity_Color palette[] = {
+        Quantity_Color(0.90, 0.30, 0.25, Quantity_TOC_RGB),
+        Quantity_Color(0.15, 0.55, 0.90, Quantity_TOC_RGB),
+        Quantity_Color(0.25, 0.70, 0.35, Quantity_TOC_RGB),
+        Quantity_Color(0.90, 0.65, 0.20, Quantity_TOC_RGB),
+        Quantity_Color(0.60, 0.40, 0.90, Quantity_TOC_RGB),
+        Quantity_Color(0.15, 0.70, 0.70, Quantity_TOC_RGB)
+    };
+    restored_unit->ais_display->SetColor(
+        palette[unit_hash.size() % (sizeof(palette) / sizeof(palette[0]))]);
+    restored_unit->ais_display->SetTransparency(
+        restored_unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+
+    unit_hash.insert(entry.uuid, restored_unit);
+    m_unit_visibility.insert(entry.uuid, true);
+    m_unit_locks.insert(entry.uuid, false);
+    m_context->Activate(restored_unit->ais_display, TopAbs_SHAPE, Standard_True);
+    m_context->Display(restored_unit->ais_display, Standard_False);
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    emit unit_added(restored_unit.get());
+    emit unit_display_list_changed();
+    return true;
+}
+
+bool OCCTWidget::can_undo_delete() const
+{
+    return m_delete_history_index > 0;
+}
+
+bool OCCTWidget::can_redo_delete() const
+{
+    return m_delete_history_index < m_delete_history.size();
+}
+
+bool OCCTWidget::undo_last_delete()
+{
+    if (!can_undo_delete())
+    {
+        return false;
+    }
+
+    const UnitDeleteHistoryEntry &entry = m_delete_history[m_delete_history_index - 1];
+    if (!restore_deleted_unit(entry))
+    {
+        return false;
+    }
+
+    --m_delete_history_index;
+    emit delete_history_changed(can_undo_delete(), can_redo_delete());
+    return true;
+}
+
+bool OCCTWidget::redo_delete()
+{
+    if (!can_redo_delete())
+    {
+        return false;
+    }
+
+    const UnitDeleteHistoryEntry &entry = m_delete_history[m_delete_history_index];
+    m_replaying_delete_history = true;
+    const bool removed = remove_unit_by_uuid(entry.uuid);
+    m_replaying_delete_history = false;
+    if (!removed)
+    {
+        return false;
+    }
+
+    ++m_delete_history_index;
+    emit delete_history_changed(can_undo_delete(), can_redo_delete());
     return true;
 }
 

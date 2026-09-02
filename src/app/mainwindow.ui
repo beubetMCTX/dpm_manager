@@ -53,6 +53,8 @@
     <addaction name="actionRedo_Move"/>
     <addaction name="actionUndo_Edit"/>
     <addaction name="actionRedo_Edit"/>
+    <addaction name="actionUndo_Delete"/>
+    <addaction name="actionRedo_Delete"/>
     <addaction name="actionUndo_Reference_Transform"/>
     <addaction name="actionRedo_Reference_Transform"/>
     <addaction name="actionValidate_Project"/>
@@ -217,6 +219,28 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+Y</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionUndo_Delete">
+   <property name="text">
+    <string>Undo Delete</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+D</string>
+   </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionRedo_Delete">
+   <property name="text">
+    <string>Redo Delete</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+Shift+D</string>
    </property>
    <property name="enabled">
     <bool>false</bool>

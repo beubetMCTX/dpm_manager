@@ -146,6 +146,10 @@ public:
     bool redo_edit();
     bool can_undo_edit() const;
     bool can_redo_edit() const;
+    bool undo_last_delete();
+    bool redo_delete();
+    bool can_undo_delete() const;
+    bool can_redo_delete() const;
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
     void close_auxiliary_dialogs();
@@ -156,6 +160,7 @@ public:
 
 signals:
     void unit_data_updated(Unit *unit);
+    void unit_added(Unit *unit);
     void reference_transform_changed(const QVector3D &position,
                                      const QVector3D &rotation_degrees);
     void reference_geometry_available(bool available);
@@ -169,6 +174,7 @@ signals:
     void selection_changed(const QUuid &uuid, bool reference_geometry);
     void move_history_changed(bool can_undo, bool can_redo);
     void edit_history_changed(bool can_undo, bool can_redo);
+    void delete_history_changed(bool can_undo, bool can_redo);
     void reference_transform_history_changed(bool can_undo, bool can_redo);
 
 private:
@@ -243,6 +249,12 @@ private:
         QVector3D after_position;
         QVector3D after_rotation;
     };
+    struct UnitDeleteHistoryEntry
+    {
+        QUuid uuid;
+        Unit_Type type = injector;
+        Injector injector_data;
+    };
     UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
     bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,
                              const UnitMoveSnapshot &snapshot);
@@ -261,6 +273,9 @@ private:
                                     const QVector3D &after_position,
                                     const QVector3D &after_rotation);
     void clear_reference_transform_history();
+    void record_delete(const UnitDeleteHistoryEntry &entry);
+    void clear_delete_history();
+    bool restore_deleted_unit(const UnitDeleteHistoryEntry &entry);
     bool apply_reference_transform_snapshot(const QVector3D &position,
                                             const QVector3D &rotation);
 
@@ -353,6 +368,9 @@ private:
     QHash<QUuid, UnitEditTransaction> m_edit_transactions;
     QVector<UnitEditHistoryEntry> m_edit_history;
     int m_edit_history_index = 0;
+    QVector<UnitDeleteHistoryEntry> m_delete_history;
+    int m_delete_history_index = 0;
+    bool m_replaying_delete_history = false;
     QUuid m_drag_unit_uuid;
     UnitMoveSnapshot m_drag_move_before;
     bool m_drag_move_snapshot_valid = false;

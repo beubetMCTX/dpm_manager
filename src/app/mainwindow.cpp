@@ -293,6 +293,10 @@ MainWindow::MainWindow(QWidget *parent)
             &OCCTWidget::undo_last_edit);
     connect(ui->actionRedo_Edit, &QAction::triggered, m_3d_widget,
             &OCCTWidget::redo_edit);
+    connect(ui->actionUndo_Delete, &QAction::triggered, m_3d_widget,
+            &OCCTWidget::undo_last_delete);
+    connect(ui->actionRedo_Delete, &QAction::triggered, m_3d_widget,
+            &OCCTWidget::redo_delete);
     connect(ui->actionUndo_Reference_Transform, &QAction::triggered,
             m_3d_widget, &OCCTWidget::undo_reference_transform);
     connect(ui->actionRedo_Reference_Transform, &QAction::triggered,
@@ -308,6 +312,30 @@ MainWindow::MainWindow(QWidget *parent)
     {
         ui->actionUndo_Edit->setEnabled(can_undo);
         ui->actionRedo_Edit->setEnabled(can_redo);
+    });
+    connect(m_3d_widget, &OCCTWidget::delete_history_changed, this,
+            [this](bool can_undo, bool can_redo)
+    {
+        ui->actionUndo_Delete->setEnabled(can_undo);
+        ui->actionRedo_Delete->setEnabled(can_redo);
+    });
+    connect(m_3d_widget, &OCCTWidget::unit_added, this,
+            [this](Unit *added_unit)
+    {
+        if (added_unit == nullptr)
+        {
+            return;
+        }
+
+        for (const Unit &unit : units)
+        {
+            if (unit.inj.uuid == added_unit->inj.uuid)
+            {
+                return;
+            }
+        }
+        units.append(*added_unit);
+        mark_project_dirty();
     });
     connect(m_3d_widget, &OCCTWidget::reference_transform_history_changed,
             this, [this](bool can_undo, bool can_redo)
