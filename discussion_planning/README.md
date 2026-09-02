@@ -896,3 +896,9 @@ References:
 - Delete history now preserves injector visibility, movement lock, and display color.
 - Undo Delete restores those view states instead of resetting them to defaults.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Batch Delete Selected Injectors
+
+- Added a `Delete Selected` action to the multi-selection object panel.
+- Reference geometry is excluded from this operation.
+- Each deleted injector is recorded separately, so existing Delete Undo/Redo can restore them individually.
+- Release build and all 9 CTest regressions passed.

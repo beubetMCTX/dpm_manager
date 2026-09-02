@@ -1801,6 +1801,8 @@ void MainWindow::create_object_list_panel()
     batch_controls_layout->addWidget(lock_selected_button);
     batch_controls_layout->addWidget(unlock_selected_button);
     layout->addWidget(batch_controls);
+    auto *delete_selected_button = new QPushButton("Delete Selected", panel);
+    layout->addWidget(delete_selected_button);
 
     auto *view_selector = new QComboBox(panel);
     view_selector->setObjectName("standardViewSelector");
@@ -1928,6 +1930,49 @@ void MainWindow::create_object_list_panel()
         {
             m_3d_widget->set_unit_locked(uuid, false);
         });
+    });
+    connect(delete_selected_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        QList<QUuid> selected_units;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+            {
+                selected_units.append(uuid);
+            }
+        }
+
+        if (selected_units.isEmpty())
+        {
+            statusBar()->showMessage("Select one or more injectors first", 4000);
+            return;
+        }
+
+        const auto answer = QMessageBox::question(
+            this,
+            "Delete Selected Injectors",
+            QString("Delete %1 selected injector(s)?").arg(selected_units.size()),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No);
+        if (answer != QMessageBox::Yes)
+        {
+            return;
+        }
+
+        for (const QUuid &uuid : selected_units)
+        {
+            m_3d_widget->remove_unit_by_uuid(uuid);
+        }
     });
 
     connect(m_object_list, &QListWidget::itemClicked, this,
