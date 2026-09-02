@@ -222,6 +222,34 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unit.inj.injector_data.seco_breakup_on = true;
+    unit.inj.injector_data.seco_breakup_tab = false;
+    unit.inj.injector_data.seco_breakup_wave = false;
+    unit.inj.injector_data.seco_break_up_khrt = false;
+    unit.inj.injector_data.seco_breakup_ssd = false;
+    unit.inj.injector_data.seco_breakup_madahushi = true;
+    unit.inj.injector_data.seco_breakup_schmehl = false;
+    unit.inj.injector_data.drag_law = spherical;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    if (!check(unit.inj.injector_data.drag_law == dynamic_drag &&
+                   dialog->findChild<QUI_CheckBox*>("secoMadabhushiModelEditor") != nullptr,
+               "Madabhushi breakup should require dynamic drag"))
+    {
+        delete parent;
+        return 1;
+    }
+    unit.inj.injector_data.seco_breakup_on = false;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    if (!check(unit.inj.injector_data.drag_law == spherical &&
+                   !unit.inj.injector_data.seco_breakup_madahushi,
+               "Disabling breakup should clear Madabhushi and dynamic drag"))
+    {
+        delete parent;
+        return 1;
+    }
+
     unit.inj.injector_data.seco_breakup_on = false;
     unit.inj.injector_data.drag_law = spherical;
     unit.inj.injector_data.brownian_motion = true;

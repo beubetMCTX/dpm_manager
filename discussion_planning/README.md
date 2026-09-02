@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-03 Normalize Model Dependencies Before Every Editor Refresh
+
+- Model dependency normalization now runs before layout-key comparison, so externally changed flags cannot bypass validation when the visible layout key is unchanged.
+- Brownian, SECO, dynamic-drag, and stochastic/cloud constraints remain synchronized during both rebuilds and lightweight refreshes.
+- Added regression coverage for external Brownian state correction and Madabhushi dynamic-drag coupling.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-03 Constrain Brownian Motion by Drag Law
 
 - Fluent documentation requires Brownian Motion to use the Stokes-Cunningham drag law and a configured energy model.

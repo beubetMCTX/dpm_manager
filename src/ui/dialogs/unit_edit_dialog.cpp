@@ -549,6 +549,63 @@ QString property_layout_key_for(const Injector &injector)
         .arg(static_cast<int>(injector.volume_streams_spec));
 }
 
+void normalize_seco_breakup_models(Injector &injector)
+{
+    bool *model_flags[] = {
+        &injector.seco_breakup_tab,
+        &injector.seco_breakup_wave,
+        &injector.seco_break_up_khrt,
+        &injector.seco_breakup_ssd,
+        &injector.seco_breakup_madahushi,
+        &injector.seco_breakup_schmehl};
+
+    if (injector.type != Droplet || !injector.seco_breakup_on)
+    {
+        injector.seco_breakup_on = injector.type == Droplet && injector.seco_breakup_on;
+        for (bool *flag : model_flags)
+        {
+            *flag = false;
+        }
+        if (injector.drag_law == dynamic_drag)
+        {
+            injector.drag_law = spherical;
+        }
+        return;
+    }
+
+    bool model_seen = false;
+    for (bool *flag : model_flags)
+    {
+        if (*flag && model_seen)
+        {
+            *flag = false;
+        }
+        else if (*flag)
+        {
+            model_seen = true;
+        }
+    }
+
+    if (injector.seco_breakup_madahushi)
+    {
+        injector.drag_law = dynamic_drag;
+    }
+}
+
+void normalize_model_dependencies(Injector &injector)
+{
+    if (injector.stochastic && injector.cloud)
+    {
+        injector.cloud = false;
+    }
+    normalize_seco_breakup_models(injector);
+    if (!particle_type_supports_inertial_models(injector.type) ||
+        injector.drag_law != Strokes_Cunningham)
+    {
+        injector.brownian_motion = false;
+    }
+}
+
 QString model_layout_key_for(const Injector &injector)
 {
     return QString("%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11|%12|%13|%14|%15")
@@ -667,6 +724,7 @@ void unit_edit_dialog::refresh_from_unit_data(Unit *unit)
         return;
     }
 
+    normalize_model_dependencies(control_unit->inj.injector_data);
     setWindowTitle(QString("Unit Editor - %1").arg(control_unit->inj.injector_data.name));
 
     if (m_injection_name_edit != nullptr)
@@ -2347,17 +2405,8 @@ void unit_edit_dialog::build_model_property_rows()
     m_material_context_combos.clear();
 
     Injector &injector = control_unit->inj.injector_data;
-    // Fluent permits one turbulent-dispersion model at a time. Keep legacy
-    // data deterministic when both flags were loaded as enabled.
-    if (injector.stochastic && injector.cloud)
-    {
-        injector.cloud = false;
-    }
-    if (!particle_type_supports_inertial_models(injector.type) ||
-        injector.drag_law != Strokes_Cunningham)
-    {
-        injector.brownian_motion = false;
-    }
+    // Normalize legacy or externally edited combinations before building rows.
+    normalize_model_dependencies(injector);
     m_model_layout_key = current_model_layout_key();
 
     auto add_double_row = [this](QVBoxLayout *layout,
@@ -2706,29 +2755,6 @@ void unit_edit_dialog::build_model_property_rows()
                 "secoSSDModelEditor",
                 "secoMadabhushiModelEditor",
                 "secoSchmehlModelEditor"};
-
-            if (!injector.seco_breakup_on)
-            {
-                for (bool *flag : breakup_model_flags)
-                {
-                    *flag = false;
-                }
-            }
-            else
-            {
-                bool model_seen = false;
-                for (bool *flag : breakup_model_flags)
-                {
-                    if (*flag && model_seen)
-                    {
-                        *flag = false;
-                    }
-                    else if (*flag)
-                    {
-                        model_seen = true;
-                    }
-                }
-            }
 
             auto *breakup_row = m_physical_models_layout->itemAt(
                 m_physical_models_layout->count() - 1)->widget();
