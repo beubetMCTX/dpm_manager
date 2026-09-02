@@ -325,6 +325,15 @@ bool OCCTWidget::set_reference_geometry_visible(bool visible)
         return false;
     }
 
+    // A hidden reference object cannot have an actionable face reference.
+    // Clear the independent face trihedron as well, otherwise the panel and
+    // alignment actions would continue to describe a face that is no longer
+    // visible or selectable.
+    if (!visible && (!selected_face.IsNull() || !face_trihedron.IsNull()))
+    {
+        clear_face_reference();
+    }
+
     m_reference_geometry_visible = visible;
     if (visible)
     {

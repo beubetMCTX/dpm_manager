@@ -1119,3 +1119,9 @@ References:
 - An empty reference view cannot retain a stale locked state or accept transform actions.
 - The context-menu reset action is disabled while the reference geometry is locked.
 - Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Clear Face Reference When Hiding Geometry
+
+- Hiding reference geometry now clears the independent selected-face coordinate trihedron.
+- Face information and face-alignment actions can no longer remain active for an invisible reference shape.
+- Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.
