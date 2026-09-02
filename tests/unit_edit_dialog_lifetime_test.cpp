@@ -173,6 +173,55 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unit.inj.injector_data.type = Droplet;
+    unit.inj.injector_data.seco_breakup_on = true;
+    unit.inj.injector_data.seco_breakup_tab = true;
+    unit.inj.injector_data.seco_breakup_wave = true;
+    unit.inj.injector_data.seco_break_up_khrt = false;
+    unit.inj.injector_data.seco_breakup_ssd = false;
+    unit.inj.injector_data.seco_breakup_madahushi = false;
+    unit.inj.injector_data.seco_breakup_schmehl = false;
+    dialog->refresh_from_unit_data(&unit);
+    application.processEvents();
+    auto *tab_breakup_editor = dialog->findChild<QUI_CheckBox*>("secoTabulatedModelEditor");
+    auto *wave_breakup_editor = dialog->findChild<QUI_CheckBox*>("secoWaveModelEditor");
+    if (!check(tab_breakup_editor != nullptr && wave_breakup_editor != nullptr &&
+                   unit.inj.injector_data.seco_breakup_tab &&
+                   !unit.inj.injector_data.seco_breakup_wave &&
+                   tab_breakup_editor->isEnabled() &&
+                   !wave_breakup_editor->isEnabled() &&
+                   dialog->findChild<QWidget*>("modelRow_SECO_Tabulated_Y0") != nullptr &&
+                   dialog->findChild<QWidget*>("modelRow_SECO_Wave_B1") == nullptr,
+               "SECO breakup should normalize to one model and expose only its parameters"))
+    {
+        delete parent;
+        return 1;
+    }
+    tab_breakup_editor->click();
+    application.processEvents();
+    wave_breakup_editor = dialog->findChild<QUI_CheckBox*>("secoWaveModelEditor");
+    if (!check(wave_breakup_editor != nullptr && wave_breakup_editor->isEnabled() &&
+                   !unit.inj.injector_data.seco_breakup_tab &&
+                   !unit.inj.injector_data.seco_breakup_wave,
+               "Disabling the active SECO model should unlock the other models"))
+    {
+        delete parent;
+        return 1;
+    }
+    wave_breakup_editor->click();
+    application.processEvents();
+    tab_breakup_editor = dialog->findChild<QUI_CheckBox*>("secoTabulatedModelEditor");
+    if (!check(tab_breakup_editor != nullptr && !tab_breakup_editor->isEnabled() &&
+                   unit.inj.injector_data.seco_breakup_wave &&
+                   !unit.inj.injector_data.seco_breakup_tab &&
+                   dialog->findChild<QWidget*>("modelRow_SECO_Wave_B1") != nullptr &&
+                   dialog->findChild<QWidget*>("modelRow_SECO_Tabulated_Y0") == nullptr,
+               "Selecting a SECO model should lock the alternatives"))
+    {
+        delete parent;
+        return 1;
+    }
+
     dialog->set_chemkin_species_names({"CO2", "H2O"});
     if (!check(devolatilizing_species_editor->count() == 3 &&
                    devolatilizing_species_editor->itemText(1) == "CO2" &&

@@ -13,6 +13,8 @@
 #include <QScrollArea>
 #include <QTimer>
 
+#include <algorithm>
+
 namespace
 {
 void refresh_field_rows(QLayout *layout)
@@ -2673,14 +2675,133 @@ void unit_edit_dialog::build_model_property_rows()
         if (breakup_supported)
         {
             add_bool_row(m_physical_models_layout, "SECO Breakup", &injector.seco_breakup_on);
+            const QList<bool *> breakup_model_flags = {
+                &injector.seco_breakup_tab,
+                &injector.seco_breakup_wave,
+                &injector.seco_break_up_khrt,
+                &injector.seco_breakup_ssd,
+                &injector.seco_breakup_madahushi,
+                &injector.seco_breakup_schmehl};
+            const QString breakup_model_labels[] = {
+                "SECO Tabulated",
+                "SECO Wave",
+                "SECO KHRT",
+                "SECO SSD",
+                "SECO Madabhushi",
+                "SECO Schmehl"};
+            const char *breakup_model_names[] = {
+                "secoTabulatedModelEditor",
+                "secoWaveModelEditor",
+                "secoKHRTModelEditor",
+                "secoSSDModelEditor",
+                "secoMadabhushiModelEditor",
+                "secoSchmehlModelEditor"};
+
+            if (!injector.seco_breakup_on)
+            {
+                for (bool *flag : breakup_model_flags)
+                {
+                    *flag = false;
+                }
+            }
+            else
+            {
+                bool model_seen = false;
+                for (bool *flag : breakup_model_flags)
+                {
+                    if (*flag && model_seen)
+                    {
+                        *flag = false;
+                    }
+                    else if (*flag)
+                    {
+                        model_seen = true;
+                    }
+                }
+            }
+
+            auto *breakup_row = m_physical_models_layout->itemAt(
+                m_physical_models_layout->count() - 1)->widget();
+            auto *breakup_check = breakup_row != nullptr
+                ? breakup_row->findChild<QUI_CheckBox*>()
+                : nullptr;
+            if (breakup_check != nullptr)
+            {
+                breakup_check->setObjectName("secoBreakupEditor");
+            }
+            if (breakup_check != nullptr)
+            {
+                connect(breakup_check, &QUI_CheckBox::value_committed, this,
+                        [this](bool checked)
+                {
+                    if (control_unit == nullptr)
+                    {
+                        return;
+                    }
+                    Injector &current_injector = control_unit->inj.injector_data;
+                    if (!checked)
+                    {
+                        current_injector.seco_breakup_tab = false;
+                        current_injector.seco_breakup_wave = false;
+                        current_injector.seco_break_up_khrt = false;
+                        current_injector.seco_breakup_ssd = false;
+                        current_injector.seco_breakup_madahushi = false;
+                        current_injector.seco_breakup_schmehl = false;
+                    }
+                    notify_injector_data_changed(false);
+                    QMetaObject::invokeMethod(this, [this]()
+                    {
+                        build_model_property_rows();
+                    }, Qt::QueuedConnection);
+                });
+            }
+
             if (injector.seco_breakup_on)
             {
-                add_bool_row(m_physical_models_layout, "SECO Tabulated", &injector.seco_breakup_tab);
-                add_bool_row(m_physical_models_layout, "SECO Wave", &injector.seco_breakup_wave);
-                add_bool_row(m_physical_models_layout, "SECO KHRT", &injector.seco_break_up_khrt);
-                add_bool_row(m_physical_models_layout, "SECO SSD", &injector.seco_breakup_ssd);
-                add_bool_row(m_physical_models_layout, "SECO Madabhushi", &injector.seco_breakup_madahushi);
-                add_bool_row(m_physical_models_layout, "SECO Schmehl", &injector.seco_breakup_schmehl);
+                const bool breakup_model_selected = std::any_of(
+                    breakup_model_flags.cbegin(), breakup_model_flags.cend(),
+                    [](const bool *flag) { return *flag; });
+                QWidget *breakup_model_rows[6] = {};
+                for (int model_index = 0; model_index < breakup_model_flags.size(); ++model_index)
+                {
+                    breakup_model_rows[model_index] = add_bool_row(
+                        m_physical_models_layout,
+                        breakup_model_labels[model_index],
+                        breakup_model_flags[model_index]);
+                    if (breakup_model_rows[model_index] != nullptr)
+                    {
+                        breakup_model_rows[model_index]->setEnabled(
+                            !breakup_model_selected || *breakup_model_flags[model_index]);
+                        auto *model_check = breakup_model_rows[model_index]->findChild<QUI_CheckBox*>();
+                        if (model_check != nullptr)
+                        {
+                            model_check->setObjectName(breakup_model_names[model_index]);
+                            connect(model_check, &QUI_CheckBox::value_committed, this,
+                                    [this, breakup_model_flags, model_index](bool checked)
+                            {
+                                if (control_unit == nullptr)
+                                {
+                                    return;
+                                }
+                                if (checked)
+                                {
+                                    for (int other = 0; other < breakup_model_flags.size(); ++other)
+                                    {
+                                        if (other != model_index)
+                                        {
+                                            *breakup_model_flags[other] = false;
+                                        }
+                                    }
+                                }
+                                notify_injector_data_changed(false);
+                                QMetaObject::invokeMethod(this, [this]()
+                                {
+                                    build_model_property_rows();
+                                }, Qt::QueuedConnection);
+                            });
+                        }
+                    }
+                }
                 if (injector.seco_breakup_tab)
                 {
                     add_double_row(m_physical_models_layout, "SECO Tabulated Y0", "-", &injector.seco_breakup_tab_y0);

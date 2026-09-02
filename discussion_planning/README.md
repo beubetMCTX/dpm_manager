@@ -1,5 +1,13 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-03 Make SECO Breakup Models Mutually Exclusive
+
+- Fluent documentation defines `Breakup Model` as one selection among TAB, Wave, KHRT, SSD, Madabhushi, and Schmehl rather than parallel switches.
+- The editor now normalizes legacy multi-selected SECO flags in that order and keeps only the first selected model.
+- Selecting one model locks the other model rows; disabling it unlocks them, and each model exposes only its own parameters.
+- Disabling SECO Breakup clears stale submodel flags.
+- Release build and all 11 CTest regressions passed.
+
 ### 2026-09-03 Make Turbulent Dispersion Models Mutually Exclusive
 
 - Stochastic Tracking and Cloud Tracking are now treated as mutually exclusive model choices.
