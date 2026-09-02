@@ -907,3 +907,12 @@ References:
 - Added a Settings-menu `Open Config Folder` action.
 - The action ensures the config, color, and material directories exist before opening them in the system file manager.
 - Existing configuration formats and paths are unchanged.
+### 2026-09-02 Open Logs Folder
+
+- Added a Settings-menu `Open Logs Folder` action for quickly locating runtime diagnostics.
+- The folder is created on demand and the existing log rotation and file format are unchanged.
+### 2026-09-02 Open Logs Folder
+
+- Added a Settings-menu `Open Logs Folder` action for quickly locating runtime diagnostics.
+- The folder is created on demand and the existing log rotation and file format are unchanged.
+- Release build and all 9 CTest regressions passed.

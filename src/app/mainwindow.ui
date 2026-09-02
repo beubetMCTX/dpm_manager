@@ -67,6 +67,7 @@
     <addaction name="actionLanguage"/>
     <addaction name="actionExport_Diagnostics"/>
     <addaction name="actionOpen_Config_Folder"/>
+    <addaction name="actionOpen_Logs_Folder"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -121,6 +122,11 @@
   <action name="actionOpen_Config_Folder">
    <property name="text">
     <string>Open Config Folder</string>
+   </property>
+  </action>
+  <action name="actionOpen_Logs_Folder">
+   <property name="text">
+    <string>Open Logs Folder</string>
    </property>
   </action>
   <action name="actionSave_DPM">

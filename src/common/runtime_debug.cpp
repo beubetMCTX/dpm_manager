@@ -239,6 +239,11 @@ QString runtime_debug::current_log_file_path()
     return g_runtime_log_file_path;
 }
 
+QString runtime_debug::log_directory_path()
+{
+    return QDir(QCoreApplication::applicationDirPath()).filePath("logs");
+}
+
 bool runtime_debug::verbose_debug_enabled()
 {
     static const bool enabled = qEnvironmentVariableIntValue("DPM_VERBOSE_DEBUG") > 0;

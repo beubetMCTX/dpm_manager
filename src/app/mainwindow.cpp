@@ -9,6 +9,7 @@
 #include "species_material_dialog.h"
 #include "unit_preferences_dialog.h"
 #include <QFileInfo>
+#include <QDir>
 #include <QFile>
 #include <QSaveFile>
 #include <QSysInfo>
@@ -810,6 +811,28 @@ void MainWindow::on_actionOpen_Config_Folder_triggered()
     }
 
     statusBar()->showMessage(QString("Config folder: %1").arg(config_path), 8000);
+}
+
+void MainWindow::on_actionOpen_Logs_Folder_triggered()
+{
+    const QString logs_path = runtime_debug::log_directory_path();
+    if (!QDir().mkpath(logs_path))
+    {
+        const QString message = QString("Unable to create logs folder: %1").arg(logs_path);
+        QMessageBox::warning(this, "Open Logs Folder", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    if (!QDesktopServices::openUrl(QUrl::fromLocalFile(logs_path)))
+    {
+        const QString message = QString("Unable to open logs folder: %1").arg(logs_path);
+        QMessageBox::warning(this, "Open Logs Folder", message);
+        statusBar()->showMessage(message, 8000);
+        return;
+    }
+
+    statusBar()->showMessage(QString("Logs folder: %1").arg(logs_path), 8000);
 }
 
 bool MainWindow::save_current_project_session()

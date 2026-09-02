@@ -10,6 +10,7 @@ void shutdown();
 void checkpoint(const QString &message);
 void trace(const QString &message);
 QString current_log_file_path();
+QString log_directory_path();
 bool verbose_debug_enabled();
 }
 
