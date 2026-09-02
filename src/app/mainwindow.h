@@ -119,6 +119,8 @@ private:
     void open_unit_preferences_dialog();
     void close_auxiliary_windows_for_shutdown();
     void sync_unit_from_occt(Unit *changed_unit);
+    void sync_unit_position_from_occt(Unit *changed_unit);
+    void sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dirty);
     project_session::Data collect_project_data() const;
     void refresh_project_dirty_state();
 

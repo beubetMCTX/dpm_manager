@@ -1881,6 +1881,7 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
                         after.volume_bgeom_max != m_drag_move_before.volume_bgeom_max)
                     {
                         record_move(m_drag_unit_uuid, m_drag_move_before, after);
+                        emit unit_data_updated(unit.get());
                     }
                 }
             }

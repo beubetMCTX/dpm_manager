@@ -1073,3 +1073,9 @@ References:
 - Session schema version, unit preferences, species colors, material density, and reference-geometry flags now reject incorrect JSON types.
 - Added malformed-session regression coverage; failed loads still leave the caller's existing data untouched.
 - Release build, project-session/configuration/unit-system/Chemkin tests, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Reduce Drag Synchronization Cost
+
+- Injector dragging now updates the MainWindow model and marks the project dirty without recalculating the complete project fingerprint on every mouse move.
+- A full data update is emitted once when the drag is released, preserving final dirty-state verification and editor refresh behavior.
+- Release build, injector-geometry/Unit-Editor/numeric-input regressions, packaging, and startup/shutdown verification passed.

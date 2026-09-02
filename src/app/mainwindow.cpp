@@ -364,7 +364,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_3d_widget, &OCCTWidget::unit_data_updated,
             this, &MainWindow::sync_unit_from_occt);
     connect(m_3d_widget, &OCCTWidget::unit_position_updated,
-            this, &MainWindow::sync_unit_from_occt);
+            this, &MainWindow::sync_unit_position_from_occt);
     connect(m_3d_widget, &OCCTWidget::unit_geometry_refresh_failed,
             this, [this](const QUuid &, const QString &message)
     {
@@ -482,6 +482,16 @@ void MainWindow::close_auxiliary_windows_for_shutdown()
 
 void MainWindow::sync_unit_from_occt(Unit *changed_unit)
 {
+    sync_unit_from_occt_impl(changed_unit, true);
+}
+
+void MainWindow::sync_unit_position_from_occt(Unit *changed_unit)
+{
+    sync_unit_from_occt_impl(changed_unit, false);
+}
+
+void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dirty)
+{
     if (changed_unit == nullptr)
     {
         return;
@@ -499,7 +509,17 @@ void MainWindow::sync_unit_from_occt(Unit *changed_unit)
             stored_unit.inj.shape = changed_unit->inj.shape;
             update_object_list_item(stored_unit.inj.uuid,
                                     stored_unit.inj.injector_data.name);
-            mark_project_dirty();
+            if (recompute_dirty)
+            {
+                mark_project_dirty();
+            }
+            else if (!m_loading_project_session && !m_project_dirty)
+            {
+                // Drag events are frequent. Avoid recalculating the complete
+                // project fingerprint for every mouse-move event.
+                m_project_dirty = true;
+                update_project_session_title();
+            }
             return;
         }
     }
