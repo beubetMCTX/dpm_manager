@@ -1774,7 +1774,15 @@ void MainWindow::update_reference_geometry_controls()
         return;
     }
 
-    const bool editable = !m_3d_widget->reference_geometry_locked();
+    const bool available = !m_3d_widget->geometry.getShape().IsNull();
+    if (!available && m_reference_geometry_lock->isChecked())
+    {
+        const QSignalBlocker blocker(m_reference_geometry_lock);
+        m_reference_geometry_lock->setChecked(false);
+        m_3d_widget->set_reference_geometry_locked(false);
+    }
+
+    const bool editable = available && !m_3d_widget->reference_geometry_locked();
     if (m_reference_position_x != nullptr)
     {
         m_reference_position_x->setEnabled(editable);
@@ -1807,6 +1815,11 @@ void MainWindow::update_reference_geometry_controls()
     {
         m_reset_reference_transform->setEnabled(editable);
     }
+    if (m_clear_reference_geometry != nullptr)
+    {
+        m_clear_reference_geometry->setEnabled(available);
+    }
+    m_reference_geometry_lock->setEnabled(available);
 }
 
 void MainWindow::update_reference_geometry_panel()

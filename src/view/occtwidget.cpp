@@ -2349,6 +2349,7 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
                 &OCCTWidget::clear_face_reference);
 
         QAction *reset_transform_action = menu.addAction("Reset Transform");
+        reset_transform_action->setEnabled(!m_reference_geometry_locked);
         connect(reset_transform_action, &QAction::triggered, this, [this]()
         {
             set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),

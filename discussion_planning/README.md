@@ -1112,3 +1112,10 @@ References:
 - A material value removed from the table remains visible as read-only text for compatibility, but is no longer an available selection.
 - Added regression coverage for stale-value display, selectable options, and read-only behavior.
 - Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Guard Reference Geometry Controls Without Loaded Geometry
+
+- Reference-geometry transform, clear, and lock controls now reflect whether a reference shape is loaded.
+- An empty reference view cannot retain a stale locked state or accept transform actions.
+- The context-menu reset action is disabled while the reference geometry is locked.
+- Release build, all 10 CTest regressions, packaging, and startup/shutdown verification passed.
