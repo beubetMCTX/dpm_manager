@@ -137,6 +137,7 @@ private:
     QStringList m_recent_project_paths;
     QPointer<SpeciesColorDialog> m_species_color_dialog;
     QPointer<SpeciesMaterialDialog> m_species_material_dialog;
+    bool m_auxiliary_shutdown_started = false;
     QDockWidget *m_reference_geometry_dock = nullptr;
     QDoubleSpinBox *m_reference_position_x = nullptr;
     QDoubleSpinBox *m_reference_position_y = nullptr;

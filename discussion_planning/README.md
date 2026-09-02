@@ -1018,3 +1018,9 @@ References:
 - Added regression coverage for changing a length display from millimetres to centimetres while preserving the internal metre value.
 - Project save-format work remains deferred as requested.
 - Release compilation passed. The standalone Qt GUI regression process hung without output in this environment, so full CTest completion still needs a clean GUI-capable test environment; the non-GUI unit-system regression passed.
+
+### 2026-09-02 Make Auxiliary Shutdown Idempotent
+
+- Main-window auxiliary dialogs are now closed through a one-time shutdown guard.
+- Repeated calls from `closeEvent`, `aboutToQuit`, and the destructor no longer re-enter child-dialog cleanup after the first pass.
+- The existing parent ownership and OCCT editor cleanup order remain unchanged.

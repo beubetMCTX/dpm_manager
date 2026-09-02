@@ -476,6 +476,12 @@ MainWindow::~MainWindow()
 
 void MainWindow::close_auxiliary_windows_for_shutdown()
 {
+    if (m_auxiliary_shutdown_started)
+    {
+        return;
+    }
+    m_auxiliary_shutdown_started = true;
+
     // Close OCCT-owned editors before the context or view starts teardown.
     if (m_3d_widget != nullptr)
     {
