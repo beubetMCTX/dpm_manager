@@ -867,3 +867,10 @@ References:
 - Project reference validation now rejects non-empty species fields when no Chemkin file is loaded.
 - This prevents stale species references from surviving after the Chemkin source is cleared.
 - Added regression coverage for the no-Chemkin case.
+### 2026-09-02 Batch Object Visibility and Lock Controls
+
+- Object list selection now supports selecting multiple injector rows.
+- Added batch `Show Selected`, `Hide Selected`, `Lock Selected`, and `Unlock Selected` controls.
+- Reference geometry is intentionally excluded from batch injector operations.
+- These controls only change view/interaction state and do not alter the deferred project save format.
+- Release build and all 9 CTest regressions passed.

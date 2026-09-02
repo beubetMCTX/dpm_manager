@@ -21,6 +21,7 @@
 #include <QSignalBlocker>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <functional>
 
 namespace
 {
@@ -1688,6 +1689,19 @@ void MainWindow::create_object_list_panel()
     view_controls_layout->addWidget(hide_all_button);
     layout->addWidget(view_controls);
 
+    auto *batch_controls = new QWidget(panel);
+    auto *batch_controls_layout = new QHBoxLayout(batch_controls);
+    batch_controls_layout->setContentsMargins(0, 0, 0, 0);
+    auto *show_selected_button = new QPushButton("Show Selected", batch_controls);
+    auto *hide_selected_button = new QPushButton("Hide Selected", batch_controls);
+    auto *lock_selected_button = new QPushButton("Lock Selected", batch_controls);
+    auto *unlock_selected_button = new QPushButton("Unlock Selected", batch_controls);
+    batch_controls_layout->addWidget(show_selected_button);
+    batch_controls_layout->addWidget(hide_selected_button);
+    batch_controls_layout->addWidget(lock_selected_button);
+    batch_controls_layout->addWidget(unlock_selected_button);
+    layout->addWidget(batch_controls);
+
     auto *view_selector = new QComboBox(panel);
     view_selector->setObjectName("standardViewSelector");
     view_selector->addItem("Top", static_cast<int>(V3d_Zpos));
@@ -1701,7 +1715,7 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(view_selector);
 
     m_object_list = new QListWidget(panel);
-    m_object_list->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_object_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_object_list->setAlternatingRowColors(true);
     layout->addWidget(m_object_list);
 
@@ -1759,6 +1773,61 @@ void MainWindow::create_object_list_panel()
     {
         m_3d_widget->set_all_units_visible(false);
         update_object_list_panel();
+    });
+
+    const auto apply_selected_units = [this](const std::function<void(const QUuid &)> &operation)
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull())
+            {
+                operation(uuid);
+            }
+        }
+        update_object_list_panel();
+    };
+    connect(show_selected_button, &QPushButton::clicked, this,
+            [this, apply_selected_units]()
+    {
+        apply_selected_units([this](const QUuid &uuid)
+        {
+            m_3d_widget->set_unit_visible(uuid, true);
+        });
+    });
+    connect(hide_selected_button, &QPushButton::clicked, this,
+            [this, apply_selected_units]()
+    {
+        apply_selected_units([this](const QUuid &uuid)
+        {
+            m_3d_widget->set_unit_visible(uuid, false);
+        });
+    });
+    connect(lock_selected_button, &QPushButton::clicked, this,
+            [this, apply_selected_units]()
+    {
+        apply_selected_units([this](const QUuid &uuid)
+        {
+            m_3d_widget->set_unit_locked(uuid, true);
+        });
+    });
+    connect(unlock_selected_button, &QPushButton::clicked, this,
+            [this, apply_selected_units]()
+    {
+        apply_selected_units([this](const QUuid &uuid)
+        {
+            m_3d_widget->set_unit_locked(uuid, false);
+        });
     });
 
     connect(m_object_list, &QListWidget::itemClicked, this,
