@@ -486,6 +486,13 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
         entry.uuid = uuid;
         entry.type = unit->type;
         entry.injector_data = unit->inj.injector_data;
+        entry.visible = unit_visible(uuid);
+        entry.locked = unit_locked(uuid);
+        if (!unit->ais_display.IsNull())
+        {
+            unit->ais_display->Color(entry.color);
+            entry.has_color = true;
+        }
         record_delete(entry);
     }
 
@@ -612,15 +619,20 @@ bool OCCTWidget::restore_deleted_unit(const UnitDeleteHistoryEntry &entry)
         Quantity_Color(0.15, 0.70, 0.70, Quantity_TOC_RGB)
     };
     restored_unit->ais_display->SetColor(
-        palette[unit_hash.size() % (sizeof(palette) / sizeof(palette[0]))]);
+        entry.has_color
+            ? entry.color
+            : palette[unit_hash.size() % (sizeof(palette) / sizeof(palette[0]))]);
     restored_unit->ais_display->SetTransparency(
         restored_unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
 
     unit_hash.insert(entry.uuid, restored_unit);
-    m_unit_visibility.insert(entry.uuid, true);
-    m_unit_locks.insert(entry.uuid, false);
+    m_unit_visibility.insert(entry.uuid, entry.visible);
+    m_unit_locks.insert(entry.uuid, entry.locked);
     m_context->Activate(restored_unit->ais_display, TopAbs_SHAPE, Standard_True);
-    m_context->Display(restored_unit->ais_display, Standard_False);
+    if (entry.visible)
+    {
+        m_context->Display(restored_unit->ais_display, Standard_False);
+    }
     if (!m_view.IsNull())
     {
         m_view->Redraw();

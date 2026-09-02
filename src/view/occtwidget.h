@@ -254,6 +254,10 @@ private:
         QUuid uuid;
         Unit_Type type = injector;
         Injector injector_data;
+        bool visible = true;
+        bool locked = false;
+        bool has_color = false;
+        Quantity_Color color;
     };
     UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
     bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,

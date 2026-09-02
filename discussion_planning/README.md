@@ -891,3 +891,8 @@ References:
 - Added `Undo Delete` and `Redo Delete` actions with dedicated shortcuts.
 - Undo recreates the OCCT display object and synchronizes the restored unit back to MainWindow.
 - Failed or replayed deletions do not recursively corrupt the delete history.
+### 2026-09-02 Preserve Deleted Injector View State
+
+- Delete history now preserves injector visibility, movement lock, and display color.
+- Undo Delete restores those view states instead of resetting them to defaults.
+- Release build and all 9 CTest regressions passed.
