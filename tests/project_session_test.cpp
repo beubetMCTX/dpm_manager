@@ -262,7 +262,7 @@ int main(int argc, char *argv[])
     malformed_transform_root.insert(
         "reference_geometry",
         QJsonObject{{"file_path", "geometry.step"},
-                     {"position", QJsonArray{1.0, 2.0}},
+                     {"position", QJsonArray{1.0, "invalid", 3.0}},
                      {"rotation", QJsonArray{0.0, 0.0, 0.0}}});
     QFile malformed_transform_file(malformed_transform_path);
     if (!check(malformed_transform_file.open(QIODevice::WriteOnly | QIODevice::Text),
@@ -359,6 +359,66 @@ int main(int argc, char *argv[])
                "project session with missing units array should be rejected") ||
         !check(preserved.units.size() == source.units.size(),
                "failed structural project load should not expose partial data"))
+    {
+        return 1;
+    }
+
+    const auto check_invalid_session = [&](const QString &name,
+                                           const QJsonObject &root,
+                                           const QString &expected_message)
+    {
+        const QString path = temporary_directory.filePath(name);
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        {
+            return false;
+        }
+        const QByteArray contents = QJsonDocument(root).toJson();
+        if (file.write(contents) != contents.size())
+        {
+            return false;
+        }
+        file.close();
+
+        project_session::Data untouched = source;
+        QString local_error;
+        const bool rejected = !project_session::load(path, &untouched, &local_error) &&
+                              local_error.contains(expected_message) &&
+                              untouched.units.size() == source.units.size();
+        QFile::remove(path);
+        return rejected;
+    };
+
+    if (!check(check_invalid_session(
+                   "invalid_schema_type.dpmproj",
+                   QJsonObject{{"schema_version", "1"}, {"units", QJsonArray{}}},
+                   "invalid schema version"),
+               "non-numeric project schema version should be rejected") ||
+        !check(check_invalid_session(
+                   "invalid_color_type.dpmproj",
+                   QJsonObject{{"schema_version", 1},
+                               {"units", QJsonArray{}},
+                               {"species_colors", QJsonArray{}}},
+                   "invalid species_colors object"),
+               "non-object species colors should be rejected") ||
+        !check(check_invalid_session(
+                   "invalid_material_type.dpmproj",
+                   QJsonObject{{"schema_version", 1},
+                               {"units", QJsonArray{}},
+                               {"materials", QJsonArray{
+                                   QJsonObject{{"name", "water"},
+                                                {"density", "998.2"}}}}},
+                   "invalid field types"),
+               "non-numeric material density should be rejected") ||
+        !check(check_invalid_session(
+                   "invalid_reference_flag_type.dpmproj",
+                   QJsonObject{{"schema_version", 1},
+                               {"units", QJsonArray{}},
+                               {"reference_geometry", QJsonObject{
+                                   {"file_path", "geometry.step"},
+                                   {"locked", "false"}}}},
+                   "visibility flags"),
+               "non-boolean reference geometry flags should be rejected"))
     {
         return 1;
     }

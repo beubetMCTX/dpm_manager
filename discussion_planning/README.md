@@ -1066,3 +1066,10 @@ References:
 - Existing but malformed Chemkin path, recent-project list, window-state, and unit-preference fields are now rejected instead of silently becoming empty/default values.
 - Invalid settings are backed up through the existing corrupt-config recovery path; missing optional fields remain compatible with older configurations.
 - Added regression coverage for all four field groups; Release build, focused tests, packaging, and startup/shutdown verification passed.
+
+### 2026-09-02 Strict Project Session Field Parsing
+
+- Project session vectors now require three finite numeric components instead of accepting string values as zero.
+- Session schema version, unit preferences, species colors, material density, and reference-geometry flags now reject incorrect JSON types.
+- Added malformed-session regression coverage; failed loads still leave the caller's existing data untouched.
+- Release build, project-session/configuration/unit-system/Chemkin tests, packaging, and startup/shutdown verification passed.

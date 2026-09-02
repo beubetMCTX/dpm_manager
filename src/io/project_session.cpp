@@ -13,6 +13,7 @@
 #include <QCryptographicHash>
 
 #include <cmath>
+#include <limits>
 
 
 namespace
@@ -34,6 +35,14 @@ bool vector_from_json(const QJsonValue &json_value, QVector3D *value)
     if (array.size() != 3 || value == nullptr)
     {
         return false;
+    }
+
+    for (const QJsonValue &component : array)
+    {
+        if (!component.isDouble() || !std::isfinite(component.toDouble()))
+        {
+            return false;
+        }
     }
 
     *value = QVector3D(static_cast<float>(array.at(0).toDouble()),
@@ -825,7 +834,18 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
 
     const QJsonObject root = document.object();
-    const int version = root.value("schema_version").toInt(-1);
+    const QJsonValue version_value = root.value("schema_version");
+    if (!version_value.isDouble() ||
+        !std::isfinite(version_value.toDouble()) ||
+        version_value.toDouble() < std::numeric_limits<int>::min() ||
+        version_value.toDouble() > std::numeric_limits<int>::max() ||
+        version_value.toDouble() != std::floor(version_value.toDouble()))
+    {
+        set_error(error_message, "Project session contains an invalid schema version.");
+        return false;
+    }
+
+    const int version = version_value.toInt(-1);
     if (version != kSessionSchemaVersion)
     {
         set_error(error_message, QString("Unsupported project session schema version: %1").arg(version));
@@ -880,30 +900,57 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         }
 
         const QJsonObject unit_preferences = unit_preferences_value.toObject();
-        parsed.unit_preferences.length =
-            unit_preferences.value("length").toString(parsed.unit_preferences.length);
-        parsed.unit_preferences.angle =
-            unit_preferences.value("angle").toString(parsed.unit_preferences.angle);
-        parsed.unit_preferences.velocity =
-            unit_preferences.value("velocity").toString(parsed.unit_preferences.velocity);
-        parsed.unit_preferences.mass =
-            unit_preferences.value("mass").toString(parsed.unit_preferences.mass);
-        parsed.unit_preferences.mass_flow =
-            unit_preferences.value("mass_flow").toString(parsed.unit_preferences.mass_flow);
-        parsed.unit_preferences.time =
-            unit_preferences.value("time").toString(parsed.unit_preferences.time);
-        parsed.unit_preferences.pressure =
-            unit_preferences.value("pressure").toString(parsed.unit_preferences.pressure);
-        parsed.unit_preferences.temperature =
-            unit_preferences.value("temperature").toString(parsed.unit_preferences.temperature);
+        const auto read_preference = [&unit_preferences](const char *key,
+                                                          QString *target)
+        {
+            const QJsonValue value = unit_preferences.value(QString::fromLatin1(key));
+            if (value.isUndefined())
+            {
+                return true;
+            }
+            if (!value.isString())
+            {
+                return false;
+            }
+            *target = value.toString();
+            return true;
+        };
+        if (!read_preference("length", &parsed.unit_preferences.length) ||
+            !read_preference("angle", &parsed.unit_preferences.angle) ||
+            !read_preference("velocity", &parsed.unit_preferences.velocity) ||
+            !read_preference("mass", &parsed.unit_preferences.mass) ||
+            !read_preference("mass_flow", &parsed.unit_preferences.mass_flow) ||
+            !read_preference("time", &parsed.unit_preferences.time) ||
+            !read_preference("pressure", &parsed.unit_preferences.pressure) ||
+            !read_preference("temperature", &parsed.unit_preferences.temperature))
+        {
+            set_error(error_message,
+                      "Project session contains a unit preference with an invalid type.");
+            return false;
+        }
         parsed.has_unit_preferences = true;
     }
-    const QJsonObject species_colors = root.value("species_colors").toObject();
+    const QJsonValue species_colors_value = root.value("species_colors");
+    if (!species_colors_value.isUndefined() && !species_colors_value.isObject())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid species_colors object.");
+        return false;
+    }
+    const QJsonObject species_colors = species_colors_value.toObject();
     for (auto it = species_colors.constBegin(); it != species_colors.constEnd(); ++it)
     {
         if (it.key().trimmed().isEmpty())
         {
             set_error(error_message, "Project session contains an empty species color key.");
+            return false;
+        }
+
+        if (!it.value().isString())
+        {
+            set_error(error_message,
+                      QString("Project session contains an invalid color for species: %1")
+                          .arg(it.key()));
             return false;
         }
 
@@ -938,6 +985,14 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         }
 
         const QJsonObject material = material_value.toObject();
+        if (!material.value("name").isString() ||
+            !material.value("density").isDouble() ||
+            !std::isfinite(material.value("density").toDouble()))
+        {
+            set_error(error_message,
+                      "Project session contains a material with invalid field types.");
+            return false;
+        }
         const QString name = material.value("name").toString().trimmed();
         if (name.isEmpty())
         {
@@ -950,7 +1005,23 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         parsed.materials.append(entry);
     }
 
-    const QJsonObject reference_geometry = root.value("reference_geometry").toObject();
+    const QJsonObject reference_geometry = reference_geometry_value.toObject();
+    if (reference_geometry.contains("file_path") &&
+        !reference_geometry.value("file_path").isString())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference geometry file path.");
+        return false;
+    }
+    if ((reference_geometry.contains("locked") &&
+         !reference_geometry.value("locked").isBool()) ||
+        (reference_geometry.contains("visible") &&
+         !reference_geometry.value("visible").isBool()))
+    {
+        set_error(error_message,
+                  "Project session contains invalid reference geometry visibility flags.");
+        return false;
+    }
     parsed.reference_geometry.file_path = session_path_for_runtime(
         reference_geometry.value("file_path").toString(), file_path);
     if (!parsed.reference_geometry.file_path.trimmed().isEmpty() &&
