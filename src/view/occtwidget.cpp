@@ -395,7 +395,12 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
         return false;
     }
 
+    UnitEditTransaction transaction;
+    transaction.uuid = uuid;
+    transaction.before_type = unit->type;
+    transaction.before_data = unit->inj.injector_data;
     unit->inj.injector_data.name = normalized_name;
+    record_edit(transaction, *unit);
     emit unit_data_updated(unit.get());
     return true;
 }
@@ -440,10 +445,17 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
         return false;
     }
 
+    UnitEditTransaction transaction;
+    transaction.uuid = uuid;
+    transaction.before_type = unit->type;
+    transaction.before_data = unit->inj.injector_data;
+
     unit->type = m_copied_unit->type;
     unit->inj.injector_data = m_copied_unit->injector_data;
     if (!unit->inj.create_injector())
     {
+        unit->type = transaction.before_type;
+        unit->inj.injector_data = transaction.before_data;
         return false;
     }
 
@@ -454,6 +466,7 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     m_context->Redisplay(unit->ais_display, Standard_False);
     clear_move_history();
     m_view->Redraw();
+    record_edit(transaction, *unit);
     emit unit_data_updated(unit.get());
     return true;
 }

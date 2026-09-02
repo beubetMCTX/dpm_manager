@@ -880,3 +880,8 @@ References:
 - The report records application/runtime environment, project summary, Chemkin and reference-geometry state, and the current runtime log.
 - Reports use atomic file replacement so an interrupted export does not leave a partial report.
 - Release build and all 9 CTest regressions passed.
+### 2026-09-02 Record Rename and Paste in Edit History
+
+- Object-list rename and paste operations now enter the existing Unit Edit undo/redo history.
+- Failed paste geometry creation restores the target unit's original type and data instead of leaving a partial update.
+- Release build and all 9 CTest regressions passed.
