@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-02 Make Configuration Reads Atomic
+
+- Configuration readers now parse into temporary values and update caller-owned state only after validation succeeds.
+- Failed or missing Chemkin-path, recent-project, window-state, unit-preference, reference-geometry, and species-color reads no longer clear or partially overwrite existing values.
+- Added regression coverage for preserving pre-existing values after malformed configuration reads.
+- Release build and all 11 CTest regressions passed.
+
 ## Purpose
 
 Record product discussions, implementation priorities, unresolved issues, and future ideas for `dpm_manager`.

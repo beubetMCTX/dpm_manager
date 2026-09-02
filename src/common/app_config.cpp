@@ -278,11 +278,6 @@ bool ensure_app_config_directories(QString *error_message)
 
 bool load_last_chemkin_file_path(QString *file_path, QString *error_message)
 {
-    if (file_path != nullptr)
-    {
-        file_path->clear();
-    }
-
     if (!QFileInfo::exists(app_settings_file_path()))
     {
         return false;
@@ -355,11 +350,6 @@ bool clear_last_chemkin_file_path(QString *error_message)
 
 bool load_recent_project_paths(QStringList *file_paths, QString *error_message)
 {
-    if (file_paths != nullptr)
-    {
-        file_paths->clear();
-    }
-
     if (!QFileInfo::exists(app_settings_file_path()))
     {
         return false;
@@ -390,6 +380,7 @@ bool load_recent_project_paths(QStringList *file_paths, QString *error_message)
         return true;
     }
 
+    QStringList loaded_paths;
     for (const QJsonValue &value : recent_value.toArray())
     {
         if (!value.isString())
@@ -409,16 +400,18 @@ bool load_recent_project_paths(QStringList *file_paths, QString *error_message)
         const QFileInfo file_info(path);
         const QString absolute_path = file_info.absoluteFilePath();
         if (file_info.exists() && file_info.isFile() &&
-            !file_paths->contains(absolute_path, Qt::CaseInsensitive))
+            !loaded_paths.contains(absolute_path, Qt::CaseInsensitive))
         {
-            file_paths->append(absolute_path);
+            loaded_paths.append(absolute_path);
         }
 
-        if (file_paths->size() >= 10)
+        if (loaded_paths.size() >= 10)
         {
             break;
         }
     }
+
+    *file_paths = std::move(loaded_paths);
     return true;
 }
 
@@ -472,11 +465,6 @@ bool save_recent_project_paths(const QStringList &file_paths,
 bool load_reference_geometry_config(ReferenceGeometryConfig *config,
                                     QString *error_message)
 {
-    if (config != nullptr)
-    {
-        *config = ReferenceGeometryConfig();
-    }
-
     if (!QFileInfo::exists(app_settings_file_path()))
     {
         return false;
@@ -614,15 +602,6 @@ bool load_main_window_state(QByteArray *geometry,
                             QByteArray *window_state,
                             QString *error_message)
 {
-    if (geometry != nullptr)
-    {
-        geometry->clear();
-    }
-    if (window_state != nullptr)
-    {
-        window_state->clear();
-    }
-
     if (!QFileInfo::exists(app_settings_file_path()))
     {
         return false;
@@ -645,15 +624,17 @@ bool load_main_window_state(QByteArray *geometry,
             error_message);
     }
 
+    const QByteArray loaded_geometry = QByteArray::fromBase64(
+        geometry_value.toString().toLatin1());
+    const QByteArray loaded_window_state = QByteArray::fromBase64(
+        state_value.toString().toLatin1());
     if (geometry != nullptr)
     {
-        *geometry = QByteArray::fromBase64(
-            geometry_value.toString().toLatin1());
+        *geometry = loaded_geometry;
     }
     if (window_state != nullptr)
     {
-        *window_state = QByteArray::fromBase64(
-            state_value.toString().toLatin1());
+        *window_state = loaded_window_state;
     }
     return true;
 }
@@ -688,11 +669,6 @@ bool save_main_window_state(const QByteArray &geometry,
 bool load_unit_preferences(Unit_Preferences *preferences,
                            QString *error_message)
 {
-    if (preferences != nullptr)
-    {
-        *preferences = UnitSystem::default_preferences();
-    }
-
     if (!QFileInfo::exists(app_settings_file_path()))
     {
         return false;
@@ -813,11 +789,6 @@ bool load_species_color_config(const QString &chemkin_file_path,
                                QHash<QString, QColor> *species_colors,
                                QString *error_message)
 {
-    if (species_colors != nullptr)
-    {
-        species_colors->clear();
-    }
-
     if (chemkin_file_path.trimmed().isEmpty() || species_names.isEmpty())
     {
         return false;
@@ -879,16 +850,19 @@ bool load_species_color_config(const QString &chemkin_file_path,
         color_owners.insert(normalized_color, species_name);
     }
 
+    QHash<QString, QColor> loaded_colors;
+    for (const QString &species_name : species_names)
+    {
+        const QColor color(colors_object.value(species_name).toString());
+        if (color.isValid())
+        {
+            loaded_colors.insert(species_name, color);
+        }
+    }
+
     if (species_colors != nullptr)
     {
-        for (const QString &species_name : species_names)
-        {
-            const QColor color(colors_object.value(species_name).toString());
-            if (color.isValid())
-            {
-                species_colors->insert(species_name, color);
-            }
-        }
+        *species_colors = std::move(loaded_colors);
     }
 
     return true;

@@ -187,9 +187,12 @@ int main(int argc, char **argv)
     if (color_backup_test_ok)
     {
         QHash<QString, QColor> ignored_colors;
+        ignored_colors.insert("keep", QColor("#abcdef"));
         color_backup_test_ok = !load_species_color_config(
             chemkin_path, color_species, &ignored_colors, &config_error) &&
-            config_error.contains("backup:");
+            config_error.contains("backup:") &&
+            ignored_colors.size() == 1 &&
+            ignored_colors.value("keep") == QColor("#abcdef");
     }
 
     const QStringList color_backups = color_directory.entryList(
@@ -228,10 +231,13 @@ int main(int argc, char **argv)
     if (duplicate_color_test_ok)
     {
         QHash<QString, QColor> ignored_duplicate_colors;
+        ignored_duplicate_colors.insert("keep", QColor("#123456"));
         duplicate_color_test_ok = !load_species_color_config(
             chemkin_path, color_species, &ignored_duplicate_colors, &config_error) &&
             config_error.contains("both O2 and N2") &&
-            config_error.contains("backup:");
+            config_error.contains("backup:") &&
+            ignored_duplicate_colors.size() == 1 &&
+            ignored_duplicate_colors.value("keep") == QColor("#123456");
     }
     const QStringList duplicate_color_backups = color_directory.entryList(
         {color_config_name + ".corrupt-*.bak"}, QDir::Files);
@@ -275,50 +281,58 @@ int main(int argc, char **argv)
     settings_type_test_ok = write_settings(QJsonObject{
         {"schema_version", 1},
         {"last_chemkin_file_path", 42}});
-    QString ignored_path;
+    QString ignored_path = "keep-this-chemkin-path";
     if (settings_type_test_ok)
     {
         settings_type_test_ok = !load_last_chemkin_file_path(
             &ignored_path, &config_error) &&
             config_error.contains("must be a string") &&
-            config_error.contains("backup:");
+            config_error.contains("backup:") &&
+            ignored_path == "keep-this-chemkin-path";
     }
 
     settings_type_test_ok = settings_type_test_ok && write_settings(QJsonObject{
         {"schema_version", 1},
         {"recent_project_paths", QJsonArray{"valid.dpm", 42}}});
-    QStringList ignored_paths;
+    QStringList ignored_paths = {"keep-this-project"};
     if (settings_type_test_ok)
     {
         settings_type_test_ok = !load_recent_project_paths(
             &ignored_paths, &config_error) &&
             config_error.contains("only strings") &&
-            config_error.contains("backup:");
+            config_error.contains("backup:") &&
+            ignored_paths == QStringList{"keep-this-project"};
     }
 
     settings_type_test_ok = settings_type_test_ok && write_settings(QJsonObject{
         {"schema_version", 1},
         {"window_geometry", QJsonObject{}}});
-    QByteArray ignored_geometry;
-    QByteArray ignored_window_state;
+    QByteArray ignored_geometry = "keep-geometry";
+    QByteArray ignored_window_state = "keep-window-state";
     if (settings_type_test_ok)
     {
         settings_type_test_ok = !load_main_window_state(
             &ignored_geometry, &ignored_window_state, &config_error) &&
             config_error.contains("must be strings") &&
-            config_error.contains("backup:");
+            config_error.contains("backup:") &&
+            ignored_geometry == "keep-geometry" &&
+            ignored_window_state == "keep-window-state";
     }
 
     settings_type_test_ok = settings_type_test_ok && write_settings(QJsonObject{
         {"schema_version", 1},
         {"unit_preferences", QJsonArray{}}});
     Unit_Preferences ignored_preferences;
+    ignored_preferences.length = "keep-length";
+    ignored_preferences.angle = "keep-angle";
     if (settings_type_test_ok)
     {
         settings_type_test_ok = !load_unit_preferences(
             &ignored_preferences, &config_error) &&
             config_error.contains("must be an object") &&
-            config_error.contains("backup:");
+            config_error.contains("backup:") &&
+            ignored_preferences.length == "keep-length" &&
+            ignored_preferences.angle == "keep-angle";
     }
 
     ReferenceGeometryConfig reference_geometry;
@@ -369,12 +383,18 @@ int main(int argc, char **argv)
     }
 
     ReferenceGeometryConfig ignored_reference_geometry;
+    ignored_reference_geometry.file_path = "keep-geometry.step";
+    ignored_reference_geometry.position = QVector3D(7.0f, 8.0f, 9.0f);
+    ignored_reference_geometry.locked = true;
     if (reference_geometry_test_ok)
     {
         reference_geometry_test_ok = !load_reference_geometry_config(
             &ignored_reference_geometry, &config_error) &&
             config_error.contains("finite 3D vectors") &&
-            config_error.contains("backup:");
+            config_error.contains("backup:") &&
+            ignored_reference_geometry.file_path == "keep-geometry.step" &&
+            ignored_reference_geometry.position == QVector3D(7.0f, 8.0f, 9.0f) &&
+            ignored_reference_geometry.locked;
     }
     const QDir settings_directory(app_config_directory_path());
     const QStringList settings_backups = settings_directory.entryList(
