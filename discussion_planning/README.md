@@ -2023,6 +2023,12 @@ References:
   direction-conforming behavior.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Verify Fill Reference Settings Persistence
+
+- Project-session regression coverage now verifies that fill-array reference
+  axes and normal-conforming flags survive save/load.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Isolate Flattened Assembly Array Children
 
 - Runtime array and fill children created from Assembly sources now clear

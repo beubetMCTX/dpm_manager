@@ -445,6 +445,11 @@ int main(int argc, char *argv[])
     assembly_data.units.first().has_array_spec = true;
     assembly_data.units.first().array_spec.use_reference_geometry = true;
     assembly_data.units.first().array_spec.conform_to_reference_normal = true;
+    assembly_data.units.first().has_fill_spec = true;
+    assembly_data.units.first().fill_spec.use_reference_geometry = true;
+    assembly_data.units.first().fill_spec.conform_to_reference_normal = true;
+    assembly_data.units.first().fill_spec.direction = QVector3D(0.0f, 1.0f, 0.0f);
+    assembly_data.units.first().fill_spec.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
     assembly_member.assembly_parent_uuid = assembly_data.units.first().inj.uuid;
     assembly_data.units.append(assembly_member);
     if (!check(project_session::validate_references(assembly_data, {"O2", "N2"},
@@ -469,6 +474,11 @@ int main(int argc, char *argv[])
                    restored_assembly.units.first().has_array_spec &&
                    restored_assembly.units.first().array_spec.use_reference_geometry &&
                    restored_assembly.units.first().array_spec.conform_to_reference_normal &&
+                   restored_assembly.units.first().has_fill_spec &&
+                   restored_assembly.units.first().fill_spec.use_reference_geometry &&
+                   restored_assembly.units.first().fill_spec.conform_to_reference_normal &&
+                   restored_assembly.units.first().fill_spec.direction ==
+                       QVector3D(0.0f, 1.0f, 0.0f) &&
                    restored_assembly.units.at(1).assembly_parent_uuid ==
                        assembly_data.units.first().inj.uuid,
                "Assembly relationships did not round-trip"))
