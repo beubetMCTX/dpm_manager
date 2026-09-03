@@ -462,6 +462,51 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    unit.inj.injector_data.type = Droplet;
+    unit.inj.injector_data.injection_type = single;
+    unit.inj.injector_data.single_direction_mode = Single_Direction_Mode::Vector;
+    dialog->refresh_from_unit_data(&unit);
+    auto *single_direction_editor = dialog->findChild<QUI_ComboBox *>(
+        "propertyEditor_Direction_Mode");
+    if (!check(single_direction_editor != nullptr &&
+                   has_field_row(dialog, "X-Velocity") &&
+                   !has_field_row(dialog, "Pitch") &&
+                   !has_field_row(dialog, "X-Target Hitpoint"),
+               "Single vector mode should expose velocity components"))
+    {
+        delete parent;
+        return 1;
+    }
+    single_direction_editor->setCurrentIndex(
+        static_cast<int>(Single_Direction_Mode::Pitch_Yaw));
+    single_direction_editor->selection_committed();
+    application.processEvents();
+    if (!check(unit.inj.injector_data.single_direction_mode ==
+                   Single_Direction_Mode::Pitch_Yaw &&
+                   has_field_row(dialog, "Pitch") &&
+                   has_field_row(dialog, "Yaw") &&
+                   !has_field_row(dialog, "X-Velocity"),
+               "Single pitch-yaw mode should expose angle components"))
+    {
+        delete parent;
+        return 1;
+    }
+    single_direction_editor = dialog->findChild<QUI_ComboBox *>(
+        "propertyEditor_Direction_Mode");
+    single_direction_editor->setCurrentIndex(
+        static_cast<int>(Single_Direction_Mode::Target_Hitpoint));
+    single_direction_editor->selection_committed();
+    application.processEvents();
+    if (!check(has_field_row(dialog, "X-Target Hitpoint") &&
+                   has_field_row(dialog, "Y-Target Hitpoint") &&
+                   has_field_row(dialog, "Z-Target Hitpoint") &&
+                   !has_field_row(dialog, "Pitch"),
+               "Single target mode should expose target coordinates"))
+    {
+        delete parent;
+        return 1;
+    }
+
     unit.inj.injector_data.type = Massless;
     unit.inj.injector_data.injection_type = single;
     dialog->refresh_from_unit_data(&unit);

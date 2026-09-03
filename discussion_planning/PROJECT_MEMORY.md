@@ -220,6 +220,18 @@ Unit
 - Checkpoint commit `9b84d9d` was pushed to `origin/main` after Release build
   and all 11 focused regressions passed.
 
+## Single Direction Mode Progress
+
+- Single injectors now support `Vector`, `Pitch/Yaw`, and `Target Hitpoint`
+  direction modes in the model and local-frame display direction.
+- The Unit Editor exposes the selected mode and rebuilds its point-property
+  rows so only the relevant velocity, angle, or target-point fields are shown.
+- Pitch is constrained to `-90..90` degrees and yaw to `-360..360` degrees;
+  all values use the existing numeric validation and expression input path.
+- Direction mode, pitch, yaw, and target point are persisted in project
+  sessions, with older sessions remaining compatible through defaults.
+- Focused Unit Editor regression coverage verifies all three mode layouts.
+
 ## Array Core Progress
 
 - Added `src/model/unit_array.h/.cpp` with a standalone expansion API for

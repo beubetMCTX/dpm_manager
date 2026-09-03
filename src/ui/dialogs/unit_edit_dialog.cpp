@@ -3498,9 +3498,42 @@ void unit_edit_dialog::build_point_property_rows()
         add_single_vector_row("Z-Position", "mm", &injector.pos, 2);
         if (!massless_particle)
         {
-            add_single_vector_row("X-Velocity", "m/s", &injector.vel, 0);
-            add_single_vector_row("Y-Velocity", "m/s", &injector.vel, 1);
-            add_single_vector_row("Z-Velocity", "m/s", &injector.vel, 2);
+            add_combo_row(
+                "Direction Mode",
+                {"Vector", "Pitch/Yaw", "Target Hitpoint"},
+                [&injector]()
+                {
+                    return static_cast<int>(injector.single_direction_mode);
+                },
+                [&injector](int value)
+                {
+                    injector.single_direction_mode =
+                        static_cast<Single_Direction_Mode>(value);
+                });
+
+            switch (injector.single_direction_mode)
+            {
+            case Single_Direction_Mode::Pitch_Yaw:
+                add_single_row("Pitch", "deg", &injector.single_pitch_degrees,
+                               true, -90.0, 90.0);
+                add_single_row("Yaw", "deg", &injector.single_yaw_degrees,
+                               true, -360.0, 360.0);
+                break;
+            case Single_Direction_Mode::Target_Hitpoint:
+                add_single_vector_row("X-Target Hitpoint", "mm",
+                                      &injector.single_target_hitpoint, 0);
+                add_single_vector_row("Y-Target Hitpoint", "mm",
+                                      &injector.single_target_hitpoint, 1);
+                add_single_vector_row("Z-Target Hitpoint", "mm",
+                                      &injector.single_target_hitpoint, 2);
+                break;
+            case Single_Direction_Mode::Vector:
+            default:
+                add_single_vector_row("X-Velocity", "m/s", &injector.vel, 0);
+                add_single_vector_row("Y-Velocity", "m/s", &injector.vel, 1);
+                add_single_vector_row("Z-Velocity", "m/s", &injector.vel, 2);
+                break;
+            }
             add_single_row("Diameter", "m", &injector.diameter);
             add_single_row("Temperature", "K", &injector.temperature);
             add_single_row("Flow Rate", "kg/s", &injector.flow_rate);

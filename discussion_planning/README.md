@@ -1694,3 +1694,13 @@ References:
   into the main project injector list.
 - Sessions written before array support remain readable through optional-field
   defaults; Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Single Injector Direction Modes
+
+- Single injectors now expose `Vector`, `Pitch/Yaw`, and `Target Hitpoint`
+  direction modes in the Unit Editor.
+- The editor dynamically shows velocity components, pitch/yaw angles, or
+  target-point coordinates according to the selected mode.
+- Direction settings are persisted in project sessions and used by geometry
+  previews and local coordinate frames; Cone remains axis-plus-angle based.
+- Added focused editor coverage; Release build and all 12 regressions passed.
