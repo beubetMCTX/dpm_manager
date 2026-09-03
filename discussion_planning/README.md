@@ -1780,6 +1780,13 @@ References:
 - Restoring removes the overridden runtime child and rebuilds it from the
   parent array or fill rule; Release build and all 12 tests passed.
 
+### 2026-09-04 Refresh Project Memory Baseline
+
+- Updated the planning baseline to reflect the implemented array/fill editor,
+  inheritance, persistence, and runtime rebuilding layers.
+- Corrected the verification count to the current 12 focused regressions and
+  documented that nested Assembly hierarchy remains future work.
+
 ### 2026-09-04 Clean Up Derived Children On Delete
 
 - Parent deletion now removes following array/fill children from the OCCT

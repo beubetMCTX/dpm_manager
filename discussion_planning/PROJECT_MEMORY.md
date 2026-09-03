@@ -3,8 +3,9 @@
 ## Current Scope
 
 - Qt/C++ DPM manager with OpenCASCADE geometry view.
-- `Unit` currently owns one injector. `Injector` stores physical and geometry
-  data; array expansion is not implemented yet.
+- Leaf `Unit` owns one injector; composite behavior is represented by runtime
+  array/fill child relations while the full nested Assembly hierarchy remains
+  a planned extension.
 - Saving-format changes are deferred unless explicitly requested.
 
 ## Completed Areas
@@ -204,7 +205,7 @@ Unit
 - Build directory: `D:\Git\dpm_manager\build\codex_msvc142_release`
 - Compiler: `E:\Program Files\Microsoft Visual Studio\18\Community`
 - Release build command uses `vcvars64.bat`, CMake, and CTest.
-- Last verified result: `11/11` tests passed.
+- Last verified result: `12/12` focused tests passed.
 
 ## Current Checkpoint
 
@@ -263,9 +264,8 @@ Unit
 - Expansion keeps the source Unit unchanged, creates fresh child UUIDs, and
   transforms injector positions, direction vectors, flat-fan points, and
   volume bounds consistently.
-- The module is intentionally not connected to editor controls or project
-  serialization yet; those layers require the composite Unit hierarchy and
-  inheritance policy to be finalized.
+- The module is connected to object-panel controls, array inheritance actions,
+  fill metadata persistence, and runtime child rebuilding.
 - Release build and all 12 focused regressions passed after adding the module.
 - Array metadata is now included in project sessions. Loading a session
   restores the mother Unit's array rule and rebuilds its following children;
