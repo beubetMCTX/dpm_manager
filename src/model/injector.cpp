@@ -29,6 +29,35 @@ double deg_to_rad(double degree)
     return degree * kPi / 180.0;
 }
 
+QVector3D normalized_or(const QVector3D &value, const QVector3D &fallback);
+
+QVector3D single_direction(const Injector &injector)
+{
+    switch (injector.single_direction_mode)
+    {
+    case Single_Direction_Mode::Pitch_Yaw:
+    {
+        const double pitch = deg_to_rad(injector.single_pitch_degrees);
+        const double yaw = deg_to_rad(injector.single_yaw_degrees);
+        return QVector3D(static_cast<float>(std::cos(pitch) * std::cos(yaw)),
+                         static_cast<float>(std::cos(pitch) * std::sin(yaw)),
+                         static_cast<float>(std::sin(pitch)));
+    }
+    case Single_Direction_Mode::Target_Hitpoint:
+        return normalized_or(injector.single_target_hitpoint - injector.pos,
+                             injector.vel);
+    case Single_Direction_Mode::Vector:
+    default:
+        return normalized_or(injector.vel, QVector3D(1.0f, 0.0f, 0.0f));
+    }
+}
+
+QVector3D single_velocity(const Injector &injector)
+{
+    const double speed = injector.vel.length();
+    return single_direction(injector) * static_cast<float>(speed);
+}
+
 QVector3D normalized_or(const QVector3D &value, const QVector3D &fallback)
 {
     if (value.length() > kTiny)
@@ -725,7 +754,8 @@ bool Injector_OCCT::create_geometry_single()
         builder.MakeCompound(shape);
 
         gp_Pnt base_pnt(injector_data.pos.x(),injector_data.pos.y(),injector_data.pos.z());
-        gp_Dir base_dir(injector_data.vel.x(),injector_data.vel.y(),injector_data.vel.z());
+        const QVector3D effective_velocity = single_velocity(injector_data);
+        gp_Dir base_dir(effective_velocity.x(), effective_velocity.y(), effective_velocity.z());
         gp_Ax2 base_ax2(base_pnt,base_dir);
         Standard_Real cyl_l = preview_arrow_length(injector_data);
         Standard_Real cyl_d = preview_arrow_radius(injector_data);

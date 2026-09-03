@@ -113,6 +113,13 @@ enum Drag_Law
     filtered
 };
 
+enum class Single_Direction_Mode
+{
+    Vector,
+    Pitch_Yaw,
+    Target_Hitpoint
+};
+
 enum Volume_Streams_Spec
 {
     total_parcel_count,
@@ -164,6 +171,10 @@ public:
     Injection_Type injection_type=single;//喷射源类型
 
     QString local_reference_frame="global";
+    Single_Direction_Mode single_direction_mode = Single_Direction_Mode::Vector;
+    double single_pitch_degrees = 0.0;
+    double single_yaw_degrees = 0.0;
+    QVector3D single_target_hitpoint = QVector3D(0.0f, 0.0f, 1.0f);
 
     int numpts=10;//喷射点数
     QString dpm_fname="\" \"";//dpm文件名，默认为空

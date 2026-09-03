@@ -29,6 +29,25 @@ QVector3D injector_frame_direction(const Injector &injector)
     QVector3D direction;
     switch (injector.injection_type)
     {
+    case single:
+        if (injector.single_direction_mode == Single_Direction_Mode::Pitch_Yaw)
+        {
+            const double pitch = qDegreesToRadians(injector.single_pitch_degrees);
+            const double yaw = qDegreesToRadians(injector.single_yaw_degrees);
+            direction = QVector3D(
+                static_cast<float>(std::cos(pitch) * std::cos(yaw)),
+                static_cast<float>(std::cos(pitch) * std::sin(yaw)),
+                static_cast<float>(std::sin(pitch)));
+        }
+        else if (injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint)
+        {
+            direction = injector.single_target_hitpoint - injector.pos;
+        }
+        else
+        {
+            direction = injector.vel;
+        }
+        break;
     case cone:
         direction = injector.axis;
         break;
