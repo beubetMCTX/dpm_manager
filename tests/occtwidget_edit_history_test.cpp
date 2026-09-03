@@ -57,6 +57,64 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Unit second_source = make_valid_unit();
+    second_source.inj.injector_data.name = "assembly-seed";
+    second_source.inj.injector_data.pos = QVector3D(5.0f, 2.0f, 3.0f);
+    if (!check(second_source.inj.create_injector(),
+               "Assembly member geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({second_source}, false);
+    application.processEvents();
+    const QUuid member_uuid = second_source.inj.uuid;
+    if (!check(widget.create_assembly({uuid, member_uuid}),
+               "Assembly creation should succeed"))
+    {
+        return 1;
+    }
+
+    UnitArraySpec assembly_array;
+    assembly_array.type = UnitArrayType::Linear;
+    assembly_array.count = 2;
+    assembly_array.direction = QVector3D(0.0f, 1.0f, 0.0f);
+    assembly_array.spacing = 10.0f;
+    const int generated_count = widget.create_unit_array(uuid, assembly_array);
+    if (!check(generated_count == 4,
+               "Assembly array should expand every non-derived member") ||
+        !check(widget.unit_hash.value(uuid)->type == Assebly,
+               "Assembly array source must remain an Assembly") ||
+        !check(widget.unit_hash.value(uuid)->child_units.size() == 5,
+               "Assembly source should retain members and own generated children") )
+    {
+        return 1;
+    }
+    int generated_children = 0;
+    for (const std::shared_ptr<Unit> &child : widget.unit_hash.value(uuid)->child_units)
+    {
+        if (child != nullptr && child->is_array_child)
+        {
+            ++generated_children;
+            if (!check(child->array_parent_uuid == uuid,
+                       "Assembly array child should reference its source Assembly"))
+            {
+                return 1;
+            }
+        }
+    }
+    if (!check(generated_children == 4,
+               "Assembly source should own all generated array instances"))
+    {
+        return 1;
+    }
+    if (!check(widget.rebuild_unit_array(uuid) == 4 &&
+                   widget.unit_hash.value(uuid)->child_units.size() == 5 &&
+                   widget.unit_hash.size() == 6,
+               "Rebuilding an Assembly array should replace, not accumulate, children"))
+    {
+        return 1;
+    }
+
     // Create a history entry whose before-state cannot rebuild. Undo must
     // reject it without damaging the currently valid state.
     stored_unit->inj.injector_data.vel = QVector3D();

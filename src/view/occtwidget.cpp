@@ -1325,7 +1325,7 @@ void OCCTWidget::clear_unit_array_children(Unit &source)
         {
             continue;
         }
-        if (!child->follows_array)
+        if (!child->is_array_child || !child->follows_array)
         {
             source.child_units.append(child);
             continue;

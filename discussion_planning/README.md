@@ -1972,3 +1972,11 @@ References:
   Species/Color table using `injector_data.material`; material configuration is
   not a color source.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Preserve Assembly Members During Array Rebuild
+
+- Array-child cleanup now removes only objects marked as derived array
+  children, so ordinary Assembly members remain intact during rebuilds.
+- Added regression coverage for multi-member Assembly array expansion and
+  replacement without stale-child accumulation.
+- Release build and all 12 focused regressions passed.

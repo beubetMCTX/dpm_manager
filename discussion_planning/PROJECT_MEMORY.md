@@ -345,6 +345,9 @@ Unit
 - Injector display colors must always be resolved from the existing
   Species/Color table by `injector_data.material`; the separate material table
   stores material data only and is never a color source.
+- Array-child cleanup now distinguishes derived array children from ordinary
+  Assembly members; rebuilding an Assembly array preserves its original
+  members and replaces only the generated children.
 
 ## History
 
