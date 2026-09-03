@@ -353,6 +353,9 @@ Unit
 - Array creation can optionally conform injector direction vectors to the
   selected reference frame's normal; the option is persisted and defaults off
   for backward compatibility.
+- Release package verification now succeeds with the repository deployment
+  script: the package contains the complete Release dependency set, no Debug
+  DLLs, and the startup/WM_CLOSE probe exits cleanly with no runtime faults.
 - Project-session regression coverage now verifies persistence of the
   reference-geometry and reference-normal conforming flags.
 - Square and hexagonal fill arrays now support the same optional reference

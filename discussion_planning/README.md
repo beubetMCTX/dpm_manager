@@ -2029,6 +2029,13 @@ References:
   axes and normal-conforming flags survive save/load.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Verify Release Deployment
+
+- Rebuilt the Release package with `scripts/package_release.ps1` and verified
+  250 deployed runtime files with no `*_debug.dll` entries.
+- `scripts/verify_release_shutdown.ps1` confirmed startup and WM_CLOSE exit
+  code `0`; the latest runtime log contained no ERROR/FATAL or layout warning.
+
 ### 2026-09-04 Isolate Flattened Assembly Array Children
 
 - Runtime array and fill children created from Assembly sources now clear
