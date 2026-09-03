@@ -781,6 +781,10 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     for (const Unit &child : children)
     {
         const std::shared_ptr<Unit> stored_child = std::make_shared<Unit>(child);
+        stored_child->type = array;
+        stored_child->array_parent_uuid = source_uuid;
+        stored_child->is_array_child = true;
+        stored_child->follows_array = true;
         stored_child->ais_display->Set(stored_child->inj.shape);
         stored_child->u_owner->set_unit(stored_child.get());
         stored_child->ais_display->SetOwner(stored_child->u_owner);
@@ -793,6 +797,7 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         m_unit_locks.insert(stored_child->inj.uuid, false);
         m_context->Activate(stored_child->ais_display, TopAbs_SHAPE, Standard_True);
         m_context->Display(stored_child->ais_display, Standard_False);
+        source->child_units.append(stored_child);
         ++displayed_count;
     }
 

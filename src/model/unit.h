@@ -17,7 +17,8 @@ enum Unit_Type
     injector,
     line_spacer,
     circle_spacer,
-    Assebly
+    Assebly,
+    array
 };
 
 class Unit;
@@ -68,6 +69,14 @@ public:
 
     Handle(Unit_Owner) u_owner;
 
+    // Array children are derived runtime instances. They are intentionally
+    // not copied with a leaf Unit; the owning scene rebuilds them from the
+    // array definition instead of duplicating live AIS handles.
+    QVector<std::shared_ptr<Unit>> child_units;
+    QUuid array_parent_uuid;
+    bool is_array_child = false;
+    bool follows_array = true;
+
     Unit()
         : type(injector)
         , inj()
@@ -78,6 +87,9 @@ public:
     Unit(const Unit &other)
         : type(other.type)
         , inj(other.inj)
+        , array_parent_uuid(other.array_parent_uuid)
+        , is_array_child(other.is_array_child)
+        , follows_array(other.follows_array)
     {
         initialize_runtime_handles();
     }
@@ -91,6 +103,10 @@ public:
 
         type = other.type;
         inj = other.inj;
+        child_units.clear();
+        array_parent_uuid = other.array_parent_uuid;
+        is_array_child = other.is_array_child;
+        follows_array = other.follows_array;
         initialize_runtime_handles();
         return *this;
     }
@@ -98,6 +114,9 @@ public:
     Unit(Unit &&other) noexcept
         : type(other.type)
         , inj(std::move(other.inj))
+        , array_parent_uuid(other.array_parent_uuid)
+        , is_array_child(other.is_array_child)
+        , follows_array(other.follows_array)
     {
         initialize_runtime_handles();
     }
@@ -111,6 +130,10 @@ public:
 
         type = other.type;
         inj = std::move(other.inj);
+        child_units.clear();
+        array_parent_uuid = other.array_parent_uuid;
+        is_array_child = other.is_array_child;
+        follows_array = other.follows_array;
         initialize_runtime_handles();
         return *this;
     }
