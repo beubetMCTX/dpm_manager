@@ -935,6 +935,10 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
                 break;
             }
         }
+        if (parent != nullptr)
+        {
+            parent->child_units.append(stored_child);
+        }
         ++displayed_count;
     }
 

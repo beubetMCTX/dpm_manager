@@ -1758,3 +1758,10 @@ References:
   older sessions without fill metadata remain compatible.
 - Added project-session round-trip coverage; Release build and all 12 tests
   passed.
+
+### 2026-09-04 Track Fill-Derived Children
+
+- Fill-generated runtime children are now registered with their fill parent,
+  allowing rebuilds and repeated project loads to remove stale displays
+  instead of accumulating duplicate objects.
+- Release build and all 12 focused regressions passed.
