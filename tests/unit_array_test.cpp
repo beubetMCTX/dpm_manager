@@ -52,7 +52,15 @@ int main(int argc, char **argv)
                "rotational direction mismatch") && ok;
     ok = check(qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.x() + 2.0f) < 1.0e-4f &&
                    qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.y() - 3.0f) < 1.0e-4f,
-               "rotational target hitpoint mismatch") && ok;
+                    "rotational target hitpoint mismatch") && ok;
+
+    source.has_array_spec = true;
+    source.array_spec = linear;
+    const Unit copied_source(source);
+    ok = check(copied_source.has_array_spec &&
+                   copied_source.array_spec.type == UnitArrayType::Linear &&
+                   copied_source.array_spec.count == linear.count,
+               "Unit copy must preserve array metadata") && ok;
 
     UnitArraySpec mirror;
     mirror.type = UnitArrayType::Mirror;

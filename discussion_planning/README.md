@@ -1711,3 +1711,11 @@ References:
   injector's target hitpoint together with its position and direction data.
 - Added regression checks for all three array transform types; Release build
   and all 12 focused regressions passed.
+
+### 2026-09-04 Preserve Array Metadata When Copying Units
+
+- `Unit` copy and move constructors now retain `has_array_spec` and the full
+  `UnitArraySpec`, preventing array rules from disappearing during composite
+  or nested-array preparation.
+- Added a focused regression check; Release build and all 12 regressions
+  passed.

@@ -250,6 +250,8 @@ Unit
   older sessions without these optional fields remain readable.
 - Child runtime instances stay out of the main project injector list, avoiding
   duplicate DPM/project entries.
+- `Unit` copy and move construction now preserve array metadata, which is
+  required before composing nested arrays or assemblies from copied Units.
 
 ## History
 

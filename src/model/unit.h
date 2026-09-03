@@ -93,6 +93,8 @@ public:
         , array_parent_uuid(other.array_parent_uuid)
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
+        , has_array_spec(other.has_array_spec)
+        , array_spec(other.array_spec)
     {
         initialize_runtime_handles();
     }
@@ -122,6 +124,8 @@ public:
         , array_parent_uuid(other.array_parent_uuid)
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
+        , has_array_spec(other.has_array_spec)
+        , array_spec(std::move(other.array_spec))
     {
         initialize_runtime_handles();
     }
