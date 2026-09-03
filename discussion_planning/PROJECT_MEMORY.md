@@ -220,6 +220,18 @@ Unit
 - Checkpoint commit `9b84d9d` was pushed to `origin/main` after Release build
   and all 11 focused regressions passed.
 
+## Array Core Progress
+
+- Added `src/model/unit_array.h/.cpp` with a standalone expansion API for
+  linear, rotational, and mirror arrays.
+- Expansion keeps the source Unit unchanged, creates fresh child UUIDs, and
+  transforms injector positions, direction vectors, flat-fan points, and
+  volume bounds consistently.
+- The module is intentionally not connected to editor controls or project
+  serialization yet; those layers require the composite Unit hierarchy and
+  inheritance policy to be finalized.
+- Release build and all 11 focused regressions passed after adding the module.
+
 ## History
 
 - Full chronological decisions remain in [README.md](README.md).

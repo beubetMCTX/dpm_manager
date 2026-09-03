@@ -1672,3 +1672,16 @@ References:
   resources are retained because they are not button decorations.
 - This state was archived in checkpoint commit `9b84d9d` and pushed to
   `origin/main`.
+
+### 2026-09-04 Array Core Foundation
+
+- Added an independent Unit-array expansion module for linear, rotational, and
+  mirror transforms. It produces fresh-UUID child Units without mutating the
+  source Unit.
+- Position endpoints, direction vectors, flat-fan reference points, and volume
+  bounds are transformed together so the generated child remains geometrically
+  coherent.
+- Editor controls, composite hierarchy, inheritance overrides, and project
+  serialization remain separate follow-up layers rather than being guessed in
+  this foundational increment.
+- Release build and all 11 focused regressions passed.

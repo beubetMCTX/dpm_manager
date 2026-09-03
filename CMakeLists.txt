@@ -95,6 +95,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${IO_DIR}/chemkin_io.h ${IO_DIR}/chemkin_io.cpp
         ${IO_DIR}/project_session.h ${IO_DIR}/project_session.cpp
         ${MODEL_DIR}/unit.h
+        ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
         ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
         ${COMMON_DIR}/global_functions.h
