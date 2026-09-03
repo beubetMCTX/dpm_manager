@@ -318,6 +318,8 @@ Unit
   members; editing a child alone does not change its parent.
 - Project reference validation now checks Assembly parent/child UUID
   consistency and rejects cyclic Assembly graphs before loading.
+- Project-session regression coverage now verifies Assembly parent/child
+  relationships survive save/load.
 - Object-panel Assembly controls now include dissolving a selected parent,
   which clears member parent references and restores the parent to a leaf Unit.
 

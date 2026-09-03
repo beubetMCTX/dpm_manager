@@ -436,7 +436,42 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data assembly_data = source;
+    Unit assembly_member(unit);
+    assembly_member.inj.uuid = QUuid::createUuid();
+    assembly_member.inj.injector_data.name = "assembly-member";
+    assembly_data.units.first().type = Assebly;
+    assembly_data.units.first().assembly_child_uuids = {assembly_member.inj.uuid};
+    assembly_member.assembly_parent_uuid = assembly_data.units.first().inj.uuid;
+    assembly_data.units.append(assembly_member);
+    if (!check(project_session::validate_references(assembly_data, {"O2", "N2"},
+                                                    &reference_error),
+               reference_error))
+    {
+        return 1;
+    }
+    const QString assembly_path = temporary_directory.filePath("assembly.dpmproj");
+    if (!check(project_session::save(assembly_path, assembly_data, &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_assembly;
+    if (!check(project_session::load(assembly_path, &restored_assembly, &error_message),
+               error_message) ||
+        !check(restored_assembly.units.size() == 2 &&
+                   restored_assembly.units.first().type == Assebly &&
+                   restored_assembly.units.first().assembly_child_uuids ==
+                       QList<QUuid>({assembly_member.inj.uuid}) &&
+                   restored_assembly.units.at(1).assembly_parent_uuid ==
+                       assembly_data.units.first().inj.uuid,
+               "Assembly relationships did not round-trip"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
+    QFile::remove(assembly_path);
     QFile::remove(malformed_path);
     QFile::remove(malformed_transform_path);
     QFile::remove(malformed_unit_path);

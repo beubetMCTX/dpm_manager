@@ -1898,3 +1898,9 @@ References:
 - Dissolving clears member parent references and returns the selected parent
   to a normal leaf Unit without deleting geometry.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Cover Assembly Session Round-Trip
+
+- Added regression coverage for Assembly type, child UUIDs, and member parent
+  UUIDs across project save/load.
+- Release build and all 12 focused regressions passed.
