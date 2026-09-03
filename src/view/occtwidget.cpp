@@ -708,6 +708,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
         append_unit_and_members(uuid);
     }
 
+    m_active_edit_batch_id = QUuid::createUuid();
     int translated_count = 0;
     for (const QUuid &uuid : operation_uuids)
     {
@@ -746,6 +747,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
         ++translated_count;
     }
 
+    m_active_edit_batch_id = QUuid();
     if (translated_count > 0 && !m_view.IsNull())
     {
         m_view->Redraw();
@@ -798,6 +800,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         append_unit_and_members(uuid);
     }
 
+    m_active_edit_batch_id = QUuid::createUuid();
     int rotated_count = 0;
     for (const QUuid &uuid : operation_uuids)
     {
@@ -852,6 +855,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         ++rotated_count;
     }
 
+    m_active_edit_batch_id = QUuid();
     if (rotated_count > 0 && !m_view.IsNull())
     {
         m_view->Redraw();
@@ -1844,6 +1848,7 @@ void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
 
     UnitEditHistoryEntry entry;
     entry.uuid = transaction.uuid;
+    entry.batch_id = m_active_edit_batch_id;
     entry.before_type = transaction.before_type;
     entry.after_type = unit.type;
     entry.before_data = transaction.before_data;
@@ -1884,13 +1889,23 @@ bool OCCTWidget::undo_last_edit()
         return false;
     }
 
-    const UnitEditHistoryEntry &entry = m_edit_history[m_edit_history_index - 1];
-    if (!apply_edit_snapshot(entry, entry.before_type, entry.before_data))
+    const QUuid batch_id = m_edit_history[m_edit_history_index - 1].batch_id;
+    int batch_start = m_edit_history_index - 1;
+    while (batch_start > 0 && !batch_id.isNull() &&
+           m_edit_history[batch_start - 1].batch_id == batch_id)
     {
-        return false;
+        --batch_start;
+    }
+    for (int index = m_edit_history_index - 1; index >= batch_start; --index)
+    {
+        const UnitEditHistoryEntry &entry = m_edit_history[index];
+        if (!apply_edit_snapshot(entry, entry.before_type, entry.before_data))
+        {
+            return false;
+        }
     }
 
-    --m_edit_history_index;
+    m_edit_history_index = batch_start;
     emit edit_history_changed(can_undo_edit(), can_redo_edit());
     return true;
 }
@@ -1902,13 +1917,23 @@ bool OCCTWidget::redo_edit()
         return false;
     }
 
-    const UnitEditHistoryEntry &entry = m_edit_history[m_edit_history_index];
-    if (!apply_edit_snapshot(entry, entry.after_type, entry.after_data))
+    const QUuid batch_id = m_edit_history[m_edit_history_index].batch_id;
+    int batch_end = m_edit_history_index + 1;
+    while (batch_end < m_edit_history.size() && !batch_id.isNull() &&
+           m_edit_history[batch_end].batch_id == batch_id)
     {
-        return false;
+        ++batch_end;
+    }
+    for (int index = m_edit_history_index; index < batch_end; ++index)
+    {
+        const UnitEditHistoryEntry &entry = m_edit_history[index];
+        if (!apply_edit_snapshot(entry, entry.after_type, entry.after_data))
+        {
+            return false;
+        }
     }
 
-    ++m_edit_history_index;
+    m_edit_history_index = batch_end;
     emit edit_history_changed(can_undo_edit(), can_redo_edit());
     return true;
 }

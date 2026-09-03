@@ -316,6 +316,8 @@ Unit
   Assembly parents and members explicitly with parent UUID information.
 - Assembly parent visibility and locking now recursively propagate to nested
   members; editing a child alone does not change its parent.
+- Recursive Assembly rotation records one edit-history batch, so a single
+  Undo/Redo restores all affected members together rather than one at a time.
 - Project reference validation now checks Assembly parent/child UUID
   consistency and rejects cyclic Assembly graphs before loading.
 - Project-session regression coverage now verifies Assembly parent/child

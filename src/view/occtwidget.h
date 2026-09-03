@@ -274,6 +274,7 @@ private:
     struct UnitEditHistoryEntry
     {
         QUuid uuid;
+        QUuid batch_id;
         Unit_Type before_type = injector;
         Unit_Type after_type = injector;
         Injector before_data;
@@ -419,6 +420,7 @@ private:
     QHash<QUuid, UnitEditTransaction> m_edit_transactions;
     QVector<UnitEditHistoryEntry> m_edit_history;
     int m_edit_history_index = 0;
+    QUuid m_active_edit_batch_id;
     QVector<UnitDeleteHistoryEntry> m_delete_history;
     int m_delete_history_index = 0;
     bool m_replaying_delete_history = false;

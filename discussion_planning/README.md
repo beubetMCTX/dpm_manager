@@ -1886,6 +1886,13 @@ References:
 - Direct child operations remain independent and do not alter the parent.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Batch Assembly Transform History
+
+- Recursive Assembly rotation now tags all member edit records with one batch
+  UUID; Undo/Redo applies the complete transform atomically.
+- Ordinary single-Unit edits retain their existing one-record behavior.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Validate Assembly Graphs Before Load
 
 - Project preflight now validates Assembly parent/child references in both
