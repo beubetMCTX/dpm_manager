@@ -1906,6 +1906,13 @@ References:
   remains on `Custom` only.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Reference Origin Rotation Pivot
+
+- The text-based rotation dialog now offers `Reference Origin` as a shared
+  pivot when a reference frame is available; `Current Unit` remains the
+  default per-Unit pivot.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Validate Assembly Graphs Before Load
 
 - Project preflight now validates Assembly parent/child references in both

@@ -134,7 +134,9 @@ public:
                                 const QVector3D &delta);
     int rotate_units_by_uuid(const QList<QUuid> &uuids,
                              const QVector3D &axis,
-                             float angle_degrees);
+                             float angle_degrees,
+                             const QVector3D &pivot = QVector3D(),
+                             bool use_shared_pivot = false);
     int set_material_for_units_by_uuid(const QList<QUuid> &uuids,
                                        const QString &material);
     bool set_unit_name(const QUuid &uuid, const QString &name);

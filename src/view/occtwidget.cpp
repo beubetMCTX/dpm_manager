@@ -759,7 +759,9 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
 
 int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
                                      const QVector3D &axis,
-                                     float angle_degrees)
+                                     float angle_degrees,
+                                     const QVector3D &shared_pivot,
+                                     bool use_shared_pivot)
 {
     if (m_context.IsNull() || axis.lengthSquared() <= 1.0e-12f ||
         !std::isfinite(angle_degrees))
@@ -818,7 +820,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         transaction.uuid = uuid;
         transaction.before_type = unit->type;
         transaction.before_data = before;
-        const QVector3D pivot = injector.pos;
+        const QVector3D pivot = use_shared_pivot ? shared_pivot : injector.pos;
         const auto rotate_point = [&](const QVector3D &point)
         {
             return pivot + rotate_vector(point - pivot);

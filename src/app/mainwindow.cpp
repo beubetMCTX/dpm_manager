@@ -2373,6 +2373,13 @@ void MainWindow::create_object_list_panel()
             }
         });
         form->addRow("Axis Source", axis_source);
+        auto *pivot_source = new QComboBox(&dialog);
+        pivot_source->addItem("Current Unit", 0);
+        if (has_reference_frame)
+        {
+            pivot_source->addItem("Reference Origin", 1);
+        }
+        form->addRow("Pivot", pivot_source);
         form->addRow("Axis X", axis_x);
         form->addRow("Axis Y", axis_y);
         form->addRow("Axis Z", axis_z);
@@ -2392,7 +2399,9 @@ void MainWindow::create_object_list_panel()
             QVector3D(static_cast<float>(axis_x->value()),
                       static_cast<float>(axis_y->value()),
                       static_cast<float>(axis_z->value())),
-            static_cast<float>(angle->value()));
+            static_cast<float>(angle->value()),
+            reference_origin,
+            pivot_source->currentData().toInt() == 1);
         statusBar()->showMessage(
             QString("Rotated %1 of %2 selected unit(s); locked units were skipped")
                 .arg(rotated_count)
