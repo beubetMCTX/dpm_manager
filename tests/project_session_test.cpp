@@ -55,6 +55,11 @@ int main(int argc, char *argv[])
     unit.fill_spec.spacing_y = 2.0f;
     unit.fill_spec.origin = QVector3D(4.0f, 5.0f, 6.0f);
     unit.fill_source_uuids = {unit.inj.uuid};
+    unit.has_array_spec = true;
+    unit.array_spec.type = UnitArrayType::Elliptical;
+    unit.array_spec.count = 6;
+    unit.array_spec.major_radius = 12.0f;
+    unit.array_spec.minor_radius = 7.0f;
     if (!check(unit.inj.create_injector(), "Unable to create source injector geometry"))
     {
         return 1;
@@ -83,6 +88,15 @@ int main(int argc, char *argv[])
     if (!check(!project_session::validate(invalid_array_spec, &reference_error) &&
                    reference_error.contains("invalid array specification"),
                "invalid array metadata should be rejected"))
+    {
+        return 1;
+    }
+    invalid_array_spec.units.first().array_spec.count = 4;
+    invalid_array_spec.units.first().array_spec.type = UnitArrayType::Elliptical;
+    invalid_array_spec.units.first().array_spec.major_radius = 0.0f;
+    if (!check(!project_session::validate(invalid_array_spec, &reference_error) &&
+                   reference_error.contains("invalid array specification"),
+               "invalid elliptical radii should be rejected"))
     {
         return 1;
     }
@@ -238,6 +252,11 @@ int main(int argc, char *argv[])
                    restored.units.first().fill_spec.rows == 3 &&
                    restored.units.first().fill_source_uuids == QVector<QUuid>({unit.inj.uuid}),
                "Fill metadata did not round-trip") ||
+        !check(restored.units.first().has_array_spec &&
+                   restored.units.first().array_spec.type == UnitArrayType::Elliptical &&
+                   restored.units.first().array_spec.major_radius == 12.0f &&
+                   restored.units.first().array_spec.minor_radius == 7.0f,
+               "Elliptical array metadata did not round-trip") ||
         !check(!restored.units.first().inj.shape.IsNull(),
                "Restored injector geometry was not rebuilt") ||
         !check(restored.species_colors.value("O2") == QColor("#123456"),

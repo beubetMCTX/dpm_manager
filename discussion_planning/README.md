@@ -2079,3 +2079,11 @@ References:
 - Added regression coverage for ellipse positions and retained compatibility
   with existing array modes.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Validate Elliptical Array Sessions
+
+- Fixed the project metadata enum range so persisted Elliptical arrays validate
+  correctly alongside Linear, Rotational, and Mirror arrays.
+- Regression coverage now distinguishes invalid ellipse radii from unrelated
+  fill metadata errors.
+- Release build and all 12 focused regressions passed.

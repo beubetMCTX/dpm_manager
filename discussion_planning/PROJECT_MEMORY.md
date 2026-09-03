@@ -379,6 +379,9 @@ Unit
 - Added an optional Elliptical array mode with major/minor radii, total angle,
   reference-frame support, direction conforming, and project-session
   persistence; existing array modes remain unchanged.
+- Project validation now includes the Elliptical enum in its accepted array
+  range, so valid ellipse sessions are not rejected before other metadata is
+  checked.
 
 ## History
 

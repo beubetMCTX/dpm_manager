@@ -770,7 +770,7 @@ bool validate(const Data &data, QString *error_message)
         {
             const UnitArraySpec &spec = unit.array_spec;
             if (spec.type < UnitArrayType::Linear ||
-                spec.type > UnitArrayType::Mirror ||
+                spec.type > UnitArrayType::Elliptical ||
                 spec.count < 1 || spec.count > 100000 ||
                 !is_finite_vector(spec.direction) ||
                 !is_finite_vector(spec.origin) ||
