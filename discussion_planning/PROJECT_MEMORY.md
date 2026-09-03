@@ -203,6 +203,23 @@ Unit
 - Release build command uses `vcvars64.bat`, CMake, and CTest.
 - Last verified result: `11/11` tests passed.
 
+## Current Checkpoint
+
+- The legacy application-wide smoke-test sources and CMake targets are
+  removed. Current automated coverage uses focused regression executables;
+  do not restore the old smoke-test archive or add icon-only button tests.
+- Buttons currently use text labels. The remaining icon resources are limited
+  to the application icon and combo-box arrow indicators.
+- Release startup displays the stable default injector preview in both Debug
+  and Release builds. Experimental advanced atomizer previews remain gated by
+  `DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW`.
+- The 3D view preserves the world coordinate system and displays independent
+  local coordinate trihedrons for each injector and every imported reference
+  geometry face. These trihedrons are display-only and follow visibility,
+  editing, dragging, undo/redo, paste, delete/restore, and reference transforms.
+- Checkpoint commit `9b84d9d` was pushed to `origin/main` after Release build
+  and all 11 focused regressions passed.
+
 ## History
 
 - Full chronological decisions remain in [README.md](README.md).

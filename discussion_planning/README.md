@@ -1654,3 +1654,21 @@ References:
 - Switching between atomizer and ordinary injection families now clears the inactive staggering flag, preventing stale hidden settings from remaining active.
 - Project save-format work remains deferred as requested.
 - Release build and all 11 CTest regressions passed.
+
+### 2026-09-04 Release Preview And Coordinate-Frame Checkpoint
+
+- Default stable injector preview units now load in Release as well as Debug,
+  while advanced atomizer previews remain opt-in through the CMake switch.
+- The initial OCCT view performs one deferred fit after the native widget has
+  its final size, preventing the scene from appearing as a tiny block in the
+  lower-left corner.
+- Every injector and every imported reference-geometry face has an independent
+  display-only local coordinate frame; the world coordinate system remains
+  visible and existing selection/right-click behavior is preserved.
+- Legacy smoke-test sources, targets, and registrations remain removed. The
+  project uses focused regression tests instead; all 11 Release regressions
+  passed.
+- Buttons remain text-based for now. Application and combo-box indicator icon
+  resources are retained because they are not button decorations.
+- This state was archived in checkpoint commit `9b84d9d` and pushed to
+  `origin/main`.
