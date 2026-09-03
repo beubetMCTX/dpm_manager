@@ -278,6 +278,8 @@ Unit
   model. Current array expansion transforms this scope like local targets;
   nested Assembly resolution remains responsible for the future parent-frame
   distinction.
+- Quick Unit rotation now preserves `World` target hitpoints; only local and
+  parent-local targets rotate with the injector.
 
 ## Array Core Progress
 

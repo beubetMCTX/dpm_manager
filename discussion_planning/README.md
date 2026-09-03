@@ -1711,6 +1711,12 @@ References:
 - Added regression coverage; Release build and all 12 focused regressions
   passed.
 
+### 2026-09-04 Preserve World Target Points During Rotation
+
+- Fixed numeric Unit rotation so World-scoped Single target hitpoints remain
+  fixed in world coordinates; local scopes continue to rotate with the Unit.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Persist Array Metadata
 
 - Project sessions now store optional array metadata on the mother Unit and

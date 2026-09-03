@@ -717,7 +717,11 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         injector.ff_virtual_origin = rotate_point(injector.ff_virtual_origin);
         injector.volume_bgeom_min = rotate_point(injector.volume_bgeom_min);
         injector.volume_bgeom_max = rotate_point(injector.volume_bgeom_max);
-        injector.single_target_hitpoint = rotate_point(injector.single_target_hitpoint);
+        if (injector.single_target_scope != Single_Target_Scope::World)
+        {
+            injector.single_target_hitpoint =
+                rotate_point(injector.single_target_hitpoint);
+        }
         injector.vel = rotate_vector(injector.vel);
         injector.vel2 = rotate_vector(injector.vel2);
         injector.ang_vel = rotate_vector(injector.ang_vel);
