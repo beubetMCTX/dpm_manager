@@ -1891,3 +1891,10 @@ References:
 - Project preflight now validates Assembly parent/child references in both
   directions and rejects cyclic graphs before runtime restoration.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Assembly Dissolve Operation
+
+- Added text-based `Dissolve Selected Assembly` control.
+- Dissolving clears member parent references and returns the selected parent
+  to a normal leaf Unit without deleting geometry.
+- Release build and all 12 focused regressions passed.

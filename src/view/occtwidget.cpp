@@ -1105,6 +1105,31 @@ bool OCCTWidget::detach_from_assembly(const QUuid &uuid)
     return true;
 }
 
+bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> assembly = unit_hash.value(uuid);
+    if (assembly == nullptr || assembly->type != Assebly)
+    {
+        return false;
+    }
+
+    const QList<QUuid> children = assembly->assembly_child_uuids;
+    for (const QUuid &child_uuid : children)
+    {
+        const std::shared_ptr<Unit> child = unit_hash.value(child_uuid);
+        if (child != nullptr && child->assembly_parent_uuid == uuid)
+        {
+            child->assembly_parent_uuid = QUuid();
+        }
+    }
+    assembly->assembly_child_uuids.clear();
+    assembly->child_units.clear();
+    assembly->type = injector;
+    emit unit_data_updated(assembly.get());
+    emit unit_display_list_changed();
+    return true;
+}
+
 int OCCTWidget::create_unit_array(const QUuid &source_uuid,
                                   const UnitArraySpec &spec)
 {

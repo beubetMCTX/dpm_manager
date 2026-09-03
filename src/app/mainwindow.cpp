@@ -2007,6 +2007,8 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(assembly_selected_button);
     auto *detach_assembly_button = new QPushButton("Detach Selected From Assembly", panel);
     layout->addWidget(detach_assembly_button);
+    auto *dissolve_assembly_button = new QPushButton("Dissolve Selected Assembly", panel);
+    layout->addWidget(dissolve_assembly_button);
     auto *material_selected_button = new QPushButton("Set Material Selected", panel);
     layout->addWidget(material_selected_button);
 
@@ -2411,6 +2413,29 @@ void MainWindow::create_object_list_panel()
         statusBar()->showMessage(
             QString("Detached %1 selected Unit(s) from Assembly").arg(detached_count),
             5000);
+        update_object_list_panel();
+    });
+    connect(dissolve_assembly_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+        int dissolved_count = 0;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->dissolve_assembly(uuid))
+            {
+                ++dissolved_count;
+            }
+        }
+        statusBar()->showMessage(
+            QString("Dissolved %1 Assembly node(s)").arg(dissolved_count), 5000);
         update_object_list_panel();
     });
     connect(material_selected_button, &QPushButton::clicked, this, [this]()
