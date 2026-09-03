@@ -2476,6 +2476,14 @@ void MainWindow::create_object_list_panel()
         QAction *lock_action = menu.addAction(
             m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
                                             : "Lock Movement");
+        QAction *follow_array_action = menu.addAction("Follow Array");
+        const std::shared_ptr<Unit> selected_unit = m_3d_widget->unit_hash.value(uuid);
+        follow_array_action->setCheckable(true);
+        follow_array_action->setChecked(selected_unit != nullptr &&
+                                         selected_unit->is_array_child &&
+                                         selected_unit->follows_array);
+        follow_array_action->setEnabled(selected_unit != nullptr &&
+                                        selected_unit->is_array_child);
         QAction *array_action = menu.addAction("Create Array...");
         menu.addSeparator();
         QAction *delete_action = menu.addAction("Delete");
@@ -2577,6 +2585,16 @@ void MainWindow::create_object_list_panel()
             const int created = m_3d_widget->create_unit_array(uuid, spec);
             statusBar()->showMessage(
                 QString("Created %1 array child units").arg(created), 5000);
+        }
+        else if (chosen_action == follow_array_action)
+        {
+            m_3d_widget->set_unit_follow_array(
+                uuid, follow_array_action->isChecked());
+            statusBar()->showMessage(
+                follow_array_action->isChecked()
+                    ? "Selected array child will follow its parent"
+                    : "Selected array child is now independent",
+                5000);
         }
         else if (chosen_action == delete_action)
         {

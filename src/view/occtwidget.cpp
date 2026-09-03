@@ -825,6 +825,11 @@ void OCCTWidget::clear_unit_array_children(Unit &source)
         {
             continue;
         }
+        if (!child->follows_array)
+        {
+            source.child_units.append(child);
+            continue;
+        }
         const QUuid uuid = child->inj.uuid;
         if (!m_context.IsNull() && !child->ais_display.IsNull())
         {
@@ -850,6 +855,17 @@ int OCCTWidget::rebuild_unit_array(const QUuid &source_uuid)
     }
     const UnitArraySpec spec = source->array_spec;
     return create_unit_array(source_uuid, spec);
+}
+
+bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || !unit->is_array_child)
+    {
+        return false;
+    }
+    unit->follows_array = follow;
+    return true;
 }
 
 bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
