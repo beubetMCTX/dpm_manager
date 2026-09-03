@@ -1865,3 +1865,10 @@ References:
 - Creation detaches moved nodes from their former parent and rejects cycles,
   enabling safe multi-level Assembly relationships.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Expose Assembly Membership Controls
+
+- Added text-based `Detach Selected From Assembly` management.
+- Object-panel entries now distinguish Assembly parents and members and show
+  the Assembly parent UUID in their tooltip.
+- Release build and all 12 focused regressions passed.

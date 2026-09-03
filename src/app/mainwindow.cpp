@@ -2005,6 +2005,8 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(rotate_selected_button);
     auto *assembly_selected_button = new QPushButton("Create Assembly From Selected", panel);
     layout->addWidget(assembly_selected_button);
+    auto *detach_assembly_button = new QPushButton("Detach Selected From Assembly", panel);
+    layout->addWidget(detach_assembly_button);
     auto *material_selected_button = new QPushButton("Set Material Selected", panel);
     layout->addWidget(material_selected_button);
 
@@ -2384,6 +2386,30 @@ void MainWindow::create_object_list_panel()
         }
         statusBar()->showMessage(
             QString("Created Assembly with %1 member Unit(s)").arg(selected_units.size()),
+            5000);
+        update_object_list_panel();
+    });
+    connect(detach_assembly_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+        int detached_count = 0;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->detach_from_assembly(uuid))
+            {
+                ++detached_count;
+            }
+        }
+        statusBar()->showMessage(
+            QString("Detached %1 selected Unit(s) from Assembly").arg(detached_count),
             5000);
         update_object_list_panel();
     });
@@ -2971,16 +2997,27 @@ void MainWindow::update_object_list_panel()
         {
             name = "[Locked] " + name;
         }
+        if (unit.type == Assebly)
+        {
+            name = "[Assembly] " + name;
+        }
+        else if (!unit.assembly_parent_uuid.isNull())
+        {
+            name = "  [Member] " + name;
+        }
         auto *unit_item = new QListWidgetItem(name, m_object_list);
         unit_item->setData(Qt::UserRole,
                            unit_id.toString(QUuid::WithoutBraces));
         unit_item->setToolTip(
-            QString("Injection: %1\nParticle: %2\nMaterial: %3\nUUID: %4")
+            QString("Injection: %1\nParticle: %2\nMaterial: %3\nAssembly parent: %4\nUUID: %5")
                 .arg(injection_type_name(unit.inj.injector_data.injection_type),
                      particle_type_name(unit.inj.injector_data.type),
                      unit.inj.injector_data.material.trimmed().isEmpty()
                          ? QStringLiteral("<none>")
                          : unit.inj.injector_data.material,
+                     unit.assembly_parent_uuid.isNull()
+                         ? QStringLiteral("<none>")
+                         : unit.assembly_parent_uuid.toString(QUuid::WithoutBraces),
                      unit_id.toString(QUuid::WithoutBraces)));
         unit_item->setFlags(unit_item->flags() | Qt::ItemIsUserCheckable);
         unit_item->setCheckState(m_3d_widget->unit_visible(unit_id)
