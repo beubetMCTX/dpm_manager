@@ -2014,6 +2014,33 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
         return false;
     }
 
+    if (!selected_face.IsNull())
+    {
+        gp_XYZ face_origin(selected_face_axis.Location().X(),
+                           selected_face_axis.Location().Y(),
+                           selected_face_axis.Location().Z());
+        gp_XYZ face_x(selected_face_axis.XDirection().X(),
+                      selected_face_axis.XDirection().Y(),
+                      selected_face_axis.XDirection().Z());
+        gp_XYZ face_z(selected_face_axis.Direction().X(),
+                      selected_face_axis.Direction().Y(),
+                      selected_face_axis.Direction().Z());
+        m_reference_transform.Transforms(face_origin);
+        m_reference_transform.Transforms(face_x);
+        m_reference_transform.Transforms(face_z);
+        *origin = QVector3D(static_cast<float>(face_origin.X()),
+                            static_cast<float>(face_origin.Y()),
+                            static_cast<float>(face_origin.Z()));
+        *x_axis = QVector3D(static_cast<float>(face_x.X()),
+                             static_cast<float>(face_x.Y()),
+                             static_cast<float>(face_x.Z())).normalized();
+        *z_axis = QVector3D(static_cast<float>(face_z.X()),
+                             static_cast<float>(face_z.Y()),
+                             static_cast<float>(face_z.Z())).normalized();
+        return x_axis->lengthSquared() > 1.0e-12f &&
+               z_axis->lengthSquared() > 1.0e-12f;
+    }
+
     gp_XYZ x_vector(1.0, 0.0, 0.0);
     gp_XYZ z_vector(0.0, 0.0, 1.0);
     m_reference_transform.Transforms(x_vector);

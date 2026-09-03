@@ -1701,6 +1701,8 @@ References:
   frame; linear, rotational, and mirror modes consume its X axis, origin/X
   axis, and Z normal respectively.
 - Release build and all 12 focused regressions passed.
+- A selected reference face now takes precedence over the whole-geometry frame
+  and supplies the transformed origin, tangent, and normal for array creation.
 
 ### 2026-09-04 Add Parent-Local Target Scope
 

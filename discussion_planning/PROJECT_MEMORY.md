@@ -274,6 +274,9 @@ Unit
   enabled from the text-based creation flow, linear arrays use the reference
   X axis, rotational arrays use its origin and X axis, and mirror arrays use
   its Z normal.
+- If a reference face is selected, the array frame now prefers that face's
+  transformed origin, X direction, and normal; otherwise it falls back to the
+  reference geometry frame.
 - Single target points now support a `Parent Local` scope in the editor and
   model. Current array expansion transforms this scope like local targets;
   nested Assembly resolution remains responsible for the future parent-frame
