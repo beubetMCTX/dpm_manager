@@ -2842,6 +2842,12 @@ void MainWindow::create_object_list_panel()
                     spec.origin = reference_origin;
                     spec.direction = reference_x;
                     spec.plane_normal = reference_z;
+                    const auto conform_to_reference = QMessageBox::question(
+                        this, "Create Array",
+                        "Align injector directions to the reference face normal?",
+                        QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                    spec.conform_to_reference_normal =
+                        conform_to_reference == QMessageBox::Yes;
                 }
             }
             if (array_type == "Linear")

@@ -27,6 +27,50 @@ QVector3D rotate_vector(const QVector3D &value, const QVector3D &axis, float ang
                                          static_cast<float>(qRadiansToDegrees(angle))) * value;
 }
 
+QVector3D primary_direction(const Injector &injector)
+{
+    switch (injector.injection_type)
+    {
+    case cone:
+        return injector.axis;
+    case plain_oriface_atomizer:
+    case pressure_swirl_atomizer:
+    case air_blast_atomizer:
+    case flat_fan_atomizer:
+    case effervescent_atomizer:
+        return injector.atomizer_axis;
+    default:
+        return injector.vel;
+    }
+}
+
+void conform_injector_to_normal(Injector &injector, const QVector3D &normal)
+{
+    const QVector3D source = primary_direction(injector);
+    const QVector3D target = normalized_or(normal, QVector3D(0.0f, 0.0f, 1.0f));
+    if (source.lengthSquared() <= 1.0e-12f || target.lengthSquared() <= 1.0e-12f)
+    {
+        return;
+    }
+
+    const QQuaternion rotation = QQuaternion::rotationTo(source.normalized(), target);
+    const auto rotate_direction = [&](QVector3D &direction)
+    {
+        if (direction.lengthSquared() > 1.0e-12f)
+        {
+            const float magnitude = direction.length();
+            direction = (rotation * direction.normalized()) * magnitude;
+        }
+    };
+    rotate_direction(injector.vel);
+    rotate_direction(injector.vel2);
+    rotate_direction(injector.ang_vel);
+    rotate_direction(injector.ang_vel2);
+    rotate_direction(injector.atomizer_axis);
+    rotate_direction(injector.axis);
+    rotate_direction(injector.ff_normal);
+}
+
 void rotate_injector_data(Injector &injector, const QVector3D &origin,
                           const QVector3D &axis, float angle)
 {
@@ -148,7 +192,12 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
         {
             child.inj.injector_data.single_target_hitpoint =
                 reference_local_point(child.inj.injector_data.single_target_hitpoint,
-                                      spec);
+                spec);
+        }
+        if (spec.use_reference_geometry && spec.conform_to_reference_normal)
+        {
+            conform_injector_to_normal(child.inj.injector_data,
+                                       spec.plane_normal);
         }
         child.ais_display->Set(child.inj.shape);
         result.append(std::move(child));

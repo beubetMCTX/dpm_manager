@@ -26,6 +26,7 @@ struct UnitArraySpec
     float angle_degrees = 360.0f;
     QVector3D plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
     bool use_reference_geometry = false;
+    bool conform_to_reference_normal = false;
 };
 
 struct UnitFillSpec

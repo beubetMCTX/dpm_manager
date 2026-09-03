@@ -350,6 +350,9 @@ Unit
   members and replaces only the generated children.
 - Regression coverage now exercises a multi-member Assembly as an array seed,
   including child ownership and rebuild replacement without accumulation.
+- Array creation can optionally conform injector direction vectors to the
+  selected reference frame's normal; the option is persisted and defaults off
+  for backward compatibility.
 
 ## History
 

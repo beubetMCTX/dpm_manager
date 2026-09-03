@@ -1988,3 +1988,13 @@ References:
 - The regression verifies that original members remain attached, generated
   children reference the Assembly parent, and rebuild replaces stale children.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Reference-Normal Array Conforming
+
+- Array creation now offers an optional reference-normal conforming mode.
+- When enabled, each generated injector preserves its direction magnitude and
+  rotates type-specific direction vectors toward the selected reference frame
+  normal; positions and array spacing remain unchanged.
+- The setting is persisted in project sessions and absent fields default to
+  disabled for backward compatibility.
+- Release build and all 12 focused regressions passed.

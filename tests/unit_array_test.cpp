@@ -88,6 +88,19 @@ int main(int argc, char **argv)
                    reference_target_children[0].inj.injector_data.single_target_hitpoint,
                "reference-local target must not follow array offset") && ok;
 
+    Unit conform_source = source;
+    conform_source.inj.injector_data.single_target_scope = Single_Target_Scope::World;
+    conform_source.inj.injector_data.vel = QVector3D(1.0f, 0.0f, 0.0f);
+    UnitArraySpec conform_spec;
+    conform_spec.type = UnitArrayType::Linear;
+    conform_spec.count = 2;
+    conform_spec.use_reference_geometry = true;
+    conform_spec.conform_to_reference_normal = true;
+    conform_spec.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    const QList<Unit> conform_children = expand_unit_array(conform_source, conform_spec);
+    ok = check(qAbs(conform_children[0].inj.injector_data.vel.z() - 1.0f) < 1.0e-4f,
+               "reference normal conforming should rotate the primary direction") && ok;
+
     source.has_array_spec = true;
     source.array_spec = linear;
     const Unit copied_source(source);
