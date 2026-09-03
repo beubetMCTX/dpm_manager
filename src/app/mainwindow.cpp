@@ -2379,6 +2379,27 @@ void MainWindow::create_object_list_panel()
         {
             pivot_source->addItem("Reference Origin", 1);
         }
+        QVector3D assembly_parent_origin;
+        bool has_assembly_parent = false;
+        for (const QUuid &selected_uuid : selected_units)
+        {
+            const auto selected_unit = m_3d_widget->unit_hash.value(selected_uuid);
+            if (selected_unit != nullptr && !selected_unit->assembly_parent_uuid.isNull())
+            {
+                const auto parent_unit = m_3d_widget->unit_hash.value(
+                    selected_unit->assembly_parent_uuid);
+                if (parent_unit != nullptr)
+                {
+                    assembly_parent_origin = parent_unit->inj.injector_data.pos;
+                    has_assembly_parent = true;
+                    break;
+                }
+            }
+        }
+        if (has_assembly_parent)
+        {
+            pivot_source->addItem("Assembly Parent", 2);
+        }
         form->addRow("Pivot", pivot_source);
         form->addRow("Axis X", axis_x);
         form->addRow("Axis Y", axis_y);
@@ -2400,8 +2421,11 @@ void MainWindow::create_object_list_panel()
                       static_cast<float>(axis_y->value()),
                       static_cast<float>(axis_z->value())),
             static_cast<float>(angle->value()),
-            reference_origin,
-            pivot_source->currentData().toInt() == 1);
+            pivot_source->currentData().toInt() == 1
+                ? reference_origin
+                : assembly_parent_origin,
+            pivot_source->currentData().toInt() == 1 ||
+                pivot_source->currentData().toInt() == 2);
         statusBar()->showMessage(
             QString("Rotated %1 of %2 selected unit(s); locked units were skipped")
                 .arg(rotated_count)

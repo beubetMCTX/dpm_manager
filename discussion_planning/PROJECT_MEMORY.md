@@ -323,6 +323,8 @@ Unit
   a usable reference frame exists; without one, only `Custom` is exposed.
 - Numeric rotation now also offers a `Reference Origin` pivot when available;
   otherwise it preserves the per-Unit pivot behavior.
+- Numeric rotation also offers an `Assembly Parent` pivot when a selected
+  member has a resolvable parent Unit.
 - Project reference validation now checks Assembly parent/child UUID
   consistency and rejects cyclic Assembly graphs before loading.
 - Project-session regression coverage now verifies Assembly parent/child

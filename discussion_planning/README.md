@@ -1913,6 +1913,12 @@ References:
   default per-Unit pivot.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Assembly Parent Rotation Pivot
+
+- The text-based rotation dialog now offers `Assembly Parent` as a shared
+  pivot for selected members with a valid parent Unit.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Validate Assembly Graphs Before Load
 
 - Project preflight now validates Assembly parent/child references in both
