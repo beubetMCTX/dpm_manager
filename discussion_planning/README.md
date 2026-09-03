@@ -1904,3 +1904,9 @@ References:
 - Added regression coverage for Assembly type, child UUIDs, and member parent
   UUIDs across project save/load.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Show Assembly Hierarchy In Object List
+
+- Object-list ordering now places Assembly ancestors before descendants and
+  uses depth-based text indentation for nested members.
+- Release build and all 12 focused regressions passed.

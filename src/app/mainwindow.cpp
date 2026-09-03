@@ -2951,9 +2951,29 @@ void MainWindow::update_object_list_panel()
     }
 
     QList<QUuid> unit_ids = m_3d_widget->unit_hash.keys();
-    std::sort(unit_ids.begin(), unit_ids.end(), [this](const QUuid &lhs,
-                                                       const QUuid &rhs)
+    const auto assembly_depth = [this](const QUuid &uuid)
     {
+        int depth = 0;
+        QSet<QUuid> visited;
+        std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+        while (unit != nullptr && !unit->assembly_parent_uuid.isNull() &&
+               !visited.contains(unit->assembly_parent_uuid))
+        {
+            visited.insert(unit->assembly_parent_uuid);
+            ++depth;
+            unit = m_3d_widget->unit_hash.value(unit->assembly_parent_uuid);
+        }
+        return depth;
+    };
+    std::sort(unit_ids.begin(), unit_ids.end(), [this, &assembly_depth](const QUuid &lhs,
+                                                                         const QUuid &rhs)
+    {
+        const int left_depth = assembly_depth(lhs);
+        const int right_depth = assembly_depth(rhs);
+        if (left_depth != right_depth)
+        {
+            return left_depth < right_depth;
+        }
         const auto left = m_3d_widget->unit_hash.value(lhs);
         const auto right = m_3d_widget->unit_hash.value(rhs);
         const QString left_name = left == nullptr
@@ -3024,11 +3044,11 @@ void MainWindow::update_object_list_panel()
         }
         if (unit.type == Assebly)
         {
-            name = "[Assembly] " + name;
+            name = QString("%1[Assembly] ").arg(QString(assembly_depth(unit_id) * 2, ' ')) + name;
         }
         else if (!unit.assembly_parent_uuid.isNull())
         {
-            name = "  [Member] " + name;
+            name = QString("%1[Member] ").arg(QString(assembly_depth(unit_id) * 2, ' ')) + name;
         }
         auto *unit_item = new QListWidgetItem(name, m_object_list);
         unit_item->setData(Qt::UserRole,
