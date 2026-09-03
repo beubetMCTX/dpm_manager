@@ -308,6 +308,8 @@ Unit
 - Numeric translation and rotation now recursively include an Assembly
   parent's descendants, with UUID de-duplication when both parent and child
   are selected.
+- Assembly creation now permits an existing Assembly as a child, removes that
+  child from its former parent, and rejects descendant cycles.
 
 ## History
 

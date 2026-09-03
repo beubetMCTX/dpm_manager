@@ -1858,3 +1858,10 @@ References:
 - Numeric `Translate Selected` and `Rotate Selected` now recursively apply to
   Assembly descendants and de-duplicate overlapping selections.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Allow Nested Assemblies
+
+- Existing Assembly nodes can now be selected as members of a new Assembly.
+- Creation detaches moved nodes from their former parent and rejects cycles,
+  enabling safe multi-level Assembly relationships.
+- Release build and all 12 focused regressions passed.

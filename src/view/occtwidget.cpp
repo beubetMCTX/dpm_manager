@@ -975,6 +975,26 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
         return false;
     }
 
+    const QUuid parent_uuid = parent->inj.uuid;
+    const auto contains_descendant = [&](const std::shared_ptr<Unit> &root,
+                                         const QUuid &target,
+                                         const auto &self) -> bool
+    {
+        if (root == nullptr)
+        {
+            return false;
+        }
+        for (const QUuid &child_uuid : root->assembly_child_uuids)
+        {
+            if (child_uuid == target ||
+                self(unit_hash.value(child_uuid), target, self))
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+
     parent->type = Assebly;
     parent->assembly_child_uuids.clear();
     parent->child_units.clear();
@@ -982,9 +1002,24 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
     {
         const std::shared_ptr<Unit> child = unit_hash.value(uuids.at(index));
         if (child == nullptr || child == parent || child->is_array_child ||
-            child->assembly_parent_uuid != QUuid())
+            child->inj.uuid == parent_uuid ||
+            contains_descendant(child, parent_uuid, contains_descendant))
         {
             continue;
+        }
+        if (!child->assembly_parent_uuid.isNull())
+        {
+            const std::shared_ptr<Unit> old_parent =
+                unit_hash.value(child->assembly_parent_uuid);
+            if (old_parent != nullptr)
+            {
+                old_parent->assembly_child_uuids.removeAll(child->inj.uuid);
+                old_parent->child_units.removeAll(child);
+                if (old_parent->assembly_child_uuids.isEmpty())
+                {
+                    old_parent->type = injector;
+                }
+            }
         }
         child->assembly_parent_uuid = uuids.first();
         parent->assembly_child_uuids.append(child->inj.uuid);
