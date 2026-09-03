@@ -2014,3 +2014,11 @@ References:
 - New fill fields are persisted; older sessions retain the previous world-plane
   behavior through disabled defaults.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Resolve Local Targets In Fill Arrays
+
+- Fill-array expansion now converts `Reference Local` target hitpoints through
+  the selected reference frame instead of leaving them in local coordinates.
+- Added regression coverage for the transformed target point and retained
+  direction-conforming behavior.
+- Release build and all 12 focused regressions passed.

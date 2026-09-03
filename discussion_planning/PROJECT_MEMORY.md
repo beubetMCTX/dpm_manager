@@ -358,6 +358,8 @@ Unit
 - Square and hexagonal fill arrays now support the same optional reference
   frame and normal-conforming behavior; legacy fill sessions default to the
   world XY layout with conforming disabled.
+- `Reference Local` target hitpoints now resolve correctly during fill-array
+  expansion, matching linear, rotational, and mirror array behavior.
 
 ## History
 

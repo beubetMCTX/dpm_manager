@@ -154,11 +154,19 @@ int main(int argc, char **argv)
     reference_fill.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
     reference_fill.use_reference_geometry = true;
     reference_fill.conform_to_reference_normal = true;
-    const QList<Unit> reference_filled = expand_unit_fill({conform_source}, reference_fill);
+    Unit target_fill_source = conform_source;
+    target_fill_source.inj.injector_data.single_target_scope =
+        Single_Target_Scope::Reference_Local;
+    target_fill_source.inj.injector_data.single_target_hitpoint =
+        QVector3D(1.0f, 2.0f, 3.0f);
+    const QList<Unit> reference_filled = expand_unit_fill({target_fill_source}, reference_fill);
     ok = check(reference_filled.size() == 2 &&
                    reference_filled[1].inj.injector_data.pos == QVector3D(10.0f, 24.0f, 30.0f),
                "reference-frame fill position mismatch") && ok;
     ok = check(qAbs(reference_filled[0].inj.injector_data.vel.z() - 1.0f) < 1.0e-4f,
                "reference-frame fill should conform direction") && ok;
+    ok = check(reference_filled[0].inj.injector_data.single_target_hitpoint ==
+                   QVector3D(8.0f, 21.0f, 33.0f),
+               "reference-frame fill should resolve local target points") && ok;
     return ok ? 0 : 1;
 }

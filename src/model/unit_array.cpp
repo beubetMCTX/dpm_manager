@@ -11,14 +11,23 @@ QVector3D normalized_or(const QVector3D &value, const QVector3D &fallback)
 }
 
 QVector3D reference_local_point(const QVector3D &value,
-                                const UnitArraySpec &spec)
+                                const QVector3D &origin,
+                                const QVector3D &direction,
+                                const QVector3D &plane_normal)
 {
-    const QVector3D x_axis = normalized_or(spec.direction,
+    const QVector3D x_axis = normalized_or(direction,
                                            QVector3D(1.0f, 0.0f, 0.0f));
-    const QVector3D z_axis = normalized_or(spec.plane_normal,
+    const QVector3D z_axis = normalized_or(plane_normal,
                                            QVector3D(0.0f, 0.0f, 1.0f));
     const QVector3D y_axis = QVector3D::crossProduct(z_axis, x_axis).normalized();
-    return spec.origin + x_axis * value.x() + y_axis * value.y() + z_axis * value.z();
+    return origin + x_axis * value.x() + y_axis * value.y() + z_axis * value.z();
+}
+
+QVector3D reference_local_point(const QVector3D &value,
+                                const UnitArraySpec &spec)
+{
+    return reference_local_point(value, spec.origin, spec.direction,
+                                 spec.plane_normal);
 }
 
 QVector3D rotate_vector(const QVector3D &value, const QVector3D &axis, float angle)
@@ -270,6 +279,16 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
                     Single_Target_Scope::Reference_Local)
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
+            }
+            if (child.inj.injector_data.single_target_scope ==
+                    Single_Target_Scope::Reference_Local &&
+                spec.use_reference_geometry)
+            {
+                child.inj.injector_data.single_target_hitpoint =
+                    reference_local_point(child.inj.injector_data.single_target_hitpoint,
+                                          spec.origin,
+                                          spec.direction,
+                                          spec.plane_normal);
             }
             if (spec.use_reference_geometry && spec.conform_to_reference_normal)
             {
