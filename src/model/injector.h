@@ -123,7 +123,8 @@ enum class Single_Direction_Mode
 enum class Single_Target_Scope
 {
     World,
-    Array_Local
+    Array_Local,
+    Parent_Local
 };
 
 enum Volume_Streams_Spec

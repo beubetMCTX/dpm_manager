@@ -34,7 +34,7 @@ void rotate_injector_data(Injector &injector, const QVector3D &origin,
     rotate_point(injector.ff_virtual_origin);
     rotate_point(injector.volume_bgeom_min);
     rotate_point(injector.volume_bgeom_max);
-    if (injector.single_target_scope == Single_Target_Scope::Array_Local)
+    if (injector.single_target_scope != Single_Target_Scope::World)
     {
         rotate_point(injector.single_target_hitpoint);
     }
@@ -67,7 +67,7 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_point(injector.ff_virtual_origin);
     mirror_point(injector.volume_bgeom_min);
     mirror_point(injector.volume_bgeom_max);
-    if (injector.single_target_scope == Single_Target_Scope::Array_Local)
+    if (injector.single_target_scope != Single_Target_Scope::World)
     {
         mirror_point(injector.single_target_hitpoint);
     }
@@ -106,8 +106,8 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
             child.inj.injector_data.ff_virtual_origin += offset;
             child.inj.injector_data.volume_bgeom_min += offset;
             child.inj.injector_data.volume_bgeom_max += offset;
-            if (child.inj.injector_data.single_target_scope ==
-                Single_Target_Scope::Array_Local)
+            if (child.inj.injector_data.single_target_scope !=
+                Single_Target_Scope::World)
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
             }
@@ -182,8 +182,8 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             child.inj.injector_data.ff_virtual_origin += offset;
             child.inj.injector_data.volume_bgeom_min += offset;
             child.inj.injector_data.volume_bgeom_max += offset;
-            if (child.inj.injector_data.single_target_scope ==
-                Single_Target_Scope::Array_Local)
+            if (child.inj.injector_data.single_target_scope !=
+                Single_Target_Scope::World)
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
             }

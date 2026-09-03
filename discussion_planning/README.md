@@ -1702,6 +1702,15 @@ References:
   axis, and Z normal respectively.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Parent-Local Target Scope
+
+- Added the text-visible `Parent Local` target scope to Single injector
+  editing and persistence-compatible enum handling.
+- Current array expansion transforms parent-local targets with the local array
+  transform; nested Assembly code can later resolve the distinct parent frame.
+- Added regression coverage; Release build and all 12 focused regressions
+  passed.
+
 ### 2026-09-04 Persist Array Metadata
 
 - Project sessions now store optional array metadata on the mother Unit and

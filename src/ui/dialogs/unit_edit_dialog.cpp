@@ -3522,7 +3522,7 @@ void unit_edit_dialog::build_point_property_rows()
             case Single_Direction_Mode::Target_Hitpoint:
                 add_combo_row(
                     "Target Scope",
-                    {"World", "Array Local"},
+                    {"World", "Array Local", "Parent Local"},
                     [&injector]()
                     {
                         return static_cast<int>(injector.single_target_scope);

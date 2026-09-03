@@ -65,6 +65,12 @@ int main(int argc, char **argv)
                    source.inj.injector_data.single_target_hitpoint,
                "world target hitpoint must not follow a linear array") && ok;
 
+    source.inj.injector_data.single_target_scope = Single_Target_Scope::Parent_Local;
+    const QList<Unit> parent_target_children = expand_unit_array(source, linear);
+    ok = check(parent_target_children[2].inj.injector_data.single_target_hitpoint ==
+                   QVector3D(11.0f, 2.0f, 0.0f),
+               "parent-local target hitpoint must follow a linear array") && ok;
+
     source.has_array_spec = true;
     source.array_spec = linear;
     const Unit copied_source(source);
