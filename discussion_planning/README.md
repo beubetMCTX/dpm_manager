@@ -1726,3 +1726,11 @@ References:
   or nested-array preparation.
 - Added a focused regression check; Release build and all 12 regressions
   passed.
+
+### 2026-09-04 Expose Helical Rotational Spacing
+
+- Rotational array creation now asks for axial spacing per child.
+- Non-zero spacing combines with angular rotation to form a helical array;
+  zero retains the existing planar rotational behavior.
+- Added an axial-spacing regression check; Release build and all 12 tests
+  passed.

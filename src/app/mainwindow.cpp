@@ -2575,6 +2575,13 @@ void MainWindow::create_object_list_panel()
                 {
                     return;
                 }
+                spec.spacing = static_cast<float>(QInputDialog::getDouble(
+                    this, "Rotational Array", "Axial spacing per child:",
+                    0.0, -1.0e6, 1.0e6, 3, &accepted));
+                if (!accepted)
+                {
+                    return;
+                }
             }
             else
             {

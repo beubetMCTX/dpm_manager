@@ -54,6 +54,11 @@ int main(int argc, char **argv)
                    qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.y() - 3.0f) < 1.0e-4f,
                "rotational target hitpoint mismatch") && ok;
 
+    rotational.spacing = 2.5f;
+    const QList<Unit> helical_children = expand_unit_array(source, rotational);
+    ok = check(qAbs(helical_children[1].inj.injector_data.pos.z() - 2.5f) < 1.0e-4f,
+               "rotational axial spacing mismatch") && ok;
+
     source.inj.injector_data.single_target_scope = Single_Target_Scope::World;
     const QList<Unit> world_target_children = expand_unit_array(source, linear);
     ok = check(world_target_children[2].inj.injector_data.single_target_hitpoint ==

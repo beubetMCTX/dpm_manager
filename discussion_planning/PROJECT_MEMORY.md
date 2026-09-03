@@ -235,6 +235,8 @@ Unit
   injector origin for linear, rotational, and mirror children.
 - Single target points now have explicit `World` and `Array Local` scopes;
   only the latter follows array transforms.
+- Rotational array creation now exposes axial spacing per child, providing the
+  planned helical-array behavior without introducing a separate top-level mode.
 
 ## Array Core Progress
 
