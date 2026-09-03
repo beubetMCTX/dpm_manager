@@ -1801,3 +1801,12 @@ References:
   scene and runtime maps.
 - Child deletion detaches the child from its parent's ownership list, avoiding
   stale runtime references.
+
+### 2026-09-04 Add Numeric Unit Rotation
+
+- Added the text-based `Rotate Selected` object-panel action with numeric axis
+  and angle fields.
+- Rotation applies to unlocked selected Units around each Unit's own position,
+  updates injector points and direction vectors, rebuilds geometry, refreshes
+  local coordinate frames, and re-resolves color from the Species/Color table.
+- Release build and all 12 focused regressions passed.

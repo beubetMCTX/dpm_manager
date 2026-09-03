@@ -130,6 +130,9 @@ public:
     bool unit_locked(const QUuid &uuid) const;
     int translate_units_by_uuid(const QList<QUuid> &uuids,
                                 const QVector3D &delta);
+    int rotate_units_by_uuid(const QList<QUuid> &uuids,
+                             const QVector3D &axis,
+                             float angle_degrees);
     int set_material_for_units_by_uuid(const QList<QUuid> &uuids,
                                        const QString &material);
     bool set_unit_name(const QUuid &uuid, const QString &name);

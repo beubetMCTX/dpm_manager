@@ -262,6 +262,11 @@ Unit
   colors. Missing entries use a fixed neutral fallback.
 - Mixed fill children now retain the round-robin source color, making different
   injector seeds visually distinguishable in square and hexagonal layouts.
+- Added a text-based `Rotate Selected` object-panel action. It rotates each
+  unlocked selected Unit around its own origin using a numeric world-axis and
+  angle, updates position-derived points and direction vectors, rebuilds the
+  geometry, refreshes the local frame, and resolves the display color again
+  from the Species/Color table.
 
 ## Array Core Progress
 

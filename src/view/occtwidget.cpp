@@ -671,6 +671,78 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
     return translated_count;
 }
 
+int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
+                                     const QVector3D &axis,
+                                     float angle_degrees)
+{
+    if (m_context.IsNull() || axis.lengthSquared() <= 1.0e-12f ||
+        !std::isfinite(angle_degrees))
+    {
+        return 0;
+    }
+
+    const QVector3D unit_axis = axis.normalized();
+    const float radians = qDegreesToRadians(angle_degrees);
+    const float cosine = std::cos(radians);
+    const float sine = std::sin(radians);
+    const auto rotate_vector = [&](const QVector3D &value)
+    {
+        return value * cosine + QVector3D::crossProduct(unit_axis, value) * sine +
+               unit_axis * QVector3D::dotProduct(unit_axis, value) * (1.0f - cosine);
+    };
+
+    int rotated_count = 0;
+    for (const QUuid &uuid : uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit == nullptr || unit_locked(uuid) || unit->ais_display.IsNull())
+        {
+            continue;
+        }
+
+        Injector &injector = unit->inj.injector_data;
+        const Injector before = injector;
+        const QVector3D pivot = injector.pos;
+        const auto rotate_point = [&](const QVector3D &point)
+        {
+            return pivot + rotate_vector(point - pivot);
+        };
+
+        injector.pos2 = rotate_point(injector.pos2);
+        injector.ff_center = rotate_point(injector.ff_center);
+        injector.ff_virtual_origin = rotate_point(injector.ff_virtual_origin);
+        injector.volume_bgeom_min = rotate_point(injector.volume_bgeom_min);
+        injector.volume_bgeom_max = rotate_point(injector.volume_bgeom_max);
+        injector.single_target_hitpoint = rotate_point(injector.single_target_hitpoint);
+        injector.vel = rotate_vector(injector.vel);
+        injector.vel2 = rotate_vector(injector.vel2);
+        injector.ang_vel = rotate_vector(injector.ang_vel);
+        injector.ang_vel2 = rotate_vector(injector.ang_vel2);
+        injector.ff_normal = rotate_vector(injector.ff_normal);
+        injector.atomizer_axis = rotate_vector(injector.atomizer_axis);
+
+        if (!unit->inj.create_injector())
+        {
+            injector = before;
+            continue;
+        }
+
+        unit->ais_display->SetLocalTransformation(gp_Trsf());
+        unit->ais_display->Set(unit->inj.shape);
+        unit->ais_display->SetColor(color_for_material(injector.material));
+        m_context->Redisplay(unit->ais_display, Standard_False);
+        update_unit_local_coordinate_frame(uuid);
+        emit unit_data_updated(unit.get());
+        ++rotated_count;
+    }
+
+    if (rotated_count > 0 && !m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return rotated_count;
+}
+
 int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
                                                const QString &material)
 {

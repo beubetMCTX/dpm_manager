@@ -2001,6 +2001,8 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(paste_selected_button);
     auto *translate_selected_button = new QPushButton("Translate Selected", panel);
     layout->addWidget(translate_selected_button);
+    auto *rotate_selected_button = new QPushButton("Rotate Selected", panel);
+    layout->addWidget(rotate_selected_button);
     auto *material_selected_button = new QPushButton("Set Material Selected", panel);
     layout->addWidget(material_selected_button);
 
@@ -2283,6 +2285,73 @@ void MainWindow::create_object_list_panel()
         statusBar()->showMessage(
             QString("Translated %1 of %2 selected unit(s); locked units were skipped")
                 .arg(translated_count)
+                .arg(selected_units.size()),
+            5000);
+    });
+    connect(rotate_selected_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        QList<QUuid> selected_units;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+            {
+                selected_units.append(uuid);
+            }
+        }
+        if (selected_units.isEmpty())
+        {
+            statusBar()->showMessage("Select one or more injectors first", 4000);
+            return;
+        }
+
+        QDialog dialog(this);
+        dialog.setWindowTitle("Rotate Selected Injectors");
+        auto *form = new QFormLayout(&dialog);
+        auto create_box = [&dialog](double value)
+        {
+            auto *box = new QDoubleSpinBox(&dialog);
+            box->setRange(-1.0e9, 1.0e9);
+            box->setDecimals(6);
+            box->setValue(value);
+            return box;
+        };
+        auto *axis_x = create_box(0.0);
+        auto *axis_y = create_box(0.0);
+        auto *axis_z = create_box(1.0);
+        auto *angle = create_box(0.0);
+        form->addRow("Axis X", axis_x);
+        form->addRow("Axis Y", axis_y);
+        form->addRow("Axis Z", axis_z);
+        form->addRow("Angle (deg)", angle);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
+                                             &dialog);
+        form->addRow(buttons);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        if (dialog.exec() != QDialog::Accepted)
+        {
+            return;
+        }
+
+        const int rotated_count = m_3d_widget->rotate_units_by_uuid(
+            selected_units,
+            QVector3D(static_cast<float>(axis_x->value()),
+                      static_cast<float>(axis_y->value()),
+                      static_cast<float>(axis_z->value())),
+            static_cast<float>(angle->value()));
+        statusBar()->showMessage(
+            QString("Rotated %1 of %2 selected unit(s); locked units were skipped")
+                .arg(rotated_count)
                 .arg(selected_units.size()),
             5000);
     });
