@@ -472,6 +472,8 @@ QJsonObject unit_to_json(const Unit &unit)
         fill_spec.insert("spacing_x", unit.fill_spec.spacing_x);
         fill_spec.insert("spacing_y", unit.fill_spec.spacing_y);
         fill_spec.insert("origin", vector_to_json(unit.fill_spec.origin));
+        fill_spec.insert("circular_boundary", unit.fill_spec.circular_boundary);
+        fill_spec.insert("boundary_radius", unit.fill_spec.boundary_radius);
         result.insert("fill_spec", fill_spec);
         QJsonArray sources;
         for (const QUuid &uuid : unit.fill_source_uuids)
@@ -532,6 +534,10 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
         unit->fill_spec.spacing_y = static_cast<float>(
             fill_spec.value("spacing_y").toDouble(0.0));
         vector_from_json(fill_spec.value("origin"), &unit->fill_spec.origin);
+        unit->fill_spec.circular_boundary =
+            fill_spec.value("circular_boundary").toBool(false);
+        unit->fill_spec.boundary_radius = static_cast<float>(
+            fill_spec.value("boundary_radius").toDouble(0.0));
         const QJsonArray sources = object.value("fill_source_uuids").toArray();
         for (const QJsonValue &source : sources)
         {

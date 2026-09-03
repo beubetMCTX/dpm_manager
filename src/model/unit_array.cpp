@@ -163,6 +163,16 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
                              (offset_hex_row ? 0.5f : 0.0f)) * spec.spacing_x;
             const float y = spec.origin.y() +
                             static_cast<float>(row) * spec.spacing_y;
+            if (spec.circular_boundary)
+            {
+                const float dx = x - spec.origin.x();
+                const float dy = y - spec.origin.y();
+                if (dx * dx + dy * dy >
+                    spec.boundary_radius * spec.boundary_radius)
+                {
+                    continue;
+                }
+            }
             const QVector3D offset(x - source.inj.injector_data.pos.x(),
                                    y - source.inj.injector_data.pos.y(),
                                    spec.origin.z() - source.inj.injector_data.pos.z());

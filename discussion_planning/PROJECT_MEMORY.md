@@ -245,6 +245,9 @@ Unit
 - Fill metadata is now stored on the first fill parent with its seed UUID list
   and restored from project sessions; derived fill children remain runtime
   objects and are rebuilt after loading.
+- Fill layouts can optionally clip generated square or hexagonal points to a
+  configured circular boundary radius; the setting is available in the menu
+  and project session data.
 - Fill-derived children are now registered in the parent `child_units` list so
   rebuilds remove stale runtime objects before creating replacements.
 - Deleting a parent now removes following derived children, while deleting a

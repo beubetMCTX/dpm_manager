@@ -102,5 +102,11 @@ int main(int argc, char **argv)
     ok = check(qAbs(filled[3].inj.injector_data.pos.x() - 16.0f) < 1.0e-4f &&
                    qAbs(filled[3].inj.injector_data.pos.y() - 23.0f) < 1.0e-4f,
                "hexagonal row offset mismatch") && ok;
+
+    hex_fill.circular_boundary = true;
+    hex_fill.boundary_radius = 4.1f;
+    const QList<Unit> circular_filled = expand_unit_fill({source}, hex_fill);
+    ok = check(circular_filled.size() == 3,
+               "circular fill should reject points outside the boundary") && ok;
     return ok ? 0 : 1;
 }

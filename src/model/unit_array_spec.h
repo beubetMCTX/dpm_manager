@@ -35,6 +35,8 @@ struct UnitFillSpec
     float spacing_x = 0.0f;
     float spacing_y = 0.0f;
     QVector3D origin = QVector3D(0.0f, 0.0f, 0.0f);
+    bool circular_boundary = false;
+    float boundary_radius = 0.0f;
 };
 
 #endif // UNIT_ARRAY_SPEC_H

@@ -2653,6 +2653,20 @@ void MainWindow::create_object_list_panel()
             {
                 return;
             }
+            spec.circular_boundary = QMessageBox::question(
+                this, "Create Fill", "Clip layout to a circular boundary?",
+                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) ==
+                                     QMessageBox::Yes;
+            if (spec.circular_boundary)
+            {
+                spec.boundary_radius = static_cast<float>(QInputDialog::getDouble(
+                    this, "Create Fill", "Boundary radius:", 20.0,
+                    0.0, 1.0e6, 3, &accepted));
+                if (!accepted)
+                {
+                    return;
+                }
+            }
             spec.origin = m_3d_widget->unit_hash.value(uuid)
                               ->inj.injector_data.pos;
             const int created = m_3d_widget->create_unit_fill(

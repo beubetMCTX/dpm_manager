@@ -1766,6 +1766,13 @@ References:
   instead of accumulating duplicate objects.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Circular Fill Boundary
+
+- Square and hexagonal fills can now be clipped to a user-defined circular
+  boundary radius from the object-panel action.
+- The circular-boundary settings are persisted with fill metadata; Release
+  build and all 12 focused regressions passed.
+
 ### 2026-09-04 Clean Up Derived Children On Delete
 
 - Parent deletion now removes following array/fill children from the OCCT
