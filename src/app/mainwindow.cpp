@@ -2482,6 +2482,8 @@ void MainWindow::create_object_list_panel()
             m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
                                             : "Lock Movement");
         QAction *follow_array_action = menu.addAction("Follow Array");
+        QAction *restore_inheritance_action = menu.addAction(
+            "Restore Array Inheritance");
         const std::shared_ptr<Unit> selected_unit = m_3d_widget->unit_hash.value(uuid);
         follow_array_action->setCheckable(true);
         follow_array_action->setChecked(selected_unit != nullptr &&
@@ -2489,6 +2491,9 @@ void MainWindow::create_object_list_panel()
                                          selected_unit->follows_array);
         follow_array_action->setEnabled(selected_unit != nullptr &&
                                         selected_unit->is_array_child);
+        restore_inheritance_action->setEnabled(
+            selected_unit != nullptr && selected_unit->is_array_child &&
+            !selected_unit->follows_array);
         QAction *array_action = menu.addAction("Create Array...");
         QAction *fill_action = menu.addAction("Create Fill...");
         QList<QUuid> selected_unit_ids;
@@ -2683,6 +2688,14 @@ void MainWindow::create_object_list_panel()
                     ? "Selected array child will follow its parent"
                     : "Selected array child is now independent",
                 5000);
+        }
+        else if (chosen_action == restore_inheritance_action)
+        {
+            if (m_3d_widget->restore_unit_array_inheritance(uuid))
+            {
+                statusBar()->showMessage(
+                    "Selected array child restored to parent inheritance", 5000);
+            }
         }
         else if (chosen_action == delete_action)
         {

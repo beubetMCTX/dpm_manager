@@ -143,6 +143,7 @@ public:
     int rebuild_unit_array(const QUuid &source_uuid);
     int rebuild_unit_fill(const QUuid &source_uuid);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);
+    bool restore_unit_array_inheritance(const QUuid &uuid);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
     void fit_selected_view();

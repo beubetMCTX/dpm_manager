@@ -1773,6 +1773,13 @@ References:
 - The circular-boundary settings are persisted with fill metadata; Release
   build and all 12 focused regressions passed.
 
+### 2026-09-04 Restore Array Inheritance From Object Panel
+
+- Added the text-based `Restore Array Inheritance` action for array children
+  that were changed to independent mode.
+- Restoring removes the overridden runtime child and rebuilds it from the
+  parent array or fill rule; Release build and all 12 tests passed.
+
 ### 2026-09-04 Clean Up Derived Children On Delete
 
 - Parent deletion now removes following array/fill children from the OCCT

@@ -63,6 +63,9 @@ Unit
 
 - Right-click may choose `Follow Array`, `Edit Current Child Only`, or
   `Restore Inheritance`.
+- Object-panel context menus now provide `Restore Array Inheritance` for an
+  independent child; it removes the override instance and rebuilds it from the
+  parent array or fill rule.
 - Prefer independent inheritance scopes for physical properties and geometric
   properties. A child may inherit material/flow while overriding position.
 - Local overrides must survive array regeneration until explicitly discarded.

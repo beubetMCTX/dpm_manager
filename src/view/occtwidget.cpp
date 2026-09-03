@@ -1015,6 +1015,25 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
     return true;
 }
 
+bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || !unit->is_array_child ||
+        unit->array_parent_uuid.isNull())
+    {
+        return false;
+    }
+
+    const QUuid parent_uuid = unit->array_parent_uuid;
+    unit->follows_array = true;
+    if (!remove_unit_by_uuid(uuid))
+    {
+        return false;
+    }
+    return rebuild_unit_array(parent_uuid) > 0 ||
+           rebuild_unit_fill(parent_uuid) > 0;
+}
+
 bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
