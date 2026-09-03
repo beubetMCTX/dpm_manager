@@ -120,6 +120,12 @@ enum class Single_Direction_Mode
     Target_Hitpoint
 };
 
+enum class Single_Target_Scope
+{
+    World,
+    Array_Local
+};
+
 enum Volume_Streams_Spec
 {
     total_parcel_count,
@@ -175,6 +181,7 @@ public:
     double single_pitch_degrees = 0.0;
     double single_yaw_degrees = 0.0;
     QVector3D single_target_hitpoint = QVector3D(0.0f, 0.0f, 1.0f);
+    Single_Target_Scope single_target_scope = Single_Target_Scope::Array_Local;
 
     int numpts=10;//喷射点数
     QString dpm_fname="\" \"";//dpm文件名，默认为空

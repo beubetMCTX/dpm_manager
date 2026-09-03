@@ -3520,6 +3520,18 @@ void unit_edit_dialog::build_point_property_rows()
                                true, -360.0, 360.0);
                 break;
             case Single_Direction_Mode::Target_Hitpoint:
+                add_combo_row(
+                    "Target Scope",
+                    {"World", "Array Local"},
+                    [&injector]()
+                    {
+                        return static_cast<int>(injector.single_target_scope);
+                    },
+                    [&injector](int value)
+                    {
+                        injector.single_target_scope =
+                            static_cast<Single_Target_Scope>(value);
+                    });
                 add_single_vector_row("X-Target Hitpoint", "mm",
                                       &injector.single_target_hitpoint, 0);
                 add_single_vector_row("Y-Target Hitpoint", "mm",

@@ -500,6 +500,8 @@ int main(int argc, char *argv[])
     if (!check(has_field_row(dialog, "X-Target Hitpoint") &&
                    has_field_row(dialog, "Y-Target Hitpoint") &&
                    has_field_row(dialog, "Z-Target Hitpoint") &&
+                   dialog->findChild<QUI_ComboBox *>(
+                       "propertyEditor_Target_Scope") != nullptr &&
                    !has_field_row(dialog, "Pitch"),
                "Single target mode should expose target coordinates"))
     {

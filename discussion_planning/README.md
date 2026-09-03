@@ -1712,6 +1712,13 @@ References:
 - Added regression checks for all three array transform types; Release build
   and all 12 focused regressions passed.
 
+### 2026-09-04 Add Target Hitpoint Scope
+
+- Single Target Hitpoint direction now distinguishes `World` and `Array Local`
+  scopes in the editor and project session data.
+- Array-local targets follow linear, rotational, and mirror transforms, while
+  world targets remain fixed; Release build and all 12 regressions passed.
+
 ### 2026-09-04 Preserve Array Metadata When Copying Units
 
 - `Unit` copy and move constructors now retain `has_array_spec` and the full

@@ -34,7 +34,10 @@ void rotate_injector_data(Injector &injector, const QVector3D &origin,
     rotate_point(injector.ff_virtual_origin);
     rotate_point(injector.volume_bgeom_min);
     rotate_point(injector.volume_bgeom_max);
-    rotate_point(injector.single_target_hitpoint);
+    if (injector.single_target_scope == Single_Target_Scope::Array_Local)
+    {
+        rotate_point(injector.single_target_hitpoint);
+    }
     rotate_direction(injector.vel);
     rotate_direction(injector.vel2);
     rotate_direction(injector.ang_vel);
@@ -64,7 +67,10 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_point(injector.ff_virtual_origin);
     mirror_point(injector.volume_bgeom_min);
     mirror_point(injector.volume_bgeom_max);
-    mirror_point(injector.single_target_hitpoint);
+    if (injector.single_target_scope == Single_Target_Scope::Array_Local)
+    {
+        mirror_point(injector.single_target_hitpoint);
+    }
     mirror_direction(injector.vel);
     mirror_direction(injector.vel2);
     mirror_direction(injector.ang_vel);
@@ -100,7 +106,11 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
             child.inj.injector_data.ff_virtual_origin += offset;
             child.inj.injector_data.volume_bgeom_min += offset;
             child.inj.injector_data.volume_bgeom_max += offset;
-            child.inj.injector_data.single_target_hitpoint += offset;
+            if (child.inj.injector_data.single_target_scope ==
+                Single_Target_Scope::Array_Local)
+            {
+                child.inj.injector_data.single_target_hitpoint += offset;
+            }
         }
         else if (spec.type == UnitArrayType::Rotational)
         {

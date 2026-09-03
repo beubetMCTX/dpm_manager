@@ -52,7 +52,13 @@ int main(int argc, char **argv)
                "rotational direction mismatch") && ok;
     ok = check(qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.x() + 2.0f) < 1.0e-4f &&
                    qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.y() - 3.0f) < 1.0e-4f,
-                    "rotational target hitpoint mismatch") && ok;
+               "rotational target hitpoint mismatch") && ok;
+
+    source.inj.injector_data.single_target_scope = Single_Target_Scope::World;
+    const QList<Unit> world_target_children = expand_unit_array(source, linear);
+    ok = check(world_target_children[2].inj.injector_data.single_target_hitpoint ==
+                   source.inj.injector_data.single_target_hitpoint,
+               "world target hitpoint must not follow a linear array") && ok;
 
     source.has_array_spec = true;
     source.array_spec = linear;
@@ -66,6 +72,7 @@ int main(int argc, char **argv)
     mirror.type = UnitArrayType::Mirror;
     mirror.count = 2;
     mirror.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
+    source.inj.injector_data.single_target_scope = Single_Target_Scope::Array_Local;
     const QList<Unit> mirror_children = expand_unit_array(source, mirror);
     ok = check(mirror_children[1].inj.injector_data.pos.x() == -1.0f,
                "mirror position mismatch") && ok;

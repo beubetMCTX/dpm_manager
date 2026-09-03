@@ -104,6 +104,7 @@ void injector_to_json(const Injector &value, QJsonObject *object)
     SAVE_DOUBLE(single_pitch_degrees);
     SAVE_DOUBLE(single_yaw_degrees);
     SAVE_VECTOR(single_target_hitpoint);
+    SAVE_ENUM(single_target_scope);
     SAVE_INT(numpts);
     SAVE_STRING(dpm_fname);
     SAVE_INT_LIST(surfaces);
@@ -291,6 +292,7 @@ bool injector_from_json(const QJsonObject &object, Injector *value)
     READ_DOUBLE(single_pitch_degrees);
     READ_DOUBLE(single_yaw_degrees);
     READ_VECTOR(single_target_hitpoint);
+    READ_ENUM(single_target_scope, Single_Target_Scope);
     READ_INT(numpts);
     READ_STRING(dpm_fname);
     READ_INT_LIST(surfaces);

@@ -233,6 +233,8 @@ Unit
 - Focused Unit Editor regression coverage verifies all three mode layouts.
 - Array expansion now transforms `single_target_hitpoint` together with the
   injector origin for linear, rotational, and mirror children.
+- Single target points now have explicit `World` and `Array Local` scopes;
+  only the latter follows array transforms.
 
 ## Array Core Progress
 
