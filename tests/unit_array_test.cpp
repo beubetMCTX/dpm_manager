@@ -59,6 +59,19 @@ int main(int argc, char **argv)
     ok = check(qAbs(helical_children[1].inj.injector_data.pos.z() - 2.5f) < 1.0e-4f,
                "rotational axial spacing mismatch") && ok;
 
+    UnitArraySpec elliptical;
+    elliptical.type = UnitArrayType::Elliptical;
+    elliptical.count = 4;
+    elliptical.origin = QVector3D(0.0f, 0.0f, 0.0f);
+    elliptical.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    elliptical.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    elliptical.major_radius = 10.0f;
+    elliptical.minor_radius = 4.0f;
+    const QList<Unit> elliptical_children = expand_unit_array(source, elliptical);
+    ok = check(qAbs(elliptical_children[0].inj.injector_data.pos.x() - 10.0f) < 1.0e-4f &&
+                   qAbs(elliptical_children[1].inj.injector_data.pos.y() - 4.0f) < 1.0e-4f,
+               "elliptical array positions mismatch") && ok;
+
     source.inj.injector_data.single_target_scope = Single_Target_Scope::World;
     const QList<Unit> world_target_children = expand_unit_array(source, linear);
     ok = check(world_target_children[2].inj.injector_data.single_target_hitpoint ==

@@ -180,6 +180,38 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
                 child.inj.injector_data.single_target_hitpoint += offset;
             }
         }
+        else if (spec.type == UnitArrayType::Elliptical)
+        {
+            const QVector3D ellipse_axis = normalized_or(
+                spec.plane_normal, QVector3D(0.0f, 0.0f, 1.0f));
+            const QVector3D ellipse_x = normalized_or(
+                spec.direction, QVector3D(1.0f, 0.0f, 0.0f));
+            QVector3D ellipse_y = QVector3D::crossProduct(ellipse_axis, ellipse_x);
+            if (ellipse_y.lengthSquared() <= 1.0e-12f)
+            {
+                ellipse_y = QVector3D(0.0f, 1.0f, 0.0f);
+            }
+            else
+            {
+                ellipse_y.normalize();
+            }
+            const float angle = spec.count > 0
+                                    ? qDegreesToRadians(spec.angle_degrees) /
+                                          static_cast<float>(spec.count) * index
+                                    : 0.0f;
+            rotate_injector_data(child.inj.injector_data, spec.origin,
+                                 ellipse_axis, angle);
+            const QVector3D target = spec.origin +
+                                     ellipse_x * (spec.major_radius * std::cos(angle)) +
+                                     ellipse_y * (spec.minor_radius * std::sin(angle));
+            const QVector3D offset = target - child.inj.injector_data.pos;
+            child.inj.injector_data.pos += offset;
+            child.inj.injector_data.pos2 += offset;
+            child.inj.injector_data.ff_center += offset;
+            child.inj.injector_data.ff_virtual_origin += offset;
+            child.inj.injector_data.volume_bgeom_min += offset;
+            child.inj.injector_data.volume_bgeom_max += offset;
+        }
         else if (spec.type == UnitArrayType::Rotational)
         {
             const float step = spec.count > 0

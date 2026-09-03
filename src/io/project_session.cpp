@@ -504,6 +504,8 @@ QJsonObject unit_to_json(const Unit &unit)
         array_spec.insert("origin", vector_to_json(unit.array_spec.origin));
         array_spec.insert("spacing", unit.array_spec.spacing);
         array_spec.insert("angle_degrees", unit.array_spec.angle_degrees);
+        array_spec.insert("major_radius", unit.array_spec.major_radius);
+        array_spec.insert("minor_radius", unit.array_spec.minor_radius);
         array_spec.insert("plane_normal", vector_to_json(unit.array_spec.plane_normal));
         array_spec.insert("use_reference_geometry", unit.array_spec.use_reference_geometry);
         array_spec.insert("conform_to_reference_normal",
@@ -592,6 +594,10 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
             array_spec.value("spacing").toDouble(0.0));
         unit->array_spec.angle_degrees = static_cast<float>(
             array_spec.value("angle_degrees").toDouble(360.0));
+        unit->array_spec.major_radius = static_cast<float>(
+            array_spec.value("major_radius").toDouble(10.0));
+        unit->array_spec.minor_radius = static_cast<float>(
+            array_spec.value("minor_radius").toDouble(5.0));
         vector_from_json(array_spec.value("plane_normal"), &unit->array_spec.plane_normal);
         unit->array_spec.use_reference_geometry =
             array_spec.value("use_reference_geometry").toBool(false);
@@ -770,7 +776,11 @@ bool validate(const Data &data, QString *error_message)
                 !is_finite_vector(spec.origin) ||
                 !is_finite_vector(spec.plane_normal) ||
                 !std::isfinite(spec.spacing) ||
-                !std::isfinite(spec.angle_degrees))
+                !std::isfinite(spec.angle_degrees) ||
+                !std::isfinite(spec.major_radius) ||
+                !std::isfinite(spec.minor_radius) ||
+                (spec.type == UnitArrayType::Elliptical &&
+                 (spec.major_radius <= 0.0f || spec.minor_radius < 0.0f)))
             {
                 set_error(error_message,
                           "Project contains invalid array specification values.");

@@ -376,6 +376,9 @@ Unit
 - Project-session validation now rejects invalid array and fill metadata before
   geometry restoration, including out-of-range counts, invalid enum values, and
   non-finite spacing/axes.
+- Added an optional Elliptical array mode with major/minor radii, total angle,
+  reference-frame support, direction conforming, and project-session
+  persistence; existing array modes remain unchanged.
 
 ## History
 

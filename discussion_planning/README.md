@@ -2069,3 +2069,13 @@ References:
   and circular-boundary radii; regression coverage includes invalid count and
   non-finite spacing cases.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Elliptical Array Mode
+
+- Added text-based Elliptical array creation with major radius, minor radius,
+  and total-angle controls.
+- Elliptical arrays use the configured/reference frame, rotate injector
+  directions consistently, and persist their parameters in project sessions.
+- Added regression coverage for ellipse positions and retained compatibility
+  with existing array modes.
+- Release build and all 12 focused regressions passed.

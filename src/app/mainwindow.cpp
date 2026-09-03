@@ -2800,7 +2800,7 @@ void MainWindow::create_object_list_panel()
         }
         else if (chosen_action == array_action)
         {
-            const QStringList array_types = {"Linear", "Rotational", "Mirror"};
+            const QStringList array_types = {"Linear", "Rotational", "Mirror", "Elliptical"};
             bool accepted = false;
             const QString array_type = QInputDialog::getItem(
                 this, "Create Array", "Array type:", array_types, 0,
@@ -2876,11 +2876,36 @@ void MainWindow::create_object_list_panel()
                     return;
                 }
             }
-            else
+            else if (array_type == "Mirror")
             {
                 spec.type = UnitArrayType::Mirror;
                 spec.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
                 spec.count = 2;
+            }
+            else
+            {
+                spec.type = UnitArrayType::Elliptical;
+                spec.major_radius = static_cast<float>(QInputDialog::getDouble(
+                    this, "Elliptical Array", "Major radius:", 10.0,
+                    0.0, 1.0e6, 3, &accepted));
+                if (!accepted)
+                {
+                    return;
+                }
+                spec.minor_radius = static_cast<float>(QInputDialog::getDouble(
+                    this, "Elliptical Array", "Minor radius:", 5.0,
+                    0.0, 1.0e6, 3, &accepted));
+                if (!accepted)
+                {
+                    return;
+                }
+                spec.angle_degrees = QInputDialog::getDouble(
+                    this, "Elliptical Array", "Total angle (degrees):",
+                    360.0, -360000.0, 360000.0, 3, &accepted);
+                if (!accepted)
+                {
+                    return;
+                }
             }
 
             if (!accepted)
