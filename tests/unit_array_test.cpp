@@ -71,6 +71,23 @@ int main(int argc, char **argv)
                    QVector3D(11.0f, 2.0f, 0.0f),
                "parent-local target hitpoint must follow a linear array") && ok;
 
+    source.inj.injector_data.single_target_scope = Single_Target_Scope::Reference_Local;
+    UnitArraySpec reference_frame;
+    reference_frame.type = UnitArrayType::Linear;
+    reference_frame.count = 2;
+    reference_frame.spacing = 4.0f;
+    reference_frame.origin = QVector3D(10.0f, 20.0f, 30.0f);
+    reference_frame.direction = QVector3D(0.0f, 1.0f, 0.0f);
+    reference_frame.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    const QList<Unit> reference_target_children =
+        expand_unit_array(source, reference_frame);
+    ok = check(reference_target_children[0].inj.injector_data.single_target_hitpoint ==
+                   QVector3D(8.0f, 23.0f, 30.0f),
+               "reference-local target conversion mismatch") && ok;
+    ok = check(reference_target_children[1].inj.injector_data.single_target_hitpoint ==
+                   reference_target_children[0].inj.injector_data.single_target_hitpoint,
+               "reference-local target must not follow array offset") && ok;
+
     source.has_array_spec = true;
     source.array_spec = linear;
     const Unit copied_source(source);

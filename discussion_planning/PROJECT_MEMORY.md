@@ -285,6 +285,8 @@ Unit
   parent-local targets rotate with the injector.
 - Single target scopes now include `Reference Local`; array expansion resolves
   such targets through the stored reference frame origin, X axis, and normal.
+- Unit-array regression coverage verifies reference-local conversion and its
+  invariant across linear array offsets.
 - Assembly phase one now stores a composite parent's child UUIDs and each
   child's assembly parent UUID. Text-based object-panel creation supports
   grouping multiple existing Units, and loading/deletion clean up the runtime

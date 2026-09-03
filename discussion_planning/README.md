@@ -1726,6 +1726,12 @@ References:
   configured reference frame and does not apply a second array transform.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Test Reference-Local Array Targets
+
+- Added unit-array regression coverage for rotated reference frames and fixed
+  reference-local targets across linear instances.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Add Assembly Relationship Layer
 
 - Added text-based `Create Assembly From Selected` grouping for multiple
