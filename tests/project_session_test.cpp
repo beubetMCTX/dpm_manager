@@ -47,6 +47,14 @@ int main(int argc, char *argv[])
     unit.inj.injector_data.rr_uniform_ln_d = true;
     unit.inj.injector_data.rr_mean = 0.00042;
     unit.inj.injector_data.volume_zones = {3, 7, 11};
+    unit.has_fill_spec = true;
+    unit.fill_spec.pattern = UnitFillPattern::Hexagonal;
+    unit.fill_spec.rows = 3;
+    unit.fill_spec.columns = 5;
+    unit.fill_spec.spacing_x = 2.5f;
+    unit.fill_spec.spacing_y = 2.0f;
+    unit.fill_spec.origin = QVector3D(4.0f, 5.0f, 6.0f);
+    unit.fill_source_uuids = {unit.inj.uuid};
     if (!check(unit.inj.create_injector(), "Unable to create source injector geometry"))
     {
         return 1;
@@ -207,6 +215,11 @@ int main(int argc, char *argv[])
                "RR logarithmic flag did not round-trip") ||
         !check(restored.units.first().inj.injector_data.volume_zones == QVector<int>({3, 7, 11}),
                "Volume zones did not round-trip") ||
+        !check(restored.units.first().has_fill_spec &&
+                   restored.units.first().fill_spec.pattern == UnitFillPattern::Hexagonal &&
+                   restored.units.first().fill_spec.rows == 3 &&
+                   restored.units.first().fill_source_uuids == QVector<QUuid>({unit.inj.uuid}),
+               "Fill metadata did not round-trip") ||
         !check(!restored.units.first().inj.shape.IsNull(),
                "Restored injector geometry was not rebuilt") ||
         !check(restored.species_colors.value("O2") == QColor("#123456"),

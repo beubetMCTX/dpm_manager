@@ -242,6 +242,9 @@ Unit
 - Object-panel context menus now expose text-based `Create Fill...` actions
   for selected Units, including square/hexagonal pattern, rows, columns, and
   spacing controls; generated children are displayed with local frames.
+- Fill metadata is now stored on the first fill parent with its seed UUID list
+  and restored from project sessions; derived fill children remain runtime
+  objects and are rebuilt after loading.
 
 ## Array Core Progress
 

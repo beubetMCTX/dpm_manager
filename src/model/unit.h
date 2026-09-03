@@ -79,6 +79,9 @@ public:
     bool follows_array = true;
     bool has_array_spec = false;
     UnitArraySpec array_spec;
+    bool has_fill_spec = false;
+    UnitFillSpec fill_spec;
+    QList<QUuid> fill_source_uuids;
 
     Unit()
         : type(injector)
@@ -95,6 +98,9 @@ public:
         , follows_array(other.follows_array)
         , has_array_spec(other.has_array_spec)
         , array_spec(other.array_spec)
+        , has_fill_spec(other.has_fill_spec)
+        , fill_spec(other.fill_spec)
+        , fill_source_uuids(other.fill_source_uuids)
     {
         initialize_runtime_handles();
     }
@@ -114,6 +120,9 @@ public:
         follows_array = other.follows_array;
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
+        has_fill_spec = other.has_fill_spec;
+        fill_spec = other.fill_spec;
+        fill_source_uuids = other.fill_source_uuids;
         initialize_runtime_handles();
         return *this;
     }
@@ -126,6 +135,9 @@ public:
         , follows_array(other.follows_array)
         , has_array_spec(other.has_array_spec)
         , array_spec(std::move(other.array_spec))
+        , has_fill_spec(other.has_fill_spec)
+        , fill_spec(std::move(other.fill_spec))
+        , fill_source_uuids(std::move(other.fill_source_uuids))
     {
         initialize_runtime_handles();
     }
@@ -145,6 +157,9 @@ public:
         follows_array = other.follows_array;
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
+        has_fill_spec = other.has_fill_spec;
+        fill_spec = other.fill_spec;
+        fill_source_uuids = other.fill_source_uuids;
         initialize_runtime_handles();
         return *this;
     }

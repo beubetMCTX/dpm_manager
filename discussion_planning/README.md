@@ -1749,3 +1749,12 @@ References:
 - The action creates square or hexagonal layouts with editable row, column,
   and spacing values and displays generated children with local frames.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Persist Fill Layout Metadata
+
+- Project sessions now store square/hexagonal fill parameters and the UUIDs of
+  the participating seed Units.
+- Fill children remain derived runtime objects and are rebuilt after loading;
+  older sessions without fill metadata remain compatible.
+- Added project-session round-trip coverage; Release build and all 12 tests
+  passed.

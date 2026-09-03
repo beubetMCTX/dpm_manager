@@ -462,6 +462,24 @@ QJsonObject unit_to_json(const Unit &unit)
                   unit.array_parent_uuid.toString(QUuid::WithoutBraces));
     result.insert("is_array_child", unit.is_array_child);
     result.insert("follows_array", unit.follows_array);
+    result.insert("has_fill_spec", unit.has_fill_spec);
+    if (unit.has_fill_spec)
+    {
+        QJsonObject fill_spec;
+        fill_spec.insert("pattern", static_cast<int>(unit.fill_spec.pattern));
+        fill_spec.insert("rows", unit.fill_spec.rows);
+        fill_spec.insert("columns", unit.fill_spec.columns);
+        fill_spec.insert("spacing_x", unit.fill_spec.spacing_x);
+        fill_spec.insert("spacing_y", unit.fill_spec.spacing_y);
+        fill_spec.insert("origin", vector_to_json(unit.fill_spec.origin));
+        result.insert("fill_spec", fill_spec);
+        QJsonArray sources;
+        for (const QUuid &uuid : unit.fill_source_uuids)
+        {
+            sources.append(uuid.toString(QUuid::WithoutBraces));
+        }
+        result.insert("fill_source_uuids", sources);
+    }
     if (unit.has_array_spec)
     {
         QJsonObject array_spec;
@@ -501,6 +519,29 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
     unit->is_array_child = object.value("is_array_child").toBool(false);
     unit->follows_array = object.value("follows_array").toBool(true);
+    unit->has_fill_spec = object.value("has_fill_spec").toBool(false);
+    if (unit->has_fill_spec && object.value("fill_spec").isObject())
+    {
+        const QJsonObject fill_spec = object.value("fill_spec").toObject();
+        unit->fill_spec.pattern = static_cast<UnitFillPattern>(
+            fill_spec.value("pattern").toInt(static_cast<int>(UnitFillPattern::Square)));
+        unit->fill_spec.rows = fill_spec.value("rows").toInt(1);
+        unit->fill_spec.columns = fill_spec.value("columns").toInt(1);
+        unit->fill_spec.spacing_x = static_cast<float>(
+            fill_spec.value("spacing_x").toDouble(0.0));
+        unit->fill_spec.spacing_y = static_cast<float>(
+            fill_spec.value("spacing_y").toDouble(0.0));
+        vector_from_json(fill_spec.value("origin"), &unit->fill_spec.origin);
+        const QJsonArray sources = object.value("fill_source_uuids").toArray();
+        for (const QJsonValue &source : sources)
+        {
+            const QUuid uuid(source.toString());
+            if (!uuid.isNull())
+            {
+                unit->fill_source_uuids.append(uuid);
+            }
+        }
+    }
     if (unit->has_array_spec && object.value("array_spec").isObject())
     {
         const QJsonObject array_spec = object.value("array_spec").toObject();

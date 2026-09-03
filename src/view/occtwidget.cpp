@@ -365,6 +365,24 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         rebuild_unit_array(source_uuid);
     }
 
+    const QList<QUuid> fill_sources = [&]()
+    {
+        QList<QUuid> ids;
+        for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+        {
+            if (it.value() != nullptr && it.value()->has_fill_spec &&
+                !it.value()->is_array_child)
+            {
+                ids.append(it.key());
+            }
+        }
+        return ids;
+    }();
+    for (const QUuid &source_uuid : fill_sources)
+    {
+        rebuild_unit_fill(source_uuid);
+    }
+
     rebuild_unit_local_coordinate_frames();
 
     m_view->FitAll();
@@ -875,6 +893,15 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         return 0;
     }
 
+    const std::shared_ptr<Unit> parent = unit_hash.value(source_uuids.first());
+    if (parent != nullptr)
+    {
+        clear_unit_array_children(*parent);
+        parent->has_fill_spec = true;
+        parent->fill_spec = spec;
+        parent->fill_source_uuids = source_uuids;
+    }
+
     const QList<Unit> children = expand_unit_fill(sources, spec);
     int displayed_count = 0;
     for (const Unit &child : children)
@@ -919,6 +946,16 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         emit unit_display_list_changed();
     }
     return displayed_count;
+}
+
+int OCCTWidget::rebuild_unit_fill(const QUuid &source_uuid)
+{
+    const std::shared_ptr<Unit> parent = unit_hash.value(source_uuid);
+    if (parent == nullptr || !parent->has_fill_spec)
+    {
+        return 0;
+    }
+    return create_unit_fill(parent->fill_source_uuids, parent->fill_spec);
 }
 
 void OCCTWidget::clear_unit_array_children(Unit &source)

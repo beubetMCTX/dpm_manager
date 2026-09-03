@@ -141,6 +141,7 @@ public:
     int create_unit_fill(const QList<QUuid> &source_uuids,
                          const UnitFillSpec &spec);
     int rebuild_unit_array(const QUuid &source_uuid);
+    int rebuild_unit_fill(const QUuid &source_uuid);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
