@@ -124,7 +124,8 @@ enum class Single_Target_Scope
 {
     World,
     Array_Local,
-    Parent_Local
+    Parent_Local,
+    Reference_Local
 };
 
 enum Volume_Streams_Spec

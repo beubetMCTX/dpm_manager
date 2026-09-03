@@ -283,6 +283,8 @@ Unit
   distinction.
 - Quick Unit rotation now preserves `World` target hitpoints; only local and
   parent-local targets rotate with the injector.
+- Single target scopes now include `Reference Local`; array expansion resolves
+  such targets through the stored reference frame origin, X axis, and normal.
 - Assembly phase one now stores a composite parent's child UUIDs and each
   child's assembly parent UUID. Text-based object-panel creation supports
   grouping multiple existing Units, and loading/deletion clean up the runtime

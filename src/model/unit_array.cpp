@@ -10,6 +10,17 @@ QVector3D normalized_or(const QVector3D &value, const QVector3D &fallback)
     return value.lengthSquared() > 1.0e-12f ? value.normalized() : fallback.normalized();
 }
 
+QVector3D reference_local_point(const QVector3D &value,
+                                const UnitArraySpec &spec)
+{
+    const QVector3D x_axis = normalized_or(spec.direction,
+                                           QVector3D(1.0f, 0.0f, 0.0f));
+    const QVector3D z_axis = normalized_or(spec.plane_normal,
+                                           QVector3D(0.0f, 0.0f, 1.0f));
+    const QVector3D y_axis = QVector3D::crossProduct(z_axis, x_axis).normalized();
+    return spec.origin + x_axis * value.x() + y_axis * value.y() + z_axis * value.z();
+}
+
 QVector3D rotate_vector(const QVector3D &value, const QVector3D &axis, float angle)
 {
     return QQuaternion::fromAxisAndAngle(axis,
@@ -34,7 +45,8 @@ void rotate_injector_data(Injector &injector, const QVector3D &origin,
     rotate_point(injector.ff_virtual_origin);
     rotate_point(injector.volume_bgeom_min);
     rotate_point(injector.volume_bgeom_max);
-    if (injector.single_target_scope != Single_Target_Scope::World)
+    if (injector.single_target_scope != Single_Target_Scope::World &&
+        injector.single_target_scope != Single_Target_Scope::Reference_Local)
     {
         rotate_point(injector.single_target_hitpoint);
     }
@@ -67,7 +79,8 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_point(injector.ff_virtual_origin);
     mirror_point(injector.volume_bgeom_min);
     mirror_point(injector.volume_bgeom_max);
-    if (injector.single_target_scope != Single_Target_Scope::World)
+    if (injector.single_target_scope != Single_Target_Scope::World &&
+        injector.single_target_scope != Single_Target_Scope::Reference_Local)
     {
         mirror_point(injector.single_target_hitpoint);
     }
@@ -107,7 +120,9 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
             child.inj.injector_data.volume_bgeom_min += offset;
             child.inj.injector_data.volume_bgeom_max += offset;
             if (child.inj.injector_data.single_target_scope !=
-                Single_Target_Scope::World)
+                    Single_Target_Scope::World &&
+                child.inj.injector_data.single_target_scope !=
+                    Single_Target_Scope::Reference_Local)
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
             }
@@ -128,6 +143,13 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
                                  spec.plane_normal);
         }
 
+        if (child.inj.injector_data.single_target_scope ==
+            Single_Target_Scope::Reference_Local)
+        {
+            child.inj.injector_data.single_target_hitpoint =
+                reference_local_point(child.inj.injector_data.single_target_hitpoint,
+                                      spec);
+        }
         child.ais_display->Set(child.inj.shape);
         result.append(std::move(child));
     }
@@ -183,12 +205,13 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             child.inj.injector_data.volume_bgeom_min += offset;
             child.inj.injector_data.volume_bgeom_max += offset;
             if (child.inj.injector_data.single_target_scope !=
-                Single_Target_Scope::World)
+                    Single_Target_Scope::World &&
+                child.inj.injector_data.single_target_scope !=
+                    Single_Target_Scope::Reference_Local)
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
             }
-
-            child.ais_display->Set(child.inj.shape);
+        child.ais_display->Set(child.inj.shape);
             result.append(std::move(child));
             ++child_index;
         }

@@ -1719,6 +1719,13 @@ References:
   fixed in world coordinates; local scopes continue to rotate with the Unit.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Reference-Local Target Scope
+
+- Added `Reference Local` to Single target scope handling.
+- Array expansion converts reference-local target coordinates through the
+  configured reference frame and does not apply a second array transform.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Add Assembly Relationship Layer
 
 - Added text-based `Create Assembly From Selected` grouping for multiple
