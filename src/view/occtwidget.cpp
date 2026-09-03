@@ -465,28 +465,47 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
         return false;
     }
 
-    m_unit_visibility.insert(uuid, visible);
-    if (visible)
+    QSet<QUuid> visited;
+    std::function<void(const QUuid &)> apply_visibility;
+    apply_visibility = [&](const QUuid &current_uuid)
     {
-        m_context->Display(unit->ais_display, Standard_False);
-        if (!m_unit_local_trihedrons.value(uuid).IsNull())
+        if (visited.contains(current_uuid))
         {
-            m_context->Display(m_unit_local_trihedrons.value(uuid), Standard_False);
+            return;
         }
-    }
-    else
-    {
-        m_context->Erase(unit->ais_display, Standard_False);
-        if (!m_unit_local_trihedrons.value(uuid).IsNull())
+        visited.insert(current_uuid);
+        const std::shared_ptr<Unit> current = unit_hash.value(current_uuid);
+        if (current == nullptr || current->ais_display.IsNull())
         {
-            m_context->Erase(m_unit_local_trihedrons.value(uuid), Standard_False);
+            return;
         }
-    }
-
-    if (!visible && selected_shape == unit->ais_display)
-    {
-        clear_context_selection_safely();
-    }
+        m_unit_visibility.insert(current_uuid, visible);
+        if (visible)
+        {
+            m_context->Display(current->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(current_uuid).IsNull())
+            {
+                m_context->Display(m_unit_local_trihedrons.value(current_uuid), Standard_False);
+            }
+        }
+        else
+        {
+            m_context->Erase(current->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(current_uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(current_uuid), Standard_False);
+            }
+        }
+        if (!visible && selected_shape == current->ais_display)
+        {
+            clear_context_selection_safely();
+        }
+        for (const QUuid &child_uuid : current->assembly_child_uuids)
+        {
+            apply_visibility(child_uuid);
+        }
+    };
+    apply_visibility(uuid);
     m_view->Redraw();
     return true;
 }
@@ -618,17 +637,36 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
         return false;
     }
 
-    if (m_unit_locks.value(uuid, false) == locked)
+    QSet<QUuid> visited;
+    std::function<void(const QUuid &)> apply_lock;
+    apply_lock = [&](const QUuid &current_uuid)
     {
-        return true;
-    }
-
-    m_unit_locks.insert(uuid, locked);
-    if (locked && selected_shape == unit->ais_display)
-    {
-        myIsDragging = false;
-    }
-    emit unit_lock_changed(uuid, locked);
+        if (visited.contains(current_uuid))
+        {
+            return;
+        }
+        visited.insert(current_uuid);
+        const std::shared_ptr<Unit> current = unit_hash.value(current_uuid);
+        if (current == nullptr)
+        {
+            return;
+        }
+        const bool changed = m_unit_locks.value(current_uuid, false) != locked;
+        m_unit_locks.insert(current_uuid, locked);
+        if (locked && selected_shape == current->ais_display)
+        {
+            myIsDragging = false;
+        }
+        if (changed)
+        {
+            emit unit_lock_changed(current_uuid, locked);
+        }
+        for (const QUuid &child_uuid : current->assembly_child_uuids)
+        {
+            apply_lock(child_uuid);
+        }
+    };
+    apply_lock(uuid);
     return true;
 }
 

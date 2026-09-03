@@ -314,6 +314,8 @@ Unit
   members before assigning the new membership set.
 - Object-panel management now exposes text-based detachment, and labels
   Assembly parents and members explicitly with parent UUID information.
+- Assembly parent visibility and locking now recursively propagate to nested
+  members; editing a child alone does not change its parent.
 
 ## History
 

@@ -1878,3 +1878,10 @@ References:
 - Rebuilding an Assembly now clears stale `assembly_parent_uuid` values from
   former members before assigning new children.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Propagate Assembly Visibility And Locks
+
+- Parent Assembly visibility and lock operations now recursively apply to
+  nested members with cycle-safe visitation.
+- Direct child operations remain independent and do not alter the parent.
+- Release build and all 12 focused regressions passed.
