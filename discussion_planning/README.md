@@ -1885,3 +1885,9 @@ References:
   nested members with cycle-safe visitation.
 - Direct child operations remain independent and do not alter the parent.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Validate Assembly Graphs Before Load
+
+- Project preflight now validates Assembly parent/child references in both
+  directions and rejects cyclic graphs before runtime restoration.
+- Release build and all 12 focused regressions passed.

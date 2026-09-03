@@ -808,6 +808,84 @@ bool validate_references(const Data &data,
         }
     }
 
+    QHash<QUuid, int> unit_indices;
+    for (int index = 0; index < data.units.size(); ++index)
+    {
+        const QUuid uuid = data.units.at(index).inj.uuid;
+        if (uuid.isNull() || unit_indices.contains(uuid))
+        {
+            continue;
+        }
+        unit_indices.insert(uuid, index);
+    }
+    for (int index = 0; index < data.units.size(); ++index)
+    {
+        const Unit &unit = data.units.at(index);
+        const QUuid uuid = unit.inj.uuid;
+        if (uuid.isNull())
+        {
+            continue;
+        }
+        if (!unit.assembly_parent_uuid.isNull())
+        {
+            const int parent_index = unit_indices.value(unit.assembly_parent_uuid, -1);
+            if (parent_index < 0 ||
+                !data.units.at(parent_index).assembly_child_uuids.contains(uuid))
+            {
+                errors.append(QString("Unit '%1' has an invalid Assembly parent reference.")
+                                  .arg(unit.inj.injector_data.name));
+            }
+        }
+        for (const QUuid &child_uuid : unit.assembly_child_uuids)
+        {
+            const int child_index = unit_indices.value(child_uuid, -1);
+            if (child_index < 0 ||
+                data.units.at(child_index).assembly_parent_uuid != uuid)
+            {
+                errors.append(QString("Unit '%1' has an invalid Assembly child reference.")
+                                  .arg(unit.inj.injector_data.name));
+            }
+        }
+    }
+
+    QSet<QUuid> visiting;
+    QSet<QUuid> visited;
+    const auto has_assembly_cycle = [&](const QUuid &uuid,
+                                        const auto &self) -> bool
+    {
+        if (visiting.contains(uuid))
+        {
+            return true;
+        }
+        if (visited.contains(uuid))
+        {
+            return false;
+        }
+        visiting.insert(uuid);
+        const int index = unit_indices.value(uuid, -1);
+        if (index >= 0)
+        {
+            for (const QUuid &child_uuid : data.units.at(index).assembly_child_uuids)
+            {
+                if (unit_indices.contains(child_uuid) && self(child_uuid, self))
+                {
+                    return true;
+                }
+            }
+        }
+        visiting.remove(uuid);
+        visited.insert(uuid);
+        return false;
+    };
+    for (auto it = unit_indices.constBegin(); it != unit_indices.constEnd(); ++it)
+    {
+        if (has_assembly_cycle(it.key(), has_assembly_cycle))
+        {
+            errors.append("Project contains a cyclic Assembly relationship.");
+            break;
+        }
+    }
+
     for (int index = 0; index < data.units.size(); ++index)
     {
         const Injector &injector = data.units.at(index).inj.injector_data;

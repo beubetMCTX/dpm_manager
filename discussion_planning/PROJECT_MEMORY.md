@@ -316,6 +316,8 @@ Unit
   Assembly parents and members explicitly with parent UUID information.
 - Assembly parent visibility and locking now recursively propagate to nested
   members; editing a child alone does not change its parent.
+- Project reference validation now checks Assembly parent/child UUID
+  consistency and rejects cyclic Assembly graphs before loading.
 
 ## History
 
