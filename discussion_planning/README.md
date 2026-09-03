@@ -1704,3 +1704,10 @@ References:
 - Direction settings are persisted in project sessions and used by geometry
   previews and local coordinate frames; Cone remains axis-plus-angle based.
 - Added focused editor coverage; Release build and all 12 regressions passed.
+
+### 2026-09-04 Keep Target Hitpoints Coherent In Arrays
+
+- Linear, rotational, and mirror array expansion now transforms a Single
+  injector's target hitpoint together with its position and direction data.
+- Added regression checks for all three array transform types; Release build
+  and all 12 focused regressions passed.

@@ -231,6 +231,8 @@ Unit
 - Direction mode, pitch, yaw, and target point are persisted in project
   sessions, with older sessions remaining compatible through defaults.
 - Focused Unit Editor regression coverage verifies all three mode layouts.
+- Array expansion now transforms `single_target_hitpoint` together with the
+  injector origin for linear, rotational, and mirror children.
 
 ## Array Core Progress
 

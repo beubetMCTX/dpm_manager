@@ -23,6 +23,7 @@ int main(int argc, char **argv)
     source.inj.injector_data.pos = QVector3D(1.0f, 2.0f, 0.0f);
     source.inj.injector_data.pos2 = QVector3D(2.0f, 2.0f, 0.0f);
     source.inj.injector_data.vel = QVector3D(10.0f, 0.0f, 0.0f);
+    source.inj.injector_data.single_target_hitpoint = QVector3D(3.0f, 2.0f, 0.0f);
 
     UnitArraySpec linear;
     linear.type = UnitArrayType::Linear;
@@ -35,7 +36,10 @@ int main(int argc, char **argv)
               check(linear_children[0].inj.uuid != linear_children[1].inj.uuid,
                     "child UUIDs must be unique") &&
               check(source.inj.injector_data.pos == QVector3D(1.0f, 2.0f, 0.0f),
-                    "source was mutated");
+                    "source was mutated") &&
+              check(linear_children[2].inj.injector_data.single_target_hitpoint ==
+                        QVector3D(11.0f, 2.0f, 0.0f),
+                    "linear target hitpoint mismatch");
 
     UnitArraySpec rotational;
     rotational.type = UnitArrayType::Rotational;
@@ -46,6 +50,9 @@ int main(int argc, char **argv)
     ok = check(rotational_children.size() == 2, "rotational count mismatch") && ok;
     ok = check(qAbs(rotational_children[1].inj.injector_data.vel.y() - 10.0f) < 1.0e-4f,
                "rotational direction mismatch") && ok;
+    ok = check(qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.x() + 2.0f) < 1.0e-4f &&
+                   qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.y() - 3.0f) < 1.0e-4f,
+               "rotational target hitpoint mismatch") && ok;
 
     UnitArraySpec mirror;
     mirror.type = UnitArrayType::Mirror;
@@ -54,5 +61,7 @@ int main(int argc, char **argv)
     const QList<Unit> mirror_children = expand_unit_array(source, mirror);
     ok = check(mirror_children[1].inj.injector_data.pos.x() == -1.0f,
                "mirror position mismatch") && ok;
+    ok = check(mirror_children[1].inj.injector_data.single_target_hitpoint.x() == -3.0f,
+               "mirror target hitpoint mismatch") && ok;
     return ok ? 0 : 1;
 }
