@@ -355,6 +355,9 @@ Unit
   for backward compatibility.
 - Project-session regression coverage now verifies persistence of the
   reference-geometry and reference-normal conforming flags.
+- Square and hexagonal fill arrays now support the same optional reference
+  frame and normal-conforming behavior; legacy fill sessions default to the
+  world XY layout with conforming disabled.
 
 ## History
 

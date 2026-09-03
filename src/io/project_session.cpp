@@ -482,6 +482,11 @@ QJsonObject unit_to_json(const Unit &unit)
         fill_spec.insert("origin", vector_to_json(unit.fill_spec.origin));
         fill_spec.insert("circular_boundary", unit.fill_spec.circular_boundary);
         fill_spec.insert("boundary_radius", unit.fill_spec.boundary_radius);
+        fill_spec.insert("direction", vector_to_json(unit.fill_spec.direction));
+        fill_spec.insert("plane_normal", vector_to_json(unit.fill_spec.plane_normal));
+        fill_spec.insert("use_reference_geometry", unit.fill_spec.use_reference_geometry);
+        fill_spec.insert("conform_to_reference_normal",
+                         unit.fill_spec.conform_to_reference_normal);
         result.insert("fill_spec", fill_spec);
         QJsonArray sources;
         for (const QUuid &uuid : unit.fill_source_uuids)
@@ -559,6 +564,12 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
             fill_spec.value("circular_boundary").toBool(false);
         unit->fill_spec.boundary_radius = static_cast<float>(
             fill_spec.value("boundary_radius").toDouble(0.0));
+        vector_from_json(fill_spec.value("direction"), &unit->fill_spec.direction);
+        vector_from_json(fill_spec.value("plane_normal"), &unit->fill_spec.plane_normal);
+        unit->fill_spec.use_reference_geometry =
+            fill_spec.value("use_reference_geometry").toBool(false);
+        unit->fill_spec.conform_to_reference_normal =
+            fill_spec.value("conform_to_reference_normal").toBool(false);
         const QJsonArray sources = object.value("fill_source_uuids").toArray();
         for (const QJsonValue &source : sources)
         {

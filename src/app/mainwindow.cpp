@@ -2906,6 +2906,36 @@ void MainWindow::create_object_list_panel()
             spec.pattern = fill_type == "Hexagonal"
                                ? UnitFillPattern::Hexagonal
                                : UnitFillPattern::Square;
+            if (m_3d_widget->reference_geometry_visible())
+            {
+                const auto use_reference = QMessageBox::question(
+                    this, "Create Fill", "Use the visible reference geometry frame?",
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                if (use_reference == QMessageBox::Yes)
+                {
+                    QVector3D reference_origin;
+                    QVector3D reference_x;
+                    QVector3D reference_z;
+                    if (!m_3d_widget->reference_frame(&reference_origin,
+                                                      &reference_x,
+                                                      &reference_z))
+                    {
+                        statusBar()->showMessage(
+                            "Reference geometry has no usable coordinate frame", 5000);
+                        return;
+                    }
+                    spec.use_reference_geometry = true;
+                    spec.origin = reference_origin;
+                    spec.direction = reference_x;
+                    spec.plane_normal = reference_z;
+                    spec.conform_to_reference_normal =
+                        QMessageBox::question(
+                            this, "Create Fill",
+                            "Align injector directions to the reference face normal?",
+                            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) ==
+                        QMessageBox::Yes;
+                }
+            }
             spec.rows = QInputDialog::getInt(
                 this, "Create Fill", "Rows:", 4, 1, 1000, 1, &accepted);
             if (!accepted)
@@ -2946,8 +2976,11 @@ void MainWindow::create_object_list_panel()
                     return;
                 }
             }
-            spec.origin = m_3d_widget->unit_hash.value(uuid)
-                              ->inj.injector_data.pos;
+            if (!spec.use_reference_geometry)
+            {
+                spec.origin = m_3d_widget->unit_hash.value(uuid)
+                                  ->inj.injector_data.pos;
+            }
             const int created = m_3d_widget->create_unit_fill(
                 selected_unit_ids, spec);
             statusBar()->showMessage(

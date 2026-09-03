@@ -2004,3 +2004,13 @@ References:
 - Project-session regression coverage now verifies that reference-frame array
   settings, including normal conforming, survive save and load.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Reference Frames To Fill Arrays
+
+- Square and hexagonal fill creation can now use the visible reference
+  geometry origin, tangent axis, and normal instead of the world XY plane.
+- Fill children can optionally conform their type-specific injector direction
+  vectors to that reference normal, while retaining spacing and boundary rules.
+- New fill fields are persisted; older sessions retain the previous world-plane
+  behavior through disabled defaults.
+- Release build and all 12 focused regressions passed.

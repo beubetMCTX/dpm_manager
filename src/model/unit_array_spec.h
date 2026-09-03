@@ -39,6 +39,10 @@ struct UnitFillSpec
     QVector3D origin = QVector3D(0.0f, 0.0f, 0.0f);
     bool circular_boundary = false;
     float boundary_radius = 0.0f;
+    QVector3D direction = QVector3D(1.0f, 0.0f, 0.0f);
+    QVector3D plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    bool use_reference_geometry = false;
+    bool conform_to_reference_normal = false;
 };
 
 #endif // UNIT_ARRAY_SPEC_H

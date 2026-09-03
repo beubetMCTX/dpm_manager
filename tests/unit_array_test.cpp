@@ -144,5 +144,21 @@ int main(int argc, char **argv)
     const QList<Unit> circular_filled = expand_unit_fill({source}, hex_fill);
     ok = check(circular_filled.size() == 3,
                "circular fill should reject points outside the boundary") && ok;
+
+    UnitFillSpec reference_fill;
+    reference_fill.rows = 1;
+    reference_fill.columns = 2;
+    reference_fill.spacing_x = 4.0f;
+    reference_fill.origin = QVector3D(10.0f, 20.0f, 30.0f);
+    reference_fill.direction = QVector3D(0.0f, 1.0f, 0.0f);
+    reference_fill.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    reference_fill.use_reference_geometry = true;
+    reference_fill.conform_to_reference_normal = true;
+    const QList<Unit> reference_filled = expand_unit_fill({conform_source}, reference_fill);
+    ok = check(reference_filled.size() == 2 &&
+                   reference_filled[1].inj.injector_data.pos == QVector3D(10.0f, 24.0f, 30.0f),
+               "reference-frame fill position mismatch") && ok;
+    ok = check(qAbs(reference_filled[0].inj.injector_data.vel.z() - 1.0f) < 1.0e-4f,
+               "reference-frame fill should conform direction") && ok;
     return ok ? 0 : 1;
 }

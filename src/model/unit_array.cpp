@@ -215,6 +215,19 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
 
     const int rows = qBound(1, spec.rows, 1000);
     const int columns = qBound(1, spec.columns, 1000);
+    const QVector3D fill_x = normalized_or(spec.direction,
+                                           QVector3D(1.0f, 0.0f, 0.0f));
+    const QVector3D fill_z = normalized_or(spec.plane_normal,
+                                           QVector3D(0.0f, 0.0f, 1.0f));
+    QVector3D fill_y = QVector3D::crossProduct(fill_z, fill_x);
+    if (fill_y.lengthSquared() <= 1.0e-12f)
+    {
+        fill_y = QVector3D(0.0f, 1.0f, 0.0f);
+    }
+    else
+    {
+        fill_y.normalize();
+    }
     int child_index = 0;
     for (int row = 0; row < rows; ++row)
     {
@@ -229,24 +242,22 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
                                                .arg(source.inj.injector_data.name)
                                                .arg(child_index + 1);
 
-            const float x = spec.origin.x() +
-                            (static_cast<float>(column) +
-                             (offset_hex_row ? 0.5f : 0.0f)) * spec.spacing_x;
-            const float y = spec.origin.y() +
-                            static_cast<float>(row) * spec.spacing_y;
+            const float local_x = (static_cast<float>(column) +
+                                   (offset_hex_row ? 0.5f : 0.0f)) * spec.spacing_x;
+            const float local_y = static_cast<float>(row) * spec.spacing_y;
             if (spec.circular_boundary)
             {
-                const float dx = x - spec.origin.x();
-                const float dy = y - spec.origin.y();
+                const float dx = local_x;
+                const float dy = local_y;
                 if (dx * dx + dy * dy >
                     spec.boundary_radius * spec.boundary_radius)
                 {
                     continue;
                 }
             }
-            const QVector3D offset(x - source.inj.injector_data.pos.x(),
-                                   y - source.inj.injector_data.pos.y(),
-                                   spec.origin.z() - source.inj.injector_data.pos.z());
+            const QVector3D target = spec.origin + fill_x * local_x +
+                                     fill_y * local_y;
+            const QVector3D offset = target - source.inj.injector_data.pos;
             child.inj.injector_data.pos += offset;
             child.inj.injector_data.pos2 += offset;
             child.inj.injector_data.ff_center += offset;
@@ -259,6 +270,10 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
                     Single_Target_Scope::Reference_Local)
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
+            }
+            if (spec.use_reference_geometry && spec.conform_to_reference_normal)
+            {
+                conform_injector_to_normal(child.inj.injector_data, fill_z);
             }
         child.ais_display->Set(child.inj.shape);
             result.append(std::move(child));
