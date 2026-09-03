@@ -319,15 +319,6 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         m_unit_locks.clear();
     }
 
-    static const Quantity_Color palette[] = {
-        Quantity_Color(0.90, 0.30, 0.25, Quantity_TOC_RGB),
-        Quantity_Color(0.15, 0.55, 0.90, Quantity_TOC_RGB),
-        Quantity_Color(0.25, 0.70, 0.35, Quantity_TOC_RGB),
-        Quantity_Color(0.90, 0.65, 0.20, Quantity_TOC_RGB),
-        Quantity_Color(0.60, 0.40, 0.90, Quantity_TOC_RGB),
-        Quantity_Color(0.15, 0.70, 0.70, Quantity_TOC_RGB)
-    };
-
     for (int i = 0; i < units.size(); ++i)
     {
         const Unit &unit = units[i];
@@ -339,7 +330,8 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         stored_unit->ais_display->Set(stored_unit->inj.shape);
         stored_unit->u_owner->set_unit(stored_unit.get());
         stored_unit->ais_display->SetOwner(stored_unit->u_owner);
-        stored_unit->ais_display->SetColor(palette[i % (sizeof(palette) / sizeof(palette[0]))]);
+        stored_unit->ais_display->SetColor(
+            color_for_material(stored_unit->inj.injector_data.material));
         stored_unit->ais_display->SetTransparency(
             stored_unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
 
@@ -834,8 +826,6 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     source->array_spec = spec;
     source->type = array;
     const QList<Unit> children = expand_unit_array(*source, spec);
-    Quantity_Color source_color;
-    source->ais_display->Color(source_color);
     int displayed_count = 0;
     for (const Unit &child : children)
     {
@@ -847,7 +837,8 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         stored_child->ais_display->Set(stored_child->inj.shape);
         stored_child->u_owner->set_unit(stored_child.get());
         stored_child->ais_display->SetOwner(stored_child->u_owner);
-        stored_child->ais_display->SetColor(source_color);
+        stored_child->ais_display->SetColor(
+            color_for_material(stored_child->inj.injector_data.material));
         stored_child->ais_display->SetTransparency(
             stored_child->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
 
@@ -924,16 +915,10 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         {
             stored_child->ais_display->SetTransparency(0.82f);
         }
-        for (const QUuid &source_uuid : source_uuids)
+        if (!sources.isEmpty())
         {
-            const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
-            if (source != nullptr)
-            {
-                Quantity_Color color;
-                source->ais_display->Color(color);
-                stored_child->ais_display->SetColor(color);
-                break;
-            }
+            stored_child->ais_display->SetColor(
+                color_for_material(stored_child->inj.injector_data.material));
         }
         if (parent != nullptr)
         {
@@ -1193,18 +1178,8 @@ bool OCCTWidget::restore_deleted_unit(const UnitDeleteHistoryEntry &entry)
     restored_unit->ais_display->Set(restored_unit->inj.shape);
     restored_unit->u_owner->set_unit(restored_unit.get());
     restored_unit->ais_display->SetOwner(restored_unit->u_owner);
-    const Quantity_Color palette[] = {
-        Quantity_Color(0.90, 0.30, 0.25, Quantity_TOC_RGB),
-        Quantity_Color(0.15, 0.55, 0.90, Quantity_TOC_RGB),
-        Quantity_Color(0.25, 0.70, 0.35, Quantity_TOC_RGB),
-        Quantity_Color(0.90, 0.65, 0.20, Quantity_TOC_RGB),
-        Quantity_Color(0.60, 0.40, 0.90, Quantity_TOC_RGB),
-        Quantity_Color(0.15, 0.70, 0.70, Quantity_TOC_RGB)
-    };
     restored_unit->ais_display->SetColor(
-        entry.has_color
-            ? entry.color
-            : palette[unit_hash.size() % (sizeof(palette) / sizeof(palette[0]))]);
+        color_for_material(restored_unit->inj.injector_data.material));
     restored_unit->ais_display->SetTransparency(
         restored_unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
 
@@ -1370,6 +1345,7 @@ bool OCCTWidget::apply_move_snapshot(const UnitMoveHistoryEntry &entry,
 
     unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_material(unit->inj.injector_data.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(entry.uuid);
     m_view->Redraw();
@@ -1655,6 +1631,12 @@ void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
     }
 }
 
+void OCCTWidget::set_species_colors(const QHash<QString, QColor> &species_colors)
+{
+    m_species_colors = species_colors;
+    refresh_unit_colors();
+}
+
 void OCCTWidget::set_material_names(const QStringList &material_names)
 {
     m_material_names = material_names;
@@ -1674,6 +1656,40 @@ Standard_Real OCCTWidget::get_trihedron_size()
                                     geometry.xyz_length.y() *
                                     geometry.xyz_length.z()) / 10.0;
     return std::max(size, 1.0);
+}
+
+Quantity_Color OCCTWidget::color_for_material(const QString &material) const
+{
+    const QString normalized = material.trimmed();
+    for (auto it = m_species_colors.constBegin();
+         it != m_species_colors.constEnd(); ++it)
+    {
+        if (it.key().compare(normalized, Qt::CaseInsensitive) == 0 &&
+            it.value().isValid())
+        {
+            const QColor color = it.value();
+            return Quantity_Color(color.redF(), color.greenF(), color.blueF(),
+                                  Quantity_TOC_RGB);
+        }
+    }
+    return Quantity_Color(0.72, 0.72, 0.72, Quantity_TOC_RGB);
+}
+
+void OCCTWidget::refresh_unit_colors()
+{
+    for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
+    {
+        if (it.value() != nullptr && !it.value()->ais_display.IsNull())
+        {
+            it.value()->ais_display->SetColor(
+                color_for_material(it.value()->inj.injector_data.material));
+        }
+    }
+    if (!m_context.IsNull() && !m_view.IsNull())
+    {
+        m_context->UpdateCurrentViewer();
+        m_view->Redraw();
+    }
 }
 
 void OCCTWidget::clear_unit_local_coordinate_frames()

@@ -1787,6 +1787,14 @@ References:
 - Corrected the verification count to the current 12 focused regressions and
   documented that nested Assembly hierarchy remains future work.
 
+### 2026-09-04 Use Species Colors For All Injector Displays
+
+- Every injector display color is now resolved from the existing Species/Color
+  table using its `material` name.
+- Ordinary units, arrays, fills, restores, and geometry refreshes no longer
+  copy a palette or another injector's color; missing entries use fixed neutral
+  fallback color.
+
 ### 2026-09-04 Clean Up Derived Children On Delete
 
 - Parent deletion now removes following array/fill children from the OCCT

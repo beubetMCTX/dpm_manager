@@ -1058,6 +1058,7 @@ bool MainWindow::load_project_session(const QString &file_path)
         m_chemkin_file_path.clear();
         m_chemkin_species_names.clear();
         m_3d_widget->set_chemkin_species_names({});
+        m_3d_widget->set_species_colors({});
         update_chemkin_status();
         QString clear_error;
         if (!clear_last_chemkin_file_path(&clear_error) && !clear_error.trimmed().isEmpty())
@@ -1089,6 +1090,7 @@ bool MainWindow::load_project_session(const QString &file_path)
             m_species_color_dialog->set_species_colors(data.species_colors);
         }
     }
+    m_3d_widget->set_species_colors(data.species_colors);
 
     apply_material_entries(data.materials, true, false);
 
@@ -1347,10 +1349,18 @@ void MainWindow::on_actionSpecies_Colors_triggered()
             statusBar()->showMessage(message, 8000);
         });
         connect(m_species_color_dialog, &SpeciesColorDialog::species_colors_changed,
-                this, &MainWindow::mark_project_dirty);
+                this, [this]()
+        {
+            m_3d_widget->set_species_colors(
+                m_species_color_dialog != nullptr
+                    ? m_species_color_dialog->species_colors()
+                    : QHash<QString, QColor>());
+            mark_project_dirty();
+        });
     }
 
     m_species_color_dialog->set_chemkin_context(m_chemkin_file_path, m_chemkin_species_names);
+    m_3d_widget->set_species_colors(m_species_color_dialog->species_colors());
     m_species_color_dialog->show();
     m_species_color_dialog->raise();
     m_species_color_dialog->activateWindow();
@@ -1416,6 +1426,17 @@ bool MainWindow::load_chemkin_file(const QString &file_path,
     m_chemkin_species_names = species_names;
     m_chemkin_file_path = QFileInfo(file_path).absoluteFilePath();
     m_3d_widget->set_chemkin_species_names(m_chemkin_species_names);
+    QHash<QString, QColor> loaded_species_colors;
+    QString color_config_error;
+    if (!load_species_color_config(m_chemkin_file_path,
+                                   m_chemkin_species_names,
+                                   &loaded_species_colors,
+                                   &color_config_error) &&
+        !color_config_error.trimmed().isEmpty())
+    {
+        qWarning() << color_config_error;
+    }
+    m_3d_widget->set_species_colors(loaded_species_colors);
     if (m_species_color_dialog != nullptr)
     {
         m_species_color_dialog->set_chemkin_context(m_chemkin_file_path, m_chemkin_species_names);

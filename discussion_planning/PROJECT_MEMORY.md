@@ -256,6 +256,12 @@ Unit
   rebuilds remove stale runtime objects before creating replacements.
 - Deleting a parent now removes following derived children, while deleting a
   child detaches it from the parent's runtime ownership list.
+- The source of truth for every injector display color is now the existing
+  Species/Color table queried by `injector.material`; ordinary units, arrays,
+  fills, restores, and geometry refreshes no longer copy palette or parent
+  colors. Missing entries use a fixed neutral fallback.
+- Mixed fill children now retain the round-robin source color, making different
+  injector seeds visually distinguishable in square and hexagonal layouts.
 
 ## Array Core Progress
 

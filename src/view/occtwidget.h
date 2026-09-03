@@ -2,6 +2,7 @@
 #define OCCTWIDGET_H
 
 #include <QWidget>
+#include <QColor>
 #include <QMouseEvent>
 #include <QWheelEvent>
 #include <QKeyEvent>
@@ -165,6 +166,7 @@ public:
     bool can_undo_delete() const;
     bool can_redo_delete() const;
     void set_chemkin_species_names(const QStringList &species_names);
+    void set_species_colors(const QHash<QString, QColor> &species_colors);
     void set_material_names(const QStringList &material_names);
     // Shared case capabilities used by every unit editor.
     void set_unit_editor_case_context(const Unit_Edit_Case_Context &context);
@@ -236,6 +238,8 @@ private:
     void schedule_unit_visual_refresh(Unit *unit);
     void refresh_unit_visual(Unit *unit);
     void clear_unit_array_children(Unit &source);
+    Quantity_Color color_for_material(const QString &material) const;
+    void refresh_unit_colors();
 
     void open_edit_widget(Handle(AIS_Shape) shape);
     struct UnitMoveSnapshot
@@ -393,6 +397,7 @@ private:
 
     QStringList m_chemkin_species_names;
     QStringList m_material_names;
+    QHash<QString, QColor> m_species_colors;
     Unit_Edit_Case_Context m_unit_editor_case_context;
     QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;
     QSet<QUuid> m_pending_visual_refreshes;
