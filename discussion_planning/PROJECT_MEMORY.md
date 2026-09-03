@@ -318,6 +318,7 @@ Unit
   members; editing a child alone does not change its parent.
 - Recursive Assembly rotation records one edit-history batch, so a single
   Undo/Redo restores all affected members together rather than one at a time.
+- Recursive Assembly translation now uses the same batch history behavior.
 - Project reference validation now checks Assembly parent/child UUID
   consistency and rejects cyclic Assembly graphs before loading.
 - Project-session regression coverage now verifies Assembly parent/child

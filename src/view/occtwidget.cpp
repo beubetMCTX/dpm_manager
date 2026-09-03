@@ -709,6 +709,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
     }
 
     m_active_edit_batch_id = QUuid::createUuid();
+    m_active_move_batch_id = QUuid::createUuid();
     int translated_count = 0;
     for (const QUuid &uuid : operation_uuids)
     {
@@ -748,6 +749,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
     }
 
     m_active_edit_batch_id = QUuid();
+    m_active_move_batch_id = QUuid();
     if (translated_count > 0 && !m_view.IsNull())
     {
         m_view->Redraw();
@@ -1712,6 +1714,7 @@ void OCCTWidget::record_move(const QUuid &uuid,
 
     UnitMoveHistoryEntry entry;
     entry.uuid = uuid;
+    entry.batch_id = m_active_move_batch_id;
     entry.before = before;
     entry.after = after;
     m_move_history.append(entry);
@@ -1955,13 +1958,23 @@ bool OCCTWidget::undo_last_move()
         return false;
     }
 
-    const UnitMoveHistoryEntry &entry = m_move_history[m_move_history_index - 1];
-    if (!apply_move_snapshot(entry, entry.before))
+    const QUuid batch_id = m_move_history[m_move_history_index - 1].batch_id;
+    int batch_start = m_move_history_index - 1;
+    while (batch_start > 0 && !batch_id.isNull() &&
+           m_move_history[batch_start - 1].batch_id == batch_id)
     {
-        return false;
+        --batch_start;
+    }
+    for (int index = m_move_history_index - 1; index >= batch_start; --index)
+    {
+        const UnitMoveHistoryEntry &entry = m_move_history[index];
+        if (!apply_move_snapshot(entry, entry.before))
+        {
+            return false;
+        }
     }
 
-    --m_move_history_index;
+    m_move_history_index = batch_start;
     emit move_history_changed(can_undo_move(), can_redo_move());
     return true;
 }
@@ -1973,13 +1986,23 @@ bool OCCTWidget::redo_move()
         return false;
     }
 
-    const UnitMoveHistoryEntry &entry = m_move_history[m_move_history_index];
-    if (!apply_move_snapshot(entry, entry.after))
+    const QUuid batch_id = m_move_history[m_move_history_index].batch_id;
+    int batch_end = m_move_history_index + 1;
+    while (batch_end < m_move_history.size() && !batch_id.isNull() &&
+           m_move_history[batch_end].batch_id == batch_id)
     {
-        return false;
+        ++batch_end;
+    }
+    for (int index = m_move_history_index; index < batch_end; ++index)
+    {
+        const UnitMoveHistoryEntry &entry = m_move_history[index];
+        if (!apply_move_snapshot(entry, entry.after))
+        {
+            return false;
+        }
     }
 
-    ++m_move_history_index;
+    m_move_history_index = batch_end;
     emit move_history_changed(can_undo_move(), can_redo_move());
     return true;
 }

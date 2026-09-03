@@ -1893,6 +1893,12 @@ References:
 - Ordinary single-Unit edits retain their existing one-record behavior.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Batch Assembly Translation History
+
+- Recursive Assembly translation now tags all member move records as one
+  history batch, making one Undo/Redo restore the complete translation.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Validate Assembly Graphs Before Load
 
 - Project preflight now validates Assembly parent/child references in both
