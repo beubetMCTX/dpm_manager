@@ -73,6 +73,7 @@
 
 #include "base_geom_read.h"
 #include "unit.h"
+#include "unit_array.h"
 #include "unit_edit_dialog.h"
 
 
@@ -135,6 +136,8 @@ public:
     bool remove_unit_by_uuid(const QUuid &uuid);
     bool copy_unit_by_uuid(const QUuid &uuid);
     bool paste_unit_by_uuid(const QUuid &uuid);
+    int create_unit_array(const QUuid &source_uuid,
+                          const UnitArraySpec &spec);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
     void fit_selected_view();

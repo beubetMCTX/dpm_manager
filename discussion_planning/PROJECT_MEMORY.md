@@ -20,7 +20,7 @@
 - Invalid legacy values are normalized before UI/model use. All editor paths
   normalize state before emitting data or geometry updates.
 - Child dialogs use guarded lifetime handling to avoid shutdown crashes.
-- Release build and 11 CTest regressions currently pass.
+- Release build and 12 focused CTest regressions currently pass.
 
 ## Planned Injector Arrays
 
@@ -230,7 +230,7 @@ Unit
 - The module is intentionally not connected to editor controls or project
   serialization yet; those layers require the composite Unit hierarchy and
   inheritance policy to be finalized.
-- Release build and all 11 focused regressions passed after adding the module.
+- Release build and all 12 focused regressions passed after adding the module.
 
 ## History
 

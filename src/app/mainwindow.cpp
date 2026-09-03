@@ -2476,6 +2476,7 @@ void MainWindow::create_object_list_panel()
         QAction *lock_action = menu.addAction(
             m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
                                             : "Lock Movement");
+        QAction *array_action = menu.addAction("Create Array...");
         menu.addSeparator();
         QAction *delete_action = menu.addAction("Delete");
         QAction *chosen_action = menu.exec(m_object_list->viewport()->mapToGlobal(position));
@@ -2520,6 +2521,62 @@ void MainWindow::create_object_list_panel()
             update_object_list_item(
                 uuid, m_3d_widget->unit_hash.value(uuid)
                            ->inj.injector_data.name);
+        }
+        else if (chosen_action == array_action)
+        {
+            const QStringList array_types = {"Linear", "Rotational", "Mirror"};
+            bool accepted = false;
+            const QString array_type = QInputDialog::getItem(
+                this, "Create Array", "Array type:", array_types, 0,
+                false, &accepted);
+            if (!accepted)
+            {
+                return;
+            }
+
+            const int count = QInputDialog::getInt(
+                this, "Create Array", "Number of children:", 4, 1, 100000,
+                1, &accepted);
+            if (!accepted)
+            {
+                return;
+            }
+
+            UnitArraySpec spec;
+            spec.count = count;
+            if (array_type == "Linear")
+            {
+                spec.type = UnitArrayType::Linear;
+                spec.spacing = static_cast<float>(QInputDialog::getDouble(
+                    this, "Linear Array", "Spacing:", 5.0, -1.0e6, 1.0e6,
+                    3, &accepted));
+            }
+            else if (array_type == "Rotational")
+            {
+                spec.type = UnitArrayType::Rotational;
+                spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
+                spec.angle_degrees = QInputDialog::getDouble(
+                    this, "Rotational Array", "Total angle (degrees):",
+                    360.0, -360000.0, 360000.0, 3, &accepted);
+                if (!accepted)
+                {
+                    return;
+                }
+            }
+            else
+            {
+                spec.type = UnitArrayType::Mirror;
+                spec.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
+                spec.count = 2;
+            }
+
+            if (!accepted)
+            {
+                return;
+            }
+            const int created = m_3d_widget->create_unit_array(uuid, spec);
+            statusBar()->showMessage(
+                QString("Created %1 array child units").arg(created), 5000);
         }
         else if (chosen_action == delete_action)
         {

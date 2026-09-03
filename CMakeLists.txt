@@ -375,6 +375,7 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
         ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
         ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
@@ -401,6 +402,22 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
     add_test(NAME occtwidget_edit_history_regression
              COMMAND occtwidget_edit_history_regression)
 
+    add_executable(unit_array_regression
+        tests/unit_array_test.cpp
+        ${MODEL_DIR}/unit.h ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
+        ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
+    )
+    target_include_directories(unit_array_regression PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${MODEL_DIR}
+        ${COMMON_DIR}
+    )
+    target_link_libraries(unit_array_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+    target_link_libraries(unit_array_regression PRIVATE unofficial::tinyexpr::tinyexpr)
+    target_link_libraries(unit_array_regression PRIVATE ${OpenCASCADE_LIBRARIES})
+    add_test(NAME unit_array_regression COMMAND unit_array_regression)
+
     # Keep CTest independent from the developer shell's PATH. The regression
     # executables link against the same Qt/OpenCASCADE/vcpkg runtime set as
     # the Release package.
@@ -415,7 +432,8 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
         injector_geometry_regression
         auxiliary_dialog_lifetime_regression
         unit_edit_dialog_lifetime_regression
-        occtwidget_edit_history_regression)
+        occtwidget_edit_history_regression
+        unit_array_regression)
     set(DPM_TEST_RUNTIME_PATH
         "${CMAKE_BINARY_DIR};${DPM_TEST_DEPENDENCY_DIR};${OpenCASCADE_BIN_DIR};${DPM_QT_BIN_DIR}")
     string(REPLACE ";" "\\;" DPM_TEST_RUNTIME_PATH_ESCAPED

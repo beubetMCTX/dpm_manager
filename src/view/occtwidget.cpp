@@ -765,6 +765,47 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     return true;
 }
 
+int OCCTWidget::create_unit_array(const QUuid &source_uuid,
+                                  const UnitArraySpec &spec)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || source->ais_display.IsNull() || m_context.IsNull())
+    {
+        return 0;
+    }
+
+    const QList<Unit> children = expand_unit_array(*source, spec);
+    Quantity_Color source_color;
+    source->ais_display->Color(source_color);
+    int displayed_count = 0;
+    for (const Unit &child : children)
+    {
+        const std::shared_ptr<Unit> stored_child = std::make_shared<Unit>(child);
+        stored_child->ais_display->Set(stored_child->inj.shape);
+        stored_child->u_owner->set_unit(stored_child.get());
+        stored_child->ais_display->SetOwner(stored_child->u_owner);
+        stored_child->ais_display->SetColor(source_color);
+        stored_child->ais_display->SetTransparency(
+            stored_child->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+
+        unit_hash.insert(stored_child->inj.uuid, stored_child);
+        m_unit_visibility.insert(stored_child->inj.uuid, true);
+        m_unit_locks.insert(stored_child->inj.uuid, false);
+        m_context->Activate(stored_child->ais_display, TopAbs_SHAPE, Standard_True);
+        m_context->Display(stored_child->ais_display, Standard_False);
+        ++displayed_count;
+    }
+
+    if (displayed_count > 0)
+    {
+        rebuild_unit_local_coordinate_frames();
+        m_view->FitAll();
+        m_view->Redraw();
+        emit unit_display_list_changed();
+    }
+    return displayed_count;
+}
+
 bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);

@@ -1684,4 +1684,4 @@ References:
 - Editor controls, composite hierarchy, inheritance overrides, and project
   serialization remain separate follow-up layers rather than being guessed in
   this foundational increment.
-- Release build and all 11 focused regressions passed.
+- Release build and all 12 focused regressions passed.
