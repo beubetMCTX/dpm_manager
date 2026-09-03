@@ -108,6 +108,8 @@ public:
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }
     QVector3D reference_rotation() const { return m_reference_rotation; }
+    bool reference_frame(QVector3D *origin, QVector3D *x_axis,
+                         QVector3D *z_axis) const;
     void set_reference_geometry_locked(bool locked);
     bool reference_geometry_locked() const { return m_reference_geometry_locked; }
     void align_view_to_selected_face();

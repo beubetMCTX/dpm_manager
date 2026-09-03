@@ -1694,6 +1694,14 @@ References:
   resolves the display color from the Species/Color table.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Use Reference Geometry For Arrays
+
+- Added a persisted `use_reference_geometry` array-spec flag.
+- Array creation now offers a text confirmation to use the visible reference
+  frame; linear, rotational, and mirror modes consume its X axis, origin/X
+  axis, and Z normal respectively.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Persist Array Metadata
 
 - Project sessions now store optional array metadata on the mother Unit and

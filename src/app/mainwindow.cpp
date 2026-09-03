@@ -2666,6 +2666,30 @@ void MainWindow::create_object_list_panel()
 
             UnitArraySpec spec;
             spec.count = count;
+            if (m_3d_widget->reference_geometry_visible())
+            {
+                const auto use_reference = QMessageBox::question(
+                    this, "Create Array", "Use the visible reference geometry frame?",
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                if (use_reference == QMessageBox::Yes)
+                {
+                    QVector3D reference_origin;
+                    QVector3D reference_x;
+                    QVector3D reference_z;
+                    if (!m_3d_widget->reference_frame(&reference_origin,
+                                                      &reference_x,
+                                                      &reference_z))
+                    {
+                        statusBar()->showMessage(
+                            "Reference geometry has no usable coordinate frame", 5000);
+                        return;
+                    }
+                    spec.use_reference_geometry = true;
+                    spec.origin = reference_origin;
+                    spec.direction = reference_x;
+                    spec.plane_normal = reference_z;
+                }
+            }
             if (array_type == "Linear")
             {
                 spec.type = UnitArrayType::Linear;

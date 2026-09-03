@@ -492,6 +492,7 @@ QJsonObject unit_to_json(const Unit &unit)
         array_spec.insert("spacing", unit.array_spec.spacing);
         array_spec.insert("angle_degrees", unit.array_spec.angle_degrees);
         array_spec.insert("plane_normal", vector_to_json(unit.array_spec.plane_normal));
+        array_spec.insert("use_reference_geometry", unit.array_spec.use_reference_geometry);
         result.insert("array_spec", array_spec);
     }
     QJsonObject injector;
@@ -561,6 +562,8 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
         unit->array_spec.angle_degrees = static_cast<float>(
             array_spec.value("angle_degrees").toDouble(360.0));
         vector_from_json(array_spec.value("plane_normal"), &unit->array_spec.plane_normal);
+        unit->array_spec.use_reference_geometry =
+            array_spec.value("use_reference_geometry").toBool(false);
     }
     if (!injector_from_json(injector_object, &unit->inj.injector_data))
     {

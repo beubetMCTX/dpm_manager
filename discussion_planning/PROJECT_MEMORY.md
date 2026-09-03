@@ -270,6 +270,10 @@ Unit
 - Rotation actions are now recorded in the existing Unit edit history, so the
   current Undo/Redo edit commands can restore the complete injector snapshot;
   edit-snapshot restoration also refreshes the local frame and species color.
+- Array specifications now persist a `use_reference_geometry` flag. When
+  enabled from the text-based creation flow, linear arrays use the reference
+  X axis, rotational arrays use its origin and X axis, and mirror arrays use
+  its Z normal.
 
 ## Array Core Progress
 

@@ -2001,6 +2001,30 @@ void OCCTWidget::set_reference_transform(const QVector3D &position,
     apply_reference_transform();
 }
 
+bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
+                                 QVector3D *z_axis) const
+{
+    if (origin == nullptr || x_axis == nullptr || z_axis == nullptr ||
+        reference_geometry.IsNull() || !m_reference_geometry_visible)
+    {
+        return false;
+    }
+
+    gp_XYZ x_vector(1.0, 0.0, 0.0);
+    gp_XYZ z_vector(0.0, 0.0, 1.0);
+    m_reference_transform.Transforms(x_vector);
+    m_reference_transform.Transforms(z_vector);
+    *origin = m_reference_position;
+    *x_axis = QVector3D(static_cast<float>(x_vector.X()),
+                        static_cast<float>(x_vector.Y()),
+                        static_cast<float>(x_vector.Z())).normalized();
+    *z_axis = QVector3D(static_cast<float>(z_vector.X()),
+                        static_cast<float>(z_vector.Y()),
+                        static_cast<float>(z_vector.Z())).normalized();
+    return x_axis->lengthSquared() > 1.0e-12f &&
+           z_axis->lengthSquared() > 1.0e-12f;
+}
+
 void OCCTWidget::begin_reference_transform_transaction()
 {
     if (m_reference_transform_transaction_active)
