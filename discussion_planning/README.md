@@ -1765,3 +1765,10 @@ References:
   allowing rebuilds and repeated project loads to remove stale displays
   instead of accumulating duplicate objects.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Clean Up Derived Children On Delete
+
+- Parent deletion now removes following array/fill children from the OCCT
+  scene and runtime maps.
+- Child deletion detaches the child from its parent's ownership list, avoiding
+  stale runtime references.

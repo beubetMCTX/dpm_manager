@@ -1023,6 +1023,21 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
         return false;
     }
 
+    // Derived array/fill children belong to their parent at runtime. Remove
+    // following children with the parent and detach a child before deletion.
+    if (!unit->child_units.isEmpty())
+    {
+        clear_unit_array_children(*unit);
+    }
+    if (unit->is_array_child && !unit->array_parent_uuid.isNull())
+    {
+        const std::shared_ptr<Unit> parent = unit_hash.value(unit->array_parent_uuid);
+        if (parent != nullptr)
+        {
+            parent->child_units.removeAll(unit);
+        }
+    }
+
     if (!m_replaying_delete_history)
     {
         UnitDeleteHistoryEntry entry;

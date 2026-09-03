@@ -247,6 +247,8 @@ Unit
   objects and are rebuilt after loading.
 - Fill-derived children are now registered in the parent `child_units` list so
   rebuilds remove stale runtime objects before creating replacements.
+- Deleting a parent now removes following derived children, while deleting a
+  child detaches it from the parent's runtime ownership list.
 
 ## Array Core Progress
 
