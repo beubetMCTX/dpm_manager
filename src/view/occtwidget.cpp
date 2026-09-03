@@ -995,6 +995,14 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
         return false;
     };
 
+    for (const QUuid &old_child_uuid : parent->assembly_child_uuids)
+    {
+        const std::shared_ptr<Unit> old_child = unit_hash.value(old_child_uuid);
+        if (old_child != nullptr && old_child->assembly_parent_uuid == parent_uuid)
+        {
+            old_child->assembly_parent_uuid = QUuid();
+        }
+    }
     parent->type = Assebly;
     parent->assembly_child_uuids.clear();
     parent->child_units.clear();

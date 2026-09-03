@@ -310,6 +310,8 @@ Unit
   are selected.
 - Assembly creation now permits an existing Assembly as a child, removes that
   child from its former parent, and rejects descendant cycles.
+- Rebuilding an Assembly now clears stale parent UUIDs from its previous
+  members before assigning the new membership set.
 - Object-panel management now exposes text-based detachment, and labels
   Assembly parents and members explicitly with parent UUID information.
 

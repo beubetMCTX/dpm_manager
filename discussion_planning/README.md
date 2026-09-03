@@ -1872,3 +1872,9 @@ References:
 - Object-panel entries now distinguish Assembly parents and members and show
   the Assembly parent UUID in their tooltip.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Keep Assembly Relationships Bidirectional
+
+- Rebuilding an Assembly now clears stale `assembly_parent_uuid` values from
+  former members before assigning new children.
+- Release build and all 12 focused regressions passed.
