@@ -1686,6 +1686,14 @@ References:
   this foundational increment.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Make Rotation Undoable
+
+- Numeric Unit rotation now records a complete injector edit snapshot in the
+  existing Undo/Redo history.
+- Restoring an edit snapshot also refreshes the local coordinate frame and
+  resolves the display color from the Species/Color table.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Persist Array Metadata
 
 - Project sessions now store optional array metadata on the mother Unit and

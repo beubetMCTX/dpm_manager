@@ -267,6 +267,9 @@ Unit
   angle, updates position-derived points and direction vectors, rebuilds the
   geometry, refreshes the local frame, and resolves the display color again
   from the Species/Color table.
+- Rotation actions are now recorded in the existing Unit edit history, so the
+  current Undo/Redo edit commands can restore the complete injector snapshot;
+  edit-snapshot restoration also refreshes the local frame and species color.
 
 ## Array Core Progress
 

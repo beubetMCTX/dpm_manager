@@ -702,6 +702,10 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
 
         Injector &injector = unit->inj.injector_data;
         const Injector before = injector;
+        UnitEditTransaction transaction;
+        transaction.uuid = uuid;
+        transaction.before_type = unit->type;
+        transaction.before_data = before;
         const QVector3D pivot = injector.pos;
         const auto rotate_point = [&](const QVector3D &point)
         {
@@ -732,6 +736,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         unit->ais_display->SetColor(color_for_material(injector.material));
         m_context->Redisplay(unit->ais_display, Standard_False);
         update_unit_local_coordinate_frame(uuid);
+        record_edit(transaction, *unit);
         emit unit_data_updated(unit.get());
         ++rotated_count;
     }
@@ -1554,7 +1559,9 @@ bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetTransparency(
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+    unit->ais_display->SetColor(color_for_material(unit->inj.injector_data.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(entry.uuid);
     m_view->Redraw();
     emit unit_data_updated(unit.get());
     return true;
