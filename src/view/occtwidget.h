@@ -138,6 +138,7 @@ public:
     bool paste_unit_by_uuid(const QUuid &uuid);
     int create_unit_array(const QUuid &source_uuid,
                           const UnitArraySpec &spec);
+    int rebuild_unit_array(const QUuid &source_uuid);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
     void fit_selected_view();
@@ -229,6 +230,7 @@ private:
     Unit* get_unit(Handle(AIS_Shape) shape);
     void schedule_unit_visual_refresh(Unit *unit);
     void refresh_unit_visual(Unit *unit);
+    void clear_unit_array_children(Unit &source);
 
     void open_edit_widget(Handle(AIS_Shape) shape);
     struct UnitMoveSnapshot

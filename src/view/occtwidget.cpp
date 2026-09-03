@@ -774,6 +774,10 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         return 0;
     }
 
+    clear_unit_array_children(*source);
+    source->has_array_spec = true;
+    source->array_spec = spec;
+    source->type = array;
     const QList<Unit> children = expand_unit_array(*source, spec);
     Quantity_Color source_color;
     source->ais_display->Color(source_color);
@@ -809,6 +813,43 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         emit unit_display_list_changed();
     }
     return displayed_count;
+}
+
+void OCCTWidget::clear_unit_array_children(Unit &source)
+{
+    const QVector<std::shared_ptr<Unit>> children = source.child_units;
+    source.child_units.clear();
+    for (const std::shared_ptr<Unit> &child : children)
+    {
+        if (child == nullptr)
+        {
+            continue;
+        }
+        const QUuid uuid = child->inj.uuid;
+        if (!m_context.IsNull() && !child->ais_display.IsNull())
+        {
+            m_context->Remove(child->ais_display, Standard_False);
+        }
+        if (!m_context.IsNull() && !m_unit_local_trihedrons.value(uuid).IsNull())
+        {
+            m_context->Remove(m_unit_local_trihedrons.value(uuid), Standard_False);
+        }
+        m_unit_local_trihedrons.remove(uuid);
+        m_unit_visibility.remove(uuid);
+        m_unit_locks.remove(uuid);
+        unit_hash.remove(uuid);
+    }
+}
+
+int OCCTWidget::rebuild_unit_array(const QUuid &source_uuid)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || !source->has_array_spec)
+    {
+        return 0;
+    }
+    const UnitArraySpec spec = source->array_spec;
+    return create_unit_array(source_uuid, spec);
 }
 
 bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
@@ -2549,6 +2590,10 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
+    if (unit->has_array_spec && !unit->is_array_child)
+    {
+        rebuild_unit_array(unit->inj.uuid);
+    }
     m_view->Redraw();
 }
 
