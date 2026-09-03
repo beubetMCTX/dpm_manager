@@ -373,6 +373,9 @@ Unit
   rebuilds.
 - Assembly creation now validates candidate children and cycles before mutating
   the parent, so an invalid request leaves existing Assembly/array state intact.
+- Project-session validation now rejects invalid array and fill metadata before
+  geometry restoration, including out-of-range counts, invalid enum values, and
+  non-finite spacing/axes.
 
 ## History
 

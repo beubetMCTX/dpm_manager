@@ -77,6 +77,24 @@ int main(int argc, char *argv[])
     source.units.first().inj.injector_data.material = "water";
     source.units.first().inj.injector_data.product_species = "O2";
     QString reference_error;
+    project_session::Data invalid_array_spec = source;
+    invalid_array_spec.units.first().has_array_spec = true;
+    invalid_array_spec.units.first().array_spec.count = 0;
+    if (!check(!project_session::validate(invalid_array_spec, &reference_error) &&
+                   reference_error.contains("invalid array specification"),
+               "invalid array metadata should be rejected"))
+    {
+        return 1;
+    }
+    project_session::Data invalid_fill_spec = source;
+    invalid_fill_spec.units.first().fill_spec.spacing_x =
+        std::numeric_limits<float>::infinity();
+    if (!check(!project_session::validate(invalid_fill_spec, &reference_error) &&
+                   reference_error.contains("invalid fill specification"),
+               "non-finite fill metadata should be rejected"))
+    {
+        return 1;
+    }
     if (!check(project_session::validate_references(source, {"O2", "N2"}, &reference_error),
                reference_error))
     {

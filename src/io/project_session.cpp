@@ -759,6 +759,45 @@ bool validate(const Data &data, QString *error_message)
             set_error(error_message, "Project contains an invalid unit type.");
             return false;
         }
+
+        if (unit.has_array_spec)
+        {
+            const UnitArraySpec &spec = unit.array_spec;
+            if (spec.type < UnitArrayType::Linear ||
+                spec.type > UnitArrayType::Mirror ||
+                spec.count < 1 || spec.count > 100000 ||
+                !is_finite_vector(spec.direction) ||
+                !is_finite_vector(spec.origin) ||
+                !is_finite_vector(spec.plane_normal) ||
+                !std::isfinite(spec.spacing) ||
+                !std::isfinite(spec.angle_degrees))
+            {
+                set_error(error_message,
+                          "Project contains invalid array specification values.");
+                return false;
+            }
+        }
+
+        if (unit.has_fill_spec)
+        {
+            const UnitFillSpec &spec = unit.fill_spec;
+            if (spec.pattern < UnitFillPattern::Square ||
+                spec.pattern > UnitFillPattern::Hexagonal ||
+                spec.rows < 1 || spec.rows > 1000 ||
+                spec.columns < 1 || spec.columns > 1000 ||
+                !is_finite_vector(spec.origin) ||
+                !is_finite_vector(spec.direction) ||
+                !is_finite_vector(spec.plane_normal) ||
+                !std::isfinite(spec.spacing_x) ||
+                !std::isfinite(spec.spacing_y) ||
+                !std::isfinite(spec.boundary_radius) ||
+                (spec.circular_boundary && spec.boundary_radius < 0.0f))
+            {
+                set_error(error_message,
+                          "Project contains invalid fill specification values.");
+                return false;
+            }
+        }
     }
 
     if (!validate_material_entries(data.materials, error_message))

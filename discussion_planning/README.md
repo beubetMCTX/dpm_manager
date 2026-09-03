@@ -2060,3 +2060,12 @@ References:
 - Invalid requests return without changing the source Unit, and regression
   coverage verifies this failure behavior.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Validate Array Metadata On Project Load
+
+- Project validation now rejects malformed array and fill specifications before
+  they reach geometry rebuilding.
+- Checks cover enum ranges, bounded counts, finite vectors, spacing, angles,
+  and circular-boundary radii; regression coverage includes invalid count and
+  non-finite spacing cases.
+- Release build and all 12 focused regressions passed.
