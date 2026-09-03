@@ -320,6 +320,8 @@ Unit
   consistency and rejects cyclic Assembly graphs before loading.
 - Project-session regression coverage now verifies Assembly parent/child
   relationships survive save/load.
+- Project-session regression coverage also rejects inconsistent and cyclic
+  Assembly graphs.
 - The object list now orders Assembly parents before descendants and indents
   nested members by Assembly depth.
 - Object-panel Assembly controls now include dissolving a selected parent,

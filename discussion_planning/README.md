@@ -1905,6 +1905,12 @@ References:
   UUIDs across project save/load.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Test Invalid Assembly Graphs
+
+- Added preflight regression cases for one-sided parent/child references and
+  cyclic Assembly relationships.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Show Assembly Hierarchy In Object List
 
 - Object-list ordering now places Assembly ancestors before descendants and

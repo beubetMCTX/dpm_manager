@@ -470,6 +470,32 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data invalid_assembly = assembly_data;
+    invalid_assembly.units.first().assembly_child_uuids.clear();
+    if (!check(!project_session::validate_references(invalid_assembly, {"O2", "N2"},
+                                                     &reference_error) &&
+                   reference_error.contains("invalid Assembly parent"),
+               "inconsistent Assembly parent/child references should fail"))
+    {
+        return 1;
+    }
+
+    Unit nested_assembly(assembly_member);
+    nested_assembly.inj.uuid = QUuid::createUuid();
+    nested_assembly.inj.injector_data.name = "nested-assembly";
+    nested_assembly.type = Assebly;
+    nested_assembly.assembly_parent_uuid = assembly_data.units.first().inj.uuid;
+    assembly_data.units.first().assembly_child_uuids = {nested_assembly.inj.uuid};
+    nested_assembly.assembly_child_uuids = {assembly_data.units.first().inj.uuid};
+    assembly_data.units.append(nested_assembly);
+    if (!check(!project_session::validate_references(assembly_data, {"O2", "N2"},
+                                                     &reference_error) &&
+                   reference_error.contains("cyclic Assembly"),
+               "cyclic Assembly relationships should fail"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
     QFile::remove(assembly_path);
     QFile::remove(malformed_path);
