@@ -363,6 +363,9 @@ Unit
 - Flattened array and fill children no longer inherit persistent Assembly
   parent/child UUIDs; this prevents deleting a runtime derived child from
   modifying the original Assembly graph.
+- Creating or dissolving an Assembly now clears its obsolete generated array
+  or fill children and metadata, preventing orphaned runtime objects and stale
+  rebuilds.
 
 ## History
 

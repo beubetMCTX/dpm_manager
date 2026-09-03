@@ -2030,3 +2030,12 @@ References:
 - Added regression coverage ensuring original Assembly member links survive
   expansion and flattened children cannot mutate the source graph on deletion.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Clean Assembly Lifecycle Metadata
+
+- Reusing an array source as an Assembly now removes its previous generated
+  children and array/fill metadata before rebuilding relationships.
+- Dissolving an Assembly also removes generated children and clears obsolete
+  array/fill state while leaving ordinary units intact.
+- Added regression coverage for clean dissolve behavior.
+- Release build and all 12 focused regressions passed.

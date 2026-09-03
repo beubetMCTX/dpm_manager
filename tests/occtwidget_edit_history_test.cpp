@@ -129,6 +129,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (!check(widget.dissolve_assembly(uuid),
+               "Assembly with generated children should dissolve cleanly") ||
+        !check(widget.unit_hash.size() == 2 &&
+                   widget.unit_hash.value(uuid)->child_units.isEmpty() &&
+                   widget.unit_hash.value(uuid)->type == injector &&
+                   !widget.unit_hash.value(uuid)->has_array_spec,
+               "Dissolving an Assembly should remove derived children and metadata"))
+    {
+        return 1;
+    }
+
     // Create a history entry whose before-state cannot rebuild. Undo must
     // reject it without damaging the currently valid state.
     stored_unit->inj.injector_data.vel = QVector3D();

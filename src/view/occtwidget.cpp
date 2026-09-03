@@ -1021,6 +1021,13 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
         return false;
     }
 
+    // Reusing an array source as an Assembly must not leave its old runtime
+    // instances orphaned in the scene or unit hash.
+    clear_unit_array_children(*parent);
+    parent->has_array_spec = false;
+    parent->has_fill_spec = false;
+    parent->fill_source_uuids.clear();
+
     const QUuid parent_uuid = parent->inj.uuid;
     const auto contains_descendant = [&](const std::shared_ptr<Unit> &root,
                                          const QUuid &target,
@@ -1121,6 +1128,8 @@ bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
         return false;
     }
 
+    clear_unit_array_children(*assembly);
+
     const QList<QUuid> children = assembly->assembly_child_uuids;
     for (const QUuid &child_uuid : children)
     {
@@ -1132,6 +1141,9 @@ bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
     }
     assembly->assembly_child_uuids.clear();
     assembly->child_units.clear();
+    assembly->has_array_spec = false;
+    assembly->has_fill_spec = false;
+    assembly->fill_source_uuids.clear();
     assembly->type = injector;
     emit unit_data_updated(assembly.get());
     emit unit_display_list_changed();
