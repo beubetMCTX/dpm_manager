@@ -1,5 +1,6 @@
 #include "occtwidget.h"
 
+#include <algorithm>
 #include <QApplication>
 
 namespace
@@ -104,6 +105,19 @@ int main(int argc, char *argv[])
     }
     if (!check(generated_children == 4,
                "Assembly source should own all generated array instances"))
+    {
+        return 1;
+    }
+    if (!check(widget.unit_hash.value(member_uuid)->assembly_parent_uuid == uuid,
+               "Assembly array expansion must preserve the original member link") ||
+        !check(std::all_of(widget.unit_hash.value(uuid)->child_units.cbegin(),
+                           widget.unit_hash.value(uuid)->child_units.cend(),
+                           [](const std::shared_ptr<Unit> &child)
+                           {
+                               return child == nullptr ||
+                                      child->assembly_child_uuids.isEmpty();
+                           }),
+               "Flattened Assembly array children must not retain Assembly links"))
     {
         return 1;
     }

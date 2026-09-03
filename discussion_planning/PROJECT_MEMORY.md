@@ -360,6 +360,9 @@ Unit
   world XY layout with conforming disabled.
 - `Reference Local` target hitpoints now resolve correctly during fill-array
   expansion, matching linear, rotational, and mirror array behavior.
+- Flattened array and fill children no longer inherit persistent Assembly
+  parent/child UUIDs; this prevents deleting a runtime derived child from
+  modifying the original Assembly graph.
 
 ## History
 

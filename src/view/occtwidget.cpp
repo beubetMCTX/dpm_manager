@@ -1202,6 +1202,11 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         stored_child->array_parent_uuid = source_uuid;
         stored_child->is_array_child = true;
         stored_child->follows_array = true;
+        // Assembly sources are flattened in this phase; do not copy their
+        // persistent parent/child links into a runtime array instance.
+        stored_child->assembly_parent_uuid = QUuid();
+        stored_child->assembly_child_uuids.clear();
+        stored_child->child_units.clear();
         stored_child->ais_display->Set(stored_child->inj.shape);
         stored_child->u_owner->set_unit(stored_child.get());
         stored_child->ais_display->SetOwner(stored_child->u_owner);
@@ -1270,6 +1275,9 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         stored_child->is_array_child = true;
         stored_child->follows_array = true;
         stored_child->array_parent_uuid = source_uuids.first();
+        stored_child->assembly_parent_uuid = QUuid();
+        stored_child->assembly_child_uuids.clear();
+        stored_child->child_units.clear();
         stored_child->ais_display->Set(stored_child->inj.shape);
         stored_child->u_owner->set_unit(stored_child.get());
         stored_child->ais_display->SetOwner(stored_child->u_owner);

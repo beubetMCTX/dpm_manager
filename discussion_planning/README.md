@@ -2022,3 +2022,11 @@ References:
 - Added regression coverage for the transformed target point and retained
   direction-conforming behavior.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Isolate Flattened Assembly Array Children
+
+- Runtime array and fill children created from Assembly sources now clear
+  persistent Assembly relationships while retaining their array ownership.
+- Added regression coverage ensuring original Assembly member links survive
+  expansion and flattened children cannot mutate the source graph on deletion.
+- Release build and all 12 focused regressions passed.
