@@ -382,6 +382,9 @@ Unit
 - Project validation now includes the Elliptical enum in its accepted array
   range, so valid ellipse sessions are not rejected before other metadata is
   checked.
+- Rotational arrays with axial spacing now translate all spatial injector
+  fields, including fan centers, volume bounds, and non-world target points,
+  keeping helical child geometry coherent.
 
 ## History
 

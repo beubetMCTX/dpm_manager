@@ -219,8 +219,20 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
                                    : 0.0f;
             rotate_injector_data(child.inj.injector_data, spec.origin,
                                  rotation_axis, step * index);
-            child.inj.injector_data.pos += rotation_axis * (spec.spacing * index);
-            child.inj.injector_data.pos2 += rotation_axis * (spec.spacing * index);
+            const QVector3D axial_offset = rotation_axis * (spec.spacing * index);
+            child.inj.injector_data.pos += axial_offset;
+            child.inj.injector_data.pos2 += axial_offset;
+            child.inj.injector_data.ff_center += axial_offset;
+            child.inj.injector_data.ff_virtual_origin += axial_offset;
+            child.inj.injector_data.volume_bgeom_min += axial_offset;
+            child.inj.injector_data.volume_bgeom_max += axial_offset;
+            if (child.inj.injector_data.single_target_scope !=
+                    Single_Target_Scope::World &&
+                child.inj.injector_data.single_target_scope !=
+                    Single_Target_Scope::Reference_Local)
+            {
+                child.inj.injector_data.single_target_hitpoint += axial_offset;
+            }
         }
         else
         {

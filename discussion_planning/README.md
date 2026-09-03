@@ -2087,3 +2087,11 @@ References:
 - Regression coverage now distinguishes invalid ellipse radii from unrelated
   fill metadata errors.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Complete Helical Spatial Translation
+
+- Rotational array axial spacing now moves every spatial field consistently,
+  including flat-fan centers, virtual origins, volume bounds, and local target
+  points.
+- Added regression coverage for the translated center and volume bounds.
+- Release build and all 12 focused regressions passed.

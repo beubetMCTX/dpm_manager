@@ -58,6 +58,9 @@ int main(int argc, char **argv)
     const QList<Unit> helical_children = expand_unit_array(source, rotational);
     ok = check(qAbs(helical_children[1].inj.injector_data.pos.z() - 2.5f) < 1.0e-4f,
                "rotational axial spacing mismatch") && ok;
+    ok = check(qAbs(helical_children[1].inj.injector_data.ff_center.z() - 2.5f) < 1.0e-4f &&
+                   qAbs(helical_children[1].inj.injector_data.volume_bgeom_min.z() - 2.5f) < 1.0e-4f,
+               "rotational axial spacing should translate all spatial geometry") && ok;
 
     UnitArraySpec elliptical;
     elliptical.type = UnitArrayType::Elliptical;
