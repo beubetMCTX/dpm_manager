@@ -519,6 +519,11 @@ void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dir
             stored_unit.type = changed_unit->type;
             stored_unit.inj.injector_data = changed_unit->inj.injector_data;
             stored_unit.inj.shape = changed_unit->inj.shape;
+            stored_unit.has_array_spec = changed_unit->has_array_spec;
+            stored_unit.array_spec = changed_unit->array_spec;
+            stored_unit.array_parent_uuid = changed_unit->array_parent_uuid;
+            stored_unit.is_array_child = changed_unit->is_array_child;
+            stored_unit.follows_array = changed_unit->follows_array;
             update_object_list_item(stored_unit.inj.uuid,
                                     stored_unit.inj.injector_data.name);
             if (recompute_dirty)

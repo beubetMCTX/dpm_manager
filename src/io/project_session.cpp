@@ -447,6 +447,23 @@ QJsonObject unit_to_json(const Unit &unit)
     QJsonObject result;
     result.insert("uuid", unit.inj.uuid.toString(QUuid::WithoutBraces));
     result.insert("unit_type", static_cast<int>(unit.type));
+    result.insert("has_array_spec", unit.has_array_spec);
+    result.insert("array_parent_uuid",
+                  unit.array_parent_uuid.toString(QUuid::WithoutBraces));
+    result.insert("is_array_child", unit.is_array_child);
+    result.insert("follows_array", unit.follows_array);
+    if (unit.has_array_spec)
+    {
+        QJsonObject array_spec;
+        array_spec.insert("type", static_cast<int>(unit.array_spec.type));
+        array_spec.insert("count", unit.array_spec.count);
+        array_spec.insert("direction", vector_to_json(unit.array_spec.direction));
+        array_spec.insert("origin", vector_to_json(unit.array_spec.origin));
+        array_spec.insert("spacing", unit.array_spec.spacing);
+        array_spec.insert("angle_degrees", unit.array_spec.angle_degrees);
+        array_spec.insert("plane_normal", vector_to_json(unit.array_spec.plane_normal));
+        result.insert("array_spec", array_spec);
+    }
     QJsonObject injector;
     injector_to_json(unit.inj.injector_data, &injector);
     result.insert("injector", injector);
@@ -470,6 +487,24 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
 
     unit->type = static_cast<Unit_Type>(object.value("unit_type").toInt(static_cast<int>(injector)));
     unit->inj.uuid = uuid;
+    unit->has_array_spec = object.value("has_array_spec").toBool(false);
+    unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
+    unit->is_array_child = object.value("is_array_child").toBool(false);
+    unit->follows_array = object.value("follows_array").toBool(true);
+    if (unit->has_array_spec && object.value("array_spec").isObject())
+    {
+        const QJsonObject array_spec = object.value("array_spec").toObject();
+        unit->array_spec.type = static_cast<UnitArrayType>(
+            array_spec.value("type").toInt(static_cast<int>(UnitArrayType::Linear)));
+        unit->array_spec.count = array_spec.value("count").toInt(1);
+        vector_from_json(array_spec.value("direction"), &unit->array_spec.direction);
+        vector_from_json(array_spec.value("origin"), &unit->array_spec.origin);
+        unit->array_spec.spacing = static_cast<float>(
+            array_spec.value("spacing").toDouble(0.0));
+        unit->array_spec.angle_degrees = static_cast<float>(
+            array_spec.value("angle_degrees").toDouble(360.0));
+        vector_from_json(array_spec.value("plane_normal"), &unit->array_spec.plane_normal);
+    }
     if (!injector_from_json(injector_object, &unit->inj.injector_data))
     {
         return false;

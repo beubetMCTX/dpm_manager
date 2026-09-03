@@ -1685,3 +1685,12 @@ References:
   serialization remain separate follow-up layers rather than being guessed in
   this foundational increment.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Persist Array Metadata
+
+- Project sessions now store optional array metadata on the mother Unit and
+  rebuild following children when a session is loaded.
+- Runtime child instances remain derived display objects and are not duplicated
+  into the main project injector list.
+- Sessions written before array support remain readable through optional-field
+  defaults; Release build and all 12 focused regressions passed.

@@ -328,6 +328,24 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         m_context->Display(stored_unit->ais_display, Standard_False);
     }
 
+    const QList<QUuid> array_sources = [&]()
+    {
+        QList<QUuid> ids;
+        for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+        {
+            if (it.value() != nullptr && it.value()->has_array_spec &&
+                !it.value()->is_array_child)
+            {
+                ids.append(it.key());
+            }
+        }
+        return ids;
+    }();
+    for (const QUuid &source_uuid : array_sources)
+    {
+        rebuild_unit_array(source_uuid);
+    }
+
     rebuild_unit_local_coordinate_frames();
 
     m_view->FitAll();
@@ -812,6 +830,7 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         m_view->Redraw();
         emit unit_display_list_changed();
     }
+    emit unit_data_updated(source.get());
     return displayed_count;
 }
 

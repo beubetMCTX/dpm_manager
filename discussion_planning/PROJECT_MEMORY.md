@@ -231,6 +231,11 @@ Unit
   serialization yet; those layers require the composite Unit hierarchy and
   inheritance policy to be finalized.
 - Release build and all 12 focused regressions passed after adding the module.
+- Array metadata is now included in project sessions. Loading a session
+  restores the mother Unit's array rule and rebuilds its following children;
+  older sessions without these optional fields remain readable.
+- Child runtime instances stay out of the main project injector list, avoiding
+  duplicate DPM/project entries.
 
 ## History
 
