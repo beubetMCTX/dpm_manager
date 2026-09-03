@@ -366,6 +366,8 @@ Unit
 - Creating or dissolving an Assembly now clears its obsolete generated array
   or fill children and metadata, preventing orphaned runtime objects and stale
   rebuilds.
+- Assembly creation now validates candidate children and cycles before mutating
+  the parent, so an invalid request leaves existing Assembly/array state intact.
 
 ## History
 

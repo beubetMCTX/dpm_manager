@@ -2039,3 +2039,11 @@ References:
   array/fill state while leaving ordinary units intact.
 - Added regression coverage for clean dissolve behavior.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Make Assembly Creation Transactional
+
+- Assembly creation now pre-validates duplicate, missing, derived, and cyclic
+  candidates before clearing existing parent state.
+- Invalid requests return without changing the source Unit, and regression
+  coverage verifies this failure behavior.
+- Release build and all 12 focused regressions passed.

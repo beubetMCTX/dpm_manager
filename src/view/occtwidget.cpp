@@ -1021,13 +1021,6 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
         return false;
     }
 
-    // Reusing an array source as an Assembly must not leave its old runtime
-    // instances orphaned in the scene or unit hash.
-    clear_unit_array_children(*parent);
-    parent->has_array_spec = false;
-    parent->has_fill_spec = false;
-    parent->fill_source_uuids.clear();
-
     const QUuid parent_uuid = parent->inj.uuid;
     const auto contains_descendant = [&](const std::shared_ptr<Unit> &root,
                                          const QUuid &target,
@@ -1048,6 +1041,32 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
         return false;
     };
 
+    QList<std::shared_ptr<Unit>> valid_children;
+    QSet<QUuid> child_ids;
+    for (int index = 1; index < uuids.size(); ++index)
+    {
+        const std::shared_ptr<Unit> child = unit_hash.value(uuids.at(index));
+        if (child == nullptr || child == parent || child->is_array_child ||
+            child->inj.uuid == parent_uuid || child_ids.contains(child->inj.uuid) ||
+            contains_descendant(child, parent_uuid, contains_descendant))
+        {
+            continue;
+        }
+        child_ids.insert(child->inj.uuid);
+        valid_children.append(child);
+    }
+    if (valid_children.isEmpty())
+    {
+        return false;
+    }
+
+    // Reusing an array source as an Assembly must not leave its old runtime
+    // instances orphaned in the scene or unit hash.
+    clear_unit_array_children(*parent);
+    parent->has_array_spec = false;
+    parent->has_fill_spec = false;
+    parent->fill_source_uuids.clear();
+
     for (const QUuid &old_child_uuid : parent->assembly_child_uuids)
     {
         const std::shared_ptr<Unit> old_child = unit_hash.value(old_child_uuid);
@@ -1059,15 +1078,8 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
     parent->type = Assebly;
     parent->assembly_child_uuids.clear();
     parent->child_units.clear();
-    for (int index = 1; index < uuids.size(); ++index)
+    for (const std::shared_ptr<Unit> &child : valid_children)
     {
-        const std::shared_ptr<Unit> child = unit_hash.value(uuids.at(index));
-        if (child == nullptr || child == parent || child->is_array_child ||
-            child->inj.uuid == parent_uuid ||
-            contains_descendant(child, parent_uuid, contains_descendant))
-        {
-            continue;
-        }
         if (!child->assembly_parent_uuid.isNull())
         {
             const std::shared_ptr<Unit> old_parent =
@@ -1082,7 +1094,7 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
                 }
             }
         }
-        child->assembly_parent_uuid = uuids.first();
+        child->assembly_parent_uuid = parent_uuid;
         parent->assembly_child_uuids.append(child->inj.uuid);
         parent->child_units.append(child);
     }

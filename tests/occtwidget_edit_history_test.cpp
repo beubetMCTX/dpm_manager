@@ -139,6 +139,15 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    if (!check(!widget.create_assembly({uuid, uuid}),
+               "Assembly creation with no valid child should fail") ||
+        !check(widget.unit_hash.value(uuid)->type == injector &&
+                   widget.unit_hash.value(uuid)->assembly_child_uuids.isEmpty() &&
+                   widget.unit_hash.size() == 2,
+               "Failed Assembly creation must not mutate the source"))
+    {
+        return 1;
+    }
 
     // Create a history entry whose before-state cannot rebuild. Undo must
     // reject it without damaging the currently valid state.
