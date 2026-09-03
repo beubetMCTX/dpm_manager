@@ -2003,6 +2003,8 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(translate_selected_button);
     auto *rotate_selected_button = new QPushButton("Rotate Selected", panel);
     layout->addWidget(rotate_selected_button);
+    auto *assembly_selected_button = new QPushButton("Create Assembly From Selected", panel);
+    layout->addWidget(assembly_selected_button);
     auto *material_selected_button = new QPushButton("Set Material Selected", panel);
     layout->addWidget(material_selected_button);
 
@@ -2354,6 +2356,36 @@ void MainWindow::create_object_list_panel()
                 .arg(rotated_count)
                 .arg(selected_units.size()),
             5000);
+    });
+    connect(assembly_selected_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+        QList<QUuid> selected_units;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+            {
+                selected_units.append(uuid);
+            }
+        }
+        if (!m_3d_widget->create_assembly(selected_units))
+        {
+            statusBar()->showMessage(
+                "Select at least two ungrouped Units to create an Assembly", 5000);
+            return;
+        }
+        statusBar()->showMessage(
+            QString("Created Assembly with %1 member Unit(s)").arg(selected_units.size()),
+            5000);
+        update_object_list_panel();
     });
     connect(material_selected_button, &QPushButton::clicked, this, [this]()
     {

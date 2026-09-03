@@ -146,6 +146,8 @@ public:
                           const UnitArraySpec &spec);
     int create_unit_fill(const QList<QUuid> &source_uuids,
                          const UnitFillSpec &spec);
+    bool create_assembly(const QList<QUuid> &uuids);
+    bool detach_from_assembly(const QUuid &uuid);
     int rebuild_unit_array(const QUuid &source_uuid);
     int rebuild_unit_fill(const QUuid &source_uuid);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);

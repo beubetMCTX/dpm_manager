@@ -283,6 +283,10 @@ Unit
   distinction.
 - Quick Unit rotation now preserves `World` target hitpoints; only local and
   parent-local targets rotate with the injector.
+- Assembly phase one now stores a composite parent's child UUIDs and each
+  child's assembly parent UUID. Text-based object-panel creation supports
+  grouping multiple existing Units, and loading/deletion clean up the runtime
+  relationships without duplicating leaf geometry.
 
 ## Array Core Progress
 

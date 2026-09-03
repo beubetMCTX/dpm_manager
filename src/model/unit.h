@@ -82,6 +82,8 @@ public:
     bool has_fill_spec = false;
     UnitFillSpec fill_spec;
     QList<QUuid> fill_source_uuids;
+    QUuid assembly_parent_uuid;
+    QList<QUuid> assembly_child_uuids;
 
     Unit()
         : type(injector)
@@ -101,6 +103,8 @@ public:
         , has_fill_spec(other.has_fill_spec)
         , fill_spec(other.fill_spec)
         , fill_source_uuids(other.fill_source_uuids)
+        , assembly_parent_uuid(other.assembly_parent_uuid)
+        , assembly_child_uuids(other.assembly_child_uuids)
     {
         initialize_runtime_handles();
     }
@@ -123,6 +127,8 @@ public:
         has_fill_spec = other.has_fill_spec;
         fill_spec = other.fill_spec;
         fill_source_uuids = other.fill_source_uuids;
+        assembly_parent_uuid = other.assembly_parent_uuid;
+        assembly_child_uuids = other.assembly_child_uuids;
         initialize_runtime_handles();
         return *this;
     }
@@ -138,6 +144,8 @@ public:
         , has_fill_spec(other.has_fill_spec)
         , fill_spec(std::move(other.fill_spec))
         , fill_source_uuids(std::move(other.fill_source_uuids))
+        , assembly_parent_uuid(other.assembly_parent_uuid)
+        , assembly_child_uuids(std::move(other.assembly_child_uuids))
     {
         initialize_runtime_handles();
     }
@@ -160,6 +168,8 @@ public:
         has_fill_spec = other.has_fill_spec;
         fill_spec = other.fill_spec;
         fill_source_uuids = other.fill_source_uuids;
+        assembly_parent_uuid = other.assembly_parent_uuid;
+        assembly_child_uuids = std::move(other.assembly_child_uuids);
         initialize_runtime_handles();
         return *this;
     }

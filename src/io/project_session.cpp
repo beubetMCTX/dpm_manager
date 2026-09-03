@@ -462,6 +462,14 @@ QJsonObject unit_to_json(const Unit &unit)
                   unit.array_parent_uuid.toString(QUuid::WithoutBraces));
     result.insert("is_array_child", unit.is_array_child);
     result.insert("follows_array", unit.follows_array);
+    result.insert("assembly_parent_uuid",
+                  unit.assembly_parent_uuid.toString(QUuid::WithoutBraces));
+    QJsonArray assembly_children;
+    for (const QUuid &uuid : unit.assembly_child_uuids)
+    {
+        assembly_children.append(uuid.toString(QUuid::WithoutBraces));
+    }
+    result.insert("assembly_child_uuids", assembly_children);
     result.insert("has_fill_spec", unit.has_fill_spec);
     if (unit.has_fill_spec)
     {
@@ -522,6 +530,16 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
     unit->is_array_child = object.value("is_array_child").toBool(false);
     unit->follows_array = object.value("follows_array").toBool(true);
+    unit->assembly_parent_uuid = QUuid(
+        object.value("assembly_parent_uuid").toString());
+    for (const QJsonValue &child : object.value("assembly_child_uuids").toArray())
+    {
+        const QUuid child_uuid(child.toString());
+        if (!child_uuid.isNull())
+        {
+            unit->assembly_child_uuids.append(child_uuid);
+        }
+    }
     unit->has_fill_spec = object.value("has_fill_spec").toBool(false);
     if (unit->has_fill_spec && object.value("fill_spec").isObject())
     {

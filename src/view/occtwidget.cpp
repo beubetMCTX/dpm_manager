@@ -339,6 +339,25 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         m_context->Display(stored_unit->ais_display, Standard_False);
     }
 
+    for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
+    {
+        const std::shared_ptr<Unit> parent = it.value();
+        if (parent == nullptr || parent->assembly_child_uuids.isEmpty())
+        {
+            continue;
+        }
+        parent->child_units.clear();
+        for (const QUuid &child_uuid : parent->assembly_child_uuids)
+        {
+            const std::shared_ptr<Unit> child = unit_hash.value(child_uuid);
+            if (child != nullptr)
+            {
+                child->assembly_parent_uuid = parent->inj.uuid;
+                parent->child_units.append(child);
+            }
+        }
+    }
+
     const QList<QUuid> array_sources = [&]()
     {
         QList<QUuid> ids;
@@ -893,6 +912,68 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     return true;
 }
 
+bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
+{
+    if (uuids.size() < 2)
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> parent = unit_hash.value(uuids.first());
+    if (parent == nullptr || parent->is_array_child)
+    {
+        return false;
+    }
+
+    parent->type = Assebly;
+    parent->assembly_child_uuids.clear();
+    parent->child_units.clear();
+    for (int index = 1; index < uuids.size(); ++index)
+    {
+        const std::shared_ptr<Unit> child = unit_hash.value(uuids.at(index));
+        if (child == nullptr || child == parent || child->is_array_child ||
+            child->assembly_parent_uuid != QUuid())
+        {
+            continue;
+        }
+        child->assembly_parent_uuid = uuids.first();
+        parent->assembly_child_uuids.append(child->inj.uuid);
+        parent->child_units.append(child);
+    }
+    if (parent->assembly_child_uuids.isEmpty())
+    {
+        parent->type = injector;
+        return false;
+    }
+    emit unit_data_updated(parent.get());
+    emit unit_display_list_changed();
+    return true;
+}
+
+bool OCCTWidget::detach_from_assembly(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> child = unit_hash.value(uuid);
+    if (child == nullptr || child->assembly_parent_uuid.isNull())
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> parent = unit_hash.value(child->assembly_parent_uuid);
+    if (parent != nullptr)
+    {
+        parent->assembly_child_uuids.removeAll(uuid);
+        parent->child_units.removeAll(child);
+        if (parent->assembly_child_uuids.isEmpty())
+        {
+            parent->type = injector;
+        }
+        emit unit_data_updated(parent.get());
+    }
+    child->assembly_parent_uuid = QUuid();
+    emit unit_display_list_changed();
+    return true;
+}
+
 int OCCTWidget::create_unit_array(const QUuid &source_uuid,
                                   const UnitArraySpec &spec)
 {
@@ -1113,6 +1194,27 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     if (!unit->child_units.isEmpty())
     {
         clear_unit_array_children(*unit);
+    }
+    for (const QUuid &child_uuid : unit->assembly_child_uuids)
+    {
+        const std::shared_ptr<Unit> child = unit_hash.value(child_uuid);
+        if (child != nullptr)
+        {
+            child->assembly_parent_uuid = QUuid();
+        }
+    }
+    if (!unit->assembly_parent_uuid.isNull())
+    {
+        const std::shared_ptr<Unit> parent = unit_hash.value(unit->assembly_parent_uuid);
+        if (parent != nullptr)
+        {
+            parent->assembly_child_uuids.removeAll(uuid);
+            parent->child_units.removeAll(unit);
+            if (parent->assembly_child_uuids.isEmpty())
+            {
+                parent->type = injector;
+            }
+        }
     }
     if (unit->is_array_child && !unit->array_parent_uuid.isNull())
     {

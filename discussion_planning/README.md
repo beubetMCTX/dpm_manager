@@ -1719,6 +1719,15 @@ References:
   fixed in world coordinates; local scopes continue to rotate with the Unit.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Assembly Relationship Layer
+
+- Added text-based `Create Assembly From Selected` grouping for multiple
+  existing Units.
+- Assembly parent/child UUID relationships are persisted and restored, while
+  leaf AIS geometry remains owned by the existing Unit objects.
+- Deletion and detachment clear both sides of the runtime relationship.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Persist Array Metadata
 
 - Project sessions now store optional array metadata on the mother Unit and
