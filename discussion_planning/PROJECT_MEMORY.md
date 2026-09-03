@@ -305,6 +305,9 @@ Unit
   duplicate DPM/project entries.
 - `Unit` copy and move construction now preserve array metadata, which is
   required before composing nested arrays or assemblies from copied Units.
+- Numeric translation and rotation now recursively include an Assembly
+  parent's descendants, with UUID de-duplication when both parent and child
+  are selected.
 
 ## History
 

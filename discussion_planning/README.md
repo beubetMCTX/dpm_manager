@@ -1852,3 +1852,9 @@ References:
   updates injector points and direction vectors, rebuilds geometry, refreshes
   local coordinate frames, and re-resolves color from the Species/Color table.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Transform Assembly Members Together
+
+- Numeric `Translate Selected` and `Rotate Selected` now recursively apply to
+  Assembly descendants and de-duplicate overlapping selections.
+- Release build and all 12 focused regressions passed.

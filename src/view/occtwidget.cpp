@@ -645,8 +645,33 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
         return 0;
     }
 
-    int translated_count = 0;
+    QList<QUuid> operation_uuids;
+    QSet<QUuid> operation_set;
+    std::function<void(const QUuid &)> append_unit_and_members;
+    append_unit_and_members = [&](const QUuid &uuid)
+    {
+        if (operation_set.contains(uuid))
+        {
+            return;
+        }
+        operation_set.insert(uuid);
+        operation_uuids.append(uuid);
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit != nullptr)
+        {
+            for (const QUuid &child_uuid : unit->assembly_child_uuids)
+            {
+                append_unit_and_members(child_uuid);
+            }
+        }
+    };
     for (const QUuid &uuid : uuids)
+    {
+        append_unit_and_members(uuid);
+    }
+
+    int translated_count = 0;
+    for (const QUuid &uuid : operation_uuids)
     {
         const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
         if (unit == nullptr || unit_locked(uuid) || unit->ais_display.IsNull())
@@ -710,8 +735,33 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
                unit_axis * QVector3D::dotProduct(unit_axis, value) * (1.0f - cosine);
     };
 
-    int rotated_count = 0;
+    QList<QUuid> operation_uuids;
+    QSet<QUuid> operation_set;
+    std::function<void(const QUuid &)> append_unit_and_members;
+    append_unit_and_members = [&](const QUuid &uuid)
+    {
+        if (operation_set.contains(uuid))
+        {
+            return;
+        }
+        operation_set.insert(uuid);
+        operation_uuids.append(uuid);
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit != nullptr)
+        {
+            for (const QUuid &child_uuid : unit->assembly_child_uuids)
+            {
+                append_unit_and_members(child_uuid);
+            }
+        }
+    };
     for (const QUuid &uuid : uuids)
+    {
+        append_unit_and_members(uuid);
+    }
+
+    int rotated_count = 0;
+    for (const QUuid &uuid : operation_uuids)
     {
         const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
         if (unit == nullptr || unit_locked(uuid) || unit->ais_display.IsNull())
