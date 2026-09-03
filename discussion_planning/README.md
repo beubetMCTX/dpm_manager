@@ -1980,3 +1980,11 @@ References:
 - Added regression coverage for multi-member Assembly array expansion and
   replacement without stale-child accumulation.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Verify Multi-Member Assembly Array Seeds
+
+- Added focused OCCT regression coverage for expanding a two-member Assembly
+  as a linear array source.
+- The regression verifies that original members remain attached, generated
+  children reference the Assembly parent, and rebuild replaces stale children.
+- Release build and all 12 focused regressions passed.

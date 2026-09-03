@@ -348,6 +348,8 @@ Unit
 - Array-child cleanup now distinguishes derived array children from ordinary
   Assembly members; rebuilding an Assembly array preserves its original
   members and replaces only the generated children.
+- Regression coverage now exercises a multi-member Assembly as an array seed,
+  including child ownership and rebuild replacement without accumulation.
 
 ## History
 
