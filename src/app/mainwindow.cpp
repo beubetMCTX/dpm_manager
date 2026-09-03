@@ -2335,6 +2335,44 @@ void MainWindow::create_object_list_panel()
         auto *axis_y = create_box(0.0);
         auto *axis_z = create_box(1.0);
         auto *angle = create_box(0.0);
+        auto *axis_source = new QComboBox(&dialog);
+        axis_source->addItem("Custom", 0);
+        QVector3D reference_origin;
+        QVector3D reference_x;
+        QVector3D reference_z;
+        const bool has_reference_frame = m_3d_widget->reference_frame(
+            &reference_origin, &reference_x, &reference_z);
+        const QVector3D reference_y = QVector3D::crossProduct(reference_z,
+                                                               reference_x).normalized();
+        if (has_reference_frame)
+        {
+            axis_source->addItem("Reference X", 1);
+            axis_source->addItem("Reference Y", 2);
+            axis_source->addItem("Reference Z", 3);
+        }
+        const auto set_axis_values = [axis_x, axis_y, axis_z](const QVector3D &axis_value)
+        {
+            axis_x->setValue(axis_value.x());
+            axis_y->setValue(axis_value.y());
+            axis_z->setValue(axis_value.z());
+        };
+        connect(axis_source, &QComboBox::currentIndexChanged, &dialog,
+                [axis_source, set_axis_values, reference_x, reference_y, reference_z](int index)
+        {
+            if (index == 1)
+            {
+                set_axis_values(reference_x);
+            }
+            else if (index == 2)
+            {
+                set_axis_values(reference_y);
+            }
+            else if (index == 3)
+            {
+                set_axis_values(reference_z);
+            }
+        });
+        form->addRow("Axis Source", axis_source);
         form->addRow("Axis X", axis_x);
         form->addRow("Axis Y", axis_y);
         form->addRow("Axis Z", axis_z);

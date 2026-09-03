@@ -319,6 +319,8 @@ Unit
 - Recursive Assembly rotation records one edit-history batch, so a single
   Undo/Redo restores all affected members together rather than one at a time.
 - Recursive Assembly translation now uses the same batch history behavior.
+- Numeric rotation now offers text-based `Reference X/Y/Z` axis presets when
+  a usable reference frame exists; without one, only `Custom` is exposed.
 - Project reference validation now checks Assembly parent/child UUID
   consistency and rejects cyclic Assembly graphs before loading.
 - Project-session regression coverage now verifies Assembly parent/child

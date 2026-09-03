@@ -1899,6 +1899,13 @@ References:
   history batch, making one Undo/Redo restore the complete translation.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Reference Axis Presets To Rotation
+
+- The text-based rotation dialog now offers `Reference X`, `Reference Y`, and
+  `Reference Z` presets when a reference frame is available, otherwise it
+  remains on `Custom` only.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Validate Assembly Graphs Before Load
 
 - Project preflight now validates Assembly parent/child references in both
