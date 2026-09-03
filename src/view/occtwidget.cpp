@@ -5,6 +5,9 @@
 #include <QtMath>
 #include <QMessageBox>
 
+#include <algorithm>
+#include <cmath>
+
 namespace
 {
 QVector3D to_qvector3d(const gp_Pnt &point)
@@ -12,6 +15,127 @@ QVector3D to_qvector3d(const gp_Pnt &point)
     return QVector3D(static_cast<float>(point.X()),
                      static_cast<float>(point.Y()),
                      static_cast<float>(point.Z()));
+}
+
+QVector3D injector_frame_origin(const Injector &injector)
+{
+    return injector.injection_type == flat_fan_atomizer
+               ? injector.ff_center
+               : injector.pos;
+}
+
+QVector3D injector_frame_direction(const Injector &injector)
+{
+    QVector3D direction;
+    switch (injector.injection_type)
+    {
+    case cone:
+        direction = injector.axis;
+        break;
+    case flat_fan_atomizer:
+        direction = injector.ff_normal;
+        break;
+    case plain_oriface_atomizer:
+    case pressure_swirl_atomizer:
+    case air_blast_atomizer:
+    case effervescent_atomizer:
+        direction = injector.atomizer_axis;
+        break;
+    default:
+        direction = injector.vel;
+        break;
+    }
+
+    if (!std::isfinite(direction.x()) ||
+        !std::isfinite(direction.y()) ||
+        !std::isfinite(direction.z()) ||
+        direction.lengthSquared() <= 1.0e-12f)
+    {
+        direction = QVector3D(1.0f, 0.0f, 0.0f);
+    }
+    return direction.normalized();
+}
+
+Handle(AIS_Trihedron) make_local_trihedron(const gp_Ax2 &axis,
+                                           Standard_Real size)
+{
+    Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(axis);
+    Handle(AIS_Trihedron) trihedron = new AIS_Trihedron(placement);
+    trihedron->SetSize(std::max(size, 1.0));
+    trihedron->SetDatumDisplayMode(Prs3d_DM_Shaded);
+    trihedron->SetDatumPartColor(Prs3d_DP_XAxis, Quantity_NOC_RED);
+    trihedron->SetDatumPartColor(Prs3d_DP_XArrow, Quantity_NOC_RED);
+    trihedron->SetDatumPartColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);
+    trihedron->SetDatumPartColor(Prs3d_DP_YArrow, Quantity_NOC_GREEN);
+    trihedron->SetDatumPartColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
+    trihedron->SetDatumPartColor(Prs3d_DP_ZArrow, Quantity_NOC_BLUE);
+    trihedron->SetTextColor(Prs3d_DP_XAxis, Quantity_NOC_RED);
+    trihedron->SetTextColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);
+    trihedron->SetTextColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
+    return trihedron;
+}
+
+bool face_local_axis(const TopoDS_Face &face, gp_Ax2 &axis)
+{
+    if (face.IsNull())
+    {
+        return false;
+    }
+
+    GProp_GProps properties;
+    BRepGProp::SurfaceProperties(face, properties);
+    if (properties.Mass() <= Precision::Confusion())
+    {
+        return false;
+    }
+
+    BRepAdaptor_Surface surface(face, Standard_True);
+    Standard_Real u_min = 0.0;
+    Standard_Real u_max = 0.0;
+    Standard_Real v_min = 0.0;
+    Standard_Real v_max = 0.0;
+    BRepTools::UVBounds(face, u_min, u_max, v_min, v_max);
+
+    try
+    {
+        gp_Pnt point;
+        gp_Vec du;
+        gp_Vec dv;
+        surface.D1(0.5 * (u_min + u_max),
+                   0.5 * (v_min + v_max),
+                   point,
+                   du,
+                   dv);
+        gp_Vec normal_vector = du.Crossed(dv);
+        if (normal_vector.SquareMagnitude() <= Precision::Confusion())
+        {
+            return false;
+        }
+
+        gp_Dir normal(normal_vector);
+        if (face.Orientation() == TopAbs_REVERSED)
+        {
+            normal.Reverse();
+        }
+
+        if (du.SquareMagnitude() > Precision::Confusion())
+        {
+            axis = gp_Ax2(point, normal, gp_Dir(du));
+        }
+        else if (dv.SquareMagnitude() > Precision::Confusion())
+        {
+            axis = gp_Ax2(point, normal, gp_Dir(dv));
+        }
+        else
+        {
+            axis = gp_Ax2(point, normal);
+        }
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
 }
 }
 
@@ -45,6 +169,8 @@ OCCTWidget::~OCCTWidget()
     {
         selected_shape.Nullify();
         selected_face.Nullify();
+        clear_unit_local_coordinate_frames();
+        clear_reference_face_coordinate_frames();
 
         if (!m_context.IsNull())
         {
@@ -125,6 +251,8 @@ void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real
     Unit unit;
     const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
     unit_hash.insert(stored_unit->inj.uuid, stored_unit);
+    m_unit_visibility.insert(stored_unit->inj.uuid, true);
+    m_unit_locks.insert(stored_unit->inj.uuid, false);
 
     stored_unit->ais_display->Set(stored_unit->inj.shape);
 
@@ -141,7 +269,7 @@ void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real
     m_context->Activate(stored_unit->ais_display, TopAbs_SHAPE, Standard_True);
 
     m_context->Display(stored_unit->ais_display, Standard_True);
-
+    update_unit_local_coordinate_frame(stored_unit->inj.uuid);
 
 }
 
@@ -155,6 +283,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
     if (clear_existing)
     {
         discard_auxiliary_dialogs();
+        clear_unit_local_coordinate_frames();
         clear_move_history();
         clear_edit_history();
         clear_delete_history();
@@ -199,8 +328,23 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         m_context->Display(stored_unit->ais_display, Standard_False);
     }
 
+    rebuild_unit_local_coordinate_frames();
+
     m_view->FitAll();
     m_view->Redraw();
+    // display_units() is also called from MainWindow's constructor, before
+    // this native view has received its final size. Fit once after layout so
+    // the initial scene is not compressed into a corner.
+    QTimer::singleShot(0, this, [this]()
+    {
+        if (m_view.IsNull() || width() <= 0 || height() <= 0)
+        {
+            return;
+        }
+        m_view->MustBeResized();
+        m_view->FitAll();
+        m_view->Redraw();
+    });
     emit unit_display_list_changed();
 }
 
@@ -259,10 +403,18 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
     if (visible)
     {
         m_context->Display(unit->ais_display, Standard_False);
+        if (!m_unit_local_trihedrons.value(uuid).IsNull())
+        {
+            m_context->Display(m_unit_local_trihedrons.value(uuid), Standard_False);
+        }
     }
     else
     {
         m_context->Erase(unit->ais_display, Standard_False);
+        if (!m_unit_local_trihedrons.value(uuid).IsNull())
+        {
+            m_context->Erase(m_unit_local_trihedrons.value(uuid), Standard_False);
+        }
     }
 
     if (!visible && selected_shape == unit->ais_display)
@@ -294,10 +446,18 @@ void OCCTWidget::set_all_units_visible(bool visible)
         if (visible)
         {
             m_context->Display(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Display(m_unit_local_trihedrons.value(uuid), Standard_False);
+            }
         }
         else
         {
             m_context->Erase(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(uuid), Standard_False);
+            }
         }
 
         if (!visible && selected_shape == unit->ais_display)
@@ -338,6 +498,13 @@ bool OCCTWidget::set_reference_geometry_visible(bool visible)
     if (visible)
     {
         m_context->Display(base_geometry, Standard_False);
+        for (const Handle(AIS_Trihedron) &trihedron : m_reference_face_trihedrons)
+        {
+            if (!trihedron.IsNull())
+            {
+                m_context->Display(trihedron, Standard_False);
+            }
+        }
         if (!face_trihedron.IsNull())
         {
             m_context->Display(face_trihedron, Standard_False);
@@ -346,6 +513,13 @@ bool OCCTWidget::set_reference_geometry_visible(bool visible)
     else
     {
         m_context->Erase(base_geometry, Standard_False);
+        for (const Handle(AIS_Trihedron) &trihedron : m_reference_face_trihedrons)
+        {
+            if (!trihedron.IsNull())
+            {
+                m_context->Erase(trihedron, Standard_False);
+            }
+        }
         if (!face_trihedron.IsNull())
         {
             m_context->Erase(face_trihedron, Standard_False);
@@ -583,6 +757,7 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     unit->ais_display->SetTransparency(
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
     m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(uuid);
     clear_move_history();
     m_view->Redraw();
     record_edit(transaction, *unit);
@@ -631,6 +806,12 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     {
         m_context->Remove(unit->ais_display, Standard_False);
     }
+
+    if (!m_context.IsNull() && !m_unit_local_trihedrons.value(uuid).IsNull())
+    {
+        m_context->Remove(m_unit_local_trihedrons.value(uuid), Standard_False);
+    }
+    m_unit_local_trihedrons.remove(uuid);
 
     if (selected_shape == unit->ais_display)
     {
@@ -751,6 +932,7 @@ bool OCCTWidget::restore_deleted_unit(const UnitDeleteHistoryEntry &entry)
     {
         m_context->Display(restored_unit->ais_display, Standard_False);
     }
+    update_unit_local_coordinate_frame(entry.uuid);
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -905,6 +1087,7 @@ bool OCCTWidget::apply_move_snapshot(const UnitMoveHistoryEntry &entry,
     unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
     m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(entry.uuid);
     m_view->Redraw();
     emit unit_data_updated(unit.get());
     return true;
@@ -1203,7 +1386,134 @@ void OCCTWidget::set_material_names(const QStringList &material_names)
 
 Standard_Real OCCTWidget::get_trihedron_size()
 {
-    return cbrt(geometry.xyz_length.x()*geometry.xyz_length.y()*geometry.xyz_length.z())/10;
+    const Standard_Real size = cbrt(geometry.xyz_length.x() *
+                                    geometry.xyz_length.y() *
+                                    geometry.xyz_length.z()) / 10.0;
+    return std::max(size, 1.0);
+}
+
+void OCCTWidget::clear_unit_local_coordinate_frames()
+{
+    if (!m_context.IsNull())
+    {
+        for (auto it = m_unit_local_trihedrons.constBegin();
+             it != m_unit_local_trihedrons.constEnd();
+             ++it)
+        {
+            if (!it.value().IsNull())
+            {
+                m_context->Remove(it.value(), Standard_False);
+            }
+        }
+    }
+    m_unit_local_trihedrons.clear();
+}
+
+void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
+{
+    if (uuid.isNull() || m_context.IsNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr)
+    {
+        return;
+    }
+
+    Handle(AIS_Trihedron) &trihedron = m_unit_local_trihedrons[uuid];
+    if (trihedron.IsNull())
+    {
+        const QVector3D origin = injector_frame_origin(unit->inj.injector_data);
+        const QVector3D direction = injector_frame_direction(unit->inj.injector_data);
+        const gp_Ax2 axis(
+            gp_Pnt(origin.x(), origin.y(), origin.z()),
+            gp_Dir(direction.x(), direction.y(), direction.z()));
+        trihedron = make_local_trihedron(axis, get_trihedron_size() * 0.45);
+        m_context->Deactivate(trihedron, TopAbs_SHAPE);
+        if (unit_visible(uuid))
+        {
+            m_context->Display(trihedron, Standard_False);
+        }
+        return;
+    }
+
+    const QVector3D origin = injector_frame_origin(unit->inj.injector_data);
+    const QVector3D direction = injector_frame_direction(unit->inj.injector_data);
+    const gp_Ax2 axis(
+        gp_Pnt(origin.x(), origin.y(), origin.z()),
+        gp_Dir(direction.x(), direction.y(), direction.z()));
+    trihedron->SetComponent(new Geom_Axis2Placement(axis));
+    trihedron->SetSize(std::max(get_trihedron_size() * 0.45, 1.0));
+    m_context->Redisplay(trihedron, Standard_False);
+}
+
+void OCCTWidget::rebuild_unit_local_coordinate_frames()
+{
+    clear_unit_local_coordinate_frames();
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        update_unit_local_coordinate_frame(it.key());
+    }
+}
+
+void OCCTWidget::clear_reference_face_coordinate_frames()
+{
+    if (!m_context.IsNull())
+    {
+        for (const Handle(AIS_Trihedron) &trihedron : m_reference_face_trihedrons)
+        {
+            if (!trihedron.IsNull())
+            {
+                m_context->Remove(trihedron, Standard_False);
+            }
+        }
+    }
+    m_reference_face_trihedrons.clear();
+}
+
+void OCCTWidget::update_reference_face_coordinate_frames_transform()
+{
+    for (const Handle(AIS_Trihedron) &trihedron : m_reference_face_trihedrons)
+    {
+        if (trihedron.IsNull())
+        {
+            continue;
+        }
+        trihedron->SetLocalTransformation(m_reference_transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(trihedron, Standard_False);
+        }
+    }
+}
+
+void OCCTWidget::rebuild_reference_face_coordinate_frames()
+{
+    clear_reference_face_coordinate_frames();
+    if (ref_geom.IsNull() || m_context.IsNull() || !m_reference_geometry_visible)
+    {
+        return;
+    }
+
+    for (TopExp_Explorer explorer(ref_geom, TopAbs_FACE);
+         explorer.More();
+         explorer.Next())
+    {
+        gp_Ax2 axis;
+        if (!face_local_axis(TopoDS::Face(explorer.Current()), axis))
+        {
+            continue;
+        }
+
+        Handle(AIS_Trihedron) trihedron = make_local_trihedron(
+            axis, get_trihedron_size() * 0.22);
+        trihedron->SetLocalTransformation(m_reference_transform);
+        m_context->Display(trihedron, Standard_False);
+        m_context->Deactivate(trihedron, TopAbs_SHAPE);
+        m_reference_face_trihedrons.append(trihedron);
+    }
 }
 
 
@@ -1220,6 +1530,8 @@ void OCCTWidget::add_readed_geometry()
     ref_geom=geometry.getShape();
     builder.Add(compound,ref_geom);
 
+    clear_reference_face_coordinate_frames();
+
     base_geometry->Set(compound);
     m_reference_geometry_visible = true;
 
@@ -1228,6 +1540,8 @@ void OCCTWidget::add_readed_geometry()
 
     trihedron_main->SetSize(get_trihedron_size());
     m_context->Redisplay(trihedron_main, Standard_True);
+
+    rebuild_reference_face_coordinate_frames();
 
     builded=true;
     emit reference_geometry_available(true);
@@ -1246,6 +1560,21 @@ void OCCTWidget::refresh_open_unit_editors()
             {
                 dialog->refresh_from_unit_data(unit);
             }
+        }
+    }
+}
+
+void OCCTWidget::set_unit_editor_case_context(const Unit_Edit_Case_Context &context)
+{
+    m_unit_editor_case_context = context;
+
+    // A dialog may close while applying a new context, so iterate over a copy.
+    const QList<QPointer<unit_edit_dialog>> dialogs = m_open_edit_dialogs;
+    for (const QPointer<unit_edit_dialog> &dialog : dialogs)
+    {
+        if (dialog != nullptr)
+        {
+            dialog->set_case_context(m_unit_editor_case_context);
         }
     }
 }
@@ -1269,6 +1598,7 @@ bool OCCTWidget::clear_reference_geometry()
     base_geometry.Nullify();
     reference_geometry.Nullify();
     ref_geom.Nullify();
+    clear_reference_face_coordinate_frames();
     m_reference_position = QVector3D();
     m_reference_rotation = QVector3D();
     m_reference_transform = gp_Trsf();
@@ -1457,6 +1787,8 @@ void OCCTWidget::apply_reference_transform()
             m_context->Redisplay(face_trihedron, Standard_False);
         }
     }
+
+    update_reference_face_coordinate_frames_transform();
 
     if (!m_view.IsNull())
     {
@@ -2071,6 +2403,7 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
                                                              m_chemkin_species_names,
                                                              m_material_names,
                                                              this);
+    inj_edit_dialog->set_case_context(m_unit_editor_case_context);
     inj_edit_dialog->setProperty("unit_ptr", QVariant::fromValue(target_unit_ptr));
     m_open_edit_dialogs.append(inj_edit_dialog);
     connect(inj_edit_dialog, &QObject::destroyed, this, [this, inj_edit_dialog]()
@@ -2169,6 +2502,7 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
     unit->ais_display->SetTransparency(
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
     m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(unit->inj.uuid);
     m_view->Redraw();
 }
 
@@ -2228,6 +2562,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             injector.ff_virtual_origin += delta_vec;
             injector.volume_bgeom_min += delta_vec;
             injector.volume_bgeom_max += delta_vec;
+            update_unit_local_coordinate_frame(unit->inj.uuid);
             emit unit_position_updated(unit);
         }
 

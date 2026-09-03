@@ -22,6 +22,31 @@ namespace Ui {
 class unit_edit_dialog;
 }
 
+enum class Unit_Edit_Feature_State
+{
+    Unknown,
+    Disabled,
+    Enabled
+};
+
+struct Unit_Edit_Case_Context
+{
+    Unit_Edit_Feature_State energy_equation = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State heat_transfer = Unit_Edit_Feature_State::Unknown;
+    // -1 means that the active-species count is not available.
+    int active_chemistry_species_count = -1;
+    Unit_Edit_Feature_State nonpremixed_combustion = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State material_multiple_surface_reaction =
+        Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State unsteady_particle_tracking = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State three_dimensional = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State dem = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State gravity = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State dense_gas_solid = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State reflect_boundary = Unit_Edit_Feature_State::Unknown;
+    Unit_Edit_Feature_State multiple_surface_reaction = Unit_Edit_Feature_State::Unknown;
+};
+
 class unit_edit_dialog : public QDialog
 {
     Q_OBJECT
@@ -38,6 +63,7 @@ public:
     void refresh_geometry_from_unit_data(Unit *unit);
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
+    void set_case_context(const Unit_Edit_Case_Context &context);
     void reset_edit_state();
     bool has_unsaved_changes() const { return m_data_modified; }
 
@@ -80,6 +106,8 @@ private:
     QString m_model_layout_key;
     QStringList m_chemkin_species_names;
     QStringList m_material_names;
+    Unit_Edit_Case_Context m_case_context;
+    bool m_chemkin_species_count_fallback = true;
     QList<QPointer<QUI_ComboBox>> m_material_context_combos;
     std::vector<std::function<void()>> m_property_row_syncers;
     std::vector<std::function<void()>> m_model_row_syncers;
@@ -122,6 +150,7 @@ private:
     void clear_layout(QLayout *layout);
     void setup_action_buttons();
     void notify_injector_data_changed(bool geometry_changed = true);
+    void sync_case_context_constraints();
 };
 
 #endif // UNIT_EDIT_DIALOG_H

@@ -36,8 +36,9 @@
 
 namespace
 {
-// Keep debug preview construction in sync with Injector's opt-in geometry
-// switch. The default remains the stable simplified preview.
+// Keep preview construction in sync with Injector's opt-in geometry switch.
+// The stable preview is shown in both Debug and Release builds; advanced
+// atomizer previews remain opt-in because their geometry is experimental.
 #ifdef DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW
 constexpr bool kEnableAdvancedAtomizerPreview = true;
 #else
@@ -400,15 +401,13 @@ MainWindow::MainWindow(QWidget *parent)
     update_chemkin_status();
     runtime_debug::trace("MainWindow chemkin status initialized");
 
-#if defined(QT_DEBUG)
-    runtime_debug::trace("MainWindow building debug injector units");
+    runtime_debug::trace("MainWindow building default injector preview units");
     units = build_test_injector_units();
-    runtime_debug::trace(QString("MainWindow built %1 debug injector units").arg(units.size()));
+    runtime_debug::trace(QString("MainWindow built %1 default injector preview units").arg(units.size()));
     m_3d_widget->display_units(units);
-    runtime_debug::trace("MainWindow displayed debug injector units");
+    runtime_debug::trace("MainWindow displayed default injector preview units");
     statusBar()->showMessage(
-        QString("Loaded %1 debug injector units").arg(units.size()), 5000);
-#endif
+        QString("Loaded %1 default injector preview units").arg(units.size()), 5000);
 
     restore_material_table();
     runtime_debug::trace("MainWindow material table restored");
@@ -488,6 +487,14 @@ void MainWindow::close_auxiliary_windows_for_shutdown()
 void MainWindow::sync_unit_from_occt(Unit *changed_unit)
 {
     sync_unit_from_occt_impl(changed_unit, true);
+}
+
+void MainWindow::set_unit_editor_case_context(const Unit_Edit_Case_Context &context)
+{
+    if (m_3d_widget != nullptr)
+    {
+        m_3d_widget->set_unit_editor_case_context(context);
+    }
 }
 
 void MainWindow::sync_unit_position_from_occt(Unit *changed_unit)

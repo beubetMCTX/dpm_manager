@@ -45,6 +45,7 @@
 #include <GProp_GProps.hxx>
 #include <Precision.hxx>
 #include <TopoDS.hxx>
+#include <TopExp_Explorer.hxx>
 
 #include <Prs3d_Arrow.hxx>
 
@@ -156,6 +157,12 @@ public:
     bool can_redo_delete() const;
     void set_chemkin_species_names(const QStringList &species_names);
     void set_material_names(const QStringList &material_names);
+    // Shared case capabilities used by every unit editor.
+    void set_unit_editor_case_context(const Unit_Edit_Case_Context &context);
+    Unit_Edit_Case_Context unit_editor_case_context() const
+    {
+        return m_unit_editor_case_context;
+    }
     void close_auxiliary_dialogs();
     void discard_auxiliary_dialogs();
     void refresh_open_unit_editors();
@@ -208,6 +215,12 @@ private:
     void clear_face_reference();
     void clear_context_selection_safely();
     void show_face_reference(const TopoDS_Face &face);
+    void clear_unit_local_coordinate_frames();
+    void rebuild_unit_local_coordinate_frames();
+    void update_unit_local_coordinate_frame(const QUuid &uuid);
+    void clear_reference_face_coordinate_frames();
+    void rebuild_reference_face_coordinate_frames();
+    void update_reference_face_coordinate_frames_transform();
     void apply_reference_transform();
 
     Unit* get_unit(Handle(AIS_Shape) shape);
@@ -356,6 +369,8 @@ private:
     Handle(Geom_Axis2Placement) face_axis_placement;
     Handle(AIS_Trihedron) face_trihedron;
     gp_Ax2 selected_face_axis;
+    QHash<QUuid, Handle(AIS_Trihedron)> m_unit_local_trihedrons;
+    QVector<Handle(AIS_Trihedron)> m_reference_face_trihedrons;
     QVector3D m_reference_position;
     QVector3D m_reference_rotation;
     gp_Trsf m_reference_transform;
@@ -368,6 +383,7 @@ private:
 
     QStringList m_chemkin_species_names;
     QStringList m_material_names;
+    Unit_Edit_Case_Context m_unit_editor_case_context;
     QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;
     QSet<QUuid> m_pending_visual_refreshes;
     QHash<QUuid, bool> m_unit_visibility;

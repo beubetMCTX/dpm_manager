@@ -51,6 +51,9 @@ public:
     QList<Unit> units;
     QTabWidget* tab_widget;
 
+    // Supply solver/case capabilities to current and future unit editors.
+    void set_unit_editor_case_context(const Unit_Edit_Case_Context &context);
+
 public:
 
 

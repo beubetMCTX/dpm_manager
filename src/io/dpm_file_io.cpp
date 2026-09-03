@@ -427,7 +427,16 @@ struct dpm_scalar_converter<Drag_Law>
             {"mach", high_Mach_number},
             {"high-mach-number", high_Mach_number},
             {"dynamic", dynamic_drag},
-            {"dynamic-drag", dynamic_drag}
+            {"dynamic-drag", dynamic_drag},
+            {"grace", grace},
+            {"ishii-zuber", ishii_zuber},
+            {"wen-yu", wen_yu},
+            {"gidaspow", gidaspow},
+            {"syamlal-obrien", syamlal_obrien},
+            {"huilin-gidaspow", huilin_gidaspow},
+            {"gibilaro", gibilaro},
+            {"emms", emms},
+            {"filtered", filtered}
         });
     }
 };
@@ -1984,7 +1993,7 @@ bool validate_dpm_output_injector(const Injector &injector, QString *error_messa
         injector.injection_type < single || injector.injection_type > condensate ||
         injector.cone_type < point || injector.cone_type > solid ||
         injector.parcel_model < standard || injector.parcel_model > const_diameter ||
-        injector.drag_law < spherical || injector.drag_law > dynamic_drag ||
+        injector.drag_law < spherical || injector.drag_law > filtered ||
         injector.volume_specification < zone || injector.volume_specification > bouning_geometry ||
         injector.volume_streams_spec < total_parcel_count || injector.volume_streams_spec > parcel_per_cell ||
         injector.volume_bgeom_shapes < sphere || injector.volume_bgeom_shapes > hexahedron ||
@@ -2248,6 +2257,15 @@ QString drag_law_name(Drag_Law value)
     case Strokes_Cunningham: return "stokes-cunningham";
     case high_Mach_number: return "high-mach-number";
     case dynamic_drag: return "dynamic-drag";
+    case grace: return "grace";
+    case ishii_zuber: return "ishii-zuber";
+    case wen_yu: return "wen-yu";
+    case gidaspow: return "gidaspow";
+    case syamlal_obrien: return "syamlal-obrien";
+    case huilin_gidaspow: return "huilin-gidaspow";
+    case gibilaro: return "gibilaro";
+    case emms: return "emms";
+    case filtered: return "filtered";
     }
     return "spherical";
 }

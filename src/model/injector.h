@@ -101,7 +101,16 @@ enum Drag_Law
     nonspherical,
     Strokes_Cunningham,
     high_Mach_number,
-    dynamic_drag
+    dynamic_drag,
+    grace,
+    ishii_zuber,
+    wen_yu,
+    gidaspow,
+    syamlal_obrien,
+    huilin_gidaspow,
+    gibilaro,
+    emms,
+    filtered
 };
 
 enum Volume_Streams_Spec

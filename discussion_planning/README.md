@@ -1,10 +1,427 @@
 # DPM Manager Discussion Planning
 
-### 2026-09-03 Enable Tabulated Diameter Distribution for Volume
+### 2026-09-04 Per-Property Array Follow/Override Editing
 
-- Fluent v242 documents `tabulated` diameter distributions for cone, surface, and volume injections.
-- Added the missing Volume option; switching to an injection type without tabulated support still clears the stale selection.
-- Added Unit Editor regression coverage for Volume availability and Group normalization.
+- Right-click actions may choose whether the selected child injector follows
+  array edits or receives an independent override.
+- Prefer separate scopes for physical properties (material, diameter, flow,
+  temperature, models) and geometric properties (position, direction,
+  rotation, local offset); one child may inherit one scope and override the
+  other.
+- Suggested actions: follow array edits, edit current child only, and restore
+  inheritance while discarding local overrides.
+- Child edits should emit semantic change signals to the owning `Unit`. The
+  `Unit` validates the change, updates the master or selected override,
+  regenerates derived instances when needed, and emits one consolidated data
+  or geometry update.
+- Store override state explicitly. Rebuilding an array must not erase local
+  overrides unless the user restores inheritance.
+
+### 2026-09-04 Reserve Master/Child Injector Array Architecture
+
+- A `Unit` may keep one master injector while linear, mirror, or rotational
+  array instances are represented as dynamically generated child injectors.
+- The array rule should be stored separately from generated child state. Child
+  injectors should be rebuildable derived instances rather than unrelated
+  copies of the master data.
+- Future synchronization may use Qt signals and slots: a child emits a
+  semantic change signal, the owning `Unit` validates and synchronizes the
+  master/array state, then emits one consolidated update signal for the view
+  and geometry.
+- Signal ownership and lifetime must be explicit. Prefer QObject-owned
+  controllers or guarded pointers over unmanaged raw-pointer callbacks, and
+  use update-source guards or revision IDs to prevent master/child feedback
+  loops.
+- The flow-rate policy (master total versus per-child flow) and whether array
+  expansion is display-only or exported to DPM remain design decisions.
+
+### 2026-09-03 Normalize State At Edit Commit
+
+- All Unit Editor edit paths now normalize the live Injector before emitting
+  data or geometry updates, so range ordering, mutually exclusive options, and
+  case-dependent fallbacks also apply to direct edits instead of only external
+  refreshes.
+- No persistence format or project-level fields were added.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Add Shared Unit-Editor Case Context Bridge
+
+- Added `MainWindow -> OCCTWidget -> unit_edit_dialog` case-context propagation.
+- New and already-open editors now receive one shared `Unit_Edit_Case_Context`.
+- Default `Unknown` values remain permissive until real solver/case metadata is connected.
+- Unified Condensate and Brownian Motion gating with the shared heat-transfer prerequisite.
+- Restored the Fluent-documented Volume + Tabulated distribution.
+- Did not gate File injections by unsteady tracking because Fluent supports both
+  steady and unsteady file formats, while Injector currently stores no file-format
+  discriminator.
+- Ordinary atomizer branches now hide particle initial-position rows; Massless
+  atomizer branches retain position-only controls.
+- Surface, Volume, and Condensate now disable the Parcel page and normalize
+  stale parcel-release settings to Standard; DDPM and steady-case precedence remains unchanged.
+- Save-format work remains deferred.
+
+### 2026-09-03 Lock Unsupported Top-Level Stagger Control
+
+- The top-level `Stagger Options` checkbox is now disabled for Surface, Volume, File, and Condensate injections, matching their separate or absent placement mechanisms.
+- Unsupported stale stagger flags remain cleared during refresh; supported Single, Group, Cone, and Atomizer controls remain editable.
+- Added regression coverage confirming unsupported types cannot re-enable generic staggering.
+
+### 2026-09-03 Restrict Generic Staggering to Supported Injections
+
+- Generic `Stagger Positions` is now exposed only for Single, Group, and Cone injections; Atomizer types retain their atomizer-specific branch.
+- Surface, Volume, File, and Condensate injections clear stale generic staggering flags and keep `Stagger Radius` disabled; Surface uses `Random Surface` instead.
+- The top-level Stagger panel remains visible for consistent UI navigation, but unsupported controls are locked.
+- Added regression coverage for Surface and Volume state cleanup.
+
+### 2026-09-03 Include Random-Eddy State in Model Layout Key
+
+- External refreshes now detect `Random Eddy` changes and rebuild its dependent model rows.
+- `Time Scale Constant` therefore relocks correctly when the value changes outside the dialog.
+- Added regression coverage for the external-refresh path.
+
+### 2026-09-03 Synchronize Stagger Controls Across Model Pages
+
+- The top-level `Stagger Options` checkbox and the Physical Models stagger checkbox now stay synchronized in both directions.
+- Toggling either control immediately refreshes the dependent `Stagger Radius` enablement state.
+- Added regression coverage for both control-entry paths; Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Refresh Random-Eddy Dependency Immediately
+
+- Toggling `Random Eddy` now rebuilds the Physical Models rows immediately.
+- `Time Scale Constant` is disabled when Random Eddy is off and becomes editable as soon as it is enabled.
+- Added regression coverage for both states.
+
+### 2026-09-03 Normalize Diameter Distribution Flags
+
+- `tabulated`, Rosin-Rammler, and logarithmic Rosin-Rammler flags are now mutually exclusive during external refreshes and legacy-data normalization.
+- A logarithmic RR selection automatically restores the parent RR flag; tabulated selection clears both RR flags.
+- Added regression coverage for both stale-flag combinations.
+
+### 2026-09-03 Normalize Parcel State for Steady Tracking
+
+- When the case explicitly disables Unsteady Particle Tracking, alternate Parcel Release Methods are reset to `Standard` before the editor rebuilds its controls.
+- The Parcel page remains disabled in that context, preventing stale constant-number, constant-mass, or constant-diameter settings from surviving a steady-case switch.
+- Added regression coverage for parcel state reset, Dynamic Drag fallback, and page enablement; save-format work remains deferred.
+
+### 2026-09-03 Harden Remaining Numeric Normalization
+
+- RR distribution parameters, cone radii, Stagger radius, Swirl Fraction, cloud diameters, unsteady-file times, and Shape Factor now reject non-finite legacy values before controls or geometry consume them.
+- Added regression coverage for NaN and infinity values in these remaining editor-exposed fields.
+- Save-format work remains deferred.
+
+### 2026-09-03 Align Volume Input Fields With Fluent
+
+- Volume injections now show exactly one amount field: `Total Flow Rate`, `Total Mass`, or `Volume Fraction`.
+- The displayed field follows the mutually exclusive input-mode flags; Massless Volume injections continue to show none.
+- DDPM still adds `Packing Limit` while calculating starting points automatically.
+- Added regression coverage for all three input modes; Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Normalize Additional Model Scalars
+
+- Editor-exposed Volume fractions, packing limits, liquid quality, and liquid fraction now stay within `0~1`.
+- Time-scale, spray-model, and SECO parameter values now reject non-finite or negative legacy values before controls are rebuilt.
+- Atomizer and effervescent half-angle values are clamped to `0~pi/2`.
+- Added regression coverage for NaN, infinity, negative, and oversized values; Release build and all 11 CTest regressions passed.
+- Project save-format work remains deferred.
+
+### 2026-09-03 Lock File Parcel Release Method
+
+- File injections now normalize to and expose only the Standard Parcel Release Method, matching Fluent's documented automatic behavior.
+- DDPM's existing constant-diameter override remains higher priority when a dense discrete-phase domain is active.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Hide Massless Volume Amount Inputs
+
+- Massless Volume injections now hide volume fraction, packing limit, mass input, and volume-fraction input rows.
+- Volume geometry and stream-location controls remain available because they define where particles are released.
+- This follows Fluent v242's statement that Massless Volume injections require no particle amount input.
+
+### 2026-09-03 Restrict Bounding-Geometry Parcel Specification
+
+- Bounding-geometry Volume injections now expose only `Total Parcel Count`; `Parcel Per Cell` remains available for Zone-based Volume injections.
+- Volume stream counts are normalized to at least one before the editor builds the controls.
+
+### 2026-09-03 Align v242 Chemistry Threshold
+
+- Droplet and Combusting particle types both require at least two active chemistry species unless non-premixed or partially premixed combustion is active.
+- The threshold follows the current Fluent v242 documentation rather than the older 12.0 guide.
+
+### 2026-09-03 Refine Massless and Two-Dimensional Injection Controls
+
+- Massless Surface injections now expose only surface and boundary selection; their solver-defined positions remain hidden.
+- Massless Cone injections retain the documented geometric inputs (position, axis, cone angle, and radius) while hiding velocity and flow inputs.
+- Axis inputs for ordinary atomizer injections are hidden in explicitly two-dimensional cases.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Separate Volume Stream Controls
+
+- Volume injections now hide the generic `Number of Streams` control because they use the dedicated `Total Streams` or `Streams Per Cell` settings.
+- Surface injections retain the generic stream count, as required by the current Fluent v242 documentation; switching types preserves its value.
+- Invalid `numpts` values are normalized to at least one stream before the editor consumes them.
+- Release build and all 11 CTest regressions passed.
+- Project save-format work remains deferred.
+
+### 2026-09-03 Audit Fluent Injection Dependencies
+
+- Rechecked Fluent v242 conditions for injection types, particle types, diameter distributions, stagger options, particle rotation, Parcel Release Method, Brownian Motion, breakup, rough-wall, and surface-placement options.
+- All restrictions that can be determined from the current `Injector` fields or `Unit_Edit_Case_Context` are now represented by visibility, enablement, or normalization rules.
+- Remaining documented conditions require project-level data not currently exposed to the Unit Editor, including gravity availability, dynamic-mesh surface eligibility, detailed heat-transfer models, and DEM collision regime.
+- Primary reference: Fluent v242 [Setting Initial Conditions for the Discrete Phase](https://ansyshelp.ansys.com/public/Views/Secured/corp/v242/en/flu_ug/flu_ug_sec_discrete_initial.html).
+- Dependency overview reference: Fluent v242 [Steps for Using the Discrete Phase Models](https://ansyshelp.ansys.com/public/Views/Secured/corp/v242/en/flu_ug/flu_ug_sec_discrete_use_oview.html).
+- No project save-format changes were made.
+
+### 2026-09-03 Normalize External Injector State
+
+- External or legacy data with out-of-range enum values now falls back to safe defaults before UI layout construction.
+- Position, velocity, angular-velocity, bounding-geometry, and other editable vectors now clear non-finite components before display or geometry use.
+- Added regression coverage for invalid enum and vector data.
+- Project save-format work remains deferred.
+
+### 2026-09-03 Use Chemkin Species Count For Case Constraints
+
+- When no explicit chemistry count is supplied, a non-empty Chemkin species list now supplies the count used by Droplet and Combusting prerequisites.
+- Replacing the Chemkin list immediately re-evaluates particle-type availability and dependent editor pages.
+- Clearing the Chemkin list removes the previous automatic count instead of reusing stale chemistry metadata.
+- Explicit case-context counts retain priority over the imported list.
+
+### 2026-09-03 Separate Heat-Transfer Prerequisite
+
+- Added an explicit Heat Transfer case-context state instead of relying only on Energy Equation as a proxy.
+- Droplet, Combusting, and Multicomponent become unavailable when either Energy Equation or Heat Transfer is explicitly disabled.
+- Unknown Heat Transfer context remains permissive for older callers; added regression coverage for explicit Heat Transfer disablement.
+- Added regression coverage for insufficient and sufficient Chemkin species counts.
+
+### 2026-09-03 Lock DDPM-Only Physical Model Fields
+
+- Collision Partner and Continuous Phase Domain now remain visible but are read-only when DPM Domain is none.
+- Both fields become editable when a discrete-phase domain is selected; legacy values are preserved while locked.
+- Added regression coverage for both domain states.
+
+### 2026-09-03 Gate Advanced Drag Laws By Case Context
+
+- Added Fluent drag-law entries for Grace, Ishii-Zuber, Wen-Yu, Gidaspow, Syamlal-O'Brien, Huilin-Gidaspow, Gibilaro, EMMS, and Filtered.
+- Grace and Ishii-Zuber require gravity; dense gas-solid drag laws require a non-none DPM Domain and a non-disabled dense gas-solid context.
+- Dense gas-solid drag laws are also restricted to Inert particles in the current model.
+- Unsupported loaded laws fall back to Spherical; Unknown context remains permissive for compatibility.
+- Existing drag-law enum values remain numerically stable, and DPM parser/output mappings were extended.
+- Added regression coverage for gravity and dense-flow gating.
+
+
+### 2026-09-03 Lock Stagger Radius for Atomizers
+
+- `Stagger Options` remains available for atomizer and solid-cone injections, but `Stagger Radius` is disabled because Fluent derives that region from atomizer/orifice geometry.
+- Standard injections such as Group continue to allow editing `Stagger Radius` when spatial staggering is enabled.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Gate Parcel Settings by Unsteady Tracking
+
+- The Parcel page is now disabled when the case context explicitly disables Unsteady Particle Tracking, matching Fluent's documented dependency.
+- `Unknown` tracking context remains permissive; DDPM restrictions continue to take precedence.
+- Case-context changes now refresh auxiliary tab enablement immediately, including Parcel and Wet Combustion visibility.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Apply 2D Vector Visibility Rules
+
+- In an explicitly two-dimensional case, ordinary position, velocity, axis, and normal vectors now omit their Z component.
+- Two-dimensional angular velocity now exposes only the Z component, which is normal to the 2D plane.
+- Three-dimensional and `Unknown` contexts retain the existing vector fields.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Lock DDPM Volume Injection Option
+
+- `Volume` remains available when DPM Domain is not `none`; Fluent restricts the Parcel page and Parcel Specification instead.
+- DDPM Volume injections now hide `Stream Specification`, `Total Streams`, and `Streams Per Cell`, while exposing `Packing Limit` for non-Massless particles.
+- Ordinary Bounding Geometry still exposes a fixed `Total Parcel Count` option, and Zone-based Volume injections retain both ordinary stream specifications.
+- Updated regression coverage against Fluent v242; Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Finalize Condensate, Reference Frame, and DDPM Locks
+
+- Condensate particle type is restricted to Droplet and Multicomponent; unsupported loaded values normalize to Droplet and their radio buttons are disabled.
+- Local Reference Frame is omitted for Surface, Volume, and Condensate injections, matching Fluent's unavailable-control rule.
+- In a non-`none` DPM Domain, stochastic Eddy Attempts is fixed at `1` and its editor row is locked.
+- Added regression coverage for these dependencies; Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Restrict Condensate and DDPM Controls
+
+- Condensate injections now normalize unsupported particle types to Droplet and disable Massless, Inert, and Combusting choices; Multicomponent remains available.
+- Local Reference Frame is no longer created for Surface, Volume, or Condensate injections, matching Fluent's unavailable-control rule.
+- Under a non-`none` DPM Domain, stochastic Eddy Attempts is forced to `1` and its row is locked.
+- Added Unit Editor regression coverage; Release compilation and all 11 regression executables passed.
+- Energy, unsteady-tracking, mesh-dimension, DEM, wall-boundary, and material-reaction prerequisites remain pending because no reliable project-level context exists in the current editor API.
+
+### 2026-09-03 Normalize Injection Ranges and Directions
+
+- Numeric injection ranges for diameter, temperature, and flow rate now reject non-finite values and keep lower/upper ordering.
+- Flat-fan phi limits and unsteady atomizer limits now keep start no later than stop.
+- Atomizer, cone, and flat-fan normal vectors receive a safe non-zero fallback when legacy data contains invalid vectors.
+- Air-blast outer diameter is kept no smaller than inner diameter; atomizer dispersion angle uses the same strict upper bound as cone angle.
+- No persistence fields or file formats changed.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Normalize Volume Bounding Geometry
+
+- Volume bounding-geometry radius and cone angle now reject non-finite values and are clamped to non-negative ranges.
+- Bounding-box, cylinder, and cone min/max coordinates are normalized component-wise so the lower bound is not greater than the upper bound.
+- The existing data/session format is unchanged; this only normalizes in-memory editor state before rebuilding the UI or geometry.
+- Added Unit Editor regression coverage; Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Align Injection Limits With Output Validation
+
+- Cone Angle is clamped below `180` degrees, and hollow/solid/ring cone outer radii are kept positive.
+- Curved Volume bounding geometries keep a positive radius, matching DPM output validation.
+- Parcel number, parcel mass/diameter, SECO table count, shape factor, and Cunningham correction receive basic valid-range normalization.
+- Added regression coverage for the Cone Angle limit; Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Align Surface, Condensate, and Atomizer Dependencies
+
+- Surface `Scale By Area` and `Random Surface` now follow Fluent's explicit mutual-exclusion rule.
+- Surface `Use Face Normal` now switches Point Properties between velocity components and velocity magnitude, with immediate UI rebuild.
+- Condensate injections now expose only Start Time and Stop Time; unsupported diameter distributions are cleared automatically.
+- Atomizer point-property panels were aligned with Fluent's documented common and model-specific parameters, including appropriate numeric ranges.
+- Direct changes to DPM Domain, Drag Law, Parcel Model, Rotation, and Face Normal now rebuild dependent controls immediately.
+- Added regression coverage; Release compilation and the focused Unit Editor and injector-geometry tests passed.
+
+### 2026-09-03 Validate File Injection Time Range
+
+- File injection start/stop and flow-time fields now reject negative values.
+- Unsteady Stop is normalized to be no earlier than Unsteady Start.
+- Added regression coverage for invalid file-injection timing values.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Clear Unsupported Particle Fields
+
+- Switching particle type now clears Material when the type does not use a material.
+- Evaporating Species is cleared outside Droplet; devolatilizing, oxidizing, and product species are cleared outside Combusting.
+- This keeps disabled controls from leaving stale values in the injector data.
+- Added regression coverage for unsupported-field cleanup.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Validate Ring Radius and Swirl Sign
+
+- Ring-cone inner radius is normalized to the valid range below the outer radius.
+- Hollow-cone Swirl Fraction now accepts the Fluent-supported `-1~1` range, including negative values for reverse swirl direction.
+- Added regression coverage for invalid ring radii and negative swirl fraction.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Validate Diameter Distribution Parameters
+
+- Rosin-Rammler limits are normalized to non-negative values with `min <= mean <= max`.
+- Spread is kept positive and diameter count is at least one.
+- Tabulated diameter, number-fraction, and mass-fraction column indices now require one-based positive values.
+- Added regression coverage for invalid Rosin-Rammler input.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Normalize Cloud Diameter Bounds
+
+- Cloud Tracking now clamps both diameter limits to non-negative values and ensures the maximum is not below the minimum.
+- Added regression coverage for externally loaded invalid cloud limits.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Validate Stagger Radius
+
+- Stagger Radius now accepts only non-negative numeric values.
+- Invalid negative values loaded from old data are normalized to zero.
+- The radius editor remains locked until Stagger Options is enabled.
+- Added regression coverage for normalization and disabled-state behavior.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Restrict Hollow-Cone Swirl Fraction
+
+- Swirl Fraction is now shown only for non-Massless hollow-cone injections, matching Fluent's cone-specific parameter definition.
+- Switching to another injection or cone type clears stale swirl-fraction data.
+- Added regression coverage for hollow versus ring cone behavior.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Match Cone Point-Property Requirements
+
+- Point-cone injections now hide radius fields because their release plane is a point.
+- Hollow-cone injections expose only Outer Radius; Inner Radius is reserved for ring-cone injections.
+- Cone Type changes now rebuild both point properties and dependent physical-model rows.
+- Added regression coverage for point, hollow, and ring cone field availability.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Limit Massless Point Properties
+
+- Fluent obtains Massless particle velocity from the continuous phase, so direct velocity, diameter, temperature, and flow-rate inputs are omitted where they are not meaningful.
+- Single pages keep only position fields; Cone pages retain the documented position, axis, cone angle, and radius geometry inputs.
+- Group pages keep first/last position fields, while Surface pages keep surface selection only.
+- Uniform Massflow Distribution is now cleared and hidden for Massless cone injections.
+- Added regression coverage for Massless Single, Group, and Surface layouts.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Enable Diameter Distributions for Physical Particles
+
+- Fluent's Rosin-Rammler and tabulated distributions depend on injection type; they are not limited to Droplet particles.
+- Inert, Droplet, Combusting, and Multicomponent particles now retain diameter-distribution controls when their injection type supports them.
+- Massless particles continue to clear and disable diameter distributions because they have no particle diameter.
+- Updated particle-type regression coverage.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Link Wet Combustion to Evaporating Species
+
+- Fluent exposes Evaporating Species for a Combusting particle only when Wet Combustion is enabled.
+- The editor now clears and disables that species selection when the liquid option is off, and restores it when enabled.
+- Added regression coverage for both states.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Make Volume Input Modes Mutually Exclusive
+
+- Fluent volume injections use one input basis: flow rate, mass, or volume fraction.
+- Mass Input and Volume Fraction Input now normalize conflicts, lock the alternative while selected, and unlock it when disabled.
+- Massless volume injections clear both input-mode flags because no volume input is required from the user.
+- Added regression coverage for normalization and both interaction directions.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Superseded DDPM Volume Assumption
+
+- Earlier work incorrectly treated a non-`none` Discrete Phase Domain as a reason to reject Volume injections.
+- Fluent v242 instead keeps Volume available and removes Parcel Specification controls, using the Injection Packing Limit to calculate starting points.
+- The implementation and regression coverage were corrected in the later `Lock DDPM Volume Injection Option` entry above.
+
+### 2026-09-03 Clear Inertial State for Massless Particles
+
+- Fluent massless particles do not use the inertial physical-model group.
+- Switching to Massless now clears Rotation, Rough Wall, Drag Law, and Brownian Motion state instead of leaving stale hidden settings.
+- Added regression coverage for the state transition.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Restrict Dynamic Drag Availability
+
+- Fluent exposes Dynamic Drag only when a droplet breakup model is active.
+- The editor now requires Droplet + SECO Breakup + one selected SECO model before exposing Dynamic Drag.
+- Unsupported loaded states normalize back to Spherical drag; the combo uses explicit enum values so filtering does not shift selections.
+- The unsteady-tracking prerequisite remains unmodeled because this project has no corresponding global field.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Enforce DDPM Parcel Dependency
+
+- Fluent disables the Parcel page when a non-`none` Discrete Phase Domain is selected.
+- The editor now disables that tab and normalizes the parcel release method to `constant-diameter`.
+- Leaving the dense discrete-phase domain re-enables the Parcel page without changing the saved domain value.
+- Added regression coverage for both directions of the transition.
+- Release compilation and all 11 regression executables passed.
+
+### 2026-09-03 Add Numeric Model Constraints
+
+- Added expression-aware numeric range validation to Unit Editor model and injection rows.
+- Enforced non-negative physical quantities, `0~1` fractions, `0~180` degree cone angles, positive stream/count fields, and `0~1` nonspherical shape factors.
+- Invalid values keep the last valid value and use the existing `QUI_LineEdit` rejection state; arithmetic expressions remain supported.
+- Added regression coverage for rejecting an invalid shape factor and accepting `1/2`.
+- Release compilation and all 11 regression executables passed with the MSVC2019 runtime environment.
+
+### 2026-09-03 Constrain Surface and Cone Distribution Options
+
+- Fluent limits Uniform Massflow Distribution to solid-cone and ring-cone injections; other cone types now clear and hide it.
+- Fluent marks Randomize Starting Points and Scale Flow Rate by Face Area as incompatible for surface injections.
+- The editor now normalizes conflicts, locks the alternative while one option is active, and restores it when disabled.
+- Added regression coverage for both interaction groups and injection-type transitions.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Verify Tabulated Diameter Distribution Scope
+
+- Fluent v242's dedicated tabulated-distribution section limits `tabulated` to Cone and Surface injections.
+- Volume retains only its fixed/uniform and Rosin-Rammler choices; stale tabulated state is cleared on refresh.
+- Updated Unit Editor regression coverage for the documented availability matrix.
 - Release build and all 11 CTest regressions passed.
 
 ### 2026-09-03 Stabilize Dynamic Model Editor Callbacks
@@ -1069,6 +1486,13 @@ References:
 
 - Added stable object names for the material, diameter-distribution, and species editors.
 - The unit-editor regression now verifies the enablement matrix for all five particle types.
+- When the case context explicitly disables the energy equation, Droplet, Combusting, and Multicomponent are disabled and loaded heat-dependent data falls back to Inert; condensate falls back to single injection; Unknown context remains permissive.
+- Corrected diameter-distribution availability to match Fluent: `tabulated` is offered for cone and surface injections, not volume injections.
+- Non-steady particle tracking now forces stochastic Number of Tries to 1 and disables the corresponding editor row; the existing DDPM restriction remains in effect.
+- Added optional case-context chemistry metadata: Droplet and Combusting are restricted when fewer than two active species are explicitly reported and non-premixed combustion is explicitly disabled; Unknown metadata remains permissive.
+- Added optional material-model metadata for Combusting: when the selected material uses multiple-surface-reaction, Oxidizing Species and Product Species are cleared and disabled; Unknown metadata remains permissive.
+- Context validation now also runs from injection-type, particle-type, and DPM-domain change callbacks, so programmatic or externally synchronized changes cannot bypass disabled-option constraints.
+- Stochastic subsettings are now cleared when Stochastic Tracking is off: Random Eddy is false and Number of Tries is reset to one.
 - The same regression verifies that the cone parameter panel is hidden for non-cone injections and visible for cone injections.
 
 ### 2026-09-02 Strengthen Release Shutdown Verification
@@ -1208,3 +1632,25 @@ References:
 - Unit edit undo, redo, and cancel snapshot application now restores the previous type, data, and displayed shape when geometry rebuilding fails.
 - Added an OCCTWidget edit-history regression covering rejection of an invalid historical snapshot without damaging the valid current state.
 - The native OCCT test uses the Windows Qt platform instead of the incompatible offscreen platform; all 11 CTest regressions pass.
+
+### 2026-09-03 Complete Case-Context Injection Constraints
+
+- Injection type item availability is now applied to every item before restoring the current selection.
+- Fixed an early-loop exit that left `cone`, `flat-fan`, and other restricted injection types enabled when the case context disabled them.
+- Removed temporary diagnostic output; focused and complete Release CTest runs pass, with all 11 regressions successful.
+### 2026-09-03 Align Fluent Injection Restrictions
+
+- Volume injections retain only the documented Rosin-Rammler diameter distributions; `tabulated` remains limited to Cone and Surface.
+- Particle rotation is limited to Single, Group, Cone, Surface, and Volume injections; Cone uses angular-velocity magnitude while the other supported types use components.
+- Atomizer injections hide particle rotation and lock Parcel Release Method to `Standard`.
+- Solid-cone uses the atomizer spatial-staggering flag, matching Fluent's documented default staggering family.
+- Project save-format work remains deferred as requested.
+- Release build and all 11 CTest regressions passed.
+
+### 2026-09-03 Tighten Massless Surface and Atomizer Controls
+
+- Massless Surface injections now clear and hide `Use Face Normal`, which has no velocity input to replace in this mode.
+- Massless Effervescent injections now expose position only; their atomizer-axis fields are no longer shown.
+- Switching between atomizer and ordinary injection families now clears the inactive staggering flag, preventing stale hidden settings from remaining active.
+- Project save-format work remains deferred as requested.
+- Release build and all 11 CTest regressions passed.

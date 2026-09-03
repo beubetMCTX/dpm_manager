@@ -1,0 +1,208 @@
+# DPM Manager Project Memory
+
+## Current Scope
+
+- Qt/C++ DPM manager with OpenCASCADE geometry view.
+- `Unit` currently owns one injector. `Injector` stores physical and geometry
+  data; array expansion is not implemented yet.
+- Saving-format changes are deferred unless explicitly requested.
+
+## Completed Areas
+
+- Field-table-driven DPM import, including multiple injectors per file.
+- Chemkin species import from the `SPECIES` section and material/config UI.
+- Species color configuration and material table dialogs with config storage.
+- Unit editor synchronization with live injector data and geometry updates.
+- Fluent-style conditional visibility, enablement, and fallback rules for:
+  particle/injection types, diameter distributions, cone parameters, surface
+  options, DDPM, parcel release, drag laws, breakup, staggering, rotation,
+  Brownian motion, wet combustion, chemistry, and case context.
+- Invalid legacy values are normalized before UI/model use. All editor paths
+  normalize state before emitting data or geometry updates.
+- Child dialogs use guarded lifetime handling to avoid shutdown crashes.
+- Release build and 11 CTest regressions currently pass.
+
+## Planned Injector Arrays
+
+```text
+Unit
+  master Injector
+  InjectorArraySpec
+  generated child instances
+```
+
+### Unit-Based Composite Hierarchy
+
+- Keep `Unit` as the common upper-level object instead of introducing a
+  separate top-level array object.
+- Leaf `Unit` uses Injector mode and owns one injector.
+- Composite `Unit` uses Array or Assembly mode and owns child `Unit`s; it
+  should not simultaneously contain an active injector and child units.
+- Store child transforms in the parent local coordinate system. Resolve
+  geometry recursively: child local transform -> parent array transform ->
+  higher-level transform -> world coordinates.
+- A multi-injector seed, such as two alternating injectors in a rotational or
+  planar array, is represented by one composite `Unit` containing both leaf
+  units. The composite is then transformable and nestable as one unit.
+- Parent/child signals should propagate upward and be consolidated by the
+  root unit. Selection, locking, visibility, and edit scope should follow the
+  same hierarchy.
+
+- Support linear, mirror, and rotational arrays.
+- Store array rules separately from generated child state.
+- Treat children as rebuildable derived instances, not unrelated copies.
+- Prefer explicit ownership (`unique_ptr` or a QObject-owned controller) over
+  unmanaged raw-pointer callbacks.
+- Use Qt signals/slots through an `InjectorArrayController` or `Unit` layer;
+  child changes should be semantic, validated by `Unit`, and consolidated into
+  one data/geometry update.
+- Guard against master/child feedback loops with update-source guards or
+  revision IDs.
+
+## Array Editing Policy
+
+- Right-click may choose `Follow Array`, `Edit Current Child Only`, or
+  `Restore Inheritance`.
+- Prefer independent inheritance scopes for physical properties and geometric
+  properties. A child may inherit material/flow while overriding position.
+- Local overrides must survive array regeneration until explicitly discarded.
+- Decide later whether master flow is total flow or per-child flow, and whether
+  array expansion is display-only or exported as multiple DPM injections.
+
+## Injector Local Direction Design
+
+- Treat each leaf injector as having a local coordinate frame with origin,
+  forward, up, and right axes. Store geometry and direction parameters in the
+  local frame, then transform them to world coordinates.
+- Single injection direction should be selectable in the editor through a
+  combo box such as `Vector`, `Pitch/Yaw`, or `Target Hitpoint`.
+- `Vector` keeps the existing direct velocity-vector workflow.
+- `Pitch/Yaw` uses local `+X` as forward, with yaw about local `Z` and pitch
+  about local `Y`; velocity magnitude is independent from direction.
+- `Target Hitpoint` derives direction from `normalize(hitpoint - origin)`.
+  Zero-length targets must be rejected or fall back safely.
+- Target points should support an explicit coordinate scope: local-array,
+  parent-local, or world-fixed. A local target follows array transforms; a
+  world-fixed target makes every instance aim at the same world point.
+- Cone injections retain `axis + cone_angle`. Do not add Single-style
+  Pitch/Yaw/Hitpoint controls to Cone when its axis is constrained by the model
+  plane or reference geometry.
+- Direction sources for other types remain specialized: Surface may use its
+  velocity or selected-face normal, Volume uses its configured direction,
+  Atomizers use `atomizer_axis`, Flat Fan uses `ff_normal`, File uses per-file
+  velocities, and Condensate is solver/surface driven.
+- Array transforms apply after the injector-local direction is resolved:
+  injector local direction -> child transform -> array transform -> world.
+
+## Manipulator And Numeric Inspector
+
+- Quick transform editing should combine an OpenCASCADE-style view gizmo with
+  precise numeric fields.
+- Translation exposes live `Position X/Y/Z`; rotation exposes the relevant
+  `vel`, `axis`, `atomizer_axis`, `ff_normal`, Pitch/Yaw, or Target Hitpoint
+  values according to the injector direction mode.
+- Support World, Local, Parent, and Reference Geometry transform spaces.
+- Support selectable pivots: current Unit, parent Unit, array origin, or a
+  selected reference axis/point.
+- Dragging previews continuously but commits one data/geometry/history update
+  on release; manual numeric edits support Apply and Cancel.
+- Keep position, direction, and speed magnitude conceptually separate. For
+  Single Pitch/Yaw mode, edit direction angles and magnitude independently.
+- The same manipulator and numeric-inspector mechanism should work on leaf
+  injectors, composite/array Units, and reference geometry.
+
+## Velocity Field Semantics
+
+- `vel` and `vel2` are Group-only fields. They represent the two endpoints of
+  a pending A-to-B range/gradient, not two ordinary directions.
+- Group gradient behavior is not implemented yet and remains deferred.
+- Other injection types must not use `vel2` for direction logic. Use the
+  actual type-specific field, such as `vel`, `vel_mag`, `axis`,
+  `atomizer_axis`, or `ff_normal`, as appropriate.
+
+## Array Feature Decisions
+
+- Mirror array: approved as an independent useful mode.
+- Helical array: consider as an option of rotational array, combining axial
+  translation with rotation rather than creating a separate top-level mode.
+- Radial array: no dedicated mode; compose a rotational array from a linear
+  seed array.
+- Concentric and staggered rings: no dedicated mode; compose multiple
+  rotational arrays when needed.
+- Hexagonal/honeycomb fill: high priority. Support filling a specified
+  rectangle or circle with a selectable ratio of two or three injector types.
+  This targets common rocket-engine injector layouts.
+- Square fill: important common layout, to be discussed and designed
+  separately after the hexagonal fill model.
+- Elliptical array: optional experimental feature, low priority.
+- Curve-following array: do not implement as a dedicated mode because it
+  requires a separate curve-authoring system.
+- Surface conforming: make it an option on other array modes. Linear and other
+  arrays may orient instances to the selected surface normal without a
+  standalone surface-array type.
+- Custom point array: do not expose as a primary user mode. Keep a generic
+  master/template representation internally so other array modes can expand
+  into explicit points when necessary.
+
+## Assembly And Reference Geometry
+
+- Existing `Unit_Type::Assebly` is reserved for a composite structure. The
+  spelling is legacy and should be handled consistently until a deliberate
+  rename is planned.
+- Assembly is different from Array: Assembly groups multiple different child
+  Units into one reusable object, while Array applies a repeat/transform rule
+  to a seed object. An Assembly may itself be used as an Array seed, enabling
+  nested structures.
+- Reference geometry should remain separate from injector/array physics. It
+  provides construction and orientation aids such as symmetry planes, axes of
+  rotation, origin points, section planes, and alignment frames.
+- Reference geometry should support selection, visibility, locking, face
+  selection, view alignment, and local-coordinate display without replacing
+  the world coordinate system.
+- Array rules may optionally bind to reference geometry: a symmetry array can
+  use a reference plane, a rotational array can use a reference axis, and
+  surface-conforming placement can use selected face normals.
+- Reference geometry is a coordinate/design aid, not automatically a DPM
+  boundary or an injector. Any later physical meaning must be explicitly
+  assigned.
+
+### Reference Geometry Subsystem
+
+- Give reference geometry an independent model, renderer, interaction layer,
+  and IO layer rather than embedding it in injector geometry generation.
+- Support imported reference geometry and constructed aids through one common
+  interface. Imported objects may later include STEP, IGES, BREP, or STL;
+  constructed objects include symmetry planes, rotation axes, datum planes,
+  origins, section planes, and alignment frames.
+- Keep file reading separate from AIS/display creation so failed imports do
+  not damage the current scene.
+- Reference geometry belongs to the project/scene and may be shared by many
+  Units or arrays; a Unit or Array references it instead of owning it.
+- Array, mirror, rotational, helical, and surface-conforming operations must
+  offer an optional reference-geometry basis. Examples: use a reference plane
+  for symmetry, a reference axis for rotation, and a selected face normal for
+  orientation.
+- Preserve the world coordinate system. Reference-local coordinate systems
+  are additional aids and must be independently visible, selectable,
+  lockable, and editable.
+
+## Known Limits
+
+- Dynamic-mesh surface eligibility and Wall-Film-specific fields are not
+  represented in the current `Injector`/case-context model, so they are not
+  hard-locked in the editor.
+- Multicomponent component lists and some detailed Fluent material/heat-model
+  fields remain outside the current data model.
+- Exact Fluent labels/defaults may vary by release; restrictions are applied
+  only where current fields provide reliable evidence.
+
+## Verification
+
+- Build directory: `D:\Git\dpm_manager\build\codex_msvc142_release`
+- Compiler: `E:\Program Files\Microsoft Visual Studio\18\Community`
+- Release build command uses `vcvars64.bat`, CMake, and CTest.
+- Last verified result: `11/11` tests passed.
+
+## History
+
+- Full chronological decisions remain in [README.md](README.md).
