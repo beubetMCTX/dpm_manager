@@ -339,6 +339,12 @@ Unit
   nested members by Assembly depth.
 - Object-panel Assembly controls now include dissolving a selected parent,
   which clears member parent references and restores the parent to a leaf Unit.
+- Assembly Units can now act as array sources: the source Assembly remains the
+  parent while its non-derived members are expanded as array seeds and the
+  generated children are attached to that Assembly.
+- Injector display colors must always be resolved from the existing
+  Species/Color table by `injector_data.material`; the separate material table
+  stores material data only and is never a color source.
 
 ## History
 

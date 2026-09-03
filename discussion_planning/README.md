@@ -1962,3 +1962,13 @@ References:
 - Object-list ordering now places Assembly ancestors before descendants and
   uses depth-based text indentation for nested members.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Expand Assemblies As Array Seeds
+
+- Assembly Units can act as array sources while preserving the Assembly parent;
+  non-derived members are expanded as seeds and generated children are attached
+  beneath the source Assembly.
+- Injector display colors remain sourced exclusively from the existing
+  Species/Color table using `injector_data.material`; material configuration is
+  not a color source.
+- Release build and all 12 focused regressions passed.

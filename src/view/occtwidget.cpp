@@ -1150,8 +1150,50 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     clear_unit_array_children(*source);
     source->has_array_spec = true;
     source->array_spec = spec;
-    source->type = array;
-    const QList<Unit> children = expand_unit_array(*source, spec);
+    const bool source_is_assembly = source->type == Assebly ||
+                                    !source->assembly_child_uuids.isEmpty();
+    if (!source_is_assembly)
+    {
+        source->type = array;
+    }
+    QList<Unit> children;
+    if (source_is_assembly)
+    {
+        QList<QUuid> seed_uuids;
+        QSet<QUuid> visited;
+        std::function<void(const QUuid &)> collect_seeds;
+        collect_seeds = [&](const QUuid &uuid)
+        {
+            if (visited.contains(uuid))
+            {
+                return;
+            }
+            visited.insert(uuid);
+            const std::shared_ptr<Unit> seed = unit_hash.value(uuid);
+            if (seed == nullptr || seed->is_array_child)
+            {
+                return;
+            }
+            seed_uuids.append(uuid);
+            for (const QUuid &child_uuid : seed->assembly_child_uuids)
+            {
+                collect_seeds(child_uuid);
+            }
+        };
+        collect_seeds(source_uuid);
+        for (const QUuid &seed_uuid : seed_uuids)
+        {
+            const std::shared_ptr<Unit> seed = unit_hash.value(seed_uuid);
+            if (seed != nullptr)
+            {
+                children.append(expand_unit_array(*seed, spec));
+            }
+        }
+    }
+    else
+    {
+        children = expand_unit_array(*source, spec);
+    }
     int displayed_count = 0;
     for (const Unit &child : children)
     {
