@@ -1998,3 +1998,9 @@ References:
 - The setting is persisted in project sessions and absent fields default to
   disabled for backward compatibility.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Verify Array Conforming Persistence
+
+- Project-session regression coverage now verifies that reference-frame array
+  settings, including normal conforming, survive save and load.
+- Release build and all 12 focused regressions passed.

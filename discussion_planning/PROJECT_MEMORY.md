@@ -353,6 +353,8 @@ Unit
 - Array creation can optionally conform injector direction vectors to the
   selected reference frame's normal; the option is persisted and defaults off
   for backward compatibility.
+- Project-session regression coverage now verifies persistence of the
+  reference-geometry and reference-normal conforming flags.
 
 ## History
 

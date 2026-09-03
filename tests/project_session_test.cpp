@@ -442,6 +442,9 @@ int main(int argc, char *argv[])
     assembly_member.inj.injector_data.name = "assembly-member";
     assembly_data.units.first().type = Assebly;
     assembly_data.units.first().assembly_child_uuids = {assembly_member.inj.uuid};
+    assembly_data.units.first().has_array_spec = true;
+    assembly_data.units.first().array_spec.use_reference_geometry = true;
+    assembly_data.units.first().array_spec.conform_to_reference_normal = true;
     assembly_member.assembly_parent_uuid = assembly_data.units.first().inj.uuid;
     assembly_data.units.append(assembly_member);
     if (!check(project_session::validate_references(assembly_data, {"O2", "N2"},
@@ -463,6 +466,9 @@ int main(int argc, char *argv[])
                    restored_assembly.units.first().type == Assebly &&
                    restored_assembly.units.first().assembly_child_uuids ==
                        QList<QUuid>({assembly_member.inj.uuid}) &&
+                   restored_assembly.units.first().has_array_spec &&
+                   restored_assembly.units.first().array_spec.use_reference_geometry &&
+                   restored_assembly.units.first().array_spec.conform_to_reference_normal &&
                    restored_assembly.units.at(1).assembly_parent_uuid ==
                        assembly_data.units.first().inj.uuid,
                "Assembly relationships did not round-trip"))
