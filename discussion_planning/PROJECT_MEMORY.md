@@ -239,6 +239,9 @@ Unit
   planned helical-array behavior without introducing a separate top-level mode.
 - Added model-level square and hexagonal fill expansion for one or more seed
   Units, with deterministic round-robin seed assignment for mixed layouts.
+- Object-panel context menus now expose text-based `Create Fill...` actions
+  for selected Units, including square/hexagonal pattern, rows, columns, and
+  spacing controls; generated children are displayed with local frames.
 
 ## Array Core Progress
 

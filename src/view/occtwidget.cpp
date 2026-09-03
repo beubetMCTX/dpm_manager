@@ -853,6 +853,74 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     return displayed_count;
 }
 
+int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
+                                 const UnitFillSpec &spec)
+{
+    if (source_uuids.isEmpty() || m_context.IsNull())
+    {
+        return 0;
+    }
+
+    QList<Unit> sources;
+    for (const QUuid &uuid : source_uuids)
+    {
+        const std::shared_ptr<Unit> source = unit_hash.value(uuid);
+        if (source != nullptr && !source->ais_display.IsNull())
+        {
+            sources.append(*source);
+        }
+    }
+    if (sources.isEmpty())
+    {
+        return 0;
+    }
+
+    const QList<Unit> children = expand_unit_fill(sources, spec);
+    int displayed_count = 0;
+    for (const Unit &child : children)
+    {
+        const std::shared_ptr<Unit> stored_child = std::make_shared<Unit>(child);
+        stored_child->type = array;
+        stored_child->is_array_child = true;
+        stored_child->follows_array = true;
+        stored_child->array_parent_uuid = source_uuids.first();
+        stored_child->ais_display->Set(stored_child->inj.shape);
+        stored_child->u_owner->set_unit(stored_child.get());
+        stored_child->ais_display->SetOwner(stored_child->u_owner);
+
+        unit_hash.insert(stored_child->inj.uuid, stored_child);
+        m_unit_visibility.insert(stored_child->inj.uuid, true);
+        m_unit_locks.insert(stored_child->inj.uuid, false);
+        m_context->Activate(stored_child->ais_display, TopAbs_SHAPE, Standard_True);
+        m_context->Display(stored_child->ais_display, Standard_False);
+        if (stored_child->inj.injector_data.injection_type == volume)
+        {
+            stored_child->ais_display->SetTransparency(0.82f);
+        }
+        for (const QUuid &source_uuid : source_uuids)
+        {
+            const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+            if (source != nullptr)
+            {
+                Quantity_Color color;
+                source->ais_display->Color(color);
+                stored_child->ais_display->SetColor(color);
+                break;
+            }
+        }
+        ++displayed_count;
+    }
+
+    if (displayed_count > 0)
+    {
+        rebuild_unit_local_coordinate_frames();
+        m_view->FitAll();
+        m_view->Redraw();
+        emit unit_display_list_changed();
+    }
+    return displayed_count;
+}
+
 void OCCTWidget::clear_unit_array_children(Unit &source)
 {
     const QVector<std::shared_ptr<Unit>> children = source.child_units;

@@ -1741,3 +1741,11 @@ References:
   layouts with configurable rows, columns, spacing, and origin.
 - Multiple seed Units are assigned round-robin, providing a deterministic
   foundation for mixed injector layouts; Release build and all 12 tests pass.
+
+### 2026-09-04 Connect Fill Layouts To Object Panel
+
+- Added a text-based `Create Fill...` object-panel action for one or more
+  selected Units.
+- The action creates square or hexagonal layouts with editable row, column,
+  and spacing values and displays generated children with local frames.
+- Release build and all 12 focused regressions passed.

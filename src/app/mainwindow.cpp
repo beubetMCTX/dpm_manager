@@ -2490,6 +2490,20 @@ void MainWindow::create_object_list_panel()
         follow_array_action->setEnabled(selected_unit != nullptr &&
                                         selected_unit->is_array_child);
         QAction *array_action = menu.addAction("Create Array...");
+        QAction *fill_action = menu.addAction("Create Fill...");
+        QList<QUuid> selected_unit_ids;
+        for (QListWidgetItem *selected_item : m_object_list->selectedItems())
+        {
+            const QUuid selected_uuid(selected_item->data(Qt::UserRole).toString());
+            if (!selected_uuid.isNull() && m_3d_widget->unit_hash.contains(selected_uuid))
+            {
+                selected_unit_ids.append(selected_uuid);
+            }
+        }
+        if (!selected_unit_ids.contains(uuid))
+        {
+            selected_unit_ids.append(uuid);
+        }
         menu.addSeparator();
         QAction *delete_action = menu.addAction("Delete");
         QAction *chosen_action = menu.exec(m_object_list->viewport()->mapToGlobal(position));
@@ -2597,6 +2611,54 @@ void MainWindow::create_object_list_panel()
             const int created = m_3d_widget->create_unit_array(uuid, spec);
             statusBar()->showMessage(
                 QString("Created %1 array child units").arg(created), 5000);
+        }
+        else if (chosen_action == fill_action)
+        {
+            const QStringList fill_types = {"Square", "Hexagonal"};
+            bool accepted = false;
+            const QString fill_type = QInputDialog::getItem(
+                this, "Create Fill", "Fill pattern:", fill_types, 0,
+                false, &accepted);
+            if (!accepted)
+            {
+                return;
+            }
+            UnitFillSpec spec;
+            spec.pattern = fill_type == "Hexagonal"
+                               ? UnitFillPattern::Hexagonal
+                               : UnitFillPattern::Square;
+            spec.rows = QInputDialog::getInt(
+                this, "Create Fill", "Rows:", 4, 1, 1000, 1, &accepted);
+            if (!accepted)
+            {
+                return;
+            }
+            spec.columns = QInputDialog::getInt(
+                this, "Create Fill", "Columns:", 4, 1, 1000, 1, &accepted);
+            if (!accepted)
+            {
+                return;
+            }
+            spec.spacing_x = static_cast<float>(QInputDialog::getDouble(
+                this, "Create Fill", "X spacing:", 5.0, -1.0e6, 1.0e6,
+                3, &accepted));
+            if (!accepted)
+            {
+                return;
+            }
+            spec.spacing_y = static_cast<float>(QInputDialog::getDouble(
+                this, "Create Fill", "Y spacing:", 5.0, -1.0e6, 1.0e6,
+                3, &accepted));
+            if (!accepted)
+            {
+                return;
+            }
+            spec.origin = m_3d_widget->unit_hash.value(uuid)
+                              ->inj.injector_data.pos;
+            const int created = m_3d_widget->create_unit_fill(
+                selected_unit_ids, spec);
+            statusBar()->showMessage(
+                QString("Created %1 fill child units").arg(created), 5000);
         }
         else if (chosen_action == follow_array_action)
         {

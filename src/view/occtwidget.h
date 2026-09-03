@@ -138,6 +138,8 @@ public:
     bool paste_unit_by_uuid(const QUuid &uuid);
     int create_unit_array(const QUuid &source_uuid,
                           const UnitArraySpec &spec);
+    int create_unit_fill(const QList<QUuid> &source_uuids,
+                         const UnitFillSpec &spec);
     int rebuild_unit_array(const QUuid &source_uuid);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
