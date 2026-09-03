@@ -133,3 +133,55 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
     }
     return result;
 }
+
+QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spec)
+{
+    QList<Unit> result;
+    if (sources.isEmpty())
+    {
+        return result;
+    }
+
+    const int rows = qBound(1, spec.rows, 1000);
+    const int columns = qBound(1, spec.columns, 1000);
+    int child_index = 0;
+    for (int row = 0; row < rows; ++row)
+    {
+        const bool offset_hex_row = spec.pattern == UnitFillPattern::Hexagonal &&
+                                    (row % 2 != 0);
+        for (int column = 0; column < columns; ++column)
+        {
+            const Unit &source = sources.at(child_index % sources.size());
+            Unit child(source);
+            child.inj.uuid = QUuid::createUuid();
+            child.inj.injector_data.name = QString("%1[%2]")
+                                               .arg(source.inj.injector_data.name)
+                                               .arg(child_index + 1);
+
+            const float x = spec.origin.x() +
+                            (static_cast<float>(column) +
+                             (offset_hex_row ? 0.5f : 0.0f)) * spec.spacing_x;
+            const float y = spec.origin.y() +
+                            static_cast<float>(row) * spec.spacing_y;
+            const QVector3D offset(x - source.inj.injector_data.pos.x(),
+                                   y - source.inj.injector_data.pos.y(),
+                                   spec.origin.z() - source.inj.injector_data.pos.z());
+            child.inj.injector_data.pos += offset;
+            child.inj.injector_data.pos2 += offset;
+            child.inj.injector_data.ff_center += offset;
+            child.inj.injector_data.ff_virtual_origin += offset;
+            child.inj.injector_data.volume_bgeom_min += offset;
+            child.inj.injector_data.volume_bgeom_max += offset;
+            if (child.inj.injector_data.single_target_scope ==
+                Single_Target_Scope::Array_Local)
+            {
+                child.inj.injector_data.single_target_hitpoint += offset;
+            }
+
+            child.ais_display->Set(child.inj.shape);
+            result.append(std::move(child));
+            ++child_index;
+        }
+    }
+    return result;
+}

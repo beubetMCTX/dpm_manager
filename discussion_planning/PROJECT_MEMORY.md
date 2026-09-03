@@ -237,6 +237,8 @@ Unit
   only the latter follows array transforms.
 - Rotational array creation now exposes axial spacing per child, providing the
   planned helical-array behavior without introducing a separate top-level mode.
+- Added model-level square and hexagonal fill expansion for one or more seed
+  Units, with deterministic round-robin seed assignment for mixed layouts.
 
 ## Array Core Progress
 

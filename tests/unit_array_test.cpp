@@ -83,5 +83,24 @@ int main(int argc, char **argv)
                "mirror position mismatch") && ok;
     ok = check(mirror_children[1].inj.injector_data.single_target_hitpoint.x() == -3.0f,
                "mirror target hitpoint mismatch") && ok;
+
+    Unit second_source(source);
+    second_source.inj.injector_data.name = "secondary";
+    UnitFillSpec hex_fill;
+    hex_fill.pattern = UnitFillPattern::Hexagonal;
+    hex_fill.rows = 2;
+    hex_fill.columns = 2;
+    hex_fill.spacing_x = 4.0f;
+    hex_fill.spacing_y = 3.0f;
+    hex_fill.origin = QVector3D(10.0f, 20.0f, 0.0f);
+    const QList<Unit> filled = expand_unit_fill({source, second_source}, hex_fill);
+    ok = check(filled.size() == 4, "fill count mismatch") && ok;
+    ok = check(filled[0].inj.injector_data.name.startsWith("master"),
+               "fill seed assignment mismatch") && ok;
+    ok = check(filled[1].inj.injector_data.name.startsWith("secondary"),
+               "fill seed round-robin mismatch") && ok;
+    ok = check(qAbs(filled[3].inj.injector_data.pos.x() - 16.0f) < 1.0e-4f &&
+                   qAbs(filled[3].inj.injector_data.pos.y() - 23.0f) < 1.0e-4f,
+               "hexagonal row offset mismatch") && ok;
     return ok ? 0 : 1;
 }

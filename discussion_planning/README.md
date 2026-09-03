@@ -1734,3 +1734,10 @@ References:
   zero retains the existing planar rotational behavior.
 - Added an axial-spacing regression check; Release build and all 12 tests
   passed.
+
+### 2026-09-04 Add Square And Hexagonal Fill Core
+
+- Added a reusable model-level fill expansion API for square and hexagonal
+  layouts with configurable rows, columns, spacing, and origin.
+- Multiple seed Units are assigned round-robin, providing a deterministic
+  foundation for mixed injector layouts; Release build and all 12 tests pass.
