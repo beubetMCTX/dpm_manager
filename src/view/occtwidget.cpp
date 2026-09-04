@@ -14,6 +14,15 @@
 
 namespace
 {
+constexpr Standard_Real kDisplayScale = 1000.0;
+
+gp_Trsf display_scale_transform()
+{
+    gp_Trsf scale;
+    scale.SetScale(gp::Origin(), kDisplayScale);
+    return scale;
+}
+
 QColor placeholder_color_for_species(const QString &species_name)
 {
     const uint hash_value = qHash(species_name);
@@ -417,6 +426,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         m_unit_locks.insert(stored_unit->inj.uuid, false);
 
         stored_unit->ais_display->Set(stored_unit->inj.shape);
+        stored_unit->ais_display->SetLocalTransformation(display_scale_transform());
         stored_unit->u_owner->set_unit(stored_unit.get());
         stored_unit->ais_display->SetOwner(stored_unit->u_owner);
         stored_unit->ais_display->SetColor(
@@ -3875,6 +3885,7 @@ void OCCTWidget::add_readed_geometry()
     clear_reference_face_coordinate_frames();
 
     base_geometry->Set(compound);
+    base_geometry->SetLocalTransformation(display_scale_transform());
     m_reference_geometry_visible = true;
 
     m_context->Redisplay(base_geometry, Standard_True);
