@@ -148,12 +148,10 @@ MainWindow::MainWindow(QWidget *parent)
         qWarning() << config_error_message;
     }
 
-    auto *settings_menu = menuBar()->addMenu("Settings");
-    QAction *unit_preferences_action = settings_menu->addAction("Display Units...");
-    connect(unit_preferences_action, &QAction::triggered, this,
+    connect(ui->actionUnit_of_Measurement, &QAction::triggered, this,
             &MainWindow::open_unit_preferences_dialog);
-
-    QMenu *language_menu = settings_menu->addMenu(tr("Language"));
+    ui->menuSettings->removeAction(ui->actionLanguage);
+    QMenu *language_menu = ui->menuSettings->addMenu(tr("Language"));
     QAction *english_action = language_menu->addAction(tr("English"));
     QAction *chinese_action = language_menu->addAction(tr("Simplified Chinese"));
     const auto select_language = [this](const QString &locale)
