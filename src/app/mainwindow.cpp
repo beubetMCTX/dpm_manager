@@ -2371,6 +2371,8 @@ void MainWindow::create_object_list_panel()
     interaction_toolbar->addSeparator();
     auto *array_tools_action = new QAction(tr("Array Tools..."), interaction_toolbar);
     auto *reference_tools_action = new QAction(tr("Reference Tools"), interaction_toolbar);
+    auto *new_injector_action = new QAction(tr("New Injector"), interaction_toolbar);
+    interaction_toolbar->addAction(new_injector_action);
     interaction_toolbar->addAction(array_tools_action);
     interaction_toolbar->addAction(reference_tools_action);
     auto *interaction_status = new QLabel(tr("Mode: Select"), interaction_toolbar);
@@ -2422,6 +2424,58 @@ void MainWindow::create_object_list_panel()
             m_reference_geometry_dock->show();
             m_reference_geometry_dock->raise();
         }
+    });
+    connect(new_injector_action, &QAction::triggered, this, [this]()
+    {
+        if (m_3d_widget == nullptr)
+        {
+            return;
+        }
+
+        QVector3D origin(0.0f, 0.0f, 0.0f);
+        QVector3D reference_x;
+        QVector3D reference_z;
+        const bool has_reference = m_3d_widget->has_selected_face() &&
+            m_3d_widget->reference_frame(&origin, &reference_x, &reference_z);
+
+        Unit unit;
+        constexpr float scale = 1.0e-3f;
+        configure_common_injector(unit, "Injector", origin / scale);
+        unit.inj.injector_data.material = m_chemkin_species_names.isEmpty()
+            ? QString()
+            : m_chemkin_species_names.first();
+        if (has_reference)
+        {
+            unit.inj.injector_data.vel = 100.0f * reference_z;
+            unit.inj.injector_data.vel2 = 100.0f * reference_z;
+            unit.inj.injector_data.axis = reference_z;
+            unit.inj.injector_data.atomizer_axis = reference_z;
+        }
+
+        Injector &injector = unit.inj.injector_data;
+        for (QVector3D *value : {&injector.pos, &injector.pos2,
+                                 &injector.ff_center, &injector.ff_virtual_origin,
+                                 &injector.volume_bgeom_min, &injector.volume_bgeom_max})
+        {
+            *value *= scale;
+        }
+        for (double *value : {&injector.diameter, &injector.diameter2,
+                              &injector.inner_diameter, &injector.outer_diameter,
+                              &injector.radius, &injector.inner_radius,
+                              &injector.volume_bgeom_radius, &injector.plain_length,
+                              &injector.ff_oriface_width, &injector.stagger_radius})
+        {
+            *value *= scale;
+        }
+        if (!unit.inj.create_injector())
+        {
+            statusBar()->showMessage(tr("Unable to create default injector"), 5000);
+            return;
+        }
+        m_3d_widget->display_units({unit}, false);
+        update_object_list_panel();
+        mark_project_dirty();
+        statusBar()->showMessage(tr("Created a new injector"), 3000);
     });
     connect(m_3d_widget, &OCCTWidget::interaction_mode_changed,
             this, [toolbar_selection, toolbar_translation, toolbar_rotation,
