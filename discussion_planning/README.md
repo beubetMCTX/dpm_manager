@@ -2554,6 +2554,13 @@ References:
   Plane clipping state and verifies it after loading.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Correct Group Gradient Status
+
+- Documented that Group preview geometry already interpolates its A-to-B
+  endpoint data, including `vel`/`vel2`; other injector types continue to use
+  their type-specific direction fields.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Section Plane Clipping
 
 - Added offscreen regression coverage for enabling, observing, disabling, and

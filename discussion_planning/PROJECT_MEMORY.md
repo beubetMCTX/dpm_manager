@@ -119,7 +119,9 @@ Unit
 
 - `vel` and `vel2` are Group-only fields. They represent the two endpoints of
   a pending A-to-B range/gradient, not two ordinary directions.
-- Group gradient behavior is not implemented yet and remains deferred.
+- Group gradient behavior is implemented in the preview path: position,
+  velocity, diameter, temperature, and flow-related endpoint fields are
+  interpolated across the configured A-to-B points. `vel2` remains Group-only.
 - Other injection types must not use `vel2` for direction logic. Use the
   actual type-specific field, such as `vel`, `vel_mag`, `axis`,
   `atomizer_axis`, or `ff_normal`, as appropriate.
