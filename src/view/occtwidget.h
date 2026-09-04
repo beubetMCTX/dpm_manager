@@ -188,6 +188,7 @@ public:
     bool remove_unit_by_uuid(const QUuid &uuid);
     bool copy_unit_by_uuid(const QUuid &uuid);
     bool paste_unit_by_uuid(const QUuid &uuid);
+    bool create_injector_on_selected_face();
     bool paste_copied_unit_to_selected_face();
     bool attach_unit_to_selected_face(const QUuid &uuid);
     bool has_selected_face() const { return !selected_face.IsNull(); }

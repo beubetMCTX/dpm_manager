@@ -1963,6 +1963,51 @@ bool OCCTWidget::paste_copied_unit_to_selected_face()
     return true;
 }
 
+bool OCCTWidget::create_injector_on_selected_face()
+{
+    if (selected_face.IsNull() || m_context.IsNull() || m_view.IsNull())
+    {
+        return false;
+    }
+
+    QVector3D face_origin;
+    QVector3D face_x;
+    QVector3D face_normal;
+    if (!reference_frame(&face_origin, &face_x, &face_normal) ||
+        face_normal.lengthSquared() <= 1.0e-12f)
+    {
+        return false;
+    }
+
+    Unit created;
+    created.type = injector;
+    created.inj.uuid = QUuid::createUuid();
+    created.inj.injector_data.name = QStringLiteral("Injector (Face)");
+    created.inj.injector_data.pos = face_origin;
+    created.inj.injector_data.pos2 = face_origin;
+    created.inj.injector_data.vel = 100.0f * face_normal;
+    created.inj.injector_data.vel2 = created.inj.injector_data.vel;
+    created.inj.injector_data.axis = face_normal;
+    created.inj.injector_data.atomizer_axis = face_normal;
+
+    if (!created.inj.create_injector())
+    {
+        return false;
+    }
+
+    const QUuid created_uuid = created.inj.uuid;
+    display_units({created}, false);
+    const std::shared_ptr<Unit> created_unit = unit_hash.value(created_uuid);
+    if (created_unit == nullptr)
+    {
+        return false;
+    }
+
+    emit unit_added(created_unit.get());
+    m_view->Redraw();
+    return true;
+}
+
 bool OCCTWidget::attach_unit_to_selected_face(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
@@ -5448,6 +5493,11 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         paste_face_action->setEnabled(face_selected && m_copied_unit.has_value());
         connect(paste_face_action, &QAction::triggered, this,
                 &OCCTWidget::paste_copied_unit_to_selected_face);
+
+        QAction *create_face_action = menu.addAction("Create Injector on Face");
+        create_face_action->setEnabled(face_selected);
+        connect(create_face_action, &QAction::triggered, this,
+                &OCCTWidget::create_injector_on_selected_face);
 
         QAction *reset_transform_action = menu.addAction("Reset Transform");
         reset_transform_action->setEnabled(!m_reference_geometry_locked);
