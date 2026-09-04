@@ -149,6 +149,22 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QVector3D original_direction = widget.unit_direction_by_uuid(uuid);
+    if (!check(widget.set_unit_direction_by_uuid(uuid, QVector3D(0.0f, 1.0f, 0.0f)),
+               "Direction inspector edit should succeed") ||
+        !check(widget.unit_direction_by_uuid(uuid) == QVector3D(0.0f, 1.0f, 0.0f),
+               "Direction inspector edit should update the Unit"))
+    {
+        return 1;
+    }
+    if (!check(widget.undo_last_edit(),
+               "Direction inspector edit should be undoable") ||
+        !check(widget.unit_direction_by_uuid(uuid) == original_direction,
+               "Undo should restore the previous Unit direction"))
+    {
+        return 1;
+    }
+
     // Create a history entry whose before-state cannot rebuild. Undo must
     // reject it without damaging the currently valid state.
     stored_unit->inj.injector_data.vel = QVector3D();

@@ -406,6 +406,8 @@ Unit
 - Target Hitpoint editing now exposes and persists the explicit coordinate
   scope (`World`, `Array Local`, `Parent Local`, or `Reference Local`) through
   the same Unit edit transaction.
+- OCCT regression coverage now verifies that an object-panel direction edit
+  changes the rendered Unit and is restored by Unit Undo.
 - Direction, Pitch/Yaw, and Target Hitpoint edits from the Objects panel now
   use the existing Unit edit transaction and therefore participate in Undo/Redo
   instead of being untracked direct mutations.

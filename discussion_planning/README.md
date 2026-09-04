@@ -2144,6 +2144,12 @@ References:
   the control is disabled for non-target direction modes.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Verify Direction Inspector History
+
+- Added an OCCT regression check for direction inspector mutation and Unit Undo
+  restoration.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit
