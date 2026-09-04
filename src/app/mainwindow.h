@@ -27,6 +27,8 @@
 #include "app_config.h"
 #include "project_session.h"
 
+class QGroupBox;
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -182,5 +184,7 @@ private:
     QDoubleSpinBox *m_unit_target_y = nullptr;
     QDoubleSpinBox *m_unit_target_z = nullptr;
     QComboBox *m_unit_target_scope = nullptr;
+    QGroupBox *m_unit_position_group = nullptr;
+    QGroupBox *m_unit_direction_group = nullptr;
 };
 #endif // MAINWINDOW_H

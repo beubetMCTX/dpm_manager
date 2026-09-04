@@ -659,6 +659,8 @@ Unit
   immediately after unit preference changes.
 - 3D selection now supports standard modifier semantics: plain click replaces,
   Ctrl-click toggles, and Shift-click adds to the OCCT selection.
+- Position and direction inspector groups are hidden without a selected leaf
+  injector; Assembly and reference selections no longer consume inspector space.
 
 ## History
 

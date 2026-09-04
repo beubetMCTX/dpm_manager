@@ -2418,11 +2418,12 @@ void MainWindow::create_object_list_panel()
     m_object_list->setAlternatingRowColors(true);
     layout->addWidget(m_object_list);
 
-    auto *position_group = new QGroupBox("Selected Unit Position", panel);
-    auto *position_layout = new QFormLayout(position_group);
-    auto create_position_box = [position_group]()
+    m_unit_position_group = new QGroupBox("Selected Unit Position", panel);
+    auto *position_layout = new QFormLayout(m_unit_position_group);
+    m_unit_position_group->hide();
+    auto create_position_box = [this]()
     {
-        auto *box = new QDoubleSpinBox(position_group);
+        auto *box = new QDoubleSpinBox(m_unit_position_group);
         box->setRange(-1.0e9, 1.0e9);
         box->setDecimals(6);
         box->setSingleStep(0.1);
@@ -2435,13 +2436,14 @@ void MainWindow::create_object_list_panel()
     position_layout->addRow("X", m_unit_position_x);
     position_layout->addRow("Y", m_unit_position_y);
     position_layout->addRow("Z", m_unit_position_z);
-    layout->addWidget(position_group);
+    layout->addWidget(m_unit_position_group);
 
-    auto *direction_group = new QGroupBox("Unit Direction", panel);
-    auto *direction_layout = new QFormLayout(direction_group);
-    auto create_direction_box = [direction_group]()
+    m_unit_direction_group = new QGroupBox("Unit Direction", panel);
+    auto *direction_layout = new QFormLayout(m_unit_direction_group);
+    m_unit_direction_group->hide();
+    auto create_direction_box = [this]()
     {
-        auto *box = new QDoubleSpinBox(direction_group);
+        auto *box = new QDoubleSpinBox(m_unit_direction_group);
         box->setRange(-1.0e9, 1.0e9);
         box->setDecimals(6);
         box->setSingleStep(0.1);
@@ -2454,8 +2456,8 @@ void MainWindow::create_object_list_panel()
     direction_layout->addRow("X", m_unit_direction_x);
     direction_layout->addRow("Y", m_unit_direction_y);
     direction_layout->addRow("Z", m_unit_direction_z);
-    m_unit_pitch = new QDoubleSpinBox(direction_group);
-    m_unit_yaw = new QDoubleSpinBox(direction_group);
+    m_unit_pitch = new QDoubleSpinBox(m_unit_direction_group);
+    m_unit_yaw = new QDoubleSpinBox(m_unit_direction_group);
     for (QDoubleSpinBox *box : {m_unit_pitch, m_unit_yaw})
     {
         box->setRange(-360.0, 360.0);
@@ -2465,9 +2467,9 @@ void MainWindow::create_object_list_panel()
     }
     direction_layout->addRow("Pitch (deg)", m_unit_pitch);
     direction_layout->addRow("Yaw (deg)", m_unit_yaw);
-    auto create_target_box = [direction_group]()
+    auto create_target_box = [this]()
     {
-        auto *box = new QDoubleSpinBox(direction_group);
+        auto *box = new QDoubleSpinBox(m_unit_direction_group);
         box->setRange(-1.0e9, 1.0e9);
         box->setDecimals(6);
         box->setSingleStep(0.1);
@@ -2480,7 +2482,7 @@ void MainWindow::create_object_list_panel()
     direction_layout->addRow("Target X", m_unit_target_x);
     direction_layout->addRow("Target Y", m_unit_target_y);
     direction_layout->addRow("Target Z", m_unit_target_z);
-    m_unit_target_scope = new QComboBox(direction_group);
+    m_unit_target_scope = new QComboBox(m_unit_direction_group);
     m_unit_target_scope->addItem("World", static_cast<int>(Single_Target_Scope::World));
     m_unit_target_scope->addItem("Array Local", static_cast<int>(Single_Target_Scope::Array_Local));
     m_unit_target_scope->addItem("Parent Local", static_cast<int>(Single_Target_Scope::Parent_Local));
@@ -2501,7 +2503,7 @@ void MainWindow::create_object_list_panel()
         m_unit_yaw->setSuffix(" " + angle);
     };
     refresh_inspector_units();
-    layout->addWidget(direction_group);
+    layout->addWidget(m_unit_direction_group);
 
     m_object_list_dock->setWidget(panel);
     addDockWidget(Qt::LeftDockWidgetArea, m_object_list_dock);
@@ -3994,6 +3996,8 @@ void MainWindow::update_unit_position_controls()
     QListWidgetItem *item = m_object_list->currentItem();
     if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
     {
+        m_unit_position_group->hide();
+        m_unit_direction_group->hide();
         m_unit_position_x->setEnabled(false);
         m_unit_position_y->setEnabled(false);
         m_unit_position_z->setEnabled(false);
@@ -4012,6 +4016,8 @@ void MainWindow::update_unit_position_controls()
     const QUuid uuid(item->data(Qt::UserRole).toString());
     if (uuid.isNull() || !m_3d_widget->unit_hash.contains(uuid))
     {
+        m_unit_position_group->hide();
+        m_unit_direction_group->hide();
         m_unit_position_x->setEnabled(false);
         m_unit_position_y->setEnabled(false);
         m_unit_position_z->setEnabled(false);
@@ -4087,6 +4093,9 @@ void MainWindow::update_unit_position_controls()
     }
     const bool editable_unit = unit != nullptr && unit->type != Assebly &&
         !m_3d_widget->unit_locked(uuid);
+    const bool show_inspector = unit != nullptr && unit->type != Assebly;
+    m_unit_position_group->setVisible(show_inspector);
+    m_unit_direction_group->setVisible(show_inspector);
     m_unit_position_x->setEnabled(editable_unit);
     m_unit_position_y->setEnabled(editable_unit);
     m_unit_position_z->setEnabled(editable_unit);
