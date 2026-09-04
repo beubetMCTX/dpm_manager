@@ -437,12 +437,26 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
     }
 }
 
+void mirror_unit_tree(Unit &root, const QVector3D &point,
+                      const QVector3D &normal)
+{
+    mirror_injector_data(root.inj.injector_data, point, normal);
+    for (const std::shared_ptr<Unit> &child : root.child_units)
+    {
+        if (child != nullptr && !child->is_array_child)
+        {
+            mirror_unit_tree(*child, point, normal);
+        }
+    }
+}
+
 QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
                                                     const UnitArraySpec &spec)
 {
     QList<std::shared_ptr<Unit>> result;
     if (spec.type != UnitArrayType::Linear &&
-        spec.type != UnitArrayType::Rotational)
+        spec.type != UnitArrayType::Rotational &&
+        spec.type != UnitArrayType::Mirror)
     {
         return result;
     }
@@ -472,9 +486,16 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
         }
         else
         {
-            transform_unit_tree(*instance, spec.origin, direction,
-                                angle_step * index,
-                                direction * (spec.spacing * index));
+            if (spec.type == UnitArrayType::Rotational)
+            {
+                transform_unit_tree(*instance, spec.origin, direction,
+                                    angle_step * index,
+                                    direction * (spec.spacing * index));
+            }
+            else if (index % 2 != 0)
+            {
+                mirror_unit_tree(*instance, spec.origin, spec.plane_normal);
+            }
         }
         result.append(instance);
     }

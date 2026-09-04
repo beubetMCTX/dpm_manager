@@ -2442,3 +2442,10 @@ References:
 - Each fill placement is registered as a derived composite instance; pure
   leaf fills continue using the established weighted expansion path.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Integrate Composite Mirror Arrays
+
+- Assembly-sourced mirror arrays now create complete derived Unit subtrees and
+  recursively mirror their injector geometry and directions.
+- Added regression coverage for hierarchy preservation in mirrored instances.
+- Release build and all 12 focused regressions passed.

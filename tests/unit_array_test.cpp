@@ -251,6 +251,14 @@ int main(int argc, char **argv)
                    tree_instances[2]->child_units.first()->inj.injector_data.pos.x() >
                        tree_instances[1]->child_units.first()->inj.injector_data.pos.x(),
                "Unit tree array expansion should preserve hierarchy") && ok;
+    UnitArraySpec tree_mirror = mirror;
+    const QList<std::shared_ptr<Unit>> mirrored_tree_instances =
+        expand_unit_tree_array(assembly_source, tree_mirror);
+    ok = check(mirrored_tree_instances.size() == 2 &&
+                   mirrored_tree_instances[1]->child_units.size() == 1 &&
+                   mirrored_tree_instances[1]->child_units.first()->inj.injector_data.pos.x() <
+                       mirrored_tree_instances[0]->child_units.first()->inj.injector_data.pos.x(),
+               "Composite mirror expansion should preserve hierarchy") && ok;
     const QList<std::shared_ptr<Unit>> tree_fill_sources = {cloned_tree};
     UnitFillSpec tree_fill_spec;
     tree_fill_spec.rows = 1;

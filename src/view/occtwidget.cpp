@@ -1564,7 +1564,8 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
 
     if (source_is_assembly &&
         (spec.type == UnitArrayType::Linear ||
-         spec.type == UnitArrayType::Rotational))
+         spec.type == UnitArrayType::Rotational ||
+         spec.type == UnitArrayType::Mirror))
     {
         const QList<std::shared_ptr<Unit>> instances =
             expand_unit_tree_array(*source, spec);
