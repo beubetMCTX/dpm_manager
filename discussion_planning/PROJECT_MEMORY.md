@@ -487,6 +487,9 @@ Unit
 - Unit now reserves persisted local position and rotation fields for Assembly
   children; old sessions fall back to the existing world-space position and
   zero local rotation while runtime geometry remains unchanged in this phase.
+- Translation and rotation operations now refresh a child local position when
+  its parent is not part of the same operation, while parent-inclusive
+  recursive operations preserve the stored local offset.
 
 ## History
 

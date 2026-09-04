@@ -721,6 +721,18 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
             continue;
         }
 
+        if (!unit->assembly_parent_uuid.isNull() &&
+            !operation_set.contains(unit->assembly_parent_uuid))
+        {
+            const std::shared_ptr<Unit> parent =
+                unit_hash.value(unit->assembly_parent_uuid);
+            if (parent != nullptr)
+            {
+                unit->assembly_local_position =
+                    injector.pos - parent->inj.injector_data.pos;
+            }
+        }
+
         unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
         m_context->Redisplay(unit->ais_display, Standard_False);
@@ -1068,6 +1080,18 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         {
             injector = before;
             continue;
+        }
+
+        if (!unit->assembly_parent_uuid.isNull() &&
+            !operation_set.contains(unit->assembly_parent_uuid))
+        {
+            const std::shared_ptr<Unit> parent =
+                unit_hash.value(unit->assembly_parent_uuid);
+            if (parent != nullptr)
+            {
+                unit->assembly_local_position =
+                    injector.pos - parent->inj.injector_data.pos;
+            }
         }
 
         unit->ais_display->SetLocalTransformation(gp_Trsf());
