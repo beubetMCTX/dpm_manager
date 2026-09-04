@@ -2364,3 +2364,10 @@ References:
 - Dependent-array refresh can therefore recognize nested ancestry without
   relying on flattened display-instance UUIDs.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Order Nested Array Refreshes
+
+- Dependent array roots are now collected as a complete dependency closure.
+- Rebuild order follows prototype-chain depth from inner to outer, so multiple
+  nested array levels do not transiently consume stale child geometry.
+- Release build and all 12 focused regressions passed.

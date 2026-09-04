@@ -514,6 +514,9 @@ Unit
 - Derived Units now also retain a prototype UUID chain, allowing dependency
   refresh to identify nested-array ancestry even while Assembly display
   instances are still flattened at runtime.
+- Dependent-array refresh now collects the full dependency closure and rebuilds
+  roots in prototype-depth order, preventing an outer array from being rebuilt
+  from stale inner-array geometry.
 
 ## History
 
