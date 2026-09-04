@@ -233,7 +233,10 @@ Unit
 - When Chemkin species are available, DPM import and later Chemkin import
   automatically assign empty leaf-injector Species in DPM order, cycling
   through the Chemkin list. Existing non-empty Species and Assembly containers
-  are preserved.
+  are preserved. For Droplet, the assigned field is `evaporating_species`;
+  other particle types use `material`.
+- Injector display colors now resolve Droplet through `evaporating_species`,
+  while all other types resolve through `material`.
 - Removed the obsolete no-op OCCT material-name setter so injector material
   data has one explicit Chemkin species path.
 - Project-session reference geometry now serializes constructed-object kind,

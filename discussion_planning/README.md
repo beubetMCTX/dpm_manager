@@ -2567,6 +2567,9 @@ References:
   Species fields using the current Chemkin list in deterministic DPM order.
 - Existing non-empty Species are not overwritten, Assembly containers are
   skipped, and assigned values use the existing Species-driven color path.
+- Droplet assignments target `Evaporating Species`, and Droplet colors use
+  that field instead of `Material`; other types continue to use `Material`.
+- Corrected the UI label typo from `Evaporating Sepcies` to `Evaporating Species`.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Cover Section Plane Clipping

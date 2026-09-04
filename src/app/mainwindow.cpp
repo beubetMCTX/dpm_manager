@@ -573,15 +573,22 @@ int MainWindow::assign_species_to_unassigned_units()
     int assigned_count = 0;
     for (const Unit &unit : units)
     {
-        if (unit.type == Assebly ||
-            !unit.inj.injector_data.material.trimmed().isEmpty())
+        if (unit.type == Assebly)
+        {
+            continue;
+        }
+
+        const QString &current_species = unit.inj.injector_data.type == Droplet
+            ? unit.inj.injector_data.evaporating_species
+            : unit.inj.injector_data.material;
+        if (!current_species.trimmed().isEmpty())
         {
             continue;
         }
 
         const QString &species = m_chemkin_species_names.at(
             species_index % m_chemkin_species_names.size());
-        if (m_3d_widget->set_material_for_units_by_uuid(
+        if (m_3d_widget->set_species_for_units_by_uuid(
                 {unit.inj.uuid}, species) > 0)
         {
             ++assigned_count;

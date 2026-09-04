@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <QApplication>
+#include <cmath>
 
 namespace
 {
@@ -303,6 +304,66 @@ int main(int argc, char *argv[])
     if (!check(stored_unit->inj.injector_data.vel == valid_velocity,
                "Failed undo should preserve the valid current injector data") ||
         !check(widget.create_reference_section_plane(10.0, 0.01,
+                                                    QVector3D(0.0f, 0.0f, 1.0f)),
+               "Section Plane creation should succeed") ||
+        !check(widget.set_section_plane_clipping(true),
+               "Section Plane clipping should succeed") ||
+        !check(widget.section_plane_clipping_enabled(),
+               "Section Plane clipping should be enabled") ||
+        !check(widget.set_section_plane_clipping(false),
+               "Section Plane clipping should be reversible") ||
+        !check(!widget.section_plane_clipping_enabled(),
+               "Section Plane clipping should be disabled after restore"))
+    {
+        return 1;
+    }
+
+    Unit droplet = make_valid_unit();
+    droplet.inj.injector_data.type = Droplet;
+    droplet.inj.injector_data.injection_type = single;
+    droplet.inj.injector_data.material = "liquid-material";
+    droplet.inj.injector_data.evaporating_species.clear();
+    Unit inert = make_valid_unit();
+    inert.inj.injector_data.type = Inert;
+    inert.inj.injector_data.injection_type = single;
+    inert.inj.injector_data.material.clear();
+    if (!check(droplet.inj.create_injector() && inert.inj.create_injector(),
+               "Species assignment test geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({droplet, inert}, true);
+    widget.set_chemkin_species_names({"H2O", "O2"});
+    widget.set_species_colors({{"H2O", QColor(255, 0, 0)},
+                               {"O2", QColor(0, 255, 0)}});
+    const QUuid droplet_uuid = droplet.inj.uuid;
+    const QUuid inert_uuid = inert.inj.uuid;
+    if (!check(widget.set_species_for_units_by_uuid({droplet_uuid}, "H2O") == 1 &&
+                   widget.set_species_for_units_by_uuid({inert_uuid}, "O2") == 1,
+               "Species assignment should update both particle types") ||
+        !check(widget.unit_hash.value(droplet_uuid)->inj.injector_data.material ==
+                   "liquid-material" &&
+                   widget.unit_hash.value(droplet_uuid)->inj.injector_data.evaporating_species ==
+                   "H2O",
+               "Droplet Species assignment must not overwrite Material") ||
+        !check(widget.unit_hash.value(inert_uuid)->inj.injector_data.material == "O2",
+               "Non-droplet Species assignment should update Material"))
+    {
+        return 1;
+    }
+    Quantity_Color droplet_color;
+    Quantity_Color inert_color;
+    widget.unit_hash.value(droplet_uuid)->ais_display->Color(droplet_color);
+    widget.unit_hash.value(inert_uuid)->ais_display->Color(inert_color);
+    if (!check(std::abs(droplet_color.Red() - 1.0) < 1.0e-6 &&
+                   droplet_color.Green() < 1.0e-6 &&
+                   inert_color.Green() > 0.99 && inert_color.Red() < 1.0e-6,
+               "Injector colors should follow Droplet evaporating Species and other Material"))
+    {
+        return 1;
+    }
+
+    if (!check(widget.create_reference_section_plane(10.0, 0.01,
                                                     QVector3D(0.0f, 0.0f, 1.0f)),
                "Section Plane creation should succeed") ||
         !check(widget.set_section_plane_clipping(true),

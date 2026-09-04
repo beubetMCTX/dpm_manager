@@ -166,6 +166,8 @@ public:
                              bool use_shared_pivot = false);
     int set_material_for_units_by_uuid(const QList<QUuid> &uuids,
                                        const QString &material);
+    int set_species_for_units_by_uuid(const QList<QUuid> &uuids,
+                                      const QString &species);
     bool set_unit_name(const QUuid &uuid, const QString &name);
     bool edit_unit_by_uuid(const QUuid &uuid);
     bool remove_unit_by_uuid(const QUuid &uuid);
@@ -279,6 +281,7 @@ private:
     void clear_unit_array_children(Unit &source);
     std::shared_ptr<Unit> resolve_effective_edit_unit(const QUuid &uuid) const;
     Quantity_Color color_for_material(const QString &material) const;
+    Quantity_Color color_for_injector(const Injector &injector) const;
     void refresh_unit_colors();
 
     void open_edit_widget(Handle(AIS_Shape) shape);
