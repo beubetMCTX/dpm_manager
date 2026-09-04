@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QIcon>
 #include <QLocale>
+#include <QSettings>
 #include <QTranslator>
 #include <memory>
 
@@ -13,11 +14,27 @@ int main(int argc, char *argv[])
 
     {
         QApplication a(argc, argv);
+        QCoreApplication::setOrganizationName("dpm_manager");
+        QCoreApplication::setApplicationName("dpm_manager");
         a.setWindowIcon(QIcon(":/ui/icons/dpm_manager.ico"));
         runtime_debug::install();
 
         QTranslator translator;
-        const QStringList uiLanguages = QLocale::system().uiLanguages();
+        QSettings language_settings;
+        QStringList uiLanguages;
+        const QString configured_locale =
+            language_settings.value("language/locale").toString().trimmed();
+        if (!configured_locale.isEmpty())
+        {
+            uiLanguages.append(configured_locale);
+        }
+        for (const QString &locale : QLocale::system().uiLanguages())
+        {
+            if (!uiLanguages.contains(locale))
+            {
+                uiLanguages.append(locale);
+            }
+        }
         for (const QString &locale : uiLanguages) {
             const QString baseName = "dpm_manager_" + QLocale(locale).name();
             if (translator.load(":/i18n/" + baseName) ||

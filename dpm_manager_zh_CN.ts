@@ -55,6 +55,8 @@
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="109"/>
+        <location filename="src/app/mainwindow.cpp" line="156"/>
+        <location filename="src/app/mainwindow.cpp" line="164"/>
         <source>Language</source>
         <translation>语言</translation>
     </message>
@@ -208,6 +210,21 @@
         <source>Ctrl+Alt+Y</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="157"/>
+        <source>English</source>
+        <translation>英文</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="158"/>
+        <source>Simplified Chinese</source>
+        <translation>简体中文</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="165"/>
+        <source>Language changes will take effect after restart.</source>
+        <translation>语言更改将在重启后生效。</translation>
+    </message>
 </context>
 <context>
     <name>SpeciesColorDialog</name>
@@ -229,7 +246,7 @@
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="79"/>
         <source>Species</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">组分</translation>
     </message>
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="84"/>
@@ -262,7 +279,7 @@
     <message>
         <location filename="src/ui/dialogs/species_material_dialog.ui" line="14"/>
         <source>Materials</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">材料</translation>
     </message>
     <message>
         <location filename="src/ui/dialogs/species_material_dialog.ui" line="38"/>

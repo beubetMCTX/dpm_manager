@@ -36,6 +36,7 @@
 #include <QRandomGenerator>
 #include <QToolBar>
 #include <QStyle>
+#include <QSettings>
 #include <algorithm>
 #include <functional>
 
@@ -151,6 +152,22 @@ MainWindow::MainWindow(QWidget *parent)
     QAction *unit_preferences_action = settings_menu->addAction("Display Units...");
     connect(unit_preferences_action, &QAction::triggered, this,
             &MainWindow::open_unit_preferences_dialog);
+
+    QMenu *language_menu = settings_menu->addMenu(tr("Language"));
+    QAction *english_action = language_menu->addAction(tr("English"));
+    QAction *chinese_action = language_menu->addAction(tr("Simplified Chinese"));
+    const auto select_language = [this](const QString &locale)
+    {
+        QSettings settings;
+        settings.setValue("language/locale", locale);
+        QMessageBox::information(
+            this, tr("Language"),
+            tr("Language changes will take effect after restart."));
+    };
+    connect(english_action, &QAction::triggered, this,
+            [select_language]() { select_language("en_US"); });
+    connect(chinese_action, &QAction::triggered, this,
+            [select_language]() { select_language("zh_CN"); });
 
     Unit_Preferences unit_preferences;
     QString unit_preferences_error;
