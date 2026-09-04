@@ -2387,3 +2387,10 @@ References:
 - Cloned trees are registered in the OCCT scene with fresh UUIDs; fill source
   references are remapped, while the existing leaf paste workflow is unchanged.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Register Cloned Unit Trees
+
+- Complete cloned subtrees are now recursively registered in the OCCT scene,
+  including local coordinate frames, visibility/lock defaults, species-derived
+  colors, and Volume transparency.
+- Release build and all 12 focused regressions passed.

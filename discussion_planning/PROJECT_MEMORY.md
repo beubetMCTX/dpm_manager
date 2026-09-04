@@ -523,6 +523,9 @@ Unit
 - Added a text-based `Clone Unit Tree` object-panel action. It registers the
   cloned Assembly subtree in the OCCT scene, remaps fill source UUIDs, and
   leaves the existing leaf `Copy`/`Paste to replace` workflow unchanged.
+- The cloned tree is registered recursively with local frames, visibility,
+  locks, material-derived colors, and Volume transparency initialized through
+  the same runtime paths as imported Units.
 
 ## History
 
