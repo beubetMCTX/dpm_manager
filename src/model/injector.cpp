@@ -167,7 +167,11 @@ double fallback_size_hint(const Injector &injector)
 Standard_Real preview_arrow_length(const Injector &injector)
 {
     double speed = std::max(characteristic_speed(injector), 1.0e-6);
-    return static_cast<Standard_Real>(std::max(0.01, std::sqrt(speed)));
+    // Preview geometry is stored in metres. Keep the empirical velocity
+    // scale visually comparable to the millimetre-sized injector bodies.
+    constexpr double kVelocityPreviewScale = 1.0e-3;
+    return static_cast<Standard_Real>(std::max(
+        1.0e-3, kVelocityPreviewScale * std::sqrt(speed)));
 }
 
 Standard_Real preview_arrow_radius(const Injector &injector)
@@ -176,7 +180,9 @@ Standard_Real preview_arrow_radius(const Injector &injector)
     double speed = characteristic_speed(injector);
     if (flow > 0.0 && speed > kTiny)
     {
-        return static_cast<Standard_Real>(std::max(1.0e-4, 3.0 * std::sqrt(flow / speed)));
+        constexpr double kFlowPreviewScale = 1.0e-3;
+        return static_cast<Standard_Real>(std::max(
+            1.0e-5, kFlowPreviewScale * 3.0 * std::sqrt(flow / speed)));
     }
     return static_cast<Standard_Real>(std::max(1.0e-4, 0.25 * fallback_size_hint(injector)));
 }
