@@ -1963,6 +1963,61 @@ bool OCCTWidget::paste_copied_unit_to_selected_face()
     return true;
 }
 
+bool OCCTWidget::attach_unit_to_selected_face(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || selected_face.IsNull() || m_context.IsNull() ||
+        m_view.IsNull())
+    {
+        return false;
+    }
+
+    QVector3D face_origin;
+    QVector3D face_x;
+    QVector3D face_normal;
+    if (!reference_frame(&face_origin, &face_x, &face_normal))
+    {
+        return false;
+    }
+    Q_UNUSED(face_x);
+
+    Injector &injector = unit->inj.injector_data;
+    const QVector3D translation = face_origin - injector.pos;
+    injector.pos = face_origin;
+    injector.pos2 += translation;
+    injector.ff_center += translation;
+    injector.ff_virtual_origin += translation;
+    injector.volume_bgeom_min += translation;
+    injector.volume_bgeom_max += translation;
+
+    const auto along_face_normal = [&face_normal](const QVector3D &value)
+    {
+        return face_normal * value.length();
+    };
+    injector.axis = along_face_normal(injector.axis);
+    injector.atomizer_axis = along_face_normal(injector.atomizer_axis);
+    injector.ff_normal = along_face_normal(injector.ff_normal);
+    injector.vel = along_face_normal(injector.vel);
+    injector.vel2 = along_face_normal(injector.vel2);
+
+    if (!unit->inj.create_injector())
+    {
+        return false;
+    }
+
+    unit->ais_display->SetLocalTransformation(gp_Trsf());
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_injector(injector));
+    unit->ais_display->SetTransparency(configured_injector_transparency(injector));
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(uuid);
+    QSet<QUuid> visited;
+    rebuild_dependent_arrays(uuid, visited);
+    emit unit_data_updated(unit.get());
+    m_view->Redraw();
+    return true;
+}
+
 bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> source = unit_hash.value(uuid);
@@ -5254,7 +5309,15 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
     // A context menu is a new interaction boundary. Finalize any pending
     // drag transaction before hit-testing so stale selection state cannot
     // leak into the next mouse event.
-    clear_selection();
+    // Keep the selected reference face alive while opening an injector menu.
+    // clear_selection() also clears the face reference, which made a
+    // face-then-injector attachment workflow impossible.
+    clear_transform_gizmo();
+    finish_reference_transform_transaction();
+    m_drag_unit_uuid = QUuid();
+    m_drag_move_snapshot_valid = false;
+    myIsDragging = false;
+    clear_context_selection_safely();
     ensure_reference_face_selection_mode();
     m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
 
@@ -5374,6 +5437,8 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         QAction* act_paste = menu.addAction(label_paste );
         QAction* act_delte = menu.addAction(label_delete);
         act_paste->setEnabled(m_copied_unit.has_value());
+        QAction* act_attach = menu.addAction("Attach to Selected Face");
+        act_attach->setEnabled(!selected_face.IsNull());
 
 
         const Handle(AIS_Shape) target_shape = selected_shape;
@@ -5384,6 +5449,8 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
                 [this, target_uuid]() { copy_unit_by_uuid(target_uuid); });
         connect(act_paste, &QAction::triggered, this,
                 [this, target_uuid]() { paste_unit_by_uuid(target_uuid); });
+        connect(act_attach, &QAction::triggered, this,
+                [this, target_uuid]() { attach_unit_to_selected_face(target_uuid); });
         connect(act_delte, &QAction::triggered, this,
                 [this, target_uuid]()
         {
