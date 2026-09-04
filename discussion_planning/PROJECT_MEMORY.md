@@ -200,9 +200,10 @@ Unit
   the existing display/selection/coordinate/lock/transform path. Application
   config and project sessions distinguish `datum_plane` and `datum_axis` from
   file geometry, persist their dimensions/direction, and restore them.
-- Full nested composite Units are not complete: Assembly array expansion is
-  currently flattened into derived children rather than nested Assembly
-  instances with independent local transform nodes.
+- Composite Unit support is now active for Assembly-sourced linear and
+  rotational arrays, and for fills containing Assembly sources. Remaining work
+  includes migrating the other array modes and persisting independent nested
+  instance transform nodes across project sessions.
 - Dynamic-mesh surface eligibility and Wall-Film-specific fields are not
   represented in the current `Injector`/case-context model, so they are not
   hard-locked in the editor.
