@@ -1982,35 +1982,65 @@ bool OCCTWidget::attach_unit_to_selected_face(const QUuid &uuid)
     Q_UNUSED(face_x);
 
     Injector &injector = unit->inj.injector_data;
-    const QVector3D translation = face_origin - injector.pos;
-    injector.pos = face_origin;
-    injector.pos2 += translation;
-    injector.ff_center += translation;
-    injector.ff_virtual_origin += translation;
-    injector.volume_bgeom_min += translation;
-    injector.volume_bgeom_max += translation;
-
-    const auto along_face_normal = [&face_normal](const QVector3D &value)
+    const QVector3D source_origin = injector_frame_origin(injector);
+    const QVector3D source_normal = injector_frame_direction(injector);
+    QVector3D source_x = QVector3D::crossProduct(
+        QVector3D(0.0f, 0.0f, 1.0f), source_normal);
+    if (source_x.lengthSquared() <= 1.0e-12f)
     {
-        return face_normal * value.length();
-    };
-    injector.axis = along_face_normal(injector.axis);
-    injector.atomizer_axis = along_face_normal(injector.atomizer_axis);
-    injector.ff_normal = along_face_normal(injector.ff_normal);
-    injector.vel = along_face_normal(injector.vel);
-    injector.vel2 = along_face_normal(injector.vel2);
-
-    if (!unit->inj.create_injector())
+        source_x = QVector3D::crossProduct(
+            QVector3D(0.0f, 1.0f, 0.0f), source_normal);
+    }
+    if (source_x.lengthSquared() <= 1.0e-12f ||
+        face_x.lengthSquared() <= 1.0e-12f)
     {
         return false;
     }
 
-    unit->ais_display->SetLocalTransformation(gp_Trsf());
-    unit->ais_display->Set(unit->inj.shape);
-    unit->ais_display->SetColor(color_for_injector(injector));
-    unit->ais_display->SetTransparency(configured_injector_transparency(injector));
-    m_context->Redisplay(unit->ais_display, Standard_False);
-    update_unit_local_coordinate_frame(uuid);
+    const gp_Ax3 source_frame(
+        gp_Pnt(source_origin.x(), source_origin.y(), source_origin.z()),
+        gp_Dir(source_normal.x(), source_normal.y(), source_normal.z()),
+        gp_Dir(source_x.x(), source_x.y(), source_x.z()));
+    const gp_Ax3 target_frame(
+        gp_Pnt(face_origin.x(), face_origin.y(), face_origin.z()),
+        gp_Dir(face_normal.x(), face_normal.y(), face_normal.z()),
+        gp_Dir(face_x.x(), face_x.y(), face_x.z()));
+    gp_Trsf transformation;
+    transformation.SetTransformation(target_frame, source_frame);
+
+    std::function<bool(const std::shared_ptr<Unit> &)> transform_tree;
+    transform_tree = [&](const std::shared_ptr<Unit> &node)
+    {
+        if (node == nullptr || node->ais_display.IsNull())
+        {
+            return false;
+        }
+        apply_transform_to_injector(node->inj.injector_data, transformation);
+        if (!node->inj.create_injector())
+        {
+            return false;
+        }
+        node->ais_display->SetLocalTransformation(gp_Trsf());
+        node->ais_display->Set(node->inj.shape);
+        node->ais_display->SetColor(color_for_injector(node->inj.injector_data));
+        node->ais_display->SetTransparency(
+            configured_injector_transparency(node->inj.injector_data));
+        m_context->Redisplay(node->ais_display, Standard_False);
+        update_unit_local_coordinate_frame(node->inj.uuid);
+        for (const std::shared_ptr<Unit> &child : node->child_units)
+        {
+            if (!transform_tree(child))
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    if (!transform_tree(unit))
+    {
+        return false;
+    }
     QSet<QUuid> visited;
     rebuild_dependent_arrays(uuid, visited);
     emit unit_data_updated(unit.get());
@@ -5491,6 +5521,8 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         menu.addSeparator();
         QAction *dissolve_action = menu.addAction("Dissolve Assembly");
         QAction *clone_action = menu.addAction("Clone Unit Tree");
+        QAction *attach_action = menu.addAction("Attach to Selected Face");
+        attach_action->setEnabled(!selected_face.IsNull());
         QAction *lock_action = menu.addAction(
             unit_locked(selected_unit->inj.uuid)
                 ? "Unlock Assembly"
@@ -5500,6 +5532,8 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
                 [this, target_uuid]() { dissolve_assembly(target_uuid); });
         connect(clone_action, &QAction::triggered, this,
                 [this, target_uuid]() { clone_unit_tree_by_uuid(target_uuid); });
+        connect(attach_action, &QAction::triggered, this,
+                [this, target_uuid]() { attach_unit_to_selected_face(target_uuid); });
         connect(lock_action, &QAction::triggered, this,
                 [this, target_uuid]()
         {
