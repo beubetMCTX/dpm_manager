@@ -2561,6 +2561,14 @@ References:
   their type-specific direction fields.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Auto Assign Empty Injector Species
+
+- DPM import and Chemkin import now automatically fill empty leaf-injector
+  Species fields using the current Chemkin list in deterministic DPM order.
+- Existing non-empty Species are not overwritten, Assembly containers are
+  skipped, and assigned values use the existing Species-driven color path.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Section Plane Clipping
 
 - Added offscreen regression coverage for enabling, observing, disabling, and

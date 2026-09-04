@@ -230,6 +230,10 @@ Unit
   validation, batch assignment, and display color lookup use the existing
   Chemkin species/species-color tables; the separate Materials table is not
   an injector material source.
+- When Chemkin species are available, DPM import and later Chemkin import
+  automatically assign empty leaf-injector Species in DPM order, cycling
+  through the Chemkin list. Existing non-empty Species and Assembly containers
+  are preserved.
 - Removed the obsolete no-op OCCT material-name setter so injector material
   data has one explicit Chemkin species path.
 - Project-session reference geometry now serializes constructed-object kind,

@@ -125,6 +125,7 @@ private:
     void sync_unit_from_occt(Unit *changed_unit);
     void sync_unit_position_from_occt(Unit *changed_unit);
     void sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dirty);
+    int assign_species_to_unassigned_units();
     project_session::Data collect_project_data() const;
     void refresh_project_dirty_state();
 

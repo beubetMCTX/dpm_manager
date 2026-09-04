@@ -562,6 +562,35 @@ void MainWindow::closeEvent(QCloseEvent *event)
     runtime_debug::trace("MainWindow closeEvent end");
 }
 
+int MainWindow::assign_species_to_unassigned_units()
+{
+    if (m_3d_widget == nullptr || m_chemkin_species_names.isEmpty())
+    {
+        return 0;
+    }
+
+    int species_index = 0;
+    int assigned_count = 0;
+    for (const Unit &unit : units)
+    {
+        if (unit.type == Assebly ||
+            !unit.inj.injector_data.material.trimmed().isEmpty())
+        {
+            continue;
+        }
+
+        const QString &species = m_chemkin_species_names.at(
+            species_index % m_chemkin_species_names.size());
+        if (m_3d_widget->set_material_for_units_by_uuid(
+                {unit.inj.uuid}, species) > 0)
+        {
+            ++assigned_count;
+        }
+        ++species_index;
+    }
+    return assigned_count;
+}
+
 
 void MainWindow::on_actionRead_triggered()
 {
@@ -594,6 +623,7 @@ void MainWindow::on_actionRead_triggered()
         units.clear();
         units = temp;
         m_3d_widget->display_units(units, true);
+        const int assigned_species_count = assign_species_to_unassigned_units();
         m_project_session_file_path.clear();
         m_project_baseline_initialized = false;
         m_saved_project_fingerprint.clear();
@@ -608,6 +638,13 @@ void MainWindow::on_actionRead_triggered()
 
         statusBar()->showMessage(
             QString("Loaded %1 injectors from DPM file").arg(units.size()), 5000);
+        if (assigned_species_count > 0)
+        {
+            statusBar()->showMessage(
+                QString("Automatically assigned Species to %1 injector(s)")
+                    .arg(assigned_species_count),
+                5000);
+        }
         if (!warning_messages.isEmpty())
         {
             for (const QString &warning : warning_messages)
@@ -1510,6 +1547,7 @@ bool MainWindow::load_chemkin_file(const QString &file_path,
         qWarning() << color_config_error;
     }
     m_3d_widget->set_species_colors(loaded_species_colors);
+    const int assigned_species_count = assign_species_to_unassigned_units();
     if (m_species_color_dialog != nullptr)
     {
         m_species_color_dialog->set_chemkin_context(m_chemkin_file_path, m_chemkin_species_names);
@@ -1543,6 +1581,13 @@ bool MainWindow::load_chemkin_file(const QString &file_path,
     statusBar()->showMessage(
         QString("Imported %1 species from Chemkin file").arg(m_chemkin_species_names.size()),
         5000);
+    if (assigned_species_count > 0)
+    {
+        statusBar()->showMessage(
+            QString("Automatically assigned Species to %1 injector(s)")
+                .arg(assigned_species_count),
+            5000);
+    }
     return true;
 }
 
