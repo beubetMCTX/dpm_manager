@@ -29,6 +29,7 @@ struct ReferenceGeometryConfig
     double construction_radius = 0.05;
     bool locked = false;
     bool visible = true;
+    bool section_clipping = false;
 };
 
 QString app_config_directory_path();

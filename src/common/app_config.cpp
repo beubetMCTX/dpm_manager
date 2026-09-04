@@ -559,6 +559,15 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     }
     loaded_config.locked = locked_value.toBool();
     loaded_config.visible = visible_value.toBool();
+    if (geometry_object.contains("section_clipping") &&
+        !geometry_object.value("section_clipping").isBool())
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry section_clipping value must be boolean.",
+            error_message);
+    }
+    loaded_config.section_clipping = geometry_object.value("section_clipping").toBool(false);
 
     if (geometry_object.contains("construction_direction") &&
         !read_vector("construction_direction", &loaded_config.construction_direction))
@@ -667,6 +676,7 @@ bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
         geometry_object.insert("construction_radius", config.construction_radius);
         geometry_object.insert("locked", config.locked);
         geometry_object.insert("visible", config.visible);
+        geometry_object.insert("section_clipping", config.section_clipping);
         root_object.insert("reference_geometry", geometry_object);
     }
 

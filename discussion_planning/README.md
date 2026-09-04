@@ -2520,6 +2520,14 @@ References:
   the deferred project save format.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Persist Section Plane Clip Preference
+
+- Application reference-geometry configuration now stores Section Plane
+  clipping state and restores it on startup.
+- Legacy configurations without the optional field remain compatible and
+  default to clipping disabled.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Section Plane Clipping
 
 - Added offscreen regression coverage for enabling, observing, disabling, and

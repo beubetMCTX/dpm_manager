@@ -1643,6 +1643,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
+        m_3d_widget->set_section_plane_clipping(config.section_clipping);
         update_reference_geometry_panel();
         return;
     }
@@ -1733,6 +1734,7 @@ void MainWindow::save_reference_geometry_state()
         config.rotation = m_3d_widget->reference_rotation();
         config.locked = m_3d_widget->reference_geometry_locked();
         config.visible = m_3d_widget->reference_geometry_visible();
+        config.section_clipping = m_3d_widget->section_plane_clipping_enabled();
     }
 
     QString error_message;
