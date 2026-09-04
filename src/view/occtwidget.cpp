@@ -4566,7 +4566,9 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
             return;
         }
 
-        clear_face_reference();
+        // Keep an explicitly selected reference face while selecting an
+        // injector. Selection-mode dragging can then snap the injector to
+        // that face instead of silently falling back to the camera plane.
         myIsDragging = select_injector();
         if (m_interaction_mode != Interaction_Mode::Selection &&
             myIsDragging && !selected_shape.IsNull())
