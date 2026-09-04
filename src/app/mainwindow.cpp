@@ -3568,6 +3568,8 @@ void MainWindow::create_object_list_panel()
                 m_3d_widget->reference_geometry_locked()
                     ? "Unlock Reference Geometry"
                     : "Lock Reference Geometry");
+            QAction *clear_reference_action = menu.addAction(
+                "Clear Reference Geometry");
             QAction *chosen_action = menu.exec(
                 m_object_list->viewport()->mapToGlobal(position));
             if (chosen_action == fit_all_action)
@@ -3609,6 +3611,25 @@ void MainWindow::create_object_list_panel()
             {
                 m_3d_widget->set_reference_geometry_locked(
                     !m_3d_widget->reference_geometry_locked());
+            }
+            else if (chosen_action == clear_reference_action)
+            {
+                const QMessageBox::StandardButton answer = QMessageBox::question(
+                    this,
+                    "Clear Reference Geometry",
+                    "Remove the currently loaded reference geometry?",
+                    QMessageBox::Yes | QMessageBox::No,
+                    QMessageBox::No);
+                if (answer == QMessageBox::Yes &&
+                    m_3d_widget->clear_reference_geometry())
+                {
+                    mark_project_dirty();
+                    save_reference_geometry_state();
+                    update_reference_geometry_panel();
+                    update_object_list_panel();
+                    statusBar()->showMessage(
+                        "Reference geometry cleared", 5000);
+                }
             }
             return;
         }
