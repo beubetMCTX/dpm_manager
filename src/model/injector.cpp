@@ -4,6 +4,8 @@
 #include <qdebug.h>
 #include <algorithm>
 #include <cmath>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <TopoDS.hxx>
 
 namespace
 {
@@ -697,9 +699,31 @@ bool Injector_OCCT::create_injector()
     if (!success)
     {
         shape = previous_shape;
+        return false;
     }
 
-    return success;
+    // Keep injector position/orientation in the Fluent metre coordinate
+    // system, while making the display body less dominant beside the
+    // reference model. The transform is applied to the freshly generated
+    // shape, so it never accumulates across rebuilds.
+    if (!shape.IsNull())
+    {
+        gp_Trsf preview_scale;
+        preview_scale.SetScale(
+            gp_Pnt(injector_data.pos.x(),
+                   injector_data.pos.y(),
+                   injector_data.pos.z()),
+            1.0e-3);
+        BRepBuilderAPI_Transform transform(shape, preview_scale, Standard_True);
+        if (!transform.IsDone())
+        {
+            shape = previous_shape;
+            return false;
+        }
+        shape = TopoDS::Compound(transform.Shape());
+    }
+
+    return true;
 }
 
 TopoDS_Compound Injector_OCCT::create_arrow(gp_Ax2 ax2, Standard_Real cyli_diameter, Standard_Real cyli_length, Standard_Real cone_diameter, Standard_Real cone_length)

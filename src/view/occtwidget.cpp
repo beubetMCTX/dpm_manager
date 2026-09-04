@@ -487,6 +487,10 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
     rebuild_unit_local_coordinate_frames();
 
     m_view->FitAll();
+    if (geometry.getShape().IsNull())
+    {
+        m_view->SetZoom(1000.0);
+    }
     m_view->Redraw();
     // display_units() is also called from MainWindow's constructor, before
     // this native view has received its final size. Fit once after layout so
@@ -499,6 +503,10 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
         }
         m_view->MustBeResized();
         m_view->FitAll();
+        if (geometry.getShape().IsNull())
+        {
+            m_view->SetZoom(1000.0);
+        }
         m_view->Redraw();
     });
     emit unit_display_list_changed();
