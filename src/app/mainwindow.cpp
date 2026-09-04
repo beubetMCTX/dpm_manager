@@ -3514,6 +3514,29 @@ void MainWindow::create_object_list_panel()
             QAction *align_face_action = menu.addAction("Align View to Selected Face");
             align_face_action->setEnabled(m_align_reference_face != nullptr &&
                                            m_align_reference_face->isEnabled());
+            QAction *array_fill_face_action = menu.addAction(
+                "Open Array/Fill Tools for Selected Face...");
+            const auto open_current_unit_menu = [this]()
+            {
+                if (m_object_list == nullptr)
+                {
+                    return;
+                }
+                QListWidgetItem *source_item = m_object_list->currentItem();
+                if (source_item == nullptr ||
+                    source_item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+                {
+                    statusBar()->showMessage(
+                        "Select a mother injector or Assembly first", 4000);
+                    return;
+                }
+                const QPoint source_position =
+                    m_object_list->visualItemRect(source_item).center();
+                if (!source_position.isNull())
+                {
+                    emit m_object_list->customContextMenuRequested(source_position);
+                }
+            };
             menu.addSeparator();
             QAction *lock_action = menu.addAction(
                 m_3d_widget->reference_geometry_locked()
@@ -3537,6 +3560,10 @@ void MainWindow::create_object_list_panel()
             else if (chosen_action == align_face_action)
             {
                 m_3d_widget->align_view_to_selected_face();
+            }
+            else if (chosen_action == array_fill_face_action)
+            {
+                open_current_unit_menu();
             }
             else if (chosen_action == lock_action)
             {
