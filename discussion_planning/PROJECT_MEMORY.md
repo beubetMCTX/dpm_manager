@@ -544,6 +544,8 @@ Unit
 - Square and hexagonal fills containing one or more Assembly sources now use
   composite tree instances per placement; pure-leaf fills retain the original
   weighted source path.
+- OCCT edit-history regression now covers composite Assembly fill creation,
+  child-tree retention, and cleanup through Assembly dissolution.
 - Assembly-sourced mirror arrays now also expand as complete composite Unit
   instances, recursively mirroring every injector in the subtree.
 - Assembly-sourced elliptical arrays now create complete composite instances;

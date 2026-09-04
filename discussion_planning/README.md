@@ -2443,6 +2443,12 @@ References:
   leaf fills continue using the established weighted expansion path.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Cover Composite Fill Lifecycle
+
+- Added OCCT regression coverage for Assembly square-fill instances, retained
+  child trees, parent ownership, and cleanup during dissolution.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Integrate Composite Mirror Arrays
 
 - Assembly-sourced mirror arrays now create complete derived Unit subtrees and

@@ -177,6 +177,26 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    UnitFillSpec composite_fill;
+    composite_fill.rows = 1;
+    composite_fill.columns = 2;
+    composite_fill.spacing_x = 8.0f;
+    if (!check(widget.create_unit_fill({uuid}, composite_fill) == 2,
+               "Assembly fill should create one composite instance per placement") ||
+        !check(widget.unit_hash.value(uuid)->child_units.size() == 3,
+               "Assembly fill should retain the source member and own instances") ||
+        !check(std::count_if(widget.unit_hash.value(uuid)->child_units.cbegin(),
+                             widget.unit_hash.value(uuid)->child_units.cend(),
+                             [](const std::shared_ptr<Unit> &child)
+                             {
+                                 return child != nullptr && child->is_array_child &&
+                                        child->child_units.size() == 1;
+                             }) == 2,
+               "Assembly fill instances should retain their child trees"))
+    {
+        return 1;
+    }
+
     if (!check(widget.dissolve_assembly(uuid),
                "Assembly with generated children should dissolve cleanly") ||
         !check(widget.unit_hash.size() == 2 &&
