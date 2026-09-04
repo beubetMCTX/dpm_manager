@@ -4585,10 +4585,23 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         }
 
         // Selection mode only changes the current selection. Object movement
-        // is deliberately handled by the persistent translation mode.
+        // uses a reference/camera plane; translation mode uses the persistent
+        // world-axis gizmo instead.
         if (m_interaction_mode == Interaction_Mode::Selection)
         {
-            myIsDragging = false;
+            if (!selected_shape.IsNull())
+            {
+                if (Unit *unit = get_unit(selected_shape))
+                {
+                    myIsDragging = !unit_locked(unit->inj.uuid);
+                    if (myIsDragging)
+                    {
+                        m_drag_unit_uuid = unit->inj.uuid;
+                        m_drag_move_before = make_move_snapshot(*unit);
+                        m_drag_move_snapshot_valid = true;
+                    }
+                }
+            }
             event->accept();
             return;
         }
@@ -4684,10 +4697,32 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
 
 gp_Pln OCCTWidget::get_moving_base_plane(opencascade::handle<AIS_Shape> moving_shape)
 {
-    gp_Pnt oripnt(0,0,0);
-    TopLoc_Location location;
-    gp_Dir oridir=m_view->Camera()->Direction();
-    return gp_Pln(oripnt,oridir);
+    Q_UNUSED(moving_shape);
+
+    // Prefer the selected reference face as the attachment plane. The face
+    // frame is transformed into world coordinates by reference_frame().
+    QVector3D reference_origin;
+    QVector3D reference_x;
+    QVector3D reference_normal;
+    if (reference_frame(&reference_origin, &reference_x, &reference_normal))
+    {
+        return gp_Pln(
+            gp_Pnt(reference_origin.x(), reference_origin.y(), reference_origin.z()),
+            gp_Dir(reference_normal.x(), reference_normal.y(), reference_normal.z()));
+    }
+
+    // Otherwise use the current camera plane through the dragged injector.
+    // This keeps screen dragging stable after camera rotation and zoom.
+    gp_Pnt origin(0.0, 0.0, 0.0);
+    if (!selected_shape.IsNull())
+    {
+        if (Unit *unit = get_unit(selected_shape))
+        {
+            const QVector3D position = unit->inj.injector_data.pos;
+            origin.SetCoord(position.x(), position.y(), position.z());
+        }
+    }
+    return gp_Pln(origin, m_view->Camera()->Direction());
 
 }
 
