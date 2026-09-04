@@ -509,6 +509,8 @@ Unit
   (`follows_array == false`) children remain independent overrides.
 - Current runtime expansion still represents Assembly arrays through flattened
   display copies; a full nested Unit-instance tree remains future work.
+- Unit-array regression coverage now verifies prototype UUID retention for
+  ordinary and weighted-fill children.
 
 ## History
 

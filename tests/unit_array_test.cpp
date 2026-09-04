@@ -35,6 +35,8 @@ int main(int argc, char **argv)
                     "linear offset mismatch") &&
               check(linear_children[0].inj.uuid != linear_children[1].inj.uuid,
                     "child UUIDs must be unique") &&
+              check(linear_children[0].prototype_uuid == source.inj.uuid,
+                    "linear child must retain its prototype UUID") &&
               check(source.inj.injector_data.pos == QVector3D(1.0f, 2.0f, 0.0f),
                     "source was mutated") &&
               check(linear_children[2].inj.injector_data.single_target_hitpoint ==
@@ -168,6 +170,9 @@ int main(int argc, char **argv)
                    weighted_filled[2].inj.injector_data.name.startsWith("secondary") &&
                    weighted_filled[3].inj.injector_data.name.startsWith("master"),
                "weighted fill source ratio mismatch") && ok;
+    ok = check(weighted_filled[0].prototype_uuid == source.inj.uuid &&
+                   weighted_filled[2].prototype_uuid == second_source.inj.uuid,
+               "fill child prototype UUID mismatch") && ok;
 
     UnitFillSpec legacy_fill = hex_fill;
     legacy_fill.rows = 1;

@@ -2351,3 +2351,9 @@ References:
 - Runtime Assembly expansion is still flattened for display, while the
   persisted Unit hierarchy remains the planned long-term model.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Cover Array Prototype Ownership
+
+- Added regression checks proving ordinary and weighted-fill child instances
+  retain the UUID of their actual source Unit.
+- Release build and all 12 focused regressions passed.
