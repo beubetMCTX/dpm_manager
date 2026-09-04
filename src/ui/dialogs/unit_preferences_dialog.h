@@ -6,6 +6,8 @@
 #include "unit_system.h"
 
 class QComboBox;
+class QCheckBox;
+class QDoubleSpinBox;
 
 class UnitPreferencesDialog : public QDialog
 {
@@ -26,6 +28,10 @@ private:
     QComboBox *m_time_combo = nullptr;
     QComboBox *m_pressure_combo = nullptr;
     QComboBox *m_temperature_combo = nullptr;
+    QDoubleSpinBox *m_injector_transparency = nullptr;
+    QDoubleSpinBox *m_reference_transparency = nullptr;
+    QCheckBox *m_show_injector_axes = nullptr;
+    QCheckBox *m_show_reference_axes = nullptr;
 };
 
 #endif // UNIT_PREFERENCES_DIALOG_H

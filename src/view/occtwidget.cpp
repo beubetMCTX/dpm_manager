@@ -776,6 +776,67 @@ bool OCCTWidget::unit_locked(const QUuid &uuid) const
     return m_unit_locks.value(uuid, false);
 }
 
+void OCCTWidget::apply_visual_preferences(const Unit_Preferences &preferences)
+{
+    if (m_context.IsNull())
+    {
+        return;
+    }
+
+    for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
+    {
+        const std::shared_ptr<Unit> &unit = it.value();
+        if (unit == nullptr || unit->ais_display.IsNull())
+        {
+            continue;
+        }
+        unit->ais_display->SetTransparency(
+            unit->inj.injector_data.injection_type == volume
+                ? std::max(0.82, preferences.injector_transparency)
+                : preferences.injector_transparency);
+        if (!m_unit_local_trihedrons.value(it.key()).IsNull())
+        {
+            if (preferences.show_injector_local_axes && unit_visible(it.key()))
+            {
+                m_context->Display(m_unit_local_trihedrons.value(it.key()), Standard_False);
+            }
+            else
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(it.key()), Standard_False);
+            }
+        }
+        m_context->Redisplay(unit->ais_display, Standard_False);
+    }
+
+    const Standard_Real reference_alpha = preferences.reference_geometry_transparency;
+    if (!base_geometry.IsNull()) base_geometry->SetTransparency(reference_alpha);
+    if (!reference_geometry.IsNull()) reference_geometry->SetTransparency(reference_alpha);
+    for (const Handle(AIS_Trihedron) &trihedron : m_reference_face_trihedrons)
+    {
+        if (trihedron.IsNull()) continue;
+        if (preferences.show_reference_local_axes && m_reference_geometry_visible)
+            m_context->Display(trihedron, Standard_False);
+        else
+            m_context->Erase(trihedron, Standard_False);
+    }
+    if (!face_trihedron.IsNull())
+    {
+        if (preferences.show_reference_local_axes && m_reference_geometry_visible)
+            m_context->Display(face_trihedron, Standard_False);
+        else
+            m_context->Erase(face_trihedron, Standard_False);
+    }
+    if (!m_reference_alignment_trihedron.IsNull())
+    {
+        if (preferences.show_reference_local_axes && m_reference_geometry_visible)
+            m_context->Display(m_reference_alignment_trihedron, Standard_False);
+        else
+            m_context->Erase(m_reference_alignment_trihedron, Standard_False);
+    }
+    m_context->UpdateCurrentViewer();
+    if (!m_view.IsNull()) m_view->Redraw();
+}
+
 bool OCCTWidget::activate_translation_gizmo(const QUuid &uuid)
 {
     set_interaction_mode(Interaction_Mode::Translation);

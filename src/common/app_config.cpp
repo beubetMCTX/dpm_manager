@@ -809,6 +809,23 @@ bool load_unit_preferences(Unit_Preferences *preferences,
             "Unit preference values must be strings.",
             error_message);
     }
+    const QJsonValue injector_transparency = units_object.value("injector_transparency");
+    const QJsonValue reference_transparency = units_object.value("reference_geometry_transparency");
+    const QJsonValue show_injector_axes = units_object.value("show_injector_local_axes");
+    const QJsonValue show_reference_axes = units_object.value("show_reference_local_axes");
+    if ((!injector_transparency.isUndefined() && !injector_transparency.isDouble()) ||
+        (!reference_transparency.isUndefined() && !reference_transparency.isDouble()) ||
+        (!show_injector_axes.isUndefined() && !show_injector_axes.isBool()) ||
+        (!show_reference_axes.isUndefined() && !show_reference_axes.isBool()))
+    {
+        return reject_invalid_config(app_settings_file_path(),
+                                     "Visual preference values have invalid types.",
+                                     error_message);
+    }
+    if (injector_transparency.isDouble()) loaded.injector_transparency = injector_transparency.toDouble();
+    if (reference_transparency.isDouble()) loaded.reference_geometry_transparency = reference_transparency.toDouble();
+    if (show_injector_axes.isBool()) loaded.show_injector_local_axes = show_injector_axes.toBool();
+    if (show_reference_axes.isBool()) loaded.show_reference_local_axes = show_reference_axes.toBool();
 
     QString validation_error;
     if (!UnitSystem::validate_preferences(loaded, &validation_error))
@@ -865,6 +882,10 @@ bool save_unit_preferences(const Unit_Preferences &preferences,
     units_object.insert("time", preferences.time);
     units_object.insert("pressure", preferences.pressure);
     units_object.insert("temperature", preferences.temperature);
+    units_object.insert("injector_transparency", preferences.injector_transparency);
+    units_object.insert("reference_geometry_transparency", preferences.reference_geometry_transparency);
+    units_object.insert("show_injector_local_axes", preferences.show_injector_local_axes);
+    units_object.insert("show_reference_local_axes", preferences.show_reference_local_axes);
     root_object.insert("unit_preferences", units_object);
     root_object.insert("schema_version", kConfigSchemaVersion);
     return write_json_object(app_settings_file_path(), root_object, error_message);

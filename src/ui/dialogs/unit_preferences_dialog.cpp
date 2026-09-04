@@ -3,7 +3,9 @@
 #include "qUI_components.h"
 
 #include <QComboBox>
+#include <QCheckBox>
 #include <QDialogButtonBox>
+#include <QDoubleSpinBox>
 #include <QFormLayout>
 #include <QLabel>
 #include <QVBoxLayout>
@@ -26,9 +28,9 @@ QComboBox *make_unit_combo(Unit_Dimension dimension,
 
 void add_unit_row(QFormLayout *layout,
                   const QString &label,
-                  QComboBox *combo)
+                  QWidget *widget)
 {
-    layout->addRow(new QUI_Label(label, layout->parentWidget()), combo);
+    layout->addRow(new QUI_Label(label, layout->parentWidget()), widget);
 }
 }
 
@@ -69,6 +71,25 @@ UnitPreferencesDialog::UnitPreferencesDialog(const Unit_Preferences &preferences
     add_unit_row(form_layout, "Time", m_time_combo);
     add_unit_row(form_layout, "Pressure", m_pressure_combo);
     add_unit_row(form_layout, "Temperature", m_temperature_combo);
+    m_injector_transparency = new QDoubleSpinBox(this);
+    m_reference_transparency = new QDoubleSpinBox(this);
+    for (QDoubleSpinBox *box : {m_injector_transparency, m_reference_transparency})
+    {
+        box->setRange(0.0, 1.0);
+        box->setDecimals(2);
+        box->setSingleStep(0.05);
+        box->setSuffix(" (0 opaque, 1 invisible)");
+    }
+    m_injector_transparency->setValue(preferences.injector_transparency);
+    m_reference_transparency->setValue(preferences.reference_geometry_transparency);
+    add_unit_row(form_layout, "Injector Transparency", m_injector_transparency);
+    add_unit_row(form_layout, "Reference Transparency", m_reference_transparency);
+    m_show_injector_axes = new QCheckBox("Show injector local axes", this);
+    m_show_reference_axes = new QCheckBox("Show reference local axes", this);
+    m_show_injector_axes->setChecked(preferences.show_injector_local_axes);
+    m_show_reference_axes->setChecked(preferences.show_reference_local_axes);
+    form_layout->addRow(m_show_injector_axes);
+    form_layout->addRow(m_show_reference_axes);
     root_layout->addLayout(form_layout);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
@@ -88,5 +109,9 @@ Unit_Preferences UnitPreferencesDialog::preferences() const
     result.time = m_time_combo->currentText();
     result.pressure = m_pressure_combo->currentText();
     result.temperature = m_temperature_combo->currentText();
+    result.injector_transparency = m_injector_transparency->value();
+    result.reference_geometry_transparency = m_reference_transparency->value();
+    result.show_injector_local_axes = m_show_injector_axes->isChecked();
+    result.show_reference_local_axes = m_show_reference_axes->isChecked();
     return result;
 }

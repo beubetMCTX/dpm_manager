@@ -119,7 +119,7 @@ bool UnitSystem::validate_preferences(const Unit_Preferences &preferences,
         error_message->clear();
     }
 
-    return validate_preference(preferences.length, Unit_Dimension::Length, "length", error_message) &&
+    const bool units_valid = validate_preference(preferences.length, Unit_Dimension::Length, "length", error_message) &&
            validate_preference(preferences.angle, Unit_Dimension::Angle, "angle", error_message) &&
            validate_preference(preferences.velocity, Unit_Dimension::Velocity, "velocity", error_message) &&
            validate_preference(preferences.mass, Unit_Dimension::Mass, "mass", error_message) &&
@@ -127,6 +127,22 @@ bool UnitSystem::validate_preferences(const Unit_Preferences &preferences,
            validate_preference(preferences.time, Unit_Dimension::Time, "time", error_message) &&
            validate_preference(preferences.pressure, Unit_Dimension::Pressure, "pressure", error_message) &&
            validate_preference(preferences.temperature, Unit_Dimension::Temperature, "temperature", error_message);
+    if (!units_valid)
+    {
+        return false;
+    }
+    if (!std::isfinite(preferences.injector_transparency) ||
+        preferences.injector_transparency < 0.0 || preferences.injector_transparency > 1.0 ||
+        !std::isfinite(preferences.reference_geometry_transparency) ||
+        preferences.reference_geometry_transparency < 0.0 || preferences.reference_geometry_transparency > 1.0)
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = "Transparency values must be between 0 and 1.";
+        }
+        return false;
+    }
+    return true;
 }
 
 void UnitSystem::set_active_preferences(const Unit_Preferences &preferences)

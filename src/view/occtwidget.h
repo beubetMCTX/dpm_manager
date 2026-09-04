@@ -80,6 +80,7 @@
 #include "unit.h"
 #include "unit_array.h"
 #include "unit_edit_dialog.h"
+#include "unit_system.h"
 
 
 class OCCTWidget : public QWidget
@@ -155,6 +156,7 @@ public:
     void set_interaction_mode(Interaction_Mode mode);
     Interaction_Mode interaction_mode() const { return m_interaction_mode; }
     void clear_transform_gizmo();
+    void apply_visual_preferences(const Unit_Preferences &preferences);
     int translate_units_by_uuid(const QList<QUuid> &uuids,
                                 const QVector3D &delta);
     QVector3D unit_position_by_uuid(const QUuid &uuid) const;

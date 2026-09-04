@@ -165,6 +165,7 @@ MainWindow::MainWindow(QWidget *parent)
     //this->setCentralWidget(m_3d_widget);
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
+    m_3d_widget->apply_visual_preferences(UnitSystem::active_preferences());
     runtime_debug::trace("MainWindow OCCTWidget created");
 
     // QApplication::aboutToQuit also covers quit paths that bypass closeEvent.
@@ -443,6 +444,7 @@ void MainWindow::open_unit_preferences_dialog()
     UnitSystem::set_active_preferences(preferences);
     if (m_3d_widget != nullptr)
     {
+        m_3d_widget->apply_visual_preferences(preferences);
         m_3d_widget->refresh_open_unit_editors();
     }
     statusBar()->showMessage("Display units updated", 3000);

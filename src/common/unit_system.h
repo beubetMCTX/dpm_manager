@@ -35,6 +35,10 @@ struct Unit_Preferences
     QString time = "s";
     QString pressure = "Pa";
     QString temperature = "K";
+    double injector_transparency = 0.0;
+    double reference_geometry_transparency = 0.2;
+    bool show_injector_local_axes = true;
+    bool show_reference_local_axes = true;
 };
 
 class UnitSystem
