@@ -144,6 +144,9 @@ public:
                                            double yaw_degrees);
     QVector3D unit_single_target_by_uuid(const QUuid &uuid) const;
     bool set_unit_single_target_by_uuid(const QUuid &uuid, const QVector3D &target);
+    Single_Target_Scope unit_single_target_scope_by_uuid(const QUuid &uuid) const;
+    bool set_unit_single_target_scope_by_uuid(const QUuid &uuid,
+                                              Single_Target_Scope scope);
     int rotate_units_by_uuid(const QList<QUuid> &uuids,
                              const QVector3D &axis,
                              float angle_degrees,

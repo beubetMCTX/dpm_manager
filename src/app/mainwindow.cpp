@@ -2091,6 +2091,13 @@ void MainWindow::create_object_list_panel()
     direction_layout->addRow("Target X", m_unit_target_x);
     direction_layout->addRow("Target Y", m_unit_target_y);
     direction_layout->addRow("Target Z", m_unit_target_z);
+    m_unit_target_scope = new QComboBox(direction_group);
+    m_unit_target_scope->addItem("World", static_cast<int>(Single_Target_Scope::World));
+    m_unit_target_scope->addItem("Array Local", static_cast<int>(Single_Target_Scope::Array_Local));
+    m_unit_target_scope->addItem("Parent Local", static_cast<int>(Single_Target_Scope::Parent_Local));
+    m_unit_target_scope->addItem("Reference Local", static_cast<int>(Single_Target_Scope::Reference_Local));
+    m_unit_target_scope->setEnabled(false);
+    direction_layout->addRow("Target Scope", m_unit_target_scope);
     layout->addWidget(direction_group);
 
     m_object_list_dock->setWidget(panel);
@@ -2223,6 +2230,25 @@ void MainWindow::create_object_list_panel()
     connect(m_unit_target_x, &QDoubleSpinBox::editingFinished, this, apply_target);
     connect(m_unit_target_y, &QDoubleSpinBox::editingFinished, this, apply_target);
     connect(m_unit_target_z, &QDoubleSpinBox::editingFinished, this, apply_target);
+    connect(m_unit_target_scope, &QComboBox::currentIndexChanged, this,
+            [this](int index)
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr || index < 0 ||
+            m_unit_target_scope == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr)
+        {
+            return;
+        }
+        const QUuid uuid(item->data(Qt::UserRole).toString());
+        m_3d_widget->set_unit_single_target_scope_by_uuid(
+            uuid, static_cast<Single_Target_Scope>(
+                m_unit_target_scope->itemData(index).toInt()));
+        update_unit_position_controls();
+    });
 
     connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::fit_all_view);
@@ -3469,7 +3495,7 @@ void MainWindow::update_unit_position_controls()
         m_unit_direction_y == nullptr || m_unit_direction_z == nullptr ||
         m_unit_pitch == nullptr || m_unit_yaw == nullptr ||
         m_unit_target_x == nullptr || m_unit_target_y == nullptr ||
-        m_unit_target_z == nullptr)
+        m_unit_target_z == nullptr || m_unit_target_scope == nullptr)
     {
         return;
     }
@@ -3488,6 +3514,7 @@ void MainWindow::update_unit_position_controls()
         m_unit_target_x->setEnabled(false);
         m_unit_target_y->setEnabled(false);
         m_unit_target_z->setEnabled(false);
+        m_unit_target_scope->setEnabled(false);
         return;
     }
 
@@ -3505,6 +3532,7 @@ void MainWindow::update_unit_position_controls()
         m_unit_target_x->setEnabled(false);
         m_unit_target_y->setEnabled(false);
         m_unit_target_z->setEnabled(false);
+        m_unit_target_scope->setEnabled(false);
         return;
     }
 
@@ -3515,6 +3543,8 @@ void MainWindow::update_unit_position_controls()
     const bool has_pitch_yaw = m_3d_widget->unit_single_pitch_yaw_by_uuid(
         uuid, &pitch, &yaw);
     const QVector3D target = m_3d_widget->unit_single_target_by_uuid(uuid);
+    const Single_Target_Scope target_scope =
+        m_3d_widget->unit_single_target_scope_by_uuid(uuid);
     const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
     const bool has_target = unit != nullptr &&
         unit->inj.injector_data.injection_type == single &&
@@ -3530,6 +3560,7 @@ void MainWindow::update_unit_position_controls()
     const QSignalBlocker target_x_blocker(m_unit_target_x);
     const QSignalBlocker target_y_blocker(m_unit_target_y);
     const QSignalBlocker target_z_blocker(m_unit_target_z);
+    const QSignalBlocker target_scope_blocker(m_unit_target_scope);
     m_unit_position_x->setValue(position.x());
     m_unit_position_y->setValue(position.y());
     m_unit_position_z->setValue(position.z());
@@ -3541,6 +3572,12 @@ void MainWindow::update_unit_position_controls()
     m_unit_target_x->setValue(target.x());
     m_unit_target_y->setValue(target.y());
     m_unit_target_z->setValue(target.z());
+    const int target_scope_index = m_unit_target_scope->findData(
+        static_cast<int>(target_scope));
+    if (target_scope_index >= 0)
+    {
+        m_unit_target_scope->setCurrentIndex(target_scope_index);
+    }
     m_unit_position_x->setEnabled(true);
     m_unit_position_y->setEnabled(true);
     m_unit_position_z->setEnabled(true);
@@ -3557,6 +3594,7 @@ void MainWindow::update_unit_position_controls()
     m_unit_target_x->setEnabled(editable_target);
     m_unit_target_y->setEnabled(editable_target);
     m_unit_target_z->setEnabled(editable_target);
+    m_unit_target_scope->setEnabled(editable_target);
 }
 
 void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)

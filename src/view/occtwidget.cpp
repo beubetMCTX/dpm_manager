@@ -934,6 +934,54 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     return true;
 }
 
+Single_Target_Scope OCCTWidget::unit_single_target_scope_by_uuid(const QUuid &uuid) const
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit->inj.injector_data.injection_type != single ||
+        unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint)
+    {
+        return Single_Target_Scope::Array_Local;
+    }
+    return unit->inj.injector_data.single_target_scope;
+}
+
+bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
+                                                      Single_Target_Scope scope)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit_locked(uuid) ||
+        unit->inj.injector_data.injection_type != single ||
+        unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint ||
+        scope < Single_Target_Scope::World || scope > Single_Target_Scope::Reference_Local)
+    {
+        return false;
+    }
+    if (unit->inj.injector_data.single_target_scope == scope)
+    {
+        return true;
+    }
+    begin_unit_edit_transaction(unit.get());
+    unit->inj.injector_data.single_target_scope = scope;
+    if (!unit->inj.create_injector())
+    {
+        m_edit_transactions.remove(uuid);
+        return false;
+    }
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(
+        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+    unit->ais_display->SetColor(color_for_material(unit->inj.injector_data.material));
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(uuid);
+    emit unit_data_updated(unit.get());
+    finish_unit_edit_transaction(unit.get(), true);
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
 bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
                                            const QVector3D &position)
 {

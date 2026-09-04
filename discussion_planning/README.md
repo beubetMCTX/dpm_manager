@@ -2136,6 +2136,14 @@ References:
   color from the Species/Color table, and synchronize the Unit.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Target Coordinate Scope Control
+
+- Target Hitpoint mode now exposes World, Array Local, Parent Local, and
+  Reference Local scope choices in the Objects panel.
+- Scope changes rebuild and synchronize the Unit and participate in Undo/Redo;
+  the control is disabled for non-target direction modes.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit

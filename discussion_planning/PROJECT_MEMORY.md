@@ -403,6 +403,9 @@ Unit
 - Single Target Hitpoint mode now exposes editable target X/Y/Z fields; zero
   length targets are rejected and valid changes rebuild and synchronize the
   injector without involving `vel2`.
+- Target Hitpoint editing now exposes and persists the explicit coordinate
+  scope (`World`, `Array Local`, `Parent Local`, or `Reference Local`) through
+  the same Unit edit transaction.
 - Direction, Pitch/Yaw, and Target Hitpoint edits from the Objects panel now
   use the existing Unit edit transaction and therefore participate in Undo/Redo
   instead of being untracked direct mutations.
