@@ -757,6 +757,26 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
     return translated_count;
 }
 
+QVector3D OCCTWidget::unit_position_by_uuid(const QUuid &uuid) const
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    return unit != nullptr ? unit->inj.injector_data.pos : QVector3D();
+}
+
+bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
+                                           const QVector3D &position)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || !std::isfinite(position.x()) ||
+        !std::isfinite(position.y()) || !std::isfinite(position.z()))
+    {
+        return false;
+    }
+
+    const QVector3D delta = position - unit->inj.injector_data.pos;
+    return !delta.isNull() && translate_units_by_uuid({uuid}, delta) > 0;
+}
+
 int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
                                      const QVector3D &axis,
                                      float angle_degrees,

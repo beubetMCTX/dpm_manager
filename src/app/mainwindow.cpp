@@ -2029,8 +2029,71 @@ void MainWindow::create_object_list_panel()
     m_object_list->setAlternatingRowColors(true);
     layout->addWidget(m_object_list);
 
+    auto *position_group = new QGroupBox("Selected Unit Position", panel);
+    auto *position_layout = new QFormLayout(position_group);
+    auto create_position_box = [position_group]()
+    {
+        auto *box = new QDoubleSpinBox(position_group);
+        box->setRange(-1.0e9, 1.0e9);
+        box->setDecimals(6);
+        box->setSingleStep(0.1);
+        box->setEnabled(false);
+        return box;
+    };
+    m_unit_position_x = create_position_box();
+    m_unit_position_y = create_position_box();
+    m_unit_position_z = create_position_box();
+    position_layout->addRow("X", m_unit_position_x);
+    position_layout->addRow("Y", m_unit_position_y);
+    position_layout->addRow("Z", m_unit_position_z);
+    layout->addWidget(position_group);
+
     m_object_list_dock->setWidget(panel);
     addDockWidget(Qt::LeftDockWidgetArea, m_object_list_dock);
+
+    connect(m_object_list, &QListWidget::currentItemChanged, this,
+            [this](QListWidgetItem *, QListWidgetItem *)
+    {
+        update_unit_position_controls();
+    });
+    const auto apply_position = [this](QDoubleSpinBox *x,
+                                       QDoubleSpinBox *y,
+                                       QDoubleSpinBox *z)
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr ||
+            x == nullptr || y == nullptr || z == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+        {
+            return;
+        }
+        const QUuid uuid(item->data(Qt::UserRole).toString());
+        if (!uuid.isNull() && m_3d_widget->set_unit_position_by_uuid(
+                uuid, QVector3D(static_cast<float>(x->value()),
+                                static_cast<float>(y->value()),
+                                static_cast<float>(z->value()))))
+        {
+            update_unit_position_controls();
+        }
+    };
+    connect(m_unit_position_x, &QDoubleSpinBox::editingFinished, this,
+            [this, apply_position]()
+    {
+        apply_position(m_unit_position_x, m_unit_position_y, m_unit_position_z);
+    });
+    connect(m_unit_position_y, &QDoubleSpinBox::editingFinished, this,
+            [this, apply_position]()
+    {
+        apply_position(m_unit_position_x, m_unit_position_y, m_unit_position_z);
+    });
+    connect(m_unit_position_z, &QDoubleSpinBox::editingFinished, this,
+            [this, apply_position]()
+    {
+        apply_position(m_unit_position_x, m_unit_position_y, m_unit_position_z);
+    });
 
     connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::fit_all_view);
@@ -3266,6 +3329,46 @@ void MainWindow::update_object_list_selection(const QUuid &uuid,
             break;
         }
     }
+    update_unit_position_controls();
+}
+
+void MainWindow::update_unit_position_controls()
+{
+    if (m_unit_position_x == nullptr || m_unit_position_y == nullptr ||
+        m_unit_position_z == nullptr || m_object_list == nullptr ||
+        m_3d_widget == nullptr)
+    {
+        return;
+    }
+
+    QListWidgetItem *item = m_object_list->currentItem();
+    if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+    {
+        m_unit_position_x->setEnabled(false);
+        m_unit_position_y->setEnabled(false);
+        m_unit_position_z->setEnabled(false);
+        return;
+    }
+
+    const QUuid uuid(item->data(Qt::UserRole).toString());
+    if (uuid.isNull() || !m_3d_widget->unit_hash.contains(uuid))
+    {
+        m_unit_position_x->setEnabled(false);
+        m_unit_position_y->setEnabled(false);
+        m_unit_position_z->setEnabled(false);
+        return;
+    }
+
+    const QVector3D position = m_3d_widget->unit_position_by_uuid(uuid);
+    const QSignalBlocker x_blocker(m_unit_position_x);
+    const QSignalBlocker y_blocker(m_unit_position_y);
+    const QSignalBlocker z_blocker(m_unit_position_z);
+    m_unit_position_x->setValue(position.x());
+    m_unit_position_y->setValue(position.y());
+    m_unit_position_z->setValue(position.z());
+    m_unit_position_x->setEnabled(true);
+    m_unit_position_y->setEnabled(true);
+    m_unit_position_z->setEnabled(true);
 }
 
 void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)

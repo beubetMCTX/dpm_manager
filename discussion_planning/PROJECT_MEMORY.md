@@ -391,6 +391,9 @@ Unit
 - Project-session validation now rejects non-finite array/fill values and
   unusable reference frames before restoration; focused regression coverage
   includes invalid counts, ellipse radii, fill spacing, and parallel axes.
+- The Objects panel now exposes a numeric Position X/Y/Z inspector for the
+  current Unit; edits reuse the validated translation path, synchronize model
+  data and geometry, respect locks/Assembly propagation, and enter move history.
 
 ## History
 

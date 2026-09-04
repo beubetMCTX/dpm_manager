@@ -116,6 +116,7 @@ private:
     void update_object_list_panel();
     void update_object_list_item(const QUuid &uuid, const QString &name);
     void update_object_list_selection(const QUuid &uuid, bool reference_geometry);
+    void update_unit_position_controls();
     void restore_window_layout();
     void save_window_layout();
     void reset_window_layout();
@@ -162,5 +163,8 @@ private:
     QDockWidget *m_object_list_dock = nullptr;
     QListWidget *m_object_list = nullptr;
     QLineEdit *m_object_filter = nullptr;
+    QDoubleSpinBox *m_unit_position_x = nullptr;
+    QDoubleSpinBox *m_unit_position_y = nullptr;
+    QDoubleSpinBox *m_unit_position_z = nullptr;
 };
 #endif // MAINWINDOW_H

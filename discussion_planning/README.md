@@ -2103,3 +2103,11 @@ References:
 - Project-session validation rejects non-finite array/fill metadata and
   parallel reference axes before geometry restoration.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Unit Position Inspector
+
+- The Objects panel now displays Position X/Y/Z for the current Unit and
+  accepts precise numeric edits.
+- Position edits reuse the existing translation, lock, Assembly propagation,
+  synchronization, and Undo/Redo paths; reference selections remain disabled.
+- Release build and all 12 focused regressions passed.
