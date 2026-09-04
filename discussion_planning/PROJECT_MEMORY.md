@@ -642,6 +642,8 @@ Unit
 - Make Undo include an active drag transaction before older history entries.
 - Promote the existing project-session JSON model to a `.dpmpj` workflow while
   preserving Unit, Assembly, Array, and reference relationships.
+- The object list already uses extended selection; its redundant top batch
+  controls are now hidden in favor of the existing context-menu actions.
 
 ## History
 

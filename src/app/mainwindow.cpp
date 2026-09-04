@@ -2248,6 +2248,7 @@ void MainWindow::create_object_list_panel()
     view_controls_layout->addWidget(show_all_button);
     view_controls_layout->addWidget(hide_all_button);
     layout->addWidget(view_controls);
+    view_controls->hide();
 
     auto *batch_controls = new QWidget(panel);
     auto *batch_controls_layout = new QHBoxLayout(batch_controls);
@@ -2261,10 +2262,13 @@ void MainWindow::create_object_list_panel()
     batch_controls_layout->addWidget(lock_selected_button);
     batch_controls_layout->addWidget(unlock_selected_button);
     layout->addWidget(batch_controls);
+    batch_controls->hide();
     auto *delete_selected_button = new QPushButton("Delete Selected", panel);
     layout->addWidget(delete_selected_button);
+    delete_selected_button->hide();
     auto *paste_selected_button = new QPushButton("Paste to Selected", panel);
     layout->addWidget(paste_selected_button);
+    paste_selected_button->hide();
     auto *selection_mode_button = new QPushButton("Selection Mode", panel);
     auto *translate_selected_button = new QPushButton("Translation Mode", panel);
     auto *rotate_selected_button = new QPushButton("Rotation Mode", panel);

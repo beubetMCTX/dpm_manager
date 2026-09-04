@@ -22,6 +22,10 @@ camera interaction, placement, defaults/localization, then project-file
 workflow. Legacy application-wide smoke-test targets remain removed; each
 completed phase must use the focused CTest suite and be archived in Git.
 
+The object list already supports extended selection. Redundant top-level batch
+controls are hidden so the dock can remain compact while the context menu keeps
+the operations available.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9
