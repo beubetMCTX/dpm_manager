@@ -4518,6 +4518,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
     if (event->button() == Qt::LeftButton)
     {
+        m_selection_modifiers = event->modifiers();
         m_x_max=pos.x();
         m_y_max=pos.y();
         ensure_reference_face_selection_mode();
@@ -4721,6 +4722,12 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
             AIS_SelectionModesConcurrency_Single, Standard_True);
     }
 
+    const AIS_SelectionScheme selection_scheme =
+        (m_selection_modifiers & Qt::ControlModifier)
+            ? AIS_SelectionScheme_XOR
+            : (m_selection_modifiers & Qt::ShiftModifier)
+                ? AIS_SelectionScheme_Add
+                : AIS_SelectionScheme_Replace;
     selected_shape.Nullify();
     if (!m_context->HasDetected())
     {
@@ -4753,7 +4760,7 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
         t_select_style->SetDisplayMode(AIS_Shaded); // 整体高亮
         t_select_style->SetTransparency(0.8f); // 设置透明度 // 设置选择后颜色
     }
-    m_context->SelectDetected();
+    m_context->SelectDetected(selection_scheme);
     m_view->Update();
 
     return true;

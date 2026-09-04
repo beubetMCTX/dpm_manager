@@ -657,6 +657,8 @@ Unit
 - The Objects inspector now displays position and target values in the active
   length unit, converts edits back to internal metres, and refreshes labels
   immediately after unit preference changes.
+- 3D selection now supports standard modifier semantics: plain click replaces,
+  Ctrl-click toggles, and Shift-click adds to the OCCT selection.
 
 ## History
 

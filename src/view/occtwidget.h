@@ -447,6 +447,7 @@ private:
 
     bool mouse_middle_mod;
     bool m_camera_panning = false;
+    Qt::KeyboardModifiers m_selection_modifiers = Qt::NoModifier;
     Standard_Real m_dpi_scale;
 
     gp_Ax2 coordinate_system_main;

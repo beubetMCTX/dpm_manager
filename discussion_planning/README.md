@@ -43,6 +43,9 @@ The Objects inspector now converts position and target coordinates between the
 active display length unit and internal metres, and refreshes its unit suffixes
 when preferences change.
 
+3D selection now supports plain-click replacement, Ctrl-click toggling, and
+Shift-click additive selection through OCCT selection schemes.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9
