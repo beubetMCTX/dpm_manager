@@ -195,6 +195,10 @@ Unit
 - Constructed reference aids (datum planes, rotation axes, origins, and section
   planes) still need a persisted construction-object model; imported reference
   geometry and selected-face frames are implemented.
+- The reference-geometry panel can now create transient datum planes and datum
+  axes through the existing display/selection/coordinate/lock/transform path;
+  persistence is intentionally deferred until the config schema distinguishes
+  constructed objects from file paths.
 - Full nested composite Units are not complete: Assembly array expansion is
   currently flattened into derived children rather than nested Assembly
   instances with independent local transform nodes.

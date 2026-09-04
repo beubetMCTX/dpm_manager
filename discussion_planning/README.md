@@ -2196,6 +2196,15 @@ References:
   explicit remaining implementation items; imported geometry and face frames
   remain supported.
 
+### 2026-09-04 Add Transient Datum Reference Aids
+
+- Added text actions to create a datum plane or datum axis in the Reference
+  Geometry panel.
+- Constructed aids reuse the existing selection, local-coordinate, visibility,
+  locking, and transform behavior.
+- They are not written through the legacy file-path-only config format yet.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit

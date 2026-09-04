@@ -14,6 +14,18 @@ Base_Geom_Read::~Base_Geom_Read()
 
 }
 
+void Base_Geom_Read::adopt_shape(const TopoDS_Shape &shape,
+                                 const QString &description)
+{
+    clear_loaded_state();
+    m_shape = shape;
+    m_file_path = description;
+    if (!m_shape.IsNull())
+    {
+        get_bounding_box();
+    }
+}
+
 void Base_Geom_Read::adopt_loaded_geometry(const Base_Geom_Read &other)
 {
     if (this == &other)

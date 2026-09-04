@@ -157,6 +157,8 @@ private:
     QPushButton *m_reset_reference_transform = nullptr;
     QPushButton *m_align_reference_face = nullptr;
     QPushButton *m_clear_reference_geometry = nullptr;
+    QPushButton *m_create_datum_plane = nullptr;
+    QPushButton *m_create_datum_axis = nullptr;
     QLabel *m_reference_geometry_path = nullptr;
     QLabel *m_reference_face_origin = nullptr;
     QLabel *m_reference_face_normal = nullptr;

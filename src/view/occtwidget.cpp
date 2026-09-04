@@ -2526,6 +2526,53 @@ void OCCTWidget::add_readed_geometry()
 
 }
 
+bool OCCTWidget::create_reference_datum_plane(Standard_Real size,
+                                              Standard_Real thickness)
+{
+    if (m_context.IsNull() || m_view.IsNull() || size <= 0.0 || thickness <= 0.0)
+    {
+        return false;
+    }
+
+    try
+    {
+        const gp_Ax2 plane_axis(gp_Pnt(-size * 0.5, -size * 0.5, 0.0),
+                                gp_Dir(0.0, 0.0, 1.0));
+        const TopoDS_Shape plane = BRepPrimAPI_MakeBox(
+            plane_axis, size, size, thickness).Shape();
+        geometry.adopt_shape(plane, QStringLiteral("<datum plane>"));
+        add_readed_geometry();
+        return !ref_geom.IsNull();
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+bool OCCTWidget::create_reference_datum_axis(Standard_Real length,
+                                             Standard_Real radius)
+{
+    if (m_context.IsNull() || m_view.IsNull() || length <= 0.0 || radius <= 0.0)
+    {
+        return false;
+    }
+
+    try
+    {
+        const gp_Ax2 axis(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(0.0, 0.0, 1.0));
+        const TopoDS_Shape datum_axis = BRepPrimAPI_MakeCylinder(
+            axis, radius, length).Shape();
+        geometry.adopt_shape(datum_axis, QStringLiteral("<datum axis>"));
+        add_readed_geometry();
+        return !ref_geom.IsNull();
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
 void OCCTWidget::refresh_open_unit_editors()
 {
     for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)

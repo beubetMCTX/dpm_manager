@@ -40,6 +40,7 @@ public:
     bool readFile(QString& filePath);
     TopoDS_Shape getShape() const { return m_shape; }
     QString file_path() const { return m_file_path; }
+    void adopt_shape(const TopoDS_Shape &shape, const QString &description);
     void adopt_loaded_geometry(const Base_Geom_Read &other);
 
     // 装配结构相关功能（用于STEP文件）

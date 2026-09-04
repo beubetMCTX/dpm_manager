@@ -94,6 +94,10 @@ public:
     Base_Geom_Read geometry;
 
     void add_readed_geometry();
+    bool create_reference_datum_plane(Standard_Real size = 10.0,
+                                      Standard_Real thickness = 0.01);
+    bool create_reference_datum_axis(Standard_Real length = 10.0,
+                                     Standard_Real radius = 0.05);
     bool clear_reference_geometry();
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }

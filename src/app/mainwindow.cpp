@@ -1724,6 +1724,8 @@ void MainWindow::create_reference_geometry_panel()
     m_reset_reference_transform = new QPushButton("Reset Transform", panel);
     m_align_reference_face = new QPushButton("Align View to Selected Face", panel);
     m_clear_reference_geometry = new QPushButton("Clear Reference Geometry", panel);
+    m_create_datum_plane = new QPushButton("Create Datum Plane", panel);
+    m_create_datum_axis = new QPushButton("Create Datum Axis", panel);
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
 
@@ -1747,6 +1749,8 @@ void MainWindow::create_reference_geometry_panel()
     panel_layout->addWidget(m_reset_reference_transform);
     panel_layout->addWidget(m_align_reference_face);
     panel_layout->addWidget(m_clear_reference_geometry);
+    panel_layout->addWidget(m_create_datum_plane);
+    panel_layout->addWidget(m_create_datum_axis);
     panel_layout->addWidget(source_group);
     panel_layout->addWidget(face_info_group);
     panel_layout->addWidget(m_reference_geometry_lock);
@@ -1786,6 +1790,22 @@ void MainWindow::create_reference_geometry_panel()
         mark_project_dirty();
         save_reference_geometry_state();
         statusBar()->showMessage("Reference geometry cleared", 5000);
+    });
+    connect(m_create_datum_plane, &QPushButton::clicked, this, [this]()
+    {
+        if (m_3d_widget->create_reference_datum_plane())
+        {
+            update_reference_geometry_panel();
+            statusBar()->showMessage("Datum plane created", 5000);
+        }
+    });
+    connect(m_create_datum_axis, &QPushButton::clicked, this, [this]()
+    {
+        if (m_3d_widget->create_reference_datum_axis())
+        {
+            update_reference_geometry_panel();
+            statusBar()->showMessage("Datum axis created", 5000);
+        }
     });
     connect(m_reference_geometry_lock, &QCheckBox::toggled, this, [this](bool locked)
     {
