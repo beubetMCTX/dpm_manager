@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
         return 1;
     }
     if (!check(!widget.copy_unit_by_uuid(uuid),
-               "Assembly copy should be rejected until composite cloning exists"))
+               "Leaf paste-copy should not replace an Assembly"))
     {
         return 1;
     }
@@ -128,12 +128,12 @@ int main(int argc, char *argv[])
     assembly_array.direction = QVector3D(0.0f, 1.0f, 0.0f);
     assembly_array.spacing = 10.0f;
     const int generated_count = widget.create_unit_array(uuid, assembly_array);
-    if (!check(generated_count == 4,
-               "Assembly array should expand every non-derived member") ||
+    if (!check(generated_count == 2,
+               "Assembly array should create one composite instance per placement") ||
         !check(widget.unit_hash.value(uuid)->type == Assebly,
                "Assembly array source must remain an Assembly") ||
-        !check(widget.unit_hash.value(uuid)->child_units.size() == 5,
-               "Assembly source should retain members and own generated children") )
+        !check(widget.unit_hash.value(uuid)->child_units.size() == 3,
+               "Assembly source should retain members and own composite children") )
     {
         return 1;
     }
@@ -150,8 +150,8 @@ int main(int argc, char *argv[])
             }
         }
     }
-    if (!check(generated_children == 4,
-               "Assembly source should own all generated array instances"))
+    if (!check(generated_children == 2,
+               "Assembly source should own all generated composite instances"))
     {
         return 1;
     }
@@ -162,14 +162,15 @@ int main(int argc, char *argv[])
                            [](const std::shared_ptr<Unit> &child)
                            {
                                return child == nullptr ||
-                                      child->assembly_child_uuids.isEmpty();
+                                      !child->is_array_child ||
+                                      child->assembly_child_uuids.size() == 1;
                            }),
-               "Flattened Assembly array children must not retain Assembly links"))
+               "Composite Assembly array children must retain their child link"))
     {
         return 1;
     }
-    if (!check(widget.rebuild_unit_array(uuid) == 4 &&
-                   widget.unit_hash.value(uuid)->child_units.size() == 5 &&
+    if (!check(widget.rebuild_unit_array(uuid) == 2 &&
+                   widget.unit_hash.value(uuid)->child_units.size() == 3 &&
                    widget.unit_hash.size() == 6,
                "Rebuilding an Assembly array should replace, not accumulate, children"))
     {

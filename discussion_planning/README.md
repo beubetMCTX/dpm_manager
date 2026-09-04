@@ -2424,3 +2424,13 @@ References:
 - The existing OCCT leaf-expansion path remains unchanged until this model
   behavior is integrated and visually verified.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Integrate Composite Arrays In OCCT
+
+- Linear and rotational arrays sourced from an Assembly now create one
+  derived composite Assembly per placement in the OCCT scene.
+- Each derived root retains its recursively registered child Units, local
+  frames, color, visibility, lock, and transparency setup.
+- Updated edit-history regression coverage for composite counts and cleanup;
+  other array modes remain on the prior path during staged migration.
+- Release build and all 12 focused regressions passed.

@@ -536,6 +536,10 @@ Unit
 - Added model-level composite array expansion for linear and rotational modes:
   each placement clones the complete persistent Unit subtree and applies one
   rigid transform to the whole tree, preserving nested child relationships.
+- Linear and rotational arrays whose source is an Assembly now use that
+  composite expansion in the OCCT scene; each placement is a derived Assembly
+  root with its recursively registered child Units. Other array modes retain
+  the established leaf-expansion path for incremental migration.
 
 ## History
 

@@ -1561,6 +1561,69 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     {
         source->type = array;
     }
+
+    if (source_is_assembly &&
+        (spec.type == UnitArrayType::Linear ||
+         spec.type == UnitArrayType::Rotational))
+    {
+        const QList<std::shared_ptr<Unit>> instances =
+            expand_unit_tree_array(*source, spec);
+        int displayed_count = 0;
+        std::function<void(const std::shared_ptr<Unit> &)> register_tree;
+        register_tree = [&](const std::shared_ptr<Unit> &unit)
+        {
+            if (unit == nullptr || unit->ais_display.IsNull())
+            {
+                return;
+            }
+            unit_hash.insert(unit->inj.uuid, unit);
+            m_unit_visibility.insert(unit->inj.uuid, true);
+            m_unit_locks.insert(unit->inj.uuid, false);
+            unit->u_owner->set_unit(unit.get());
+            unit->ais_display->SetOwner(unit->u_owner);
+            unit->ais_display->Set(unit->inj.shape);
+            unit->ais_display->SetColor(
+                color_for_material(unit->inj.injector_data.material));
+            unit->ais_display->SetTransparency(
+                unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+            m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
+            m_context->Display(unit->ais_display, Standard_False);
+            for (const std::shared_ptr<Unit> &child : unit->child_units)
+            {
+                register_tree(child);
+            }
+        };
+
+        for (const std::shared_ptr<Unit> &instance : instances)
+        {
+            if (instance == nullptr)
+            {
+                continue;
+            }
+            instance->type = Assebly;
+            instance->array_parent_uuid = source_uuid;
+            instance->is_array_child = true;
+            instance->follows_array = true;
+            instance->prototype_uuid = source_uuid;
+            instance->prototype_chain = {source_uuid};
+            instance->has_array_spec = false;
+            instance->has_fill_spec = false;
+            register_tree(instance);
+            source->child_units.append(instance);
+            ++displayed_count;
+        }
+
+        if (displayed_count > 0)
+        {
+            rebuild_unit_local_coordinate_frames();
+            m_view->FitAll();
+            m_view->Redraw();
+            emit unit_display_list_changed();
+        }
+        emit unit_data_updated(source.get());
+        return displayed_count;
+    }
+
     QList<Unit> children;
     if (source_is_assembly)
     {
@@ -1751,6 +1814,34 @@ void OCCTWidget::clear_unit_array_children(Unit &source)
 {
     const QVector<std::shared_ptr<Unit>> children = source.child_units;
     source.child_units.clear();
+    std::function<void(const std::shared_ptr<Unit> &)> remove_derived_tree;
+    remove_derived_tree = [&](const std::shared_ptr<Unit> &node)
+    {
+        if (node == nullptr)
+        {
+            return;
+        }
+        const QVector<std::shared_ptr<Unit>> descendants = node->child_units;
+        for (const std::shared_ptr<Unit> &descendant : descendants)
+        {
+            remove_derived_tree(descendant);
+        }
+        const QUuid node_uuid = node->inj.uuid;
+        if (!m_context.IsNull() && !node->ais_display.IsNull())
+        {
+            m_context->Remove(node->ais_display, Standard_False);
+        }
+        if (!m_context.IsNull() &&
+            !m_unit_local_trihedrons.value(node_uuid).IsNull())
+        {
+            m_context->Remove(m_unit_local_trihedrons.value(node_uuid),
+                              Standard_False);
+        }
+        m_unit_local_trihedrons.remove(node_uuid);
+        m_unit_visibility.remove(node_uuid);
+        m_unit_locks.remove(node_uuid);
+        unit_hash.remove(node_uuid);
+    };
     for (const std::shared_ptr<Unit> &child : children)
     {
         if (child == nullptr)
@@ -1762,19 +1853,7 @@ void OCCTWidget::clear_unit_array_children(Unit &source)
             source.child_units.append(child);
             continue;
         }
-        const QUuid uuid = child->inj.uuid;
-        if (!m_context.IsNull() && !child->ais_display.IsNull())
-        {
-            m_context->Remove(child->ais_display, Standard_False);
-        }
-        if (!m_context.IsNull() && !m_unit_local_trihedrons.value(uuid).IsNull())
-        {
-            m_context->Remove(m_unit_local_trihedrons.value(uuid), Standard_False);
-        }
-        m_unit_local_trihedrons.remove(uuid);
-        m_unit_visibility.remove(uuid);
-        m_unit_locks.remove(uuid);
-        unit_hash.remove(uuid);
+        remove_derived_tree(child);
     }
 }
 
