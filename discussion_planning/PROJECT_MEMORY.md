@@ -546,6 +546,8 @@ Unit
   weighted source path.
 - OCCT edit-history regression now covers composite Assembly fill creation,
   child-tree retention, and cleanup through Assembly dissolution.
+- Composite fills now apply `conform_to_reference_normal` recursively to every
+  injector in an Assembly tree, matching the established leaf-fill behavior.
 - Composite mixed-source fills now resolve source names by longest matching
   prefix, preventing names such as `A` and `AB` from colliding.
 - Assembly-sourced mirror arrays now also expand as complete composite Unit

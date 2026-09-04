@@ -2449,6 +2449,13 @@ References:
   child trees, parent ownership, and cleanup during dissolution.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Conform Composite Fill Directions
+
+- Composite Assembly fills now recursively conform all subtree injector
+  directions to the selected reference normal when enabled.
+- Added regression coverage for the composite normal-conforming path.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Harden Composite Fill Source Matching
 
 - Mixed composite fills now choose the longest matching source name when

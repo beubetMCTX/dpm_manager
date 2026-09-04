@@ -459,6 +459,41 @@ void mirror_unit_tree(Unit &root, const QVector3D &point,
     }
 }
 
+void conform_unit_tree_to_normal(Unit &root, const QVector3D &normal)
+{
+    const QVector3D source = primary_direction(root.inj.injector_data);
+    const QVector3D target = normalized_or(
+        normal, QVector3D(0.0f, 0.0f, 1.0f));
+    if (source.lengthSquared() > 1.0e-12f &&
+        target.lengthSquared() > 1.0e-12f)
+    {
+        const QQuaternion rotation =
+            QQuaternion::rotationTo(source.normalized(), target);
+        const auto rotate_direction = [&](QVector3D &direction)
+        {
+            if (direction.lengthSquared() > 1.0e-12f)
+            {
+                const float magnitude = direction.length();
+                direction = (rotation * direction.normalized()) * magnitude;
+            }
+        };
+        rotate_direction(root.inj.injector_data.vel);
+        rotate_direction(root.inj.injector_data.vel2);
+        rotate_direction(root.inj.injector_data.ang_vel);
+        rotate_direction(root.inj.injector_data.ang_vel2);
+        rotate_direction(root.inj.injector_data.atomizer_axis);
+        rotate_direction(root.inj.injector_data.axis);
+        rotate_direction(root.inj.injector_data.ff_normal);
+    }
+    for (const std::shared_ptr<Unit> &child : root.child_units)
+    {
+        if (child != nullptr)
+        {
+            conform_unit_tree_to_normal(*child, normal);
+        }
+    }
+}
+
 QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
                                                     const UnitArraySpec &spec)
 {
@@ -587,6 +622,10 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
                                   sources.at(source_index)->inj.injector_data.pos;
         transform_unit_tree(*instance, QVector3D(),
                             QVector3D(0.0f, 0.0f, 1.0f), 0.0f, offset);
+        if (spec.use_reference_geometry && spec.conform_to_reference_normal)
+        {
+            conform_unit_tree_to_normal(*instance, spec.plane_normal);
+        }
         result.append(instance);
     }
     return result;

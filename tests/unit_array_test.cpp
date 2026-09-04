@@ -281,6 +281,16 @@ int main(int argc, char **argv)
                    tree_fill_instances[0]->child_units.size() == 1 &&
                    tree_fill_instances[1]->child_units.size() == 1,
                "Composite fill expansion should preserve hierarchy") && ok;
+    UnitFillSpec conform_tree_fill = tree_fill_spec;
+    conform_tree_fill.use_reference_geometry = true;
+    conform_tree_fill.conform_to_reference_normal = true;
+    conform_tree_fill.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    const QList<std::shared_ptr<Unit>> conform_tree_instances =
+        expand_unit_tree_fill(tree_fill_sources, conform_tree_fill);
+    ok = check(!conform_tree_instances.isEmpty() &&
+                   qAbs(conform_tree_instances.first()->inj.injector_data.vel.z()) >
+                       1.0e-4f,
+               "Composite fill should conform the whole tree to the reference normal") && ok;
     Unit prefix_source = assembly_source;
     prefix_source.inj.injector_data.name = "A";
     Unit longer_prefix_source = assembly_source;
