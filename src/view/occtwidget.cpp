@@ -265,33 +265,6 @@ void OCCTWidget::discard_auxiliary_dialogs()
     runtime_debug::trace("OCCTWidget::discard_auxiliary_dialogs end");
 }
 
-void OCCTWidget::create_cube(Standard_Real _dx, Standard_Real _dy, Standard_Real _dz)
-{
-    Unit unit;
-    const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
-    unit_hash.insert(stored_unit->inj.uuid, stored_unit);
-    m_unit_visibility.insert(stored_unit->inj.uuid, true);
-    m_unit_locks.insert(stored_unit->inj.uuid, false);
-
-    stored_unit->ais_display->Set(stored_unit->inj.shape);
-
-    stored_unit->u_owner->set_unit(stored_unit.get());
-
-    qDebug() << stored_unit.get();
-
-    stored_unit->ais_display->SetOwner(stored_unit->u_owner);
-
-    stored_unit->inj.injector_data.name="inj2";
-
-    stored_unit->ais_display->SetColor(Quantity_Color(0.2,0.3,0.9,Quantity_TOC_RGB));
-
-    m_context->Activate(stored_unit->ais_display, TopAbs_SHAPE, Standard_True);
-
-    m_context->Display(stored_unit->ais_display, Standard_True);
-    update_unit_local_coordinate_frame(stored_unit->inj.uuid);
-
-}
-
 void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
 {
     if (m_context.IsNull())

@@ -91,16 +91,6 @@ public:
     //! 获取三维显示界面
     Handle(V3d_View)  m_get_view(){return m_view;}
 
-    void create_cube(Standard_Real _dx = 1.0, Standard_Real _dy = 1.0, Standard_Real _dz = 1.0);
-
-    void create_cylinder(Standard_Real _R = 0.5,  Standard_Real _H = 2.0);
-
-    void create_sphere(Standard_Real _R = 1.0);
-
-    void create_cone(Standard_Real _R1 = 1.0, Standard_Real _R2 = 0.0, Standard_Real _H = 2.0);
-
-    void create_torus(Standard_Real _R1 =2.0, Standard_Real _R2 = 0.5);
-
     Base_Geom_Read geometry;
 
     void add_readed_geometry();

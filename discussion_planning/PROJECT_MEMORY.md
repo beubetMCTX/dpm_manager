@@ -212,6 +212,8 @@ Unit
 - The legacy application-wide smoke-test sources and CMake targets are
   removed. Current automated coverage uses focused regression executables;
   do not restore the old smoke-test archive or add icon-only button tests.
+- Removed the unused early OCCT primitive-demo entry points that created a
+  fake Unit and bypassed the current reference-geometry/unit display paths.
 - Buttons currently use text labels. The remaining icon resources are limited
   to the application icon and combo-box arrow indicators.
 - Release startup displays the stable default injector preview in both Debug

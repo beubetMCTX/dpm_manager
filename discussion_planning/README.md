@@ -2156,6 +2156,15 @@ References:
   restoring it through Unit Undo.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Remove Legacy OCCT Demo Hooks
+
+- Removed unused primitive-demo declarations and the stale `create_cube`
+  implementation from `OCCTWidget`; no production or focused test path used
+  them.
+- This keeps the old smoke/demo behavior out of the current reference geometry
+  and Unit display interfaces.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit
