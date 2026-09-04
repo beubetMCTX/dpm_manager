@@ -3518,8 +3518,30 @@ void MainWindow::create_object_list_panel()
                 "Open Array/Fill Tools for Selected Face...");
             QAction *assembly_face_action = menu.addAction(
                 "Create Assembly on Selected Face...");
+            const auto selected_unit_uuids = [this]()
+            {
+                QList<QUuid> ids;
+                if (m_object_list == nullptr || m_3d_widget == nullptr)
+                {
+                    return ids;
+                }
+                for (QListWidgetItem *selected_item : m_object_list->selectedItems())
+                {
+                    if (selected_item == nullptr ||
+                        selected_item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+                    {
+                        continue;
+                    }
+                    const QUuid uuid(selected_item->data(Qt::UserRole).toString());
+                    if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+                    {
+                        ids.append(uuid);
+                    }
+                }
+                return ids;
+            };
             assembly_face_action->setEnabled(m_3d_widget->has_selected_face() &&
-                                              m_object_list->selectedItems().size() >= 2);
+                                              selected_unit_uuids().size() >= 2);
             const auto open_current_unit_menu = [this]()
             {
                 if (m_object_list == nullptr)
@@ -3571,22 +3593,7 @@ void MainWindow::create_object_list_panel()
             }
             else if (chosen_action == assembly_face_action)
             {
-                QList<QUuid> selected_unit_ids;
-                for (QListWidgetItem *selected_item : m_object_list->selectedItems())
-                {
-                    if (selected_item == nullptr ||
-                        selected_item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
-                    {
-                        continue;
-                    }
-                    const QUuid selected_uuid(
-                        selected_item->data(Qt::UserRole).toString());
-                    if (!selected_uuid.isNull() &&
-                        m_3d_widget->unit_hash.contains(selected_uuid))
-                    {
-                        selected_unit_ids.append(selected_uuid);
-                    }
-                }
+                const QList<QUuid> selected_unit_ids = selected_unit_uuids();
                 if (selected_unit_ids.size() >= 2 &&
                     m_3d_widget->create_assembly(selected_unit_ids))
                 {
