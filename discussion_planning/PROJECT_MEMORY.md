@@ -242,6 +242,8 @@ Unit
 - Application-config loading now restores and validates constructed reference
   dimensions, radius, thickness, and direction for Datum Origin and Section
   Plane entries.
+- Constructed reference numeric fields in application config now reject wrong
+  JSON types instead of silently falling back to defaults.
 - Project-session regression coverage now verifies constructed reference
   geometry round-trip and rejects zero construction directions.
 - Removed the unused early OCCT primitive-demo entry points that created a

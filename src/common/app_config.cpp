@@ -567,6 +567,21 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
             "Reference geometry construction direction must be a finite 3D vector.",
             error_message);
     }
+    const auto has_valid_number = [&geometry_object](const char *key)
+    {
+        const QJsonValue value = geometry_object.value(QString::fromLatin1(key));
+        return value.isUndefined() ||
+               (value.isDouble() && std::isfinite(value.toDouble()));
+    };
+    if (!has_valid_number("construction_size") ||
+        !has_valid_number("construction_thickness") ||
+        !has_valid_number("construction_radius"))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry construction dimensions must be finite numbers.",
+            error_message);
+    }
     loaded_config.construction_size = geometry_object.value("construction_size")
                                           .toDouble(loaded_config.construction_size);
     loaded_config.construction_thickness = geometry_object.value("construction_thickness")
