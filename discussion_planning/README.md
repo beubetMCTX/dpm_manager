@@ -2434,3 +2434,11 @@ References:
 - Updated edit-history regression coverage for composite counts and cleanup;
   other array modes remain on the prior path during staged migration.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Integrate Composite Fill Arrays In OCCT
+
+- Square and hexagonal fills now preserve complete Unit subtrees whenever a
+  selected source is an Assembly.
+- Each fill placement is registered as a derived composite instance; pure
+  leaf fills continue using the established weighted expansion path.
+- Release build and all 12 focused regressions passed.

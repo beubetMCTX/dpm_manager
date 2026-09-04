@@ -540,6 +540,9 @@ Unit
   composite expansion in the OCCT scene; each placement is a derived Assembly
   root with its recursively registered child Units. Other array modes retain
   the established leaf-expansion path for incremental migration.
+- Square and hexagonal fills containing one or more Assembly sources now use
+  composite tree instances per placement; pure-leaf fills retain the original
+  weighted source path.
 
 ## History
 

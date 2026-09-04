@@ -1751,6 +1751,81 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         parent->fill_source_uuids = source_uuids;
     }
 
+    QList<std::shared_ptr<Unit>> shared_sources;
+    bool has_composite_source = false;
+    for (const QUuid &source_uuid : source_uuids)
+    {
+        const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+        if (source != nullptr)
+        {
+            shared_sources.append(source);
+            has_composite_source = has_composite_source ||
+                                   source->type == Assebly ||
+                                   !source->assembly_child_uuids.isEmpty();
+        }
+    }
+    if (has_composite_source)
+    {
+        const QList<std::shared_ptr<Unit>> tree_children =
+            expand_unit_tree_fill(shared_sources, spec);
+        int displayed_count = 0;
+        std::function<void(const std::shared_ptr<Unit> &)> register_tree;
+        register_tree = [&](const std::shared_ptr<Unit> &unit)
+        {
+            if (unit == nullptr || unit->ais_display.IsNull())
+            {
+                return;
+            }
+            unit_hash.insert(unit->inj.uuid, unit);
+            m_unit_visibility.insert(unit->inj.uuid, true);
+            m_unit_locks.insert(unit->inj.uuid, false);
+            unit->u_owner->set_unit(unit.get());
+            unit->ais_display->SetOwner(unit->u_owner);
+            unit->ais_display->Set(unit->inj.shape);
+            unit->ais_display->SetColor(
+                color_for_material(unit->inj.injector_data.material));
+            unit->ais_display->SetTransparency(
+                unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+            m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
+            m_context->Display(unit->ais_display, Standard_False);
+            for (const std::shared_ptr<Unit> &child : unit->child_units)
+            {
+                register_tree(child);
+            }
+        };
+        for (const std::shared_ptr<Unit> &child : tree_children)
+        {
+            if (child == nullptr)
+            {
+                continue;
+            }
+            child->type = Assebly;
+            child->is_array_child = true;
+            child->follows_array = true;
+            child->array_parent_uuid = source_uuids.first();
+            child->has_fill_spec = false;
+            child->has_array_spec = false;
+            register_tree(child);
+            if (parent != nullptr)
+            {
+                parent->child_units.append(child);
+            }
+            ++displayed_count;
+        }
+        if (displayed_count > 0)
+        {
+            rebuild_unit_local_coordinate_frames();
+            m_view->FitAll();
+            m_view->Redraw();
+            emit unit_display_list_changed();
+        }
+        if (parent != nullptr)
+        {
+            emit unit_data_updated(parent.get());
+        }
+        return displayed_count;
+    }
+
     const QList<Unit> children = expand_unit_fill(sources, spec);
     int displayed_count = 0;
     for (const Unit &child : children)
