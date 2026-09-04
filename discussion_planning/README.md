@@ -2294,8 +2294,9 @@ References:
 
 - Added a text-based Section Plane action backed by the existing oriented
   datum-plane geometry and interaction path.
-- Section-plane kind, dimensions, direction, transforms, and state are
-  persisted; boolean model clipping remains future work.
+- Section-plane kind, dimensions, direction, and transforms are persisted;
+  boolean clipping is available as a current-scene panel operation, while its
+  toggle remains outside the deferred project save format.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Add Alignment Frame Reference Aid
