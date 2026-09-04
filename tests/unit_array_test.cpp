@@ -244,5 +244,12 @@ int main(int argc, char **argv)
     ok = check(qAbs(cloned_tree->inj.injector_data.pos.x()) < 1.0e-4f &&
                    qAbs(cloned_tree->inj.injector_data.pos.y() - 1.0f) < 1.0e-4f,
                "Unit tree rigid transform should update the root") && ok;
+    const QList<std::shared_ptr<Unit>> tree_instances =
+        expand_unit_tree_array(assembly_source, linear);
+    ok = check(tree_instances.size() == 3 &&
+                   tree_instances[1]->child_units.size() == 1 &&
+                   tree_instances[2]->child_units.first()->inj.injector_data.pos.x() >
+                       tree_instances[1]->child_units.first()->inj.injector_data.pos.x(),
+               "Unit tree array expansion should preserve hierarchy") && ok;
     return ok ? 0 : 1;
 }

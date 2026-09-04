@@ -533,6 +533,9 @@ Unit
 - Added a reusable rigid-transform operation for persistent Unit trees. It
   applies rotation and translation recursively to injector spatial fields and
   directions while preserving World-scoped Single target points.
+- Added model-level composite array expansion for linear and rotational modes:
+  each placement clones the complete persistent Unit subtree and applies one
+  rigid transform to the whole tree, preserving nested child relationships.
 
 ## History
 

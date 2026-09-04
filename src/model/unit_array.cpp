@@ -436,3 +436,47 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
         }
     }
 }
+
+QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
+                                                    const UnitArraySpec &spec)
+{
+    QList<std::shared_ptr<Unit>> result;
+    if (spec.type != UnitArrayType::Linear &&
+        spec.type != UnitArrayType::Rotational)
+    {
+        return result;
+    }
+
+    const int count = qBound(1, spec.count, 100000);
+    const QVector3D direction = normalized_or(
+        spec.direction, QVector3D(1.0f, 0.0f, 0.0f));
+    const float angle_step = spec.type == UnitArrayType::Rotational && count > 0
+                                 ? qDegreesToRadians(spec.angle_degrees) /
+                                       static_cast<float>(count)
+                                 : 0.0f;
+    for (int index = 0; index < count; ++index)
+    {
+        QHash<QUuid, QUuid> uuid_map;
+        const std::shared_ptr<Unit> instance = clone_unit_tree(source, uuid_map);
+        if (instance == nullptr)
+        {
+            continue;
+        }
+        instance->inj.injector_data.name =
+            QStringLiteral("%1[%2]").arg(source.inj.injector_data.name)
+                                     .arg(index + 1);
+        if (spec.type == UnitArrayType::Linear)
+        {
+            transform_unit_tree(*instance, QVector3D(), direction, 0.0f,
+                                direction * (spec.spacing * index));
+        }
+        else
+        {
+            transform_unit_tree(*instance, spec.origin, direction,
+                                angle_step * index,
+                                direction * (spec.spacing * index));
+        }
+        result.append(instance);
+    }
+    return result;
+}

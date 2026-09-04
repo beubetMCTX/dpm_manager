@@ -2414,3 +2414,13 @@ References:
   World-scoped target points remain fixed while local targets follow the tree.
 - Added focused regression coverage for the transformed root.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Composite Unit Array Expansion
+
+- Added model-level linear and rotational expansion for complete Unit trees.
+- Each placement clones the persistent subtree and applies one rigid transform,
+  preserving Assembly child relationships instead of flattening them.
+- Added regression coverage for hierarchy preservation across tree instances.
+- The existing OCCT leaf-expansion path remains unchanged until this model
+  behavior is integrated and visually verified.
+- Release build and all 12 focused regressions passed.
