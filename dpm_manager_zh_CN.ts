@@ -252,8 +252,23 @@
     </message>
     <message>
         <location filename="src/app/mainwindow.cpp" line="2373"/>
+        <source>Fill Tools...</source>
+        <translation>填充工具...</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2373"/>
         <source>Reference Tools</source>
         <translation>参考几何体工具</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2375"/>
+        <source>New Injector</source>
+        <translation>新建喷注器</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2376"/>
+        <source>Create Assembly</source>
+        <translation>创建组件</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.cpp" line="2376"/>
