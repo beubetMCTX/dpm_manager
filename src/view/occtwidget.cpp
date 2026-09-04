@@ -1901,6 +1901,47 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     return true;
 }
 
+bool OCCTWidget::paste_copied_unit_to_selected_face()
+{
+    if (!m_copied_unit.has_value() || selected_face.IsNull() ||
+        m_context.IsNull() || m_view.IsNull())
+    {
+        return false;
+    }
+
+    QVector3D face_origin;
+    QVector3D face_x;
+    QVector3D face_normal;
+    if (!reference_frame(&face_origin, &face_x, &face_normal))
+    {
+        return false;
+    }
+    Q_UNUSED(face_x);
+
+    Unit pasted;
+    pasted.type = m_copied_unit->type;
+    pasted.inj.injector_data = m_copied_unit->injector_data;
+    pasted.inj.uuid = QUuid::createUuid();
+    pasted.inj.injector_data.name += " (Face)";
+    pasted.inj.injector_data.pos = face_origin;
+
+    if (!pasted.inj.create_injector())
+    {
+        return false;
+    }
+
+    const QUuid pasted_uuid = pasted.inj.uuid;
+    display_units({pasted}, false);
+    const std::shared_ptr<Unit> pasted_unit = unit_hash.value(pasted_uuid);
+    if (pasted_unit == nullptr)
+    {
+        return false;
+    }
+
+    emit unit_added(pasted_unit.get());
+    return true;
+}
+
 bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> source = unit_hash.value(uuid);
@@ -5235,6 +5276,11 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         clear_face_action->setEnabled(face_selected || !face_trihedron.IsNull());
         connect(clear_face_action, &QAction::triggered, this,
                 &OCCTWidget::clear_face_reference);
+
+        QAction *paste_face_action = menu.addAction("Paste Copied Injector to Face");
+        paste_face_action->setEnabled(face_selected && m_copied_unit.has_value());
+        connect(paste_face_action, &QAction::triggered, this,
+                &OCCTWidget::paste_copied_unit_to_selected_face);
 
         QAction *reset_transform_action = menu.addAction("Reset Transform");
         reset_transform_action->setEnabled(!m_reference_geometry_locked);
