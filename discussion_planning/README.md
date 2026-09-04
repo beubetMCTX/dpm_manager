@@ -1,5 +1,58 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-05 Product Work Backlog
+
+- Add persisted injector/reference transparency controls and local-axis display
+  toggles.
+- Refresh all editor values and unit labels immediately after unit changes.
+- Simplify the left panel and move transform/creation tools to a dedicated top
+  toolbar with persistent modes and compact icons.
+- Present Assembly, Array, and Injector objects as a tree and support
+  Ctrl/Shift multi-selection.
+- Separate camera pan from object translation with zoom/view-stable navigation.
+- Add blank/reference-face placement for new and pasted Units.
+- Review user-facing defaults for millimetre-scale geometry.
+- Add a Chinese language catalog and language setting.
+- Include an active drag transaction in Undo before older history entries.
+- Adopt `.dpmpj` as the user-facing project format while preserving existing
+  Unit/Assembly/Array/reference relationships.
+
+Implementation order: visual/unit preferences, toolbar and selection model,
+camera interaction, placement, defaults/localization, then project-file
+workflow. Legacy application-wide smoke-test targets remain removed; each
+completed phase must use the focused CTest suite and be archived in Git.
+
+### 2026-09-05 Add Injector Transform Gizmos
+
+- Single-selection quick Translate/Rotate now activates OCCT 7.9
+  `AIS_Manipulator`, showing axis arrows or rotation rings.
+- Dragging previews the AIS transformation and commits it to injector data and
+  move history; `Esc` cancels or hides the gizmo.
+- Multi-selection operations retain numeric dialogs.
+- Selection, Translation, and Rotation are mutually exclusive persistent modes;
+  finishing one drag keeps the selected mode active.
+- Gizmo axes use world X/Y/Z regardless of injector or Unit orientation; only
+  the gizmo origin follows the selected injector position.
+- Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Preserve Injector Selection For Quick Editing
+
+- Left-click release no longer clears the object-list injector selection while
+  removing transient OCCT highlight state.
+- Selection synchronization now sets the list current item, enabling quick
+  translate/rotate and position/direction editing for selected injectors.
+- Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Randomize Empty Injector Species And Refresh Colors
+
+- Empty injector Species now receive a random current Chemkin species; valid
+  existing values are preserved.
+- Missing OCCT species colors use the same hash-based placeholders as the
+  Species/Color table, preventing white/default geometry.
+- Material/species assignment now updates and redraws the OCCT viewer after
+  batch changes.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Add Weighted Multi-Injector Fill Sources
 
 - Square and hexagonal fill creation accepts one positive integer weight per
@@ -14,6 +67,15 @@
 - Project-session regression coverage verifies weight persistence.
 - The runtime fill-creation API repeats the same weight validation used by the
   UI and project loader.
+- Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Fix Species Color After Geometry Refresh
+
+- Geometry rebuild reapplies species-derived color after `AIS_Shape::Set`,
+  preventing refreshed injectors from becoming white.
+- Droplet color uses `evaporating_species`; other injector types use `material`.
+- Translation, paste, undo/redo, deferred refresh paths preserve this rule;
+  duplicate edit-history color assignment removed.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Reserve Nested Assembly Local Transforms

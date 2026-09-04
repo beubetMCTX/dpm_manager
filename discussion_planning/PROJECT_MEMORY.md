@@ -593,6 +593,56 @@ Unit
 - Added regression coverage for inspector position resolution in both following
   and independent composite-child states.
 
+- Injector visual refresh reapplies species-derived color after rebuilding
+  OCCT geometry; Droplet uses `evaporating_species`, others use `material`.
+- Translation, paste, undo/redo, deferred refresh paths preserve color after
+  `AIS_Shape::Set`; duplicate edit-history color assignment removed.
+- Release build + all 12 focused regressions passed.
+
+- Empty injector Species now receive a random entry from current Chemkin list;
+  existing valid values remain unchanged.
+- OCCT fills missing species colors with same hash-based placeholder colors used
+  by Species/Color table, avoiding white/default presentations.
+- Material/species assignment now calls `UpdateCurrentViewer` + `Redraw` after
+  batch changes.
+- Release build + all 12 focused regressions passed.
+
+- Injector click release now clears only transient OCCT selection, preserving
+  object-list selection for quick translate/rotate and position editing.
+- Selection synchronization sets `currentItem`, so position/direction controls
+  immediately target clicked or programmatically selected injector.
+- Release build + all 12 focused regressions passed.
+
+- Single-selection quick Translate/Rotate now activates OCCT 7.9
+  `AIS_Manipulator`: axis arrows for translation, rotation rings for rotation.
+- Gizmo drag previews AIS local transformation, then commits translation or
+  rotation to injector data and existing move history; `Esc` cancels/hides it.
+- Multi-selection quick transforms retain numeric dialogs.
+- Selection, Translation, and Rotation are distinct persistent interaction
+  modes selected through mutually exclusive controls; a completed drag does
+  not exit Translation or Rotation mode.
+- Transform gizmo axes are explicitly aligned to world X/Y/Z, while the gizmo
+  origin follows the selected injector position; local injector axes remain
+  available through the separate local-coordinate display.
+- Release build + all 12 focused regressions passed.
+
+## Next Product Work
+
+- Add persisted visual preferences for injector/reference transparency and
+  independent local-coordinate visibility.
+- Refresh editor values and unit labels immediately after display-unit changes.
+- Reduce the left object panel and move transform/creation tools into a
+  dedicated top toolbar with persistent mode state and compact icons.
+- Present Assembly, Array, and Injector objects as a tree and support
+  Ctrl/Shift multi-selection.
+- Separate camera pan from object translation with zoom/view-stable navigation.
+- Add blank/reference-face placement for new and pasted Units.
+- Review user-facing defaults for millimetre-scale geometry.
+- Add a Chinese translation catalog and language preference.
+- Make Undo include an active drag transaction before older history entries.
+- Promote the existing project-session JSON model to a `.dpmpj` workflow while
+  preserving Unit, Assembly, Array, and reference relationships.
+
 ## History
 
 - Full chronological decisions remain in [README.md](README.md).

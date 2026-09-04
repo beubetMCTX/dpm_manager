@@ -6,12 +6,23 @@
 #include <QtMath>
 #include <QMessageBox>
 #include <QQuaternion>
+#include <QColor>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace
 {
+QColor placeholder_color_for_species(const QString &species_name)
+{
+    const uint hash_value = qHash(species_name);
+    const int hue = static_cast<int>(hash_value % 360U);
+    const int saturation = 110 + static_cast<int>((hash_value / 360U) % 90U);
+    const int value = 180 + static_cast<int>((hash_value / 32400U) % 60U);
+    return QColor::fromHsv(hue, saturation, value);
+}
+
 QVector3D to_qvector3d(const gp_Pnt &point)
 {
     return QVector3D(static_cast<float>(point.X()),
@@ -158,6 +169,102 @@ bool face_local_axis(const TopoDS_Face &face, gp_Ax2 &axis)
         return false;
     }
 }
+
+QVector3D transform_point(const gp_Trsf &transformation,
+                          const QVector3D &point)
+{
+    const gp_Pnt transformed = gp_Pnt(point.x(), point.y(), point.z())
+                                   .Transformed(transformation);
+    return QVector3D(static_cast<float>(transformed.X()),
+                     static_cast<float>(transformed.Y()),
+                     static_cast<float>(transformed.Z()));
+}
+
+QVector3D transform_vector(const gp_Trsf &transformation,
+                            const QVector3D &vector)
+{
+    const gp_Vec transformed = gp_Vec(vector.x(), vector.y(), vector.z())
+                                   .Transformed(transformation);
+    return QVector3D(static_cast<float>(transformed.X()),
+                     static_cast<float>(transformed.Y()),
+                     static_cast<float>(transformed.Z()));
+}
+
+void transform_bounding_box(const gp_Trsf &transformation,
+                            const QVector3D &minimum,
+                            const QVector3D &maximum,
+                            QVector3D &transformed_minimum,
+                            QVector3D &transformed_maximum)
+{
+    const QVector3D original_minimum = minimum;
+    const QVector3D original_maximum = maximum;
+    transformed_minimum = QVector3D(std::numeric_limits<float>::max(),
+                                    std::numeric_limits<float>::max(),
+                                    std::numeric_limits<float>::max());
+    transformed_maximum = QVector3D(std::numeric_limits<float>::lowest(),
+                                    std::numeric_limits<float>::lowest(),
+                                    std::numeric_limits<float>::lowest());
+
+    for (int mask = 0; mask < 8; ++mask)
+    {
+        const QVector3D corner(
+            (mask & 1) ? original_maximum.x() : original_minimum.x(),
+            (mask & 2) ? original_maximum.y() : original_minimum.y(),
+            (mask & 4) ? original_maximum.z() : original_minimum.z());
+        const QVector3D transformed = transform_point(transformation, corner);
+        transformed_minimum.setX(std::min(transformed_minimum.x(), transformed.x()));
+        transformed_minimum.setY(std::min(transformed_minimum.y(), transformed.y()));
+        transformed_minimum.setZ(std::min(transformed_minimum.z(), transformed.z()));
+        transformed_maximum.setX(std::max(transformed_maximum.x(), transformed.x()));
+        transformed_maximum.setY(std::max(transformed_maximum.y(), transformed.y()));
+        transformed_maximum.setZ(std::max(transformed_maximum.z(), transformed.z()));
+    }
+}
+
+void apply_transform_to_injector(Injector &injector,
+                                 const gp_Trsf &transformation)
+{
+    const QVector3D original_direction = injector_frame_direction(injector);
+
+    injector.pos = transform_point(transformation, injector.pos);
+    injector.pos2 = transform_point(transformation, injector.pos2);
+    injector.ff_center = transform_point(transformation, injector.ff_center);
+    injector.ff_virtual_origin = transform_point(transformation,
+                                                  injector.ff_virtual_origin);
+    injector.posr = transform_point(transformation, injector.posr);
+    injector.posu = transform_point(transformation, injector.posu);
+
+    transform_bounding_box(transformation,
+                           injector.volume_bgeom_min,
+                           injector.volume_bgeom_max,
+                           injector.volume_bgeom_min,
+                           injector.volume_bgeom_max);
+
+    injector.vel = transform_vector(transformation, injector.vel);
+    injector.vel2 = transform_vector(transformation, injector.vel2);
+    injector.ang_vel = transform_vector(transformation, injector.ang_vel);
+    injector.ang_vel2 = transform_vector(transformation, injector.ang_vel2);
+    injector.ff_normal = transform_vector(transformation, injector.ff_normal);
+    injector.atomizer_axis = transform_vector(transformation, injector.atomizer_axis);
+    injector.axis = transform_vector(transformation, injector.axis);
+
+    if (injector.single_target_scope != Single_Target_Scope::World)
+    {
+        injector.single_target_hitpoint = transform_point(
+            transformation, injector.single_target_hitpoint);
+    }
+
+    if (injector.injection_type == single &&
+        injector.single_direction_mode == Single_Direction_Mode::Pitch_Yaw)
+    {
+        const QVector3D direction = transform_vector(
+            transformation, original_direction).normalized();
+        injector.single_pitch_degrees = qRadiansToDegrees(
+            std::asin(qBound(-1.0f, direction.z(), 1.0f)));
+        injector.single_yaw_degrees = qRadiansToDegrees(
+            std::atan2(direction.y(), direction.x()));
+    }
+}
 }
 
 
@@ -188,6 +295,7 @@ OCCTWidget::~OCCTWidget()
 
     try
     {
+        clear_transform_gizmo();
         selected_shape.Nullify();
         selected_face.Nullify();
         clear_unit_local_coordinate_frames();
@@ -408,6 +516,15 @@ bool OCCTWidget::select_unit_by_uuid(const QUuid &uuid)
     m_context->SetSelected(selected_shape, Standard_True);
     m_view->Redraw();
     emit selection_changed(uuid, false);
+
+    if (m_interaction_mode != Interaction_Mode::Selection)
+    {
+        attach_transform_gizmo(
+            uuid,
+            m_interaction_mode == Interaction_Mode::Translation
+                ? AIS_MM_Translation
+                : AIS_MM_Rotation);
+    }
     return true;
 }
 
@@ -419,6 +536,7 @@ bool OCCTWidget::select_reference_geometry()
         return false;
     }
 
+    clear_transform_gizmo();
     m_context->ClearSelected(Standard_False);
     selected_shape = base_geometry;
     m_context->SetSelected(base_geometry, Standard_True);
@@ -658,6 +776,304 @@ bool OCCTWidget::unit_locked(const QUuid &uuid) const
     return m_unit_locks.value(uuid, false);
 }
 
+bool OCCTWidget::activate_translation_gizmo(const QUuid &uuid)
+{
+    set_interaction_mode(Interaction_Mode::Translation);
+    return select_unit_by_uuid(uuid);
+}
+
+bool OCCTWidget::activate_rotation_gizmo(const QUuid &uuid)
+{
+    set_interaction_mode(Interaction_Mode::Rotation);
+    return select_unit_by_uuid(uuid);
+}
+
+void OCCTWidget::set_interaction_mode(Interaction_Mode mode)
+{
+    QUuid selected_uuid;
+    if (!selected_shape.IsNull())
+    {
+        if (Unit *unit = get_unit(selected_shape))
+        {
+            selected_uuid = unit->inj.uuid;
+        }
+    }
+
+    m_interaction_mode = mode;
+    clear_transform_gizmo();
+
+    if (mode != Interaction_Mode::Selection && !selected_uuid.isNull())
+    {
+        attach_transform_gizmo(
+            selected_uuid,
+            mode == Interaction_Mode::Translation
+                ? AIS_MM_Translation
+                : AIS_MM_Rotation);
+    }
+    emit interaction_mode_changed(static_cast<int>(mode));
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+}
+
+bool OCCTWidget::activate_transform_gizmo(const QUuid &uuid,
+                                          AIS_ManipulatorMode mode)
+{
+    m_interaction_mode = mode == AIS_MM_Translation
+                             ? Interaction_Mode::Translation
+                             : Interaction_Mode::Rotation;
+    return select_unit_by_uuid(uuid);
+}
+
+bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
+                                        AIS_ManipulatorMode mode)
+{
+    if (uuid.isNull() || m_context.IsNull() || m_view.IsNull() ||
+        (mode != AIS_MM_Translation && mode != AIS_MM_Rotation))
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit->ais_display.IsNull() ||
+        !unit_visible(uuid) || unit_locked(uuid))
+    {
+        return false;
+    }
+
+    clear_transform_gizmo();
+
+    const Injector &injector = unit->inj.injector_data;
+    const QVector3D origin = injector_frame_origin(injector);
+    const gp_Ax2 position(
+        gp_Pnt(origin.x(), origin.y(), origin.z()),
+        gp_Dir(0.0, 0.0, 1.0),
+        gp_Dir(1.0, 0.0, 0.0));
+
+    AIS_Manipulator::OptionsForAttach options;
+    options.SetAdjustPosition(Standard_False)
+        .SetAdjustSize(Standard_False)
+        .SetEnableModes(Standard_False);
+
+    m_transform_gizmo = new AIS_Manipulator();
+    m_transform_gizmo->Attach(unit->ais_display, options);
+    m_transform_gizmo->SetPosition(position);
+    // Keep the handle at a usable screen size even when the scene contains a
+    // large reference geometry or the injector itself is very small.
+    m_transform_gizmo->SetZoomPersistence(Standard_True);
+    m_transform_gizmo->SetSize(100.0f);
+    m_transform_gizmo->SetPart(AIS_MM_Translation, mode == AIS_MM_Translation);
+    m_transform_gizmo->SetPart(AIS_MM_Rotation, mode == AIS_MM_Rotation);
+    m_transform_gizmo->SetPart(AIS_MM_Scaling, Standard_False);
+    m_transform_gizmo->SetPart(AIS_MM_TranslationPlane, Standard_False);
+    m_transform_gizmo->SetModeActivationOnDetection(Standard_True);
+    m_transform_gizmo->EnableMode(mode);
+
+    m_transform_gizmo_uuid = uuid;
+    m_transform_gizmo_position = origin;
+    m_transform_gizmo_mode = mode;
+    m_transform_gizmo_before_data = injector;
+    m_transform_gizmo_before_move = make_move_snapshot(*unit);
+    m_transform_gizmo_snapshot_valid = true;
+    m_transform_gizmo_preview_changed = false;
+
+    // Attach() displays the manipulator, but the visual parts and their
+    // sensitive entities are configured afterwards. Rebuild both explicitly.
+    m_context->Display(m_transform_gizmo, Standard_False);
+    m_context->Redisplay(m_transform_gizmo, Standard_False, Standard_True);
+    m_context->RecomputeSelectionOnly(m_transform_gizmo);
+    m_context->SetSelectionModeActive(
+        m_transform_gizmo, mode, Standard_True,
+        AIS_SelectionModesConcurrency_Single, Standard_True);
+    m_context->UpdateCurrentViewer();
+    m_view->Redraw();
+    return true;
+}
+
+void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
+{
+    if (!m_transform_gizmo_snapshot_valid || m_transform_gizmo_uuid.isNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(m_transform_gizmo_uuid);
+    if (unit == nullptr)
+    {
+        return;
+    }
+
+    Injector preview = m_transform_gizmo_before_data;
+    apply_transform_to_injector(preview, transformation);
+    unit->inj.injector_data = preview;
+    m_transform_gizmo_preview_changed =
+        m_transform_gizmo_preview_changed || transformation.Form() != gp_Identity;
+
+    update_unit_local_coordinate_frame(m_transform_gizmo_uuid);
+    emit unit_position_updated(unit.get());
+}
+
+void OCCTWidget::restore_transform_gizmo_preview()
+{
+    if (!m_transform_gizmo_snapshot_valid || m_transform_gizmo_uuid.isNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(m_transform_gizmo_uuid);
+    if (unit == nullptr)
+    {
+        return;
+    }
+
+    unit->inj.injector_data = m_transform_gizmo_before_data;
+    if (unit->inj.create_injector() && !unit->ais_display.IsNull())
+    {
+        unit->ais_display->SetLocalTransformation(gp_Trsf());
+        unit->ais_display->Set(unit->inj.shape);
+        unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
+        unit->ais_display->SetTransparency(
+            unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(unit->ais_display, Standard_False);
+        }
+        update_unit_local_coordinate_frame(m_transform_gizmo_uuid);
+        emit unit_position_updated(unit.get());
+    }
+}
+
+void OCCTWidget::clear_transform_gizmo()
+{
+    if (!m_transform_gizmo.IsNull())
+    {
+        if (m_transform_gizmo_dragging)
+        {
+            m_transform_gizmo->StopTransform(Standard_False);
+            restore_transform_gizmo_preview();
+        }
+        m_transform_gizmo_dragging = false;
+        m_transform_gizmo->DeactivateCurrentMode();
+        if (m_transform_gizmo->IsAttached())
+        {
+            m_transform_gizmo->Detach();
+        }
+        else if (!m_context.IsNull())
+        {
+            m_context->Remove(m_transform_gizmo, Standard_False);
+        }
+    }
+
+    m_transform_gizmo.Nullify();
+    m_transform_gizmo_uuid = QUuid();
+    m_transform_gizmo_position = QVector3D();
+    m_transform_gizmo_before_data = Injector();
+    m_transform_gizmo_mode = AIS_MM_None;
+    m_transform_gizmo_snapshot_valid = false;
+    m_transform_gizmo_preview_changed = false;
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+}
+
+void OCCTWidget::finish_transform_gizmo(bool apply)
+{
+    if (!m_transform_gizmo_dragging)
+    {
+        if (!apply)
+        {
+            clear_transform_gizmo();
+        }
+        return;
+    }
+
+    const QUuid uuid = m_transform_gizmo_uuid;
+    const AIS_ManipulatorMode mode = m_transform_gizmo_mode;
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    m_transform_gizmo->StopTransform(apply ? Standard_True : Standard_False);
+    m_transform_gizmo_dragging = false;
+
+    if (!apply)
+    {
+        restore_transform_gizmo_preview();
+        const bool keep_mode = m_interaction_mode != Interaction_Mode::Selection;
+        m_transform_gizmo_snapshot_valid = false;
+        clear_transform_gizmo();
+        if (keep_mode && unit != nullptr)
+        {
+            attach_transform_gizmo(
+                uuid,
+                m_interaction_mode == Interaction_Mode::Translation
+                    ? AIS_MM_Translation
+                    : AIS_MM_Rotation);
+        }
+        return;
+    }
+
+    bool committed = false;
+    if (unit != nullptr && m_transform_gizmo_snapshot_valid)
+    {
+        UnitEditTransaction edit_transaction;
+        edit_transaction.uuid = uuid;
+        edit_transaction.before_type = unit->type;
+        edit_transaction.before_data = m_transform_gizmo_before_data;
+
+        if (unit->inj.create_injector() && !unit->ais_display.IsNull())
+        {
+            unit->ais_display->SetLocalTransformation(gp_Trsf());
+            unit->ais_display->Set(unit->inj.shape);
+            unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
+            unit->ais_display->SetTransparency(
+                unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+            m_context->Redisplay(unit->ais_display, Standard_False);
+            update_unit_local_coordinate_frame(uuid);
+
+            if (m_transform_gizmo_preview_changed)
+            {
+                if (mode == AIS_MM_Translation)
+                {
+                    m_active_move_batch_id = QUuid::createUuid();
+                    const UnitMoveSnapshot after = make_move_snapshot(*unit);
+                    record_move(uuid, m_transform_gizmo_before_move, after);
+                    m_active_move_batch_id = QUuid();
+                }
+                else if (mode == AIS_MM_Rotation)
+                {
+                    m_active_edit_batch_id = QUuid::createUuid();
+                    record_edit(edit_transaction, *unit);
+                    m_active_edit_batch_id = QUuid();
+                }
+                emit unit_data_updated(unit.get());
+            }
+            committed = true;
+        }
+    }
+
+    if (!committed)
+    {
+        restore_transform_gizmo_preview();
+    }
+
+    const bool keep_mode = m_interaction_mode != Interaction_Mode::Selection;
+    m_transform_gizmo_snapshot_valid = false;
+    clear_transform_gizmo();
+    if (keep_mode && unit != nullptr)
+    {
+        attach_transform_gizmo(
+            uuid,
+            m_interaction_mode == Interaction_Mode::Translation
+                ? AIS_MM_Translation
+                : AIS_MM_Rotation);
+    }
+    if (committed && unit != nullptr)
+    {
+        QSet<QUuid> visited;
+        rebuild_dependent_arrays(uuid, visited);
+    }
+}
+
 int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
                                         const QVector3D &delta)
 {
@@ -736,6 +1152,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
 
         unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
+        unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
         m_context->Redisplay(unit->ais_display, Standard_False);
         const UnitMoveSnapshot after = make_move_snapshot(*unit);
         record_move(uuid, before, after);
@@ -1227,6 +1644,14 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
         emit unit_data_updated(unit.get());
         ++changed_count;
     }
+    if (changed_count > 0 && !m_context.IsNull())
+    {
+        m_context->UpdateCurrentViewer();
+        if (!m_view.IsNull())
+        {
+            m_view->Redraw();
+        }
+    }
     return changed_count;
 }
 
@@ -1269,6 +1694,14 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
         record_edit(transaction, *unit);
         emit unit_data_updated(unit.get());
         ++changed_count;
+    }
+    if (changed_count > 0 && !m_context.IsNull())
+    {
+        m_context->UpdateCurrentViewer();
+        if (!m_view.IsNull())
+        {
+            m_view->Redraw();
+        }
     }
     return changed_count;
 }
@@ -1382,6 +1815,7 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
 
     unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
     m_context->Redisplay(unit->ais_display, Standard_False);
@@ -2423,6 +2857,7 @@ void OCCTWidget::set_standard_view(V3d_TypeOfOrientation orientation)
 
 void OCCTWidget::clear_selection()
 {
+    clear_transform_gizmo();
     finish_reference_transform_transaction();
 
     if (m_drag_move_snapshot_valid && !m_drag_unit_uuid.isNull())
@@ -2446,6 +2881,7 @@ void OCCTWidget::clear_selection()
     m_drag_move_snapshot_valid = false;
     clear_face_reference();
     myIsDragging = false;
+    selected_shape.Nullify();
     clear_context_selection_safely();
 }
 
@@ -2631,9 +3067,9 @@ bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
 
     unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
-    unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(entry.uuid);
     m_view->Redraw();
@@ -2824,6 +3260,26 @@ void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 {
     m_chemkin_species_names = species_names;
 
+    for (const QString &species_name : m_chemkin_species_names)
+    {
+        bool has_color = false;
+        for (auto it = m_species_colors.constBegin();
+             it != m_species_colors.constEnd(); ++it)
+        {
+            if (it.key().compare(species_name, Qt::CaseInsensitive) == 0 &&
+                it.value().isValid())
+            {
+                has_color = true;
+                break;
+            }
+        }
+        if (!has_color)
+        {
+            m_species_colors.insert(species_name,
+                                     placeholder_color_for_species(species_name));
+        }
+    }
+
     for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
     {
         if (dialog != nullptr)
@@ -2836,6 +3292,25 @@ void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
 void OCCTWidget::set_species_colors(const QHash<QString, QColor> &species_colors)
 {
     m_species_colors = species_colors;
+    for (const QString &species_name : m_chemkin_species_names)
+    {
+        bool has_color = false;
+        for (auto it = m_species_colors.constBegin();
+             it != m_species_colors.constEnd(); ++it)
+        {
+            if (it.key().compare(species_name, Qt::CaseInsensitive) == 0 &&
+                it.value().isValid())
+            {
+                has_color = true;
+                break;
+            }
+        }
+        if (!has_color)
+        {
+            m_species_colors.insert(species_name,
+                                     placeholder_color_for_species(species_name));
+        }
+    }
     refresh_unit_colors();
 }
 
@@ -3601,7 +4076,7 @@ void OCCTWidget::clear_face_reference()
     }
 }
 
-void OCCTWidget::clear_context_selection_safely()
+void OCCTWidget::clear_context_selection_safely(bool notify_selection)
 {
     if (!m_context.IsNull())
     {
@@ -3616,7 +4091,10 @@ void OCCTWidget::clear_context_selection_safely()
         return;
     }
 
-    emit selection_changed(QUuid(), false);
+    if (notify_selection)
+    {
+        emit selection_changed(QUuid(), false);
+    }
 
     QTimer::singleShot(0, this, [this]()
     {
@@ -3920,6 +4398,19 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         ensure_reference_face_selection_mode();
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
 
+        if (!m_transform_gizmo.IsNull() && m_context->HasDetected() &&
+            m_context->DetectedInteractive() == m_transform_gizmo)
+        {
+            m_context->SelectDetected();
+            if (m_transform_gizmo->HasActiveMode())
+            {
+                m_transform_gizmo_dragging = true;
+                m_transform_gizmo->StartTransform(pos.x(), pos.y(), m_view);
+                event->accept();
+                return;
+            }
+        }
+
         if (select_face_reference())
         {
             selected_shape = base_geometry;
@@ -3934,6 +4425,31 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
         clear_face_reference();
         myIsDragging = select_injector();
+        if (m_interaction_mode != Interaction_Mode::Selection &&
+            myIsDragging && !selected_shape.IsNull())
+        {
+            if (Unit *unit = get_unit(selected_shape))
+            {
+                attach_transform_gizmo(
+                    unit->inj.uuid,
+                    m_interaction_mode == Interaction_Mode::Translation
+                        ? AIS_MM_Translation
+                        : AIS_MM_Rotation);
+            }
+            myIsDragging = false;
+            event->accept();
+            return;
+        }
+
+        // Selection mode only changes the current selection. Object movement
+        // is deliberately handled by the persistent translation mode.
+        if (m_interaction_mode == Interaction_Mode::Selection)
+        {
+            myIsDragging = false;
+            event->accept();
+            return;
+        }
+
         if (myIsDragging && !selected_shape.IsNull())
         {
             if (Unit *unit = get_unit(selected_shape))
@@ -3982,13 +4498,25 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
         QPoint pos = event->pos();
         pos.setX(pos.x()*m_dpi_scale);
         pos.setY(pos.y()*m_dpi_scale);
+
+        if (m_transform_gizmo_dragging)
+        {
+            finish_transform_gizmo(true);
+            if (!m_context.IsNull())
+            {
+                m_context->ClearSelected(Standard_False);
+            }
+            event->accept();
+            return;
+        }
+
         // 将鼠标位置传递到交互环境
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
         if (selected_shape == base_geometry)
         {
             finish_reference_transform_transaction();
             myIsDragging = false;
-            clear_context_selection_safely();
+            clear_context_selection_safely(false);
             selected_shape.Nullify();
             return;
         }
@@ -4015,9 +4543,8 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
             m_drag_unit_uuid = QUuid();
             m_drag_move_snapshot_valid = false;
             myIsDragging=false;
-            clear_context_selection_safely();
+            clear_context_selection_safely(false);
         }
-        selected_shape.Nullify();
     }
 }
 
@@ -4267,6 +4794,7 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
 
     unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
         unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
     m_context->Redisplay(unit->ais_display, Standard_False);
@@ -4291,6 +4819,15 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
     QPoint pos = event->pos();
     pos.setX(pos.x()*m_dpi_scale);
     pos.setY(pos.y()*m_dpi_scale);
+
+    if (m_transform_gizmo_dragging && !m_transform_gizmo.IsNull())
+    {
+        const gp_Trsf transformation =
+            m_transform_gizmo->Transform(pos.x(), pos.y(), m_view);
+        update_transform_gizmo_preview(transformation);
+        m_view->Redraw();
+        return;
+    }
 
     if((event->buttons()&Qt::LeftButton) && myIsDragging && !selected_shape.IsNull())
     {
@@ -4400,6 +4937,20 @@ void OCCTWidget::keyPressEvent(QKeyEvent *event)
 
     if (event->key() == Qt::Key_Escape)
     {
+        if (m_transform_gizmo_dragging)
+        {
+            finish_transform_gizmo(false);
+            event->accept();
+            return;
+        }
+        if (m_interaction_mode != Interaction_Mode::Selection)
+        {
+            set_interaction_mode(Interaction_Mode::Selection);
+            selected_shape.Nullify();
+            clear_context_selection_safely();
+            event->accept();
+            return;
+        }
         clear_selection();
         event->accept();
         return;

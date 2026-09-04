@@ -20,6 +20,7 @@
 #include <optional>
 
 #include <AIS_InteractiveContext.hxx>
+#include <AIS_Manipulator.hxx>
 #include <OpenGl_GraphicDriver.hxx>
 #include <V3d_View.hxx>
 #include <Aspect_Handle.hxx>
@@ -86,6 +87,13 @@ class OCCTWidget : public QWidget
     Q_OBJECT
 
 public:
+    enum class Interaction_Mode
+    {
+        Selection,
+        Translation,
+        Rotation
+    };
+
     OCCTWidget(QWidget *parent);
     ~OCCTWidget() override;
     //! 获取三维环境交互对象
@@ -142,6 +150,11 @@ public:
     bool reference_geometry_visible() const { return m_reference_geometry_visible; }
     bool set_unit_locked(const QUuid &uuid, bool locked);
     bool unit_locked(const QUuid &uuid) const;
+    bool activate_translation_gizmo(const QUuid &uuid);
+    bool activate_rotation_gizmo(const QUuid &uuid);
+    void set_interaction_mode(Interaction_Mode mode);
+    Interaction_Mode interaction_mode() const { return m_interaction_mode; }
+    void clear_transform_gizmo();
     int translate_units_by_uuid(const QList<QUuid> &uuids,
                                 const QVector3D &delta);
     QVector3D unit_position_by_uuid(const QUuid &uuid) const;
@@ -222,6 +235,7 @@ public:
     QHash<QUuid, std::shared_ptr<Unit>> unit_hash;
 
 signals:
+    void interaction_mode_changed(int mode);
     void unit_data_updated(Unit *unit);
     void unit_position_updated(Unit *unit);
     void unit_geometry_refresh_failed(const QUuid &uuid,
@@ -265,7 +279,7 @@ private:
     void ensure_reference_face_selection_mode();
     bool select_face_reference();
     void clear_face_reference();
-    void clear_context_selection_safely();
+    void clear_context_selection_safely(bool notify_selection = true);
     void show_face_reference(const TopoDS_Face &face);
     void clear_unit_local_coordinate_frames();
     void rebuild_unit_local_coordinate_frames();
@@ -283,6 +297,13 @@ private:
     Quantity_Color color_for_material(const QString &material) const;
     Quantity_Color color_for_injector(const Injector &injector) const;
     void refresh_unit_colors();
+    bool activate_transform_gizmo(const QUuid &uuid,
+                                  AIS_ManipulatorMode mode);
+    bool attach_transform_gizmo(const QUuid &uuid,
+                                AIS_ManipulatorMode mode);
+    void update_transform_gizmo_preview(const gp_Trsf &transformation);
+    void restore_transform_gizmo_preview();
+    void finish_transform_gizmo(bool apply);
 
     void open_edit_widget(Handle(AIS_Shape) shape);
     struct UnitMoveSnapshot
@@ -432,6 +453,16 @@ private:
     Standard_Boolean myIsDragging = false;
 
     Handle(AIS_Shape) selected_shape;
+    Handle(AIS_Manipulator) m_transform_gizmo;
+    QUuid m_transform_gizmo_uuid;
+    QVector3D m_transform_gizmo_position;
+    Injector m_transform_gizmo_before_data;
+    UnitMoveSnapshot m_transform_gizmo_before_move;
+    AIS_ManipulatorMode m_transform_gizmo_mode = AIS_MM_None;
+    bool m_transform_gizmo_dragging = false;
+    bool m_transform_gizmo_snapshot_valid = false;
+    bool m_transform_gizmo_preview_changed = false;
+    Interaction_Mode m_interaction_mode = Interaction_Mode::Selection;
 
     TopoDS_Face selected_face;
     Handle(Geom_Axis2Placement) face_axis_placement;

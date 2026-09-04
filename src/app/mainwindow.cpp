@@ -23,6 +23,7 @@
 #include <QtMath>
 #include <QDebug>
 #include <QApplication>
+#include <QButtonGroup>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -31,6 +32,7 @@
 #include <QComboBox>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
+#include <QRandomGenerator>
 #include <algorithm>
 #include <functional>
 
@@ -487,6 +489,7 @@ void MainWindow::close_auxiliary_windows_for_shutdown()
 void MainWindow::sync_unit_from_occt(Unit *changed_unit)
 {
     sync_unit_from_occt_impl(changed_unit, true);
+    update_unit_position_controls();
 }
 
 void MainWindow::set_unit_editor_case_context(const Unit_Edit_Case_Context &context)
@@ -500,6 +503,7 @@ void MainWindow::set_unit_editor_case_context(const Unit_Edit_Case_Context &cont
 void MainWindow::sync_unit_position_from_occt(Unit *changed_unit)
 {
     sync_unit_from_occt_impl(changed_unit, false);
+    update_unit_position_controls();
 }
 
 void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dirty)
@@ -569,7 +573,6 @@ int MainWindow::assign_species_to_unassigned_units()
         return 0;
     }
 
-    int species_index = 0;
     int assigned_count = 0;
     for (const Unit &unit : units)
     {
@@ -587,13 +590,12 @@ int MainWindow::assign_species_to_unassigned_units()
         }
 
         const QString &species = m_chemkin_species_names.at(
-            species_index % m_chemkin_species_names.size());
+            QRandomGenerator::global()->bounded(m_chemkin_species_names.size()));
         if (m_3d_widget->set_species_for_units_by_uuid(
                 {unit.inj.uuid}, species) > 0)
         {
             ++assigned_count;
         }
-        ++species_index;
     }
     return assigned_count;
 }
@@ -2258,10 +2260,32 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(delete_selected_button);
     auto *paste_selected_button = new QPushButton("Paste to Selected", panel);
     layout->addWidget(paste_selected_button);
-    auto *translate_selected_button = new QPushButton("Translate Selected", panel);
+    auto *selection_mode_button = new QPushButton("Selection Mode", panel);
+    auto *translate_selected_button = new QPushButton("Translation Mode", panel);
+    auto *rotate_selected_button = new QPushButton("Rotation Mode", panel);
+    layout->addWidget(selection_mode_button);
     layout->addWidget(translate_selected_button);
-    auto *rotate_selected_button = new QPushButton("Rotate Selected", panel);
     layout->addWidget(rotate_selected_button);
+    selection_mode_button->setCheckable(true);
+    translate_selected_button->setCheckable(true);
+    rotate_selected_button->setCheckable(true);
+    auto *interaction_mode_group = new QButtonGroup(panel);
+    interaction_mode_group->setExclusive(true);
+    interaction_mode_group->addButton(selection_mode_button);
+    interaction_mode_group->addButton(translate_selected_button);
+    interaction_mode_group->addButton(rotate_selected_button);
+    selection_mode_button->setChecked(true);
+    connect(m_3d_widget, &OCCTWidget::interaction_mode_changed,
+            panel, [selection_mode_button, translate_selected_button,
+                    rotate_selected_button](int mode)
+    {
+        selection_mode_button->setChecked(
+            mode == static_cast<int>(OCCTWidget::Interaction_Mode::Selection));
+        translate_selected_button->setChecked(
+            mode == static_cast<int>(OCCTWidget::Interaction_Mode::Translation));
+        rotate_selected_button->setChecked(
+            mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
+    });
     auto *assembly_selected_button = new QPushButton("Create Assembly From Selected", panel);
     layout->addWidget(assembly_selected_button);
     auto *detach_assembly_button = new QPushButton("Detach Selected From Assembly", panel);
@@ -2707,6 +2731,14 @@ void MainWindow::create_object_list_panel()
     });
     connect(translate_selected_button, &QPushButton::clicked, this, [this]()
     {
+        if (m_3d_widget != nullptr)
+        {
+            m_3d_widget->set_interaction_mode(
+                OCCTWidget::Interaction_Mode::Translation);
+            statusBar()->showMessage(
+                "Translation mode: select an injector and drag a world axis", 5000);
+            return;
+        }
         if (m_object_list == nullptr || m_3d_widget == nullptr)
         {
             return;
@@ -2729,6 +2761,15 @@ void MainWindow::create_object_list_panel()
         if (selected_units.isEmpty())
         {
             statusBar()->showMessage("Select one or more injectors first", 4000);
+            return;
+        }
+
+        if (selected_units.size() == 1 &&
+            m_3d_widget->activate_translation_gizmo(selected_units.first()))
+        {
+            statusBar()->showMessage(
+                "Translation gizmo active: drag an axis arrow; press Escape to cancel",
+                5000);
             return;
         }
 
@@ -2773,6 +2814,14 @@ void MainWindow::create_object_list_panel()
     });
     connect(rotate_selected_button, &QPushButton::clicked, this, [this]()
     {
+        if (m_3d_widget != nullptr)
+        {
+            m_3d_widget->set_interaction_mode(
+                OCCTWidget::Interaction_Mode::Rotation);
+            statusBar()->showMessage(
+                "Rotation mode: select an injector and drag a world rotation ring", 5000);
+            return;
+        }
         if (m_object_list == nullptr || m_3d_widget == nullptr)
         {
             return;
@@ -2794,6 +2843,15 @@ void MainWindow::create_object_list_panel()
         if (selected_units.isEmpty())
         {
             statusBar()->showMessage("Select one or more injectors first", 4000);
+            return;
+        }
+
+        if (selected_units.size() == 1 &&
+            m_3d_widget->activate_rotation_gizmo(selected_units.first()))
+        {
+            statusBar()->showMessage(
+                "Rotation gizmo active: drag a rotation ring; press Escape to cancel",
+                5000);
             return;
         }
 
@@ -2906,8 +2964,17 @@ void MainWindow::create_object_list_panel()
         statusBar()->showMessage(
             QString("Rotated %1 of %2 selected unit(s); locked units were skipped")
                 .arg(rotated_count)
-                .arg(selected_units.size()),
+            .arg(selected_units.size()),
             5000);
+    });
+    connect(selection_mode_button, &QPushButton::clicked, this, [this]()
+    {
+        if (m_3d_widget != nullptr)
+        {
+            m_3d_widget->set_interaction_mode(
+                OCCTWidget::Interaction_Mode::Selection);
+            statusBar()->showMessage("Selection mode", 3000);
+        }
     });
     connect(assembly_selected_button, &QPushButton::clicked, this, [this]()
     {
@@ -3773,7 +3840,7 @@ void MainWindow::update_object_list_selection(const QUuid &uuid,
         QListWidgetItem *item = m_object_list->item(row);
         if (item->data(Qt::UserRole).toString() == object_id)
         {
-            item->setSelected(true);
+            m_object_list->setCurrentItem(item, QItemSelectionModel::ClearAndSelect);
             m_object_list->scrollToItem(item);
             break;
         }
