@@ -913,7 +913,11 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
 
     const Injector &injector = unit->inj.injector_data;
     const QVector3D origin = injector_frame_origin(injector);
-    const gp_Ax2 position(
+
+    // The manipulator is intentionally expressed in the fixed world frame.
+    // Do not derive these directions from the injector/unit orientation: the
+    // handles must remain aligned with the global X/Y/Z axes.
+    const gp_Ax2 world_position(
         gp_Pnt(origin.x(), origin.y(), origin.z()),
         gp_Dir(0.0, 0.0, 1.0),
         gp_Dir(1.0, 0.0, 0.0));
@@ -925,7 +929,7 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
 
     m_transform_gizmo = new AIS_Manipulator();
     m_transform_gizmo->Attach(unit->ais_display, options);
-    m_transform_gizmo->SetPosition(position);
+    m_transform_gizmo->SetPosition(world_position);
     // Keep the handle at a usable screen size even when the scene contains a
     // large reference geometry or the injector itself is very small.
     m_transform_gizmo->SetZoomPersistence(Standard_True);
@@ -936,6 +940,9 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
     m_transform_gizmo->SetPart(AIS_MM_TranslationPlane, Standard_False);
     m_transform_gizmo->SetModeActivationOnDetection(Standard_True);
     m_transform_gizmo->EnableMode(mode);
+    // Attach/EnableMode may recalculate internal placement. Re-apply the
+    // world frame after configuration so no local unit frame leaks in.
+    m_transform_gizmo->SetPosition(world_position);
 
     m_transform_gizmo_uuid = uuid;
     m_transform_gizmo_position = origin;
@@ -4586,23 +4593,11 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
             return;
         }
 
-        if (myIsDragging && !selected_shape.IsNull())
-        {
-            if (Unit *unit = get_unit(selected_shape))
-            {
-                myIsDragging = !unit_locked(unit->inj.uuid);
-                if (myIsDragging)
-                {
-                    m_drag_unit_uuid = unit->inj.uuid;
-                    m_drag_move_before = make_move_snapshot(*unit);
-                    m_drag_move_snapshot_valid = true;
-                }
-            }
-        }
-        if (!myIsDragging)
-        {
-            selected_shape.Nullify();
-        }
+        // Translation and rotation are persistent handle modes. If a handle
+        // could not be attached (for example because the unit is locked), do
+        // not fall back to the legacy direct-drag path.
+        myIsDragging = false;
+        selected_shape.Nullify();
     }
     // else if(event->buttons()&Qt::RightButton)
     // {
