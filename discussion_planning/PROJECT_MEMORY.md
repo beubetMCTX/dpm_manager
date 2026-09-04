@@ -238,8 +238,10 @@ Unit
 - A text-based Datum Origin action now creates a small spherical origin marker
   and restores it through application/project reference-geometry state.
 - A text-based Section Plane action now creates a thin oriented reference
-  plane and restores it through the same state path. Actual boolean/model
-  clipping against the section plane remains a later operation.
+  plane and restores it through the same state path. Boolean/model clipping is
+  available through the Section Plane panel as an explicit current-scene
+  toggle; the original shape is retained for disabling the clip. The clipping
+  toggle itself is not yet part of the deferred project save format.
 - A text-based Alignment Frame action now creates an independent AIS trihedron
   with an origin marker, while preserving the world coordinate system.
 - Project-session regression coverage now verifies Alignment Frame direction,

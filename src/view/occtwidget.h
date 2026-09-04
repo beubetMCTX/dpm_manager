@@ -51,6 +51,9 @@
 #include <Prs3d_Arrow.hxx>
 
 #include <BRepAlgoAPI_Cut.hxx>
+#include <BRepAlgoAPI_Common.hxx>
+#include <Bnd_Box.hxx>
+#include <BRepBndLib.hxx>
 
 #include <AIS_Shape.hxx>
 #include <AIS_ViewCube.hxx>
@@ -104,6 +107,8 @@ public:
     bool create_reference_section_plane(Standard_Real size = 10.0,
                                         Standard_Real thickness = 0.01,
                                         const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
+    bool set_section_plane_clipping(bool enabled);
+    bool section_plane_clipping_enabled() const { return m_section_plane_clipping; }
     bool create_reference_alignment_frame(Standard_Real size = 2.0,
                                           const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     QString reference_geometry_kind() const { return m_reference_geometry_kind; }
@@ -406,6 +411,7 @@ private:
 
     Handle(AIS_Shape) reference_geometry;
     TopoDS_Shape ref_geom;
+    TopoDS_Shape m_reference_unclipped_shape;
     bool builded=false;
 
     Standard_Integer m_x_max;    //!记录鼠标平移坐标X
@@ -453,6 +459,7 @@ private:
     double m_reference_construction_thickness = 0.01;
     double m_reference_construction_radius = 0.05;
     QVector3D m_reference_construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
+    bool m_section_plane_clipping = false;
     Handle(AIS_Trihedron) m_reference_alignment_trihedron;
     bool m_is_destroying = false;
     std::optional<CopiedUnit> m_copied_unit;

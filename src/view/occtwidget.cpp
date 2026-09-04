@@ -2970,6 +2970,8 @@ void OCCTWidget::add_readed_geometry()
                             QVector3D(0.0f, 0.0f, 0.0f));
     builder.Remove(compound,ref_geom);
     ref_geom=geometry.getShape();
+    m_reference_unclipped_shape = ref_geom;
+    m_section_plane_clipping = false;
     builder.Add(compound,ref_geom);
 
     clear_reference_face_coordinate_frames();
@@ -3086,6 +3088,71 @@ bool OCCTWidget::create_reference_section_plane(Standard_Real size,
     return true;
 }
 
+bool OCCTWidget::set_section_plane_clipping(bool enabled)
+{
+    if (m_reference_geometry_kind != QStringLiteral("section_plane") ||
+        m_reference_unclipped_shape.IsNull() || m_context.IsNull())
+    {
+        return false;
+    }
+
+    try
+    {
+        TopoDS_Shape clipped = m_reference_unclipped_shape;
+        if (enabled)
+        {
+            Bnd_Box bounds;
+            BRepBndLib::Add(m_reference_unclipped_shape, bounds);
+            if (bounds.IsVoid())
+            {
+                return false;
+            }
+
+            Standard_Real xmin = 0.0;
+            Standard_Real ymin = 0.0;
+            Standard_Real zmin = 0.0;
+            Standard_Real xmax = 0.0;
+            Standard_Real ymax = 0.0;
+            Standard_Real zmax = 0.0;
+            bounds.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+            const Standard_Real extent = std::max(
+                std::max(xmax - xmin, ymax - ymin), zmax - zmin);
+            const Standard_Real half_size = std::max(
+                std::max(extent, m_reference_construction_size), 1.0) * 4.0;
+            const gp_Ax2 plane_axis(
+                gp_Pnt(0.0, 0.0, 0.0),
+                gp_Dir(m_reference_construction_direction.x(),
+                       m_reference_construction_direction.y(),
+                       m_reference_construction_direction.z()));
+            const TopoDS_Shape positive_half_space = BRepPrimAPI_MakeBox(
+                plane_axis, half_size, half_size, half_size).Shape();
+            clipped = BRepAlgoAPI_Common(m_reference_unclipped_shape,
+                                         positive_half_space).Shape();
+            if (clipped.IsNull())
+            {
+                return false;
+            }
+        }
+
+        builder.Remove(compound, ref_geom);
+        ref_geom = clipped;
+        builder.Add(compound, ref_geom);
+        m_section_plane_clipping = enabled;
+        base_geometry->Set(compound);
+        m_context->Redisplay(base_geometry, Standard_True);
+        rebuild_reference_face_coordinate_frames();
+        if (!m_view.IsNull())
+        {
+            m_view->Redraw();
+        }
+        return true;
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
 bool OCCTWidget::create_reference_alignment_frame(Standard_Real size,
                                                   const QVector3D &direction)
 {
@@ -3181,6 +3248,7 @@ bool OCCTWidget::clear_reference_geometry()
 
     base_geometry.Nullify();
     reference_geometry.Nullify();
+    m_reference_unclipped_shape.Nullify();
     ref_geom.Nullify();
     clear_reference_face_coordinate_frames();
     m_reference_position = QVector3D();
@@ -3188,6 +3256,7 @@ bool OCCTWidget::clear_reference_geometry()
     m_reference_transform = gp_Trsf();
     m_reference_geometry_visible = true;
     m_reference_geometry_kind = QStringLiteral("file");
+    m_section_plane_clipping = false;
 
     if (!m_view.IsNull())
     {

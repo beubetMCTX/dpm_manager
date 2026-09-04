@@ -1854,6 +1854,8 @@ void MainWindow::create_reference_geometry_panel()
     m_create_datum_axis = new QPushButton("Create Datum Axis", panel);
     m_create_datum_origin = new QPushButton("Create Datum Origin", panel);
     m_create_section_plane = new QPushButton("Create Section Plane", panel);
+    m_toggle_section_clipping = new QPushButton("Enable Section Clipping", panel);
+    m_toggle_section_clipping->setCheckable(true);
     m_create_alignment_frame = new QPushButton("Create Alignment Frame", panel);
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
@@ -1882,6 +1884,7 @@ void MainWindow::create_reference_geometry_panel()
     panel_layout->addWidget(m_create_datum_axis);
     panel_layout->addWidget(m_create_datum_origin);
     panel_layout->addWidget(m_create_section_plane);
+    panel_layout->addWidget(m_toggle_section_clipping);
     panel_layout->addWidget(m_create_alignment_frame);
     panel_layout->addWidget(source_group);
     panel_layout->addWidget(face_info_group);
@@ -1953,6 +1956,21 @@ void MainWindow::create_reference_geometry_panel()
         {
             update_reference_geometry_panel();
             mark_project_dirty();
+        }
+    });
+    connect(m_toggle_section_clipping, &QPushButton::toggled, this, [this](bool enabled)
+    {
+        if (m_3d_widget->set_section_plane_clipping(enabled))
+        {
+            mark_project_dirty();
+            statusBar()->showMessage(enabled ? "Section clipping enabled"
+                                             : "Section clipping disabled", 5000);
+        }
+        else
+        {
+            const QSignalBlocker blocker(m_toggle_section_clipping);
+            m_toggle_section_clipping->setChecked(
+                m_3d_widget->section_plane_clipping_enabled());
         }
     });
     connect(m_create_alignment_frame, &QPushButton::clicked, this, [this]()
@@ -2032,6 +2050,15 @@ void MainWindow::update_reference_geometry_controls()
     if (m_clear_reference_geometry != nullptr)
     {
         m_clear_reference_geometry->setEnabled(available);
+    }
+    if (m_toggle_section_clipping != nullptr)
+    {
+        const bool is_section_plane =
+            m_3d_widget->reference_geometry_kind() == QStringLiteral("section_plane");
+        const QSignalBlocker blocker(m_toggle_section_clipping);
+        m_toggle_section_clipping->setEnabled(is_section_plane && editable);
+        m_toggle_section_clipping->setChecked(
+            is_section_plane && m_3d_widget->section_plane_clipping_enabled());
     }
     m_reference_geometry_lock->setEnabled(available);
 }

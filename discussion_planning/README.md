@@ -2507,3 +2507,14 @@ References:
   and editable.
 - Added regression coverage for following and independent inspector positions.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Section Plane Clipping
+
+- Section Plane now has a text-based panel toggle that clips the current
+  reference shape to the positive side of its construction normal using OCCT
+  Boolean Common.
+- Disabling the toggle restores the retained unmodified reference shape; other
+  reference-geometry kinds are not affected.
+- The clipping toggle remains a current-scene interaction and is not added to
+  the deferred project save format.
+- Release build and all 12 focused regressions passed.

@@ -161,6 +161,7 @@ private:
     QPushButton *m_create_datum_axis = nullptr;
     QPushButton *m_create_datum_origin = nullptr;
     QPushButton *m_create_section_plane = nullptr;
+    QPushButton *m_toggle_section_clipping = nullptr;
     QPushButton *m_create_alignment_frame = nullptr;
     QLabel *m_reference_geometry_path = nullptr;
     QLabel *m_reference_face_origin = nullptr;
