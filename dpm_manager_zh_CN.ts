@@ -225,6 +225,60 @@
         <source>Language changes will take effect after restart.</source>
         <translation>语言更改将在重启后生效。</translation>
     </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2353"/>
+        <source>Viewport Tools</source>
+        <translation>视口工具</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2361"/>
+        <source>Select</source>
+        <translation>选择</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2363"/>
+        <source>Translate</source>
+        <translation>平移</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2365"/>
+        <source>Rotate</source>
+        <translation>旋转</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2372"/>
+        <source>Array Tools...</source>
+        <translation>阵列工具...</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2373"/>
+        <source>Reference Tools</source>
+        <translation>参考几何体工具</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2376"/>
+        <location filename="src/app/mainwindow.cpp" line="2388"/>
+        <location filename="src/app/mainwindow.cpp" line="2441"/>
+        <source>Mode: Select</source>
+        <translation>模式：选择</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2393"/>
+        <location filename="src/app/mainwindow.cpp" line="2438"/>
+        <source>Mode: Translate</source>
+        <translation>模式：平移</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2398"/>
+        <location filename="src/app/mainwindow.cpp" line="2440"/>
+        <source>Mode: Rotate</source>
+        <translation>模式：旋转</translation>
+    </message>
+    <message>
+        <location filename="src/app/mainwindow.cpp" line="2409"/>
+        <source>Select an injector or Assembly first</source>
+        <translation>请先选择喷注器或组件</translation>
+    </message>
 </context>
 <context>
     <name>SpeciesColorDialog</name>

@@ -2350,7 +2350,7 @@ void MainWindow::create_object_list_panel()
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
     });
 
-    auto *interaction_toolbar = new QToolBar("Viewport Tools", this);
+    auto *interaction_toolbar = new QToolBar(tr("Viewport Tools"), this);
     interaction_toolbar->setObjectName("viewportInteractionToolbar");
     interaction_toolbar->setMovable(false);
     interaction_toolbar->setFloatable(false);
@@ -2358,22 +2358,22 @@ void MainWindow::create_object_list_panel()
     addToolBar(Qt::TopToolBarArea, interaction_toolbar);
     auto *toolbar_selection = new QAction(
         style()->standardIcon(QStyle::SP_FileDialogDetailedView),
-        "Select", interaction_toolbar);
+        tr("Select"), interaction_toolbar);
     auto *toolbar_translation = new QAction(
-        style()->standardIcon(QStyle::SP_ArrowForward), "Translate", interaction_toolbar);
+        style()->standardIcon(QStyle::SP_ArrowForward), tr("Translate"), interaction_toolbar);
     auto *toolbar_rotation = new QAction(
-        style()->standardIcon(QStyle::SP_BrowserReload), "Rotate", interaction_toolbar);
+        style()->standardIcon(QStyle::SP_BrowserReload), tr("Rotate"), interaction_toolbar);
     for (QAction *action : {toolbar_selection, toolbar_translation, toolbar_rotation})
     {
         action->setCheckable(true);
         interaction_toolbar->addAction(action);
     }
     interaction_toolbar->addSeparator();
-    auto *array_tools_action = new QAction("Array Tools...", interaction_toolbar);
-    auto *reference_tools_action = new QAction("Reference Tools", interaction_toolbar);
+    auto *array_tools_action = new QAction(tr("Array Tools..."), interaction_toolbar);
+    auto *reference_tools_action = new QAction(tr("Reference Tools"), interaction_toolbar);
     interaction_toolbar->addAction(array_tools_action);
     interaction_toolbar->addAction(reference_tools_action);
-    auto *interaction_status = new QLabel("Mode: Select", interaction_toolbar);
+    auto *interaction_status = new QLabel(tr("Mode: Select"), interaction_toolbar);
     interaction_status->setObjectName("interactionModeStatus");
     interaction_toolbar->addWidget(interaction_status);
     auto *toolbar_mode_group = new QActionGroup(interaction_toolbar);
@@ -2385,17 +2385,17 @@ void MainWindow::create_object_list_panel()
     connect(toolbar_selection, &QAction::triggered, this, [this, interaction_status]()
     {
         m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Selection);
-        interaction_status->setText("Mode: Select");
+        interaction_status->setText(tr("Mode: Select"));
     });
     connect(toolbar_translation, &QAction::triggered, this, [this, interaction_status]()
     {
         m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Translation);
-        interaction_status->setText("Mode: Translate");
+        interaction_status->setText(tr("Mode: Translate"));
     });
     connect(toolbar_rotation, &QAction::triggered, this, [this, interaction_status]()
     {
         m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Rotation);
-        interaction_status->setText("Mode: Rotate");
+        interaction_status->setText(tr("Mode: Rotate"));
     });
     connect(array_tools_action, &QAction::triggered, this, [this]()
     {
@@ -2406,7 +2406,7 @@ void MainWindow::create_object_list_panel()
         QListWidgetItem *item = m_object_list->currentItem();
         if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
         {
-            statusBar()->showMessage("Select an injector or Assembly first", 4000);
+            statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
             return;
         }
         const QPoint item_position = m_object_list->visualItemRect(item).center();
@@ -2435,10 +2435,10 @@ void MainWindow::create_object_list_panel()
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
         interaction_status->setText(
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Translation)
-                ? "Mode: Translate"
+                ? tr("Mode: Translate")
                 : mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation)
-                    ? "Mode: Rotate"
-                    : "Mode: Select");
+                    ? tr("Mode: Rotate")
+                    : tr("Mode: Select"));
     });
     auto *assembly_selected_button = new QPushButton("Create Assembly From Selected", panel);
     layout->addWidget(assembly_selected_button);

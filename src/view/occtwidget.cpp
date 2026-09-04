@@ -4663,6 +4663,12 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
                         m_drag_unit_uuid = unit->inj.uuid;
                         m_drag_move_before = make_move_snapshot(*unit);
                         m_drag_move_snapshot_valid = true;
+                        // Freeze the attachment plane for the whole drag.
+                        // Selection changes during MoveTo/SelectDetected must
+                        // not make a reference-face drag fall back to camera
+                        // space on a later mouse-move event.
+                        m_drag_base_plane = get_moving_base_plane(selected_shape);
+                        m_drag_base_plane_valid = true;
                     }
                 }
             }
@@ -4752,6 +4758,7 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
             }
             m_drag_unit_uuid = QUuid();
             m_drag_move_snapshot_valid = false;
+            m_drag_base_plane_valid = false;
             myIsDragging=false;
             clear_context_selection_safely(false);
         }
@@ -5108,7 +5115,9 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         m_view->Convert(pos.x(),pos.y(),occt_x1,occt_y1,occt_z1);
         m_view->Convert(m_x_max,m_y_max,occt_x2,occt_y2,occt_z2);
 
-        gp_Pln ref_pln =get_moving_base_plane(selected_shape);
+        const gp_Pln ref_pln = m_drag_base_plane_valid
+            ? m_drag_base_plane
+            : get_moving_base_plane(selected_shape);
 
         gp_Pnt2d converted_pnt_pln  = ProjLib::Project(ref_pln,gp_Pnt(occt_x1,occt_y1,occt_z1));
         gp_Pnt2d converted_pnt_pln2 = ProjLib::Project(ref_pln,gp_Pnt(occt_x2,occt_y2,occt_z2));

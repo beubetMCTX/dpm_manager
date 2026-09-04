@@ -517,6 +517,8 @@ private:
     QUuid m_drag_unit_uuid;
     UnitMoveSnapshot m_drag_move_before;
     bool m_drag_move_snapshot_valid = false;
+    gp_Pln m_drag_base_plane;
+    bool m_drag_base_plane_valid = false;
 
 
 };
