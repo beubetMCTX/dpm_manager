@@ -3113,6 +3113,7 @@ void MainWindow::create_object_list_panel()
         QAction *edit_action = menu.addAction("Edit");
         QAction *fit_selected_action = menu.addAction("Fit Selected");
         QAction *copy_action = menu.addAction("Copy");
+        QAction *clone_tree_action = menu.addAction("Clone Unit Tree");
         QAction *paste_action = menu.addAction("Paste to replace");
         paste_action->setEnabled(m_3d_widget->has_copied_unit());
         QAction *rename_action = menu.addAction("Rename");
@@ -3162,6 +3163,10 @@ void MainWindow::create_object_list_panel()
         else if (chosen_action == copy_action)
         {
             m_3d_widget->copy_unit_by_uuid(uuid);
+        }
+        else if (chosen_action == clone_tree_action)
+        {
+            m_3d_widget->clone_unit_tree_by_uuid(uuid);
         }
         else if (chosen_action == paste_action)
         {

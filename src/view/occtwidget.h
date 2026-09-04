@@ -166,6 +166,7 @@ public:
     bool remove_unit_by_uuid(const QUuid &uuid);
     bool copy_unit_by_uuid(const QUuid &uuid);
     bool paste_unit_by_uuid(const QUuid &uuid);
+    bool clone_unit_tree_by_uuid(const QUuid &uuid);
     int create_unit_array(const QUuid &source_uuid,
                           const UnitArraySpec &spec);
     int create_unit_fill(const QList<QUuid> &source_uuids,

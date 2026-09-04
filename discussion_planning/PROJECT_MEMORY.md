@@ -520,6 +520,9 @@ Unit
 - Added model-level recursive Unit-tree cloning with fresh UUIDs and remapped
   Assembly parent/child links; runtime derived array children are intentionally
   omitted and remain rebuildable from their specifications.
+- Added a text-based `Clone Unit Tree` object-panel action. It registers the
+  cloned Assembly subtree in the OCCT scene, remaps fill source UUIDs, and
+  leaves the existing leaf `Copy`/`Paste to replace` workflow unchanged.
 
 ## History
 

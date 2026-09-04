@@ -2379,3 +2379,11 @@ References:
   excluding runtime-derived array children.
 - Added focused regression coverage for cloned hierarchy integrity.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Expose Unit Tree Cloning
+
+- Added a text-based `Clone Unit Tree` object-panel action for complete
+  Assembly/Unit subtree duplication.
+- Cloned trees are registered in the OCCT scene with fresh UUIDs; fill source
+  references are remapped, while the existing leaf paste workflow is unchanged.
+- Release build and all 12 focused regressions passed.

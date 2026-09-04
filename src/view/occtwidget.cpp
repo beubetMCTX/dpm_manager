@@ -1325,6 +1325,67 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     return true;
 }
 
+bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(uuid);
+    if (source == nullptr || source->is_array_child || m_context.IsNull())
+    {
+        return false;
+    }
+
+    QHash<QUuid, QUuid> uuid_map;
+    const std::shared_ptr<Unit> clone = clone_unit_tree(*source, uuid_map);
+    if (clone == nullptr)
+    {
+        return false;
+    }
+
+    for (QUuid &source_uuid : clone->fill_source_uuids)
+    {
+        source_uuid = uuid_map.value(source_uuid, source_uuid);
+    }
+
+    std::function<void(const std::shared_ptr<Unit> &)> register_tree;
+    register_tree = [&](const std::shared_ptr<Unit> &unit)
+    {
+        if (unit == nullptr || unit->ais_display.IsNull())
+        {
+            return;
+        }
+        unit_hash.insert(unit->inj.uuid, unit);
+        m_unit_visibility.insert(unit->inj.uuid, true);
+        m_unit_locks.insert(unit->inj.uuid, false);
+        unit->u_owner->set_unit(unit.get());
+        unit->ais_display->SetOwner(unit->u_owner);
+        unit->ais_display->Set(unit->inj.shape);
+        unit->ais_display->SetColor(
+            color_for_material(unit->inj.injector_data.material));
+        unit->ais_display->SetTransparency(
+            unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
+        m_context->Display(unit->ais_display, Standard_False);
+        for (const std::shared_ptr<Unit> &child : unit->child_units)
+        {
+            register_tree(child);
+        }
+    };
+    register_tree(clone);
+
+    if (clone->has_array_spec)
+    {
+        rebuild_unit_array(clone->inj.uuid);
+    }
+    if (clone->has_fill_spec)
+    {
+        rebuild_unit_fill(clone->inj.uuid);
+    }
+    rebuild_unit_local_coordinate_frames();
+    m_view->FitAll();
+    m_view->Redraw();
+    emit unit_display_list_changed();
+    return true;
+}
+
 bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
 {
     if (uuids.size() < 2)
