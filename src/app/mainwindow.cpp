@@ -4231,8 +4231,38 @@ QList<Unit> MainWindow::build_test_injector_units() const
 {
     QList<Unit> result;
 
+    // Preview geometry is authored in convenient millimeter-sized numbers;
+    // convert only this built-in showcase to the application's meter base
+    // unit. Imported DPM/project data is never passed through this path.
+    constexpr float kPreviewGeometryScale = 1.0e-3f;
+    auto scale_preview_geometry = [=](Unit &unit)
+    {
+        Injector &injector = unit.inj.injector_data;
+        const auto scale_vector = [](QVector3D &value)
+        {
+            value *= kPreviewGeometryScale;
+        };
+        scale_vector(injector.pos);
+        scale_vector(injector.pos2);
+        scale_vector(injector.ff_center);
+        scale_vector(injector.ff_virtual_origin);
+        scale_vector(injector.volume_bgeom_min);
+        scale_vector(injector.volume_bgeom_max);
+        injector.diameter *= kPreviewGeometryScale;
+        injector.diameter2 *= kPreviewGeometryScale;
+        injector.inner_diameter *= kPreviewGeometryScale;
+        injector.outer_diameter *= kPreviewGeometryScale;
+        injector.radius *= kPreviewGeometryScale;
+        injector.inner_radius *= kPreviewGeometryScale;
+        injector.volume_bgeom_radius *= kPreviewGeometryScale;
+        injector.plain_length *= kPreviewGeometryScale;
+        injector.ff_oriface_width *= kPreviewGeometryScale;
+        injector.stagger_radius *= kPreviewGeometryScale;
+    };
+
     auto finalize_unit = [&](Unit &unit)
     {
+        scale_preview_geometry(unit);
         if (!unit.inj.create_injector())
         {
             qDebug() << "Failed to build test injector:" << unit.inj.injector_data.name;
