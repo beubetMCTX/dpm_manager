@@ -119,7 +119,11 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
 #                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
 # For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
 
-    qt_create_translation(QM_FILES ${CMAKE_SOURCE_DIR} ${TS_FILES})
+    # Compile translations and embed them under :/i18n so the executable is
+    # self-contained while still allowing an external i18n fallback.
+    qt_add_translations(dpm_manager
+        TS_FILES ${TS_FILES}
+        RESOURCE_PREFIX "/i18n")
 else()
     if(ANDROID)
         add_library(dpm_manager SHARED
