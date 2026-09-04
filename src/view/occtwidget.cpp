@@ -2324,19 +2324,6 @@ void OCCTWidget::set_species_colors(const QHash<QString, QColor> &species_colors
     refresh_unit_colors();
 }
 
-void OCCTWidget::set_material_names(const QStringList &material_names)
-{
-    Q_UNUSED(material_names);
-
-    for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
-    {
-        if (dialog != nullptr)
-        {
-            dialog->set_material_names(m_chemkin_species_names);
-        }
-    }
-}
-
 Standard_Real OCCTWidget::get_trihedron_size()
 {
     const Standard_Real size = cbrt(geometry.xyz_length.x() *

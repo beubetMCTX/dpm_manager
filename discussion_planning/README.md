@@ -2235,6 +2235,12 @@ References:
   parameters and transforms for datum planes and axes.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Remove Obsolete Injector Material Path
+
+- Removed the no-op OCCT material-name setter and its call site.
+- Injector material selection now has one explicit Chemkin species source.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Apply Constructed Reference Direction
 
 - Datum plane and datum axis creation now accepts and applies the configured

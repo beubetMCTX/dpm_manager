@@ -199,7 +199,6 @@ public:
     bool can_redo_delete() const;
     void set_chemkin_species_names(const QStringList &species_names);
     void set_species_colors(const QHash<QString, QColor> &species_colors);
-    void set_material_names(const QStringList &material_names);
     // Shared case capabilities used by every unit editor.
     void set_unit_editor_case_context(const Unit_Edit_Case_Context &context);
     Unit_Edit_Case_Context unit_editor_case_context() const

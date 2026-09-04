@@ -1748,8 +1748,6 @@ void MainWindow::apply_material_entries(const QList<MaterialConfigEntry> &entrie
                                         bool show_status_feedback)
 {
     m_material_entries = entries;
-    m_3d_widget->set_material_names(m_chemkin_species_names);
-
     if (m_species_material_dialog != nullptr &&
         !material_entries_equal(m_species_material_dialog->material_entries(), m_material_entries))
     {

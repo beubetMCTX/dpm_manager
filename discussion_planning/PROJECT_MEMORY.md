@@ -227,6 +227,8 @@ Unit
   validation, batch assignment, and display color lookup use the existing
   Chemkin species/species-color tables; the separate Materials table is not
   an injector material source.
+- Removed the obsolete no-op OCCT material-name setter so injector material
+  data has one explicit Chemkin species path.
 - Project-session reference geometry now serializes constructed-object kind,
   dimensions, construction direction, visibility, lock state, and transforms.
   Constructed reference parameters are validated during session loading.
