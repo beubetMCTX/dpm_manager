@@ -1317,6 +1317,9 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
             }
         }
         child->assembly_parent_uuid = parent_uuid;
+        child->assembly_local_position =
+            child->inj.injector_data.pos - parent->inj.injector_data.pos;
+        child->assembly_local_rotation = QVector3D();
         parent->assembly_child_uuids.append(child->inj.uuid);
         parent->child_units.append(child);
     }

@@ -16,6 +16,14 @@
   UI and project loader.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Reserve Nested Assembly Local Transforms
+
+- Unit project data now persists local position and rotation fields for future
+  nested Assembly resolution.
+- Older sessions remain readable by falling back to world-space position and
+  zero rotation; this checkpoint does not yet alter runtime geometry.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Per-Property Array Follow/Override Editing
 
 - Right-click actions may choose whether the selected child injector follows

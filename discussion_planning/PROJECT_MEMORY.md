@@ -484,6 +484,9 @@ Unit
   save/load round trip.
 - The OCCT fill creation entry point independently validates weight count and
   positivity, protecting callers that bypass the dialog.
+- Unit now reserves persisted local position and rotation fields for Assembly
+  children; old sessions fall back to the existing world-space position and
+  zero local rotation while runtime geometry remains unchanged in this phase.
 
 ## History
 

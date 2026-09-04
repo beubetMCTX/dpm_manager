@@ -84,6 +84,10 @@ public:
     QList<QUuid> fill_source_uuids;
     QUuid assembly_parent_uuid;
     QList<QUuid> assembly_child_uuids;
+    // Transform relative to the owning Assembly. World-space injector data
+    // remains the runtime representation for backward compatibility.
+    QVector3D assembly_local_position;
+    QVector3D assembly_local_rotation;
 
     Unit()
         : type(injector)
@@ -105,6 +109,8 @@ public:
         , fill_source_uuids(other.fill_source_uuids)
         , assembly_parent_uuid(other.assembly_parent_uuid)
         , assembly_child_uuids(other.assembly_child_uuids)
+        , assembly_local_position(other.assembly_local_position)
+        , assembly_local_rotation(other.assembly_local_rotation)
     {
         initialize_runtime_handles();
     }
@@ -129,6 +135,8 @@ public:
         fill_source_uuids = other.fill_source_uuids;
         assembly_parent_uuid = other.assembly_parent_uuid;
         assembly_child_uuids = other.assembly_child_uuids;
+        assembly_local_position = other.assembly_local_position;
+        assembly_local_rotation = other.assembly_local_rotation;
         initialize_runtime_handles();
         return *this;
     }
@@ -146,6 +154,8 @@ public:
         , fill_source_uuids(std::move(other.fill_source_uuids))
         , assembly_parent_uuid(other.assembly_parent_uuid)
         , assembly_child_uuids(std::move(other.assembly_child_uuids))
+        , assembly_local_position(other.assembly_local_position)
+        , assembly_local_rotation(other.assembly_local_rotation)
     {
         initialize_runtime_handles();
     }
@@ -170,6 +180,8 @@ public:
         fill_source_uuids = other.fill_source_uuids;
         assembly_parent_uuid = other.assembly_parent_uuid;
         assembly_child_uuids = std::move(other.assembly_child_uuids);
+        assembly_local_position = other.assembly_local_position;
+        assembly_local_rotation = other.assembly_local_rotation;
         initialize_runtime_handles();
         return *this;
     }

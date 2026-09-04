@@ -472,6 +472,10 @@ QJsonObject unit_to_json(const Unit &unit)
         assembly_children.append(uuid.toString(QUuid::WithoutBraces));
     }
     result.insert("assembly_child_uuids", assembly_children);
+    result.insert("assembly_local_position",
+                  vector_to_json(unit.assembly_local_position));
+    result.insert("assembly_local_rotation",
+                  vector_to_json(unit.assembly_local_rotation));
     result.insert("has_fill_spec", unit.has_fill_spec);
     if (unit.has_fill_spec)
     {
@@ -556,6 +560,16 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
         {
             unit->assembly_child_uuids.append(child_uuid);
         }
+    }
+    if (!vector_from_json(object.value("assembly_local_position"),
+                          &unit->assembly_local_position))
+    {
+        unit->assembly_local_position = unit->inj.injector_data.pos;
+    }
+    if (!vector_from_json(object.value("assembly_local_rotation"),
+                          &unit->assembly_local_rotation))
+    {
+        unit->assembly_local_rotation = QVector3D();
     }
     unit->has_fill_spec = object.value("has_fill_spec").toBool(false);
     if (unit->has_fill_spec && object.value("fill_spec").isObject())
