@@ -2173,6 +2173,13 @@ References:
   path for composite objects.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Guard Composite Assembly Copying
+
+- Assembly copy/paste is rejected until composite cloning can preserve all
+  child relationships and nested metadata.
+- Added regression coverage for the rejection path.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit

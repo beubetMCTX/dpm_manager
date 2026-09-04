@@ -1168,7 +1168,7 @@ bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
 bool OCCTWidget::copy_unit_by_uuid(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr)
+    if (unit == nullptr || unit->type == Assebly)
     {
         return false;
     }
@@ -1188,7 +1188,8 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     }
 
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
+    if (unit == nullptr || unit->type == Assebly || m_context.IsNull() ||
+        unit->ais_display.IsNull())
     {
         return false;
     }

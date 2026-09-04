@@ -74,6 +74,11 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    if (!check(!widget.copy_unit_by_uuid(uuid),
+               "Assembly copy should be rejected until composite cloning exists"))
+    {
+        return 1;
+    }
 
     UnitArraySpec assembly_array;
     assembly_array.type = UnitArrayType::Linear;

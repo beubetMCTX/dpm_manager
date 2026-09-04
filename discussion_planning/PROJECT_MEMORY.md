@@ -217,6 +217,8 @@ Unit
 - Assembly parents are now treated as composite objects by the editing UI:
   they cannot open leaf-injector editing or direct position/direction/target
   inspectors; whole-Assembly translate/rotate operations remain available.
+- Copying an Assembly is now rejected until a true composite clone operation
+  exists; this prevents silently losing child relationships during paste.
 - Buttons currently use text labels. The remaining icon resources are limited
   to the application icon and combo-box arrow indicators.
 - Release startup displays the stable default injector preview in both Debug
