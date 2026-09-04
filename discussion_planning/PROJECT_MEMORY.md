@@ -223,6 +223,13 @@ Unit
 - The legacy application-wide smoke-test sources and CMake targets are
   removed. Current automated coverage uses focused regression executables;
   do not restore the old smoke-test archive or add icon-only button tests.
+- Injector material is the Chemkin species name. Injector material selection,
+  validation, batch assignment, and display color lookup use the existing
+  Chemkin species/species-color tables; the separate Materials table is not
+  an injector material source.
+- Project-session reference geometry now serializes constructed-object kind,
+  dimensions, construction direction, visibility, lock state, and transforms.
+  Constructed reference parameters are validated during session loading.
 - Removed the unused early OCCT primitive-demo entry points that created a
   fake Unit and bypassed the current reference-geometry/unit display paths.
 - Assembly parents are now treated as composite objects by the editing UI:

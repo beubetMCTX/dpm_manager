@@ -1087,7 +1087,7 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
     {
         return 0;
     }
-    if (!m_material_names.contains(normalized_material, Qt::CaseInsensitive))
+    if (!m_chemkin_species_names.contains(normalized_material, Qt::CaseInsensitive))
     {
         return 0;
     }
@@ -2317,13 +2317,13 @@ void OCCTWidget::set_species_colors(const QHash<QString, QColor> &species_colors
 
 void OCCTWidget::set_material_names(const QStringList &material_names)
 {
-    m_material_names = material_names;
+    Q_UNUSED(material_names);
 
     for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
     {
         if (dialog != nullptr)
         {
-            dialog->set_material_names(m_material_names);
+            dialog->set_material_names(m_chemkin_species_names);
         }
     }
 }
@@ -2541,6 +2541,9 @@ bool OCCTWidget::create_reference_datum_plane(Standard_Real size,
         const TopoDS_Shape plane = BRepPrimAPI_MakeBox(
             plane_axis, size, size, thickness).Shape();
         geometry.adopt_shape(plane, QStringLiteral("<datum plane>"));
+        m_reference_geometry_kind = QStringLiteral("datum_plane");
+        m_reference_construction_size = size;
+        m_reference_construction_thickness = thickness;
         add_readed_geometry();
         return !ref_geom.IsNull();
     }
@@ -2564,6 +2567,9 @@ bool OCCTWidget::create_reference_datum_axis(Standard_Real length,
         const TopoDS_Shape datum_axis = BRepPrimAPI_MakeCylinder(
             axis, radius, length).Shape();
         geometry.adopt_shape(datum_axis, QStringLiteral("<datum axis>"));
+        m_reference_geometry_kind = QStringLiteral("datum_axis");
+        m_reference_construction_size = length;
+        m_reference_construction_radius = radius;
         add_readed_geometry();
         return !ref_geom.IsNull();
     }
@@ -2628,6 +2634,7 @@ bool OCCTWidget::clear_reference_geometry()
     m_reference_rotation = QVector3D();
     m_reference_transform = gp_Trsf();
     m_reference_geometry_visible = true;
+    m_reference_geometry_kind = QStringLiteral("file");
 
     if (!m_view.IsNull())
     {
@@ -3477,7 +3484,7 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
 
     unit_edit_dialog* inj_edit_dialog = new unit_edit_dialog(unit,
                                                              m_chemkin_species_names,
-                                                             m_material_names,
+                                                             m_chemkin_species_names,
                                                              this);
     inj_edit_dialog->set_case_context(m_unit_editor_case_context);
     inj_edit_dialog->setProperty("unit_ptr", QVariant::fromValue(target_unit_ptr));

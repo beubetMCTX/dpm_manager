@@ -98,18 +98,10 @@ public:
                                       Standard_Real thickness = 0.01);
     bool create_reference_datum_axis(Standard_Real length = 10.0,
                                      Standard_Real radius = 0.05);
-    QString reference_geometry_kind() const
-    {
-        if (geometry.file_path() == QStringLiteral("<datum plane>"))
-        {
-            return QStringLiteral("datum_plane");
-        }
-        if (geometry.file_path() == QStringLiteral("<datum axis>"))
-        {
-            return QStringLiteral("datum_axis");
-        }
-        return QStringLiteral("file");
-    }
+    QString reference_geometry_kind() const { return m_reference_geometry_kind; }
+    double reference_construction_size() const { return m_reference_construction_size; }
+    double reference_construction_thickness() const { return m_reference_construction_thickness; }
+    double reference_construction_radius() const { return m_reference_construction_radius; }
     bool clear_reference_geometry();
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }
@@ -429,7 +421,6 @@ private:
     QVector3D m_reference_transform_before_rotation;
 
     QStringList m_chemkin_species_names;
-    QStringList m_material_names;
     QHash<QString, QColor> m_species_colors;
     Unit_Edit_Case_Context m_unit_editor_case_context;
     QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;
@@ -437,6 +428,10 @@ private:
     QHash<QUuid, bool> m_unit_visibility;
     QHash<QUuid, bool> m_unit_locks;
     bool m_reference_geometry_visible = true;
+    QString m_reference_geometry_kind = "file";
+    double m_reference_construction_size = 10.0;
+    double m_reference_construction_thickness = 0.01;
+    double m_reference_construction_radius = 0.05;
     bool m_is_destroying = false;
     std::optional<CopiedUnit> m_copied_unit;
     QVector<UnitMoveHistoryEntry> m_move_history;

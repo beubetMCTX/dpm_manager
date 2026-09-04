@@ -720,6 +720,7 @@ QJsonObject data_to_json(const project_session::Data &data,
     root.insert("materials", materials);
 
     QJsonObject reference_geometry;
+    reference_geometry.insert("kind", data.reference_geometry.kind);
     reference_geometry.insert(
         "file_path",
         session_path_for_storage(data.reference_geometry.file_path, file_path));
@@ -727,6 +728,12 @@ QJsonObject data_to_json(const project_session::Data &data,
     reference_geometry.insert("rotation", vector_to_json(data.reference_geometry.rotation));
     reference_geometry.insert("locked", data.reference_geometry.locked);
     reference_geometry.insert("visible", data.reference_geometry.visible);
+    reference_geometry.insert("construction_direction",
+                              vector_to_json(data.reference_geometry.construction_direction));
+    reference_geometry.insert("construction_size", data.reference_geometry.construction_size);
+    reference_geometry.insert("construction_thickness",
+                             data.reference_geometry.construction_thickness);
+    reference_geometry.insert("construction_radius", data.reference_geometry.construction_radius);
     root.insert("reference_geometry", reference_geometry);
     return root;
 }
@@ -1275,6 +1282,15 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
 
     const QJsonObject reference_geometry = reference_geometry_value.toObject();
+    parsed.reference_geometry.kind = reference_geometry.value("kind").toString("file").trimmed().toLower();
+    if (parsed.reference_geometry.kind != "file" &&
+        parsed.reference_geometry.kind != "datum_plane" &&
+        parsed.reference_geometry.kind != "datum_axis")
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference geometry kind.");
+        return false;
+    }
     if (reference_geometry.contains("file_path") &&
         !reference_geometry.value("file_path").isString())
     {
@@ -1293,11 +1309,19 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
     parsed.reference_geometry.file_path = session_path_for_runtime(
         reference_geometry.value("file_path").toString(), file_path);
-    if (!parsed.reference_geometry.file_path.trimmed().isEmpty() &&
-        (!vector_from_json(reference_geometry.value("position"),
-                          &parsed.reference_geometry.position) ||
+    if (parsed.reference_geometry.kind != "file")
+    {
+        parsed.reference_geometry.file_path.clear();
+    }
+    if ((reference_geometry.contains("position") &&
+         !vector_from_json(reference_geometry.value("position"),
+                           &parsed.reference_geometry.position)) ||
+        (reference_geometry.contains("rotation") &&
          !vector_from_json(reference_geometry.value("rotation"),
-                           &parsed.reference_geometry.rotation)))
+                           &parsed.reference_geometry.rotation)) ||
+        (reference_geometry.contains("construction_direction") &&
+         !vector_from_json(reference_geometry.value("construction_direction"),
+                           &parsed.reference_geometry.construction_direction)))
     {
         set_error(error_message,
                   "Project session contains an invalid reference geometry transform.");
@@ -1305,6 +1329,39 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
     parsed.reference_geometry.locked = reference_geometry.value("locked").toBool(false);
     parsed.reference_geometry.visible = reference_geometry.value("visible").toBool(true);
+    if (reference_geometry.contains("construction_size"))
+    {
+        parsed.reference_geometry.construction_size =
+            reference_geometry.value("construction_size").toDouble(10.0);
+    }
+    if (reference_geometry.contains("construction_thickness"))
+    {
+        parsed.reference_geometry.construction_thickness =
+            reference_geometry.value("construction_thickness").toDouble(0.01);
+    }
+    if (reference_geometry.contains("construction_radius"))
+    {
+        parsed.reference_geometry.construction_radius =
+            reference_geometry.value("construction_radius").toDouble(0.05);
+    }
+    if (parsed.reference_geometry.kind != "file")
+    {
+        const QVector3D direction = parsed.reference_geometry.construction_direction;
+        if (direction.lengthSquared() <= 1.0e-12f ||
+            !std::isfinite(parsed.reference_geometry.construction_size) ||
+            parsed.reference_geometry.construction_size <= 0.0 ||
+            (parsed.reference_geometry.kind == "datum_plane" &&
+             (!std::isfinite(parsed.reference_geometry.construction_thickness) ||
+              parsed.reference_geometry.construction_thickness <= 0.0)) ||
+            (parsed.reference_geometry.kind == "datum_axis" &&
+             (!std::isfinite(parsed.reference_geometry.construction_radius) ||
+              parsed.reference_geometry.construction_radius <= 0.0)))
+        {
+            set_error(error_message,
+                      "Project session contains invalid constructed reference geometry parameters.");
+            return false;
+        }
+    }
 
     if (!validate(parsed, error_message))
     {

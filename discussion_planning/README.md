@@ -2225,3 +2225,12 @@ References:
 - Direction inspector updates now refresh the Unit local coordinate frame.
 - Rebuilt Volume previews retain the configured transparent rendering state.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Unify Injector Material With Species
+
+- Injector material selection and validation now use Chemkin species names.
+- Injector colors continue to be resolved only through the Species/Color table;
+  the separate Materials table remains independent.
+- Project sessions now read and validate constructed reference geometry
+  parameters and transforms for datum planes and axes.
+- Release build and all 12 focused regressions passed.

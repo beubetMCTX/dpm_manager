@@ -1028,8 +1028,9 @@ bool MainWindow::load_project_session(const QString &file_path)
 
     Base_Geom_Read loaded_geometry;
     const bool has_reference_geometry =
+        data.reference_geometry.kind != QStringLiteral("file") ||
         !data.reference_geometry.file_path.trimmed().isEmpty();
-    if (has_reference_geometry)
+    if (has_reference_geometry && data.reference_geometry.kind == QStringLiteral("file"))
     {
         QString geometry_path = QFileInfo(data.reference_geometry.file_path).absoluteFilePath();
         if (!loaded_geometry.readFile(geometry_path))
@@ -1095,10 +1096,32 @@ bool MainWindow::load_project_session(const QString &file_path)
     apply_material_entries(data.materials, true, false);
 
     m_3d_widget->clear_reference_geometry();
-    if (has_reference_geometry)
+    if (has_reference_geometry && data.reference_geometry.kind == QStringLiteral("file"))
     {
         m_3d_widget->geometry.adopt_loaded_geometry(loaded_geometry);
         m_3d_widget->add_readed_geometry();
+        m_3d_widget->set_reference_transform(data.reference_geometry.position,
+                                              data.reference_geometry.rotation);
+        m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
+        m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
+    }
+    else if (has_reference_geometry &&
+             data.reference_geometry.kind == QStringLiteral("datum_plane"))
+    {
+        m_3d_widget->create_reference_datum_plane(
+            data.reference_geometry.construction_size,
+            data.reference_geometry.construction_thickness);
+        m_3d_widget->set_reference_transform(data.reference_geometry.position,
+                                              data.reference_geometry.rotation);
+        m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
+        m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
+    }
+    else if (has_reference_geometry &&
+             data.reference_geometry.kind == QStringLiteral("datum_axis"))
+    {
+        m_3d_widget->create_reference_datum_axis(
+            data.reference_geometry.construction_size,
+            data.reference_geometry.construction_radius);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1269,6 +1292,12 @@ project_session::Data MainWindow::collect_project_data() const
         if (data.reference_geometry.kind != QStringLiteral("file"))
         {
             data.reference_geometry.file_path.clear();
+            data.reference_geometry.construction_size =
+                m_3d_widget->reference_construction_size();
+            data.reference_geometry.construction_thickness =
+                m_3d_widget->reference_construction_thickness();
+            data.reference_geometry.construction_radius =
+                m_3d_widget->reference_construction_radius();
         }
         data.reference_geometry.position = m_3d_widget->reference_position();
         data.reference_geometry.rotation = m_3d_widget->reference_rotation();
@@ -1650,7 +1679,7 @@ void MainWindow::apply_material_entries(const QList<MaterialConfigEntry> &entrie
                                         bool show_status_feedback)
 {
     m_material_entries = entries;
-    m_3d_widget->set_material_names(material_names_from_entries(m_material_entries));
+    m_3d_widget->set_material_names(m_chemkin_species_names);
 
     if (m_species_material_dialog != nullptr &&
         !material_entries_equal(m_species_material_dialog->material_entries(), m_material_entries))
@@ -2803,10 +2832,10 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        const QStringList material_names = material_names_from_entries(m_material_entries);
-        if (material_names.isEmpty())
+        const QStringList species_names = m_chemkin_species_names;
+        if (species_names.isEmpty())
         {
-            statusBar()->showMessage("No materials are available", 4000);
+            statusBar()->showMessage("No Chemkin species are available", 4000);
             return;
         }
 
@@ -2815,7 +2844,7 @@ void MainWindow::create_object_list_panel()
             this,
             "Set Material",
             "Material:",
-            material_names,
+            species_names,
             0,
             false,
             &accepted);
