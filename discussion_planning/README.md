@@ -2249,6 +2249,14 @@ References:
   selection, locking, transform, and persistence paths.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Section Plane Reference Aid
+
+- Added a text-based Section Plane action backed by the existing oriented
+  datum-plane geometry and interaction path.
+- Section-plane kind, dimensions, direction, transforms, and state are
+  persisted; boolean model clipping remains future work.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Constructed Reference Session Validation
 
 - Added round-trip coverage for datum-plane construction parameters and

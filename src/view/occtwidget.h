@@ -101,6 +101,9 @@ public:
                                      Standard_Real radius = 0.05,
                                      const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     bool create_reference_datum_origin(Standard_Real radius = 0.15);
+    bool create_reference_section_plane(Standard_Real size = 10.0,
+                                        Standard_Real thickness = 0.01,
+                                        const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     QString reference_geometry_kind() const { return m_reference_geometry_kind; }
     double reference_construction_size() const { return m_reference_construction_size; }
     double reference_construction_thickness() const { return m_reference_construction_thickness; }

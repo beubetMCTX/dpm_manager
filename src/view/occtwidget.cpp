@@ -2611,6 +2611,18 @@ bool OCCTWidget::create_reference_datum_origin(Standard_Real radius)
     }
 }
 
+bool OCCTWidget::create_reference_section_plane(Standard_Real size,
+                                                Standard_Real thickness,
+                                                const QVector3D &direction)
+{
+    if (!create_reference_datum_plane(size, thickness, direction))
+    {
+        return false;
+    }
+    m_reference_geometry_kind = QStringLiteral("section_plane");
+    return true;
+}
+
 void OCCTWidget::refresh_open_unit_editors()
 {
     for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)

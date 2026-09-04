@@ -160,6 +160,7 @@ private:
     QPushButton *m_create_datum_plane = nullptr;
     QPushButton *m_create_datum_axis = nullptr;
     QPushButton *m_create_datum_origin = nullptr;
+    QPushButton *m_create_section_plane = nullptr;
     QLabel *m_reference_geometry_path = nullptr;
     QLabel *m_reference_face_origin = nullptr;
     QLabel *m_reference_face_normal = nullptr;

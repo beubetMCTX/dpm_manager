@@ -863,7 +863,8 @@ bool validate(const Data &data, QString *error_message)
 
     const QString reference_kind = data.reference_geometry.kind.trimmed().toLower();
     if (reference_kind != "file" && reference_kind != "datum_plane" &&
-        reference_kind != "datum_axis" && reference_kind != "datum_origin")
+        reference_kind != "datum_axis" && reference_kind != "datum_origin" &&
+        reference_kind != "section_plane")
     {
         set_error(error_message, "Project contains an invalid reference geometry kind.");
         return false;
@@ -873,7 +874,7 @@ bool validate(const Data &data, QString *error_message)
          data.reference_geometry.construction_direction.lengthSquared() <= 1.0e-12f ||
          !std::isfinite(data.reference_geometry.construction_size) ||
          data.reference_geometry.construction_size <= 0.0 ||
-         (reference_kind == "datum_plane" &&
+         ((reference_kind == "datum_plane" || reference_kind == "section_plane") &&
           (!std::isfinite(data.reference_geometry.construction_thickness) ||
            data.reference_geometry.construction_thickness <= 0.0)) ||
          (reference_kind == "datum_axis" &&
@@ -1313,7 +1314,8 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     if (parsed.reference_geometry.kind != "file" &&
         parsed.reference_geometry.kind != "datum_plane" &&
         parsed.reference_geometry.kind != "datum_axis" &&
-        parsed.reference_geometry.kind != "datum_origin")
+        parsed.reference_geometry.kind != "datum_origin" &&
+        parsed.reference_geometry.kind != "section_plane")
     {
         set_error(error_message,
                   "Project session contains an invalid reference geometry kind.");
@@ -1378,7 +1380,8 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         if (direction.lengthSquared() <= 1.0e-12f ||
             !std::isfinite(parsed.reference_geometry.construction_size) ||
             parsed.reference_geometry.construction_size <= 0.0 ||
-            (parsed.reference_geometry.kind == "datum_plane" &&
+            ((parsed.reference_geometry.kind == "datum_plane" ||
+              parsed.reference_geometry.kind == "section_plane") &&
              (!std::isfinite(parsed.reference_geometry.construction_thickness) ||
               parsed.reference_geometry.construction_thickness <= 0.0)) ||
             ((parsed.reference_geometry.kind == "datum_axis" ||
