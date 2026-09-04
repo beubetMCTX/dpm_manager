@@ -165,6 +165,31 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    stored_unit->inj.injector_data.single_direction_mode =
+        Single_Direction_Mode::Target_Hitpoint;
+    stored_unit->inj.injector_data.single_target_hitpoint =
+        stored_unit->inj.injector_data.pos + QVector3D(0.0f, 0.0f, 4.0f);
+    if (!check(stored_unit->inj.create_injector(),
+               "Target Hitpoint test geometry should be valid"))
+    {
+        return 1;
+    }
+    const Single_Target_Scope original_scope =
+        stored_unit->inj.injector_data.single_target_scope;
+    if (!check(widget.set_unit_single_target_scope_by_uuid(
+                   uuid, Single_Target_Scope::Reference_Local),
+               "Target scope inspector edit should succeed") ||
+        !check(widget.unit_single_target_scope_by_uuid(uuid) ==
+                   Single_Target_Scope::Reference_Local,
+               "Target scope inspector edit should update the Unit") ||
+        !check(widget.undo_last_edit(),
+               "Target scope inspector edit should be undoable") ||
+        !check(widget.unit_single_target_scope_by_uuid(uuid) == original_scope,
+               "Undo should restore the previous target scope"))
+    {
+        return 1;
+    }
+
     // Create a history entry whose before-state cannot rebuild. Undo must
     // reject it without damaging the currently valid state.
     stored_unit->inj.injector_data.vel = QVector3D();

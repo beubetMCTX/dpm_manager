@@ -408,6 +408,8 @@ Unit
   the same Unit edit transaction.
 - OCCT regression coverage now verifies that an object-panel direction edit
   changes the rendered Unit and is restored by Unit Undo.
+- OCCT regression coverage also verifies Target Hitpoint scope changes and
+  their restoration through Unit Undo.
 - Direction, Pitch/Yaw, and Target Hitpoint edits from the Objects panel now
   use the existing Unit edit transaction and therefore participate in Undo/Redo
   instead of being untracked direct mutations.

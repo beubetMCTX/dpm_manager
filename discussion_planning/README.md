@@ -2150,6 +2150,12 @@ References:
   restoration.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Verify Target Scope Inspector History
+
+- Added OCCT regression coverage for changing Target Hitpoint scope and
+  restoring it through Unit Undo.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit
