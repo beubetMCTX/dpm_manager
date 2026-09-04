@@ -24,9 +24,9 @@ struct ReferenceGeometryConfig
     QVector3D position;
     QVector3D rotation;
     QVector3D construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
-    double construction_size = 10.0;
-    double construction_thickness = 0.01;
-    double construction_radius = 0.05;
+    double construction_size = 0.01;
+    double construction_thickness = 1.0e-5;
+    double construction_radius = 5.0e-5;
     bool locked = false;
     bool visible = true;
     bool section_clipping = false;

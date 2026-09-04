@@ -106,19 +106,19 @@ public:
     Base_Geom_Read geometry;
 
     void add_readed_geometry();
-    bool create_reference_datum_plane(Standard_Real size = 10.0,
-                                      Standard_Real thickness = 0.01,
+    bool create_reference_datum_plane(Standard_Real size = 0.01,
+                                      Standard_Real thickness = 1.0e-5,
                                       const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
-    bool create_reference_datum_axis(Standard_Real length = 10.0,
-                                     Standard_Real radius = 0.05,
+    bool create_reference_datum_axis(Standard_Real length = 0.01,
+                                     Standard_Real radius = 5.0e-5,
                                      const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
-    bool create_reference_datum_origin(Standard_Real radius = 0.15);
-    bool create_reference_section_plane(Standard_Real size = 10.0,
-                                        Standard_Real thickness = 0.01,
+    bool create_reference_datum_origin(Standard_Real radius = 1.5e-4);
+    bool create_reference_section_plane(Standard_Real size = 0.01,
+                                        Standard_Real thickness = 1.0e-5,
                                         const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     bool set_section_plane_clipping(bool enabled);
     bool section_plane_clipping_enabled() const { return m_section_plane_clipping; }
-    bool create_reference_alignment_frame(Standard_Real size = 2.0,
+    bool create_reference_alignment_frame(Standard_Real size = 0.002,
                                           const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     QString reference_geometry_kind() const { return m_reference_geometry_kind; }
     double reference_construction_size() const { return m_reference_construction_size; }
@@ -499,9 +499,9 @@ private:
     QHash<QUuid, bool> m_unit_locks;
     bool m_reference_geometry_visible = true;
     QString m_reference_geometry_kind = "file";
-    double m_reference_construction_size = 10.0;
-    double m_reference_construction_thickness = 0.01;
-    double m_reference_construction_radius = 0.05;
+    double m_reference_construction_size = 0.01;
+    double m_reference_construction_thickness = 1.0e-5;
+    double m_reference_construction_radius = 5.0e-5;
     QVector3D m_reference_construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
     bool m_section_plane_clipping = false;
     Handle(AIS_Trihedron) m_reference_alignment_trihedron;
