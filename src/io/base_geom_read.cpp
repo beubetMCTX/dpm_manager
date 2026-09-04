@@ -156,6 +156,20 @@ bool Base_Geom_Read::readFile(QString& filePath)
         if (m_shape.IsNull()) {
             return report_error("成功读取文件但未获取到有效几何数据");
         }
+
+        // Reference-model coordinates are authored in millimetres. Convert
+        // every supported imported format to the metre-based internal/DPM
+        // coordinate system at the IO boundary.
+        gp_Trsf millimetre_to_metre;
+        millimetre_to_metre.SetScale(gp::Origin(), 1.0e-3);
+        BRepBuilderAPI_Transform unit_transform(
+            m_shape, millimetre_to_metre, Standard_True);
+        if (!unit_transform.IsDone())
+        {
+            return report_error("参考几何体单位转换失败");
+        }
+        m_shape = unit_transform.Shape();
+
         m_file_path = fileInfo.absoluteFilePath();
         emit fileReadSuccess(fileInfo.fileName());
         return true;
@@ -191,21 +205,6 @@ bool Base_Geom_Read::readSTEPFile(const QString& filePath)
     emit progressUpdate(90);
 
     m_shape = reader.OneShape();
-    // Fluent/DPM coordinates are expressed in metres. STEP files commonly
-    // declare millimetres explicitly; convert the imported shape once at the
-    // IO boundary instead of applying a display-only scale in the viewer.
-    if (!m_shape.IsNull())
-    {
-        gp_Trsf millimetre_to_metre;
-        millimetre_to_metre.SetScale(gp::Origin(), 1.0e-3);
-        BRepBuilderAPI_Transform unit_transform(
-            m_shape, millimetre_to_metre, Standard_True);
-        if (!unit_transform.IsDone())
-        {
-            return report_error("STEP几何体单位转换失败");
-        }
-        m_shape = unit_transform.Shape();
-    }
     m_hasAssembly = (nbRoots > 1);
     m_rootShapesCount = nbRoots;
 
