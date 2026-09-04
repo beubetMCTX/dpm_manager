@@ -237,6 +237,8 @@ Unit
 - A text-based Section Plane action now creates a thin oriented reference
   plane and restores it through the same state path. Actual boolean/model
   clipping against the section plane remains a later operation.
+- Project-session regression coverage now verifies both Section Plane and
+  Datum Origin kinds and their construction parameters round-trip correctly.
 - Project-session regression coverage now verifies constructed reference
   geometry round-trip and rejects zero construction directions.
 - Removed the unused early OCCT primitive-demo entry points that created a

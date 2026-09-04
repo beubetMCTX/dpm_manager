@@ -2257,6 +2257,12 @@ References:
   persisted; boolean model clipping remains future work.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Cover Reference-Aid Session Round Trips
+
+- Added project-session regression coverage for Section Plane and Datum Origin
+  kinds, dimensions, direction, and radius.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Constructed Reference Session Validation
 
 - Added round-trip coverage for datum-plane construction parameters and

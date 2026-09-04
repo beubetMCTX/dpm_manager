@@ -607,9 +607,51 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data section_source = datum_source;
+    section_source.reference_geometry.kind = "section_plane";
+    section_source.reference_geometry.construction_size = 31.0;
+    section_source.reference_geometry.construction_thickness = 0.35;
+    const QString section_path = temporary_directory.filePath("section.dpmproj");
+    if (!check(project_session::save(section_path, section_source, &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_section;
+    if (!check(project_session::load(section_path, &restored_section, &error_message),
+               error_message) ||
+        !check(restored_section.reference_geometry.kind == "section_plane" &&
+                   restored_section.reference_geometry.construction_size == 31.0 &&
+                   restored_section.reference_geometry.construction_thickness == 0.35,
+               "Section plane parameters did not round-trip"))
+    {
+        return 1;
+    }
+
+    project_session::Data origin_source = datum_source;
+    origin_source.reference_geometry.kind = "datum_origin";
+    origin_source.reference_geometry.construction_radius = 0.42;
+    const QString origin_path = temporary_directory.filePath("origin.dpmproj");
+    if (!check(project_session::save(origin_path, origin_source, &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_origin;
+    if (!check(project_session::load(origin_path, &restored_origin, &error_message),
+               error_message) ||
+        !check(restored_origin.reference_geometry.kind == "datum_origin" &&
+                   restored_origin.reference_geometry.construction_radius == 0.42,
+               "Datum origin parameters did not round-trip"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
     QFile::remove(assembly_path);
     QFile::remove(datum_path);
+    QFile::remove(section_path);
+    QFile::remove(origin_path);
     QFile::remove(malformed_path);
     QFile::remove(malformed_transform_path);
     QFile::remove(malformed_unit_path);
