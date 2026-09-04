@@ -19,7 +19,8 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
 // Clones a persistent Assembly/Unit subtree with fresh UUIDs. Runtime
 // derived array children are omitted and can be rebuilt from their metadata.
 std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
-                                      QHash<QUuid, QUuid> &uuid_map);
+                                      QHash<QUuid, QUuid> &uuid_map,
+                                      bool mark_as_derived = false);
 
 // Expands a persistent Unit tree as composite array instances. The tree is
 // cloned once per linear or rotational placement and transformed as a whole.

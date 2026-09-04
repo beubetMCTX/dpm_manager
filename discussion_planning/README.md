@@ -2470,3 +2470,10 @@ References:
   configured major/minor radii while preserving its child hierarchy.
 - Added hierarchy and placement regression coverage.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Preserve Composite Child Prototypes
+
+- Derived child Units inside composite array instances now retain their source
+  prototype links and remain included in recursive transforms.
+- Added regression coverage for child prototype resolution.
+- Release build and all 12 focused regressions passed.

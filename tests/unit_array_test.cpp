@@ -248,6 +248,9 @@ int main(int argc, char **argv)
         expand_unit_tree_array(assembly_source, linear);
     ok = check(tree_instances.size() == 3 &&
                    tree_instances[1]->child_units.size() == 1 &&
+                   tree_instances[1]->child_units.first()->is_array_child &&
+                   tree_instances[1]->child_units.first()->prototype_uuid ==
+                       assembly_child.inj.uuid &&
                    tree_instances[2]->child_units.first()->inj.injector_data.pos.x() >
                        tree_instances[1]->child_units.first()->inj.injector_data.pos.x(),
                "Unit tree array expansion should preserve hierarchy") && ok;

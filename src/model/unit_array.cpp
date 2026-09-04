@@ -374,7 +374,8 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
 }
 
 std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
-                                      QHash<QUuid, QUuid> &uuid_map)
+                                      QHash<QUuid, QUuid> &uuid_map,
+                                      bool mark_as_derived)
 {
     const std::shared_ptr<Unit> clone = std::make_shared<Unit>(source);
     const QUuid source_uuid = source.inj.uuid;
@@ -391,6 +392,14 @@ std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
     clone->array_parent_uuid = QUuid();
     clone->prototype_uuid = QUuid();
     clone->prototype_chain.clear();
+    if (mark_as_derived)
+    {
+        clone->is_array_child = true;
+        clone->follows_array = true;
+        clone->prototype_uuid = source_uuid;
+        clone->prototype_chain = source.prototype_chain;
+        clone->prototype_chain.append(source_uuid);
+    }
 
     for (const std::shared_ptr<Unit> &source_child : source.child_units)
     {
@@ -399,7 +408,7 @@ std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
             continue;
         }
         const std::shared_ptr<Unit> child =
-            clone_unit_tree(*source_child, uuid_map);
+            clone_unit_tree(*source_child, uuid_map, mark_as_derived);
         child->assembly_parent_uuid = clone_uuid;
         clone->assembly_child_uuids.append(child->inj.uuid);
         clone->child_units.append(child);
@@ -429,7 +438,7 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
 
     for (const std::shared_ptr<Unit> &child : root.child_units)
     {
-        if (child != nullptr && !child->is_array_child)
+        if (child != nullptr)
         {
             transform_unit_tree(*child, pivot, usable_axis, angle_radians,
                                 translation);
@@ -443,7 +452,7 @@ void mirror_unit_tree(Unit &root, const QVector3D &point,
     mirror_injector_data(root.inj.injector_data, point, normal);
     for (const std::shared_ptr<Unit> &child : root.child_units)
     {
-        if (child != nullptr && !child->is_array_child)
+        if (child != nullptr)
         {
             mirror_unit_tree(*child, point, normal);
         }
@@ -474,7 +483,8 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
     for (int index = 0; index < count; ++index)
     {
         QHash<QUuid, QUuid> uuid_map;
-        const std::shared_ptr<Unit> instance = clone_unit_tree(source, uuid_map);
+        const std::shared_ptr<Unit> instance =
+            clone_unit_tree(source, uuid_map, true);
         if (instance == nullptr)
         {
             continue;
@@ -567,7 +577,7 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
 
         QHash<QUuid, QUuid> uuid_map;
         const std::shared_ptr<Unit> instance =
-            clone_unit_tree(*sources.at(source_index), uuid_map);
+            clone_unit_tree(*sources.at(source_index), uuid_map, true);
         if (instance == nullptr)
         {
             continue;

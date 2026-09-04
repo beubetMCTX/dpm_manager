@@ -553,6 +553,9 @@ Unit
 - Assembly-sourced elliptical arrays now create complete composite instances;
   each tree is rotated around the ellipse normal and translated to its
   major/minor-radius placement.
+- Derived composite child Units now retain their own prototype links, so
+  editing a child inside a composite array can resolve back to its source
+  Assembly member; recursive tree transforms include these derived children.
 
 ## History
 
