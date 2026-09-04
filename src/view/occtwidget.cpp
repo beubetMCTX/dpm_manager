@@ -7,6 +7,7 @@
 #include <QMessageBox>
 #include <QQuaternion>
 #include <QColor>
+#include <gp_Quaternion.hxx>
 
 #include <algorithm>
 #include <array>
@@ -14,6 +15,34 @@
 
 namespace
 {
+double snap_scalar(double value, double increment)
+{
+    if (!std::isfinite(value) || !std::isfinite(increment) || increment <= 0.0)
+    {
+        return value;
+    }
+    return std::round(value / increment) * increment;
+}
+
+QVector3D snap_position(const QVector3D &position, double increment)
+{
+    return QVector3D(
+        static_cast<float>(snap_scalar(position.x(), increment)),
+        static_cast<float>(snap_scalar(position.y(), increment)),
+        static_cast<float>(snap_scalar(position.z(), increment)));
+}
+
+QVector3D snap_translation_delta(const QVector3D &position,
+                                 const QVector3D &delta,
+                                 double increment)
+{
+    if (!std::isfinite(increment) || increment <= 0.0)
+    {
+        return delta;
+    }
+    return snap_position(position + delta, increment) - position;
+}
+
 QColor placeholder_color_for_species(const QString &species_name)
 {
     const uint hash_value = qHash(species_name);
@@ -987,11 +1016,45 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         return;
     }
 
+    gp_Trsf snapped_transformation = transformation;
+    const Unit_Preferences preferences = UnitSystem::active_preferences();
+    if (m_transform_gizmo_mode == AIS_MM_Rotation &&
+        preferences.rotation_snap > 0.0)
+    {
+        gp_XYZ rotation_axis;
+        Standard_Real rotation_angle = 0.0;
+        if (transformation.GetRotation(rotation_axis, rotation_angle) &&
+            rotation_axis.Modulus() > Precision::Confusion())
+        {
+            const Standard_Real snapped_angle = snap_scalar(
+                rotation_angle, preferences.rotation_snap);
+            snapped_transformation.SetRotationPart(gp_Quaternion(
+                gp_Vec(rotation_axis), snapped_angle));
+        }
+    }
+
     Injector preview = m_transform_gizmo_before_data;
-    apply_transform_to_injector(preview, transformation);
+    apply_transform_to_injector(preview, snapped_transformation);
+    if (m_transform_gizmo_mode == AIS_MM_Translation &&
+        preferences.translation_snap > 0.0)
+    {
+        const QVector3D snapped_position = snap_position(
+            preview.pos, preferences.translation_snap);
+        const QVector3D delta = snapped_position - preview.pos;
+        preview.pos = snapped_position;
+        preview.pos2 += delta;
+        preview.ff_center += delta;
+        preview.ff_virtual_origin += delta;
+        preview.volume_bgeom_min += delta;
+        preview.volume_bgeom_max += delta;
+        if (preview.single_target_scope != Single_Target_Scope::World)
+        {
+            preview.single_target_hitpoint += delta;
+        }
+    }
     unit->inj.injector_data = preview;
     m_transform_gizmo_preview_changed =
-        m_transform_gizmo_preview_changed || transformation.Form() != gp_Identity;
+        m_transform_gizmo_preview_changed || snapped_transformation.Form() != gp_Identity;
 
     update_unit_local_coordinate_frame(m_transform_gizmo_uuid);
     emit unit_position_updated(unit.get());
@@ -1526,7 +1589,9 @@ bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
         return false;
     }
 
-    const QVector3D delta = position - unit->inj.injector_data.pos;
+    const QVector3D snapped_position = snap_position(
+        position, UnitSystem::active_preferences().translation_snap);
+    const QVector3D delta = snapped_position - unit->inj.injector_data.pos;
     return !delta.isNull() && translate_units_by_uuid({uuid}, delta) > 0;
 }
 
@@ -1543,6 +1608,13 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
     }
 
     const QVector3D unit_axis = axis.normalized();
+    const double snap_increment = UnitSystem::active_preferences().rotation_snap;
+    if (snap_increment > 0.0)
+    {
+        angle_degrees = static_cast<float>(qRadiansToDegrees(
+            snap_scalar(qDegreesToRadians(static_cast<double>(angle_degrees)),
+                        snap_increment)));
+    }
     const float radians = qDegreesToRadians(angle_degrees);
     const float cosine = std::cos(radians);
     const float sine = std::sin(radians);
@@ -5318,7 +5390,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         const gp_Pnt plane_origin = ElSLib::Value(0.0, 0.0, ref_pln);
         const gp_Vec delta_occt(plane_origin, delta_point);
         gp_Trsf trsf;
-        const QVector3D delta_vec(
+        QVector3D delta_vec(
             static_cast<float>(delta_occt.X()),
             static_cast<float>(delta_occt.Y()),
             static_cast<float>(delta_occt.Z()));
@@ -5327,6 +5399,10 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         {
             if (!m_reference_geometry_locked)
             {
+                delta_vec = snap_translation_delta(
+                    m_reference_position,
+                    delta_vec,
+                    UnitSystem::active_preferences().translation_snap);
                 m_reference_position += delta_vec;
                 apply_reference_transform();
             }
@@ -5342,6 +5418,10 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         if (Unit *unit = get_unit(selected_shape))
         {
             Injector &injector = unit->inj.injector_data;
+            delta_vec = snap_translation_delta(
+                injector.pos,
+                delta_vec,
+                UnitSystem::active_preferences().translation_snap);
             injector.pos += delta_vec;
             injector.pos2 += delta_vec;
             injector.ff_center += delta_vec;

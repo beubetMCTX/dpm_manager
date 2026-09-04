@@ -142,6 +142,17 @@ bool UnitSystem::validate_preferences(const Unit_Preferences &preferences,
         }
         return false;
     }
+    if (!std::isfinite(preferences.translation_snap) ||
+        preferences.translation_snap < 0.0 ||
+        !std::isfinite(preferences.rotation_snap) ||
+        preferences.rotation_snap < 0.0)
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = "Snap increments must be non-negative finite values.";
+        }
+        return false;
+    }
     return true;
 }
 

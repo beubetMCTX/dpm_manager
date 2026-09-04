@@ -7,8 +7,11 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QSlider>
 #include <QVBoxLayout>
+#include <QtMath>
 
 namespace
 {
@@ -71,19 +74,46 @@ UnitPreferencesDialog::UnitPreferencesDialog(const Unit_Preferences &preferences
     add_unit_row(form_layout, "Time", m_time_combo);
     add_unit_row(form_layout, "Pressure", m_pressure_combo);
     add_unit_row(form_layout, "Temperature", m_temperature_combo);
-    m_injector_transparency = new QDoubleSpinBox(this);
-    m_reference_transparency = new QDoubleSpinBox(this);
-    for (QDoubleSpinBox *box : {m_injector_transparency, m_reference_transparency})
+    m_translation_snap = new QDoubleSpinBox(this);
+    m_translation_snap->setRange(0.0, 1.0e6);
+    m_translation_snap->setDecimals(6);
+    m_translation_snap->setSingleStep(0.1);
+    m_translation_snap->setSuffix(" " + preferences.length);
+    m_translation_snap->setValue(UnitSystem::from_base(
+        preferences.translation_snap, preferences.length));
+    add_unit_row(form_layout, "Translation Snap", m_translation_snap);
+
+    m_rotation_snap = new QDoubleSpinBox(this);
+    m_rotation_snap->setRange(0.0, 360.0);
+    m_rotation_snap->setDecimals(3);
+    m_rotation_snap->setSingleStep(1.0);
+    m_rotation_snap->setSuffix(" " + preferences.angle);
+    m_rotation_snap->setValue(UnitSystem::from_base(
+        preferences.rotation_snap, preferences.angle));
+    add_unit_row(form_layout, "Rotation Snap", m_rotation_snap);
+
+    auto *transparency_widget = new QWidget(this);
+    auto *transparency_layout = new QHBoxLayout(transparency_widget);
+    transparency_layout->setContentsMargins(0, 0, 0, 0);
+    m_transparency_slider = new QSlider(Qt::Horizontal, transparency_widget);
+    m_transparency_slider->setRange(0, 100);
+    m_transparency_slider->setValue(qRound(
+        preferences.reference_geometry_transparency * 100.0));
+    m_transparency_value = new QLabel(transparency_widget);
+    m_transparency_value->setMinimumWidth(48);
+    transparency_layout->addWidget(m_transparency_slider, 1);
+    transparency_layout->addWidget(m_transparency_value);
+    const auto update_transparency_label = [this](int value)
     {
-        box->setRange(0.0, 1.0);
-        box->setDecimals(2);
-        box->setSingleStep(0.05);
-        box->setSuffix(" (0 opaque, 1 invisible)");
-    }
-    m_injector_transparency->setValue(preferences.injector_transparency);
-    m_reference_transparency->setValue(preferences.reference_geometry_transparency);
-    add_unit_row(form_layout, "Injector Transparency", m_injector_transparency);
-    add_unit_row(form_layout, "Reference Transparency", m_reference_transparency);
+        if (m_transparency_value != nullptr)
+        {
+            m_transparency_value->setText(QString::number(value) + "%");
+        }
+    };
+    connect(m_transparency_slider, &QSlider::valueChanged,
+            this, update_transparency_label);
+    update_transparency_label(m_transparency_slider->value());
+    add_unit_row(form_layout, "Model Transparency", transparency_widget);
     m_show_injector_axes = new QCheckBox("Show injector local axes", this);
     m_show_reference_axes = new QCheckBox("Show reference local axes", this);
     m_show_injector_axes->setChecked(preferences.show_injector_local_axes);
@@ -109,8 +139,13 @@ Unit_Preferences UnitPreferencesDialog::preferences() const
     result.time = m_time_combo->currentText();
     result.pressure = m_pressure_combo->currentText();
     result.temperature = m_temperature_combo->currentText();
-    result.injector_transparency = m_injector_transparency->value();
-    result.reference_geometry_transparency = m_reference_transparency->value();
+    const double transparency = m_transparency_slider->value() / 100.0;
+    result.injector_transparency = transparency;
+    result.reference_geometry_transparency = transparency;
+    result.translation_snap = UnitSystem::to_base(
+        m_translation_snap->value(), result.length);
+    result.rotation_snap = UnitSystem::to_base(
+        m_rotation_snap->value(), result.angle);
     result.show_injector_local_axes = m_show_injector_axes->isChecked();
     result.show_reference_local_axes = m_show_reference_axes->isChecked();
     return result;

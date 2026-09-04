@@ -37,6 +37,9 @@ struct Unit_Preferences
     QString temperature = "K";
     double injector_transparency = 0.0;
     double reference_geometry_transparency = 0.2;
+    // Stored in base units (metres/radians); editors display preferred units.
+    double translation_snap = 1.0e-3;
+    double rotation_snap = 3.14159265358979323846 / 12.0;
     bool show_injector_local_axes = true;
     bool show_reference_local_axes = true;
 };

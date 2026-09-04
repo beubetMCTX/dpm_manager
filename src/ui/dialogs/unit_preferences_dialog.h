@@ -8,6 +8,8 @@
 class QComboBox;
 class QCheckBox;
 class QDoubleSpinBox;
+class QLabel;
+class QSlider;
 
 class UnitPreferencesDialog : public QDialog
 {
@@ -28,8 +30,10 @@ private:
     QComboBox *m_time_combo = nullptr;
     QComboBox *m_pressure_combo = nullptr;
     QComboBox *m_temperature_combo = nullptr;
-    QDoubleSpinBox *m_injector_transparency = nullptr;
-    QDoubleSpinBox *m_reference_transparency = nullptr;
+    QSlider *m_transparency_slider = nullptr;
+    QLabel *m_transparency_value = nullptr;
+    QDoubleSpinBox *m_translation_snap = nullptr;
+    QDoubleSpinBox *m_rotation_snap = nullptr;
     QCheckBox *m_show_injector_axes = nullptr;
     QCheckBox *m_show_reference_axes = nullptr;
 };

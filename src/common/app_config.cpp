@@ -811,10 +811,14 @@ bool load_unit_preferences(Unit_Preferences *preferences,
     }
     const QJsonValue injector_transparency = units_object.value("injector_transparency");
     const QJsonValue reference_transparency = units_object.value("reference_geometry_transparency");
+    const QJsonValue translation_snap = units_object.value("translation_snap");
+    const QJsonValue rotation_snap = units_object.value("rotation_snap");
     const QJsonValue show_injector_axes = units_object.value("show_injector_local_axes");
     const QJsonValue show_reference_axes = units_object.value("show_reference_local_axes");
     if ((!injector_transparency.isUndefined() && !injector_transparency.isDouble()) ||
         (!reference_transparency.isUndefined() && !reference_transparency.isDouble()) ||
+        (!translation_snap.isUndefined() && !translation_snap.isDouble()) ||
+        (!rotation_snap.isUndefined() && !rotation_snap.isDouble()) ||
         (!show_injector_axes.isUndefined() && !show_injector_axes.isBool()) ||
         (!show_reference_axes.isUndefined() && !show_reference_axes.isBool()))
     {
@@ -824,6 +828,8 @@ bool load_unit_preferences(Unit_Preferences *preferences,
     }
     if (injector_transparency.isDouble()) loaded.injector_transparency = injector_transparency.toDouble();
     if (reference_transparency.isDouble()) loaded.reference_geometry_transparency = reference_transparency.toDouble();
+    if (translation_snap.isDouble()) loaded.translation_snap = translation_snap.toDouble();
+    if (rotation_snap.isDouble()) loaded.rotation_snap = rotation_snap.toDouble();
     if (show_injector_axes.isBool()) loaded.show_injector_local_axes = show_injector_axes.toBool();
     if (show_reference_axes.isBool()) loaded.show_reference_local_axes = show_reference_axes.toBool();
 
@@ -884,6 +890,8 @@ bool save_unit_preferences(const Unit_Preferences &preferences,
     units_object.insert("temperature", preferences.temperature);
     units_object.insert("injector_transparency", preferences.injector_transparency);
     units_object.insert("reference_geometry_transparency", preferences.reference_geometry_transparency);
+    units_object.insert("translation_snap", preferences.translation_snap);
+    units_object.insert("rotation_snap", preferences.rotation_snap);
     units_object.insert("show_injector_local_axes", preferences.show_injector_local_axes);
     units_object.insert("show_reference_local_axes", preferences.show_reference_local_axes);
     root_object.insert("unit_preferences", units_object);
