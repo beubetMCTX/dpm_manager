@@ -46,6 +46,8 @@ struct UnitFillSpec
     QVector3D plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
     bool use_reference_geometry = false;
     bool conform_to_reference_normal = false;
+    // Positive weights select multiple source injectors in a repeating ratio.
+    QVector<int> source_weights = {1};
 };
 
 #endif // UNIT_ARRAY_SPEC_H

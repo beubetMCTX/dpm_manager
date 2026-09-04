@@ -1,5 +1,13 @@
 # DPM Manager Discussion Planning
 
+### 2026-09-04 Add Weighted Multi-Injector Fill Sources
+
+- Square and hexagonal fill creation accepts one positive integer weight per
+  selected injector, such as `2,1` for a repeating 2:1 source ratio.
+- Fill expansion applies the weights deterministically; older sessions default
+  to one weight per source for backward compatibility.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Per-Property Array Follow/Override Editing
 
 - Right-click actions may choose whether the selected child injector follows

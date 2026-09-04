@@ -470,6 +470,9 @@ Unit
   instead of being untracked direct mutations.
 - Inspector direction edits now refresh the Unit local coordinate trihedron and
   preserve Volume transparency during geometry replacement.
+- Square and hexagonal fill arrays now accept positive integer source weights;
+  selected injector sources are expanded in a repeating weighted ratio. Older
+  project sessions default to a weight of one for each source.
 
 ## History
 

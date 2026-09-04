@@ -281,19 +281,40 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
     {
         fill_y.normalize();
     }
-    int child_index = 0;
+    QVector<int> weights;
+    for (int i = 0; i < sources.size(); ++i)
+    {
+        const int weight = i < spec.source_weights.size()
+                               ? spec.source_weights.at(i)
+                               : 1;
+        weights.append(qMax(1, weight));
+    }
+    int total_weight = 0;
+    for (const int weight : weights)
+    {
+        total_weight += weight;
+    }
+    int placement_index = 0;
     for (int row = 0; row < rows; ++row)
     {
         const bool offset_hex_row = spec.pattern == UnitFillPattern::Hexagonal &&
                                     (row % 2 != 0);
         for (int column = 0; column < columns; ++column)
         {
-            const Unit &source = sources.at(child_index % sources.size());
+            int weighted_slot = placement_index % total_weight;
+            int source_index = 0;
+            while (source_index + 1 < weights.size() &&
+                   weighted_slot >= weights.at(source_index))
+            {
+                weighted_slot -= weights.at(source_index);
+                ++source_index;
+            }
+            const Unit &source = sources.at(source_index);
             Unit child(source);
             child.inj.uuid = QUuid::createUuid();
             child.inj.injector_data.name = QString("%1[%2]")
                                                .arg(source.inj.injector_data.name)
-                                               .arg(child_index + 1);
+                                               .arg(placement_index + 1);
 
             const float local_x = (static_cast<float>(column) +
                                    (offset_hex_row ? 0.5f : 0.0f)) * spec.spacing_x;
@@ -340,7 +361,7 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             }
         child.ais_display->Set(child.inj.shape);
             result.append(std::move(child));
-            ++child_index;
+            ++placement_index;
         }
     }
     return result;

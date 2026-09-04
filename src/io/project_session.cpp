@@ -487,6 +487,12 @@ QJsonObject unit_to_json(const Unit &unit)
         fill_spec.insert("use_reference_geometry", unit.fill_spec.use_reference_geometry);
         fill_spec.insert("conform_to_reference_normal",
                          unit.fill_spec.conform_to_reference_normal);
+        QJsonArray source_weights;
+        for (const int weight : unit.fill_spec.source_weights)
+        {
+            source_weights.append(weight);
+        }
+        fill_spec.insert("source_weights", source_weights);
         result.insert("fill_spec", fill_spec);
         QJsonArray sources;
         for (const QUuid &uuid : unit.fill_source_uuids)
@@ -572,6 +578,19 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
             fill_spec.value("use_reference_geometry").toBool(false);
         unit->fill_spec.conform_to_reference_normal =
             fill_spec.value("conform_to_reference_normal").toBool(false);
+        unit->fill_spec.source_weights.clear();
+        const QJsonValue weights_value = fill_spec.value("source_weights");
+        if (weights_value.isArray())
+        {
+            for (const QJsonValue &weight_value : weights_value.toArray())
+            {
+                unit->fill_spec.source_weights.append(qMax(1, weight_value.toInt(1)));
+            }
+        }
+        if (unit->fill_spec.source_weights.isEmpty())
+        {
+            unit->fill_spec.source_weights = {1};
+        }
         const QJsonArray sources = object.value("fill_source_uuids").toArray();
         for (const QJsonValue &source : sources)
         {

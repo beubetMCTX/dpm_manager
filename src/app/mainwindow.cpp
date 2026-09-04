@@ -3367,6 +3367,36 @@ void MainWindow::create_object_list_panel()
             {
                 return;
             }
+            if (selected_unit_ids.size() > 1)
+            {
+                const QString weights_text = QInputDialog::getText(
+                    this, "Create Fill", "Source weights (comma-separated):",
+                    QLineEdit::Normal, QString("1,%1").arg(selected_unit_ids.size() > 2 ? "1,1" : "1"),
+                    &accepted);
+                if (!accepted)
+                {
+                    return;
+                }
+                const QStringList weight_tokens = weights_text.split(',', Qt::SkipEmptyParts);
+                if (weight_tokens.size() != selected_unit_ids.size())
+                {
+                    QMessageBox::warning(this, "Create Fill",
+                                         "Enter one positive integer weight for each selected injector.");
+                    return;
+                }
+                for (const QString &token : weight_tokens)
+                {
+                    bool weight_ok = false;
+                    const int weight = token.trimmed().toInt(&weight_ok);
+                    if (!weight_ok || weight <= 0)
+                    {
+                        QMessageBox::warning(this, "Create Fill",
+                                             "Source weights must be positive integers.");
+                        return;
+                    }
+                    spec.source_weights.append(weight);
+                }
+            }
             spec.spacing_x = static_cast<float>(QInputDialog::getDouble(
                 this, "Create Fill", "X spacing:", 5.0, -1.0e6, 1.0e6,
                 3, &accepted));
