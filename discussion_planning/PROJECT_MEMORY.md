@@ -664,6 +664,9 @@ Unit
 - The 3D selection set now synchronizes to the object list; plain click replaces,
   Ctrl-click toggles, and Shift-click adds while retaining a current inspector
   item.
+- Assembly entries in the object list can now collapse or expand their visible
+  descendants through a context-menu action; UUID and runtime ownership remain
+  unchanged.
 
 ## History
 

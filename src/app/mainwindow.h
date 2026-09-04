@@ -186,5 +186,6 @@ private:
     QComboBox *m_unit_target_scope = nullptr;
     QGroupBox *m_unit_position_group = nullptr;
     QGroupBox *m_unit_direction_group = nullptr;
+    QSet<QUuid> m_collapsed_assemblies;
 };
 #endif // MAINWINDOW_H

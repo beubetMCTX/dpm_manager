@@ -52,6 +52,9 @@ injector, remaining hidden for blank, reference, and Assembly selections.
 The OCCT selection set now synchronizes with the object list, preserving
 modifier-based multi-selection while retaining one current item for inspection.
 
+Assembly entries can now collapse or expand their visible descendants from the
+object-list context menu without changing model ownership or UUIDs.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9

@@ -3443,6 +3443,13 @@ void MainWindow::create_object_list_panel()
             !selected_unit->follows_array);
         QAction *array_action = menu.addAction("Create Array...");
         QAction *fill_action = menu.addAction("Create Fill...");
+        QAction *collapse_action = nullptr;
+        if (selected_unit != nullptr && selected_unit->type == Assebly)
+        {
+            collapse_action = menu.addAction(
+                m_collapsed_assemblies.contains(uuid) ? "Expand Children"
+                                                       : "Collapse Children");
+        }
         QList<QUuid> selected_unit_ids;
         for (QListWidgetItem *selected_item : m_object_list->selectedItems())
         {
@@ -3748,6 +3755,14 @@ void MainWindow::create_object_list_panel()
             statusBar()->showMessage(
                 QString("Created %1 fill child units").arg(created), 5000);
         }
+        else if (chosen_action == collapse_action)
+        {
+            if (m_collapsed_assemblies.contains(uuid))
+                m_collapsed_assemblies.remove(uuid);
+            else
+                m_collapsed_assemblies.insert(uuid);
+            update_object_list_panel();
+        }
         else if (chosen_action == follow_array_action)
         {
             m_3d_widget->set_unit_follow_array(
@@ -3942,18 +3957,36 @@ void MainWindow::update_object_list_panel()
                                      : Qt::Unchecked);
     }
 
+    const auto hidden_by_collapsed_ancestor = [this](const QUuid &uuid)
+    {
+        QSet<QUuid> visited;
+        std::shared_ptr<Unit> current = m_3d_widget->unit_hash.value(uuid);
+        while (current != nullptr && !current->assembly_parent_uuid.isNull() &&
+               !visited.contains(current->assembly_parent_uuid))
+        {
+            const QUuid parent_uuid = current->assembly_parent_uuid;
+            if (m_collapsed_assemblies.contains(parent_uuid))
+                return true;
+            visited.insert(parent_uuid);
+            current = m_3d_widget->unit_hash.value(parent_uuid);
+        }
+        return false;
+    };
+
     if (m_object_filter != nullptr)
     {
         const QString filter = m_object_filter->text().trimmed();
         for (int row = 0; row < m_object_list->count(); ++row)
         {
             QListWidgetItem *item = m_object_list->item(row);
-            item->setHidden(!filter.isEmpty() &&
+            const QUuid item_uuid(item->data(Qt::UserRole).toString());
+            item->setHidden(hidden_by_collapsed_ancestor(item_uuid) ||
+                            (!filter.isEmpty() &&
                             !item->text().contains(filter, Qt::CaseInsensitive) &&
                             !item->data(Qt::UserRole).toString()
                                  .contains(filter, Qt::CaseInsensitive) &&
                             !item->toolTip().contains(filter,
-                                                      Qt::CaseInsensitive));
+                                                      Qt::CaseInsensitive)));
         }
     }
 
