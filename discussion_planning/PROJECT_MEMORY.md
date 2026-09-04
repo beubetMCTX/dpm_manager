@@ -397,6 +397,9 @@ Unit
 - The same panel now exposes the effective local direction vector. It edits
   `vel`, `axis`, `ff_normal`, or `atomizer_axis` according to injector type;
   parameterized Single Pitch/Yaw and Target Hitpoint modes remain read-only.
+- Single Pitch/Yaw mode now exposes editable pitch and yaw fields in the same
+  panel; changes rebuild the injector and synchronize the owning Unit while
+  preserving the direction source semantics.
 
 ## History
 

@@ -2065,6 +2065,17 @@ void MainWindow::create_object_list_panel()
     direction_layout->addRow("X", m_unit_direction_x);
     direction_layout->addRow("Y", m_unit_direction_y);
     direction_layout->addRow("Z", m_unit_direction_z);
+    m_unit_pitch = new QDoubleSpinBox(direction_group);
+    m_unit_yaw = new QDoubleSpinBox(direction_group);
+    for (QDoubleSpinBox *box : {m_unit_pitch, m_unit_yaw})
+    {
+        box->setRange(-360.0, 360.0);
+        box->setDecimals(4);
+        box->setSingleStep(1.0);
+        box->setEnabled(false);
+    }
+    direction_layout->addRow("Pitch (deg)", m_unit_pitch);
+    direction_layout->addRow("Yaw (deg)", m_unit_yaw);
     layout->addWidget(direction_group);
 
     m_object_list_dock->setWidget(panel);
@@ -2151,6 +2162,27 @@ void MainWindow::create_object_list_panel()
     {
         apply_direction(m_unit_direction_x, m_unit_direction_y, m_unit_direction_z);
     });
+    const auto apply_pitch_yaw = [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr ||
+            m_unit_pitch == nullptr || m_unit_yaw == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr)
+        {
+            return;
+        }
+        const QUuid uuid(item->data(Qt::UserRole).toString());
+        if (!uuid.isNull() && m_3d_widget->set_unit_single_pitch_yaw_by_uuid(
+                uuid, m_unit_pitch->value(), m_unit_yaw->value()))
+        {
+            update_unit_position_controls();
+        }
+    };
+    connect(m_unit_pitch, &QDoubleSpinBox::editingFinished, this, apply_pitch_yaw);
+    connect(m_unit_yaw, &QDoubleSpinBox::editingFinished, this, apply_pitch_yaw);
 
     connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::fit_all_view);
@@ -3394,7 +3426,8 @@ void MainWindow::update_unit_position_controls()
     if (m_unit_position_x == nullptr || m_unit_position_y == nullptr ||
         m_unit_position_z == nullptr || m_object_list == nullptr ||
         m_3d_widget == nullptr || m_unit_direction_x == nullptr ||
-        m_unit_direction_y == nullptr || m_unit_direction_z == nullptr)
+        m_unit_direction_y == nullptr || m_unit_direction_z == nullptr ||
+        m_unit_pitch == nullptr || m_unit_yaw == nullptr)
     {
         return;
     }
@@ -3408,6 +3441,8 @@ void MainWindow::update_unit_position_controls()
         m_unit_direction_x->setEnabled(false);
         m_unit_direction_y->setEnabled(false);
         m_unit_direction_z->setEnabled(false);
+        m_unit_pitch->setEnabled(false);
+        m_unit_yaw->setEnabled(false);
         return;
     }
 
@@ -3420,23 +3455,33 @@ void MainWindow::update_unit_position_controls()
         m_unit_direction_x->setEnabled(false);
         m_unit_direction_y->setEnabled(false);
         m_unit_direction_z->setEnabled(false);
+        m_unit_pitch->setEnabled(false);
+        m_unit_yaw->setEnabled(false);
         return;
     }
 
     const QVector3D position = m_3d_widget->unit_position_by_uuid(uuid);
     const QVector3D direction = m_3d_widget->unit_direction_by_uuid(uuid);
+    double pitch = 0.0;
+    double yaw = 0.0;
+    const bool has_pitch_yaw = m_3d_widget->unit_single_pitch_yaw_by_uuid(
+        uuid, &pitch, &yaw);
     const QSignalBlocker x_blocker(m_unit_position_x);
     const QSignalBlocker y_blocker(m_unit_position_y);
     const QSignalBlocker z_blocker(m_unit_position_z);
     const QSignalBlocker direction_x_blocker(m_unit_direction_x);
     const QSignalBlocker direction_y_blocker(m_unit_direction_y);
     const QSignalBlocker direction_z_blocker(m_unit_direction_z);
+    const QSignalBlocker pitch_blocker(m_unit_pitch);
+    const QSignalBlocker yaw_blocker(m_unit_yaw);
     m_unit_position_x->setValue(position.x());
     m_unit_position_y->setValue(position.y());
     m_unit_position_z->setValue(position.z());
     m_unit_direction_x->setValue(direction.x());
     m_unit_direction_y->setValue(direction.y());
     m_unit_direction_z->setValue(direction.z());
+    m_unit_pitch->setValue(pitch);
+    m_unit_yaw->setValue(yaw);
     m_unit_position_x->setEnabled(true);
     m_unit_position_y->setEnabled(true);
     m_unit_position_z->setEnabled(true);
@@ -3448,6 +3493,8 @@ void MainWindow::update_unit_position_controls()
     m_unit_direction_x->setEnabled(editable_direction);
     m_unit_direction_y->setEnabled(editable_direction);
     m_unit_direction_z->setEnabled(editable_direction);
+    m_unit_pitch->setEnabled(has_pitch_yaw && !m_3d_widget->unit_locked(uuid));
+    m_unit_yaw->setEnabled(has_pitch_yaw && !m_3d_widget->unit_locked(uuid));
 }
 
 void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)

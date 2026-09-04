@@ -2119,3 +2119,11 @@ References:
 - Single Pitch/Yaw and Target Hitpoint modes show the derived direction while
   preserving their parameterized source controls; Group `vel2` remains unused.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Single Pitch-Yaw Inspector
+
+- Single injectors using Pitch/Yaw direction now expose editable angle fields
+  in the Objects panel.
+- The update path rebuilds and recolors the injector from the Species/Color
+  table, then synchronizes the Unit; other direction modes remain unchanged.
+- Release build and all 12 focused regressions passed.

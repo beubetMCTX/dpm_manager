@@ -821,6 +821,56 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     return true;
 }
 
+bool OCCTWidget::unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
+                                               double *pitch_degrees,
+                                               double *yaw_degrees) const
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || pitch_degrees == nullptr || yaw_degrees == nullptr ||
+        unit->inj.injector_data.injection_type != single ||
+        unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Pitch_Yaw)
+    {
+        return false;
+    }
+    *pitch_degrees = unit->inj.injector_data.single_pitch_degrees;
+    *yaw_degrees = unit->inj.injector_data.single_yaw_degrees;
+    return true;
+}
+
+bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
+                                                   double pitch_degrees,
+                                                   double yaw_degrees)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit_locked(uuid) ||
+        !std::isfinite(pitch_degrees) || !std::isfinite(yaw_degrees) ||
+        unit->inj.injector_data.injection_type != single ||
+        unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Pitch_Yaw)
+    {
+        return false;
+    }
+    Injector &injector = unit->inj.injector_data;
+    const double old_pitch = injector.single_pitch_degrees;
+    const double old_yaw = injector.single_yaw_degrees;
+    injector.single_pitch_degrees = pitch_degrees;
+    injector.single_yaw_degrees = yaw_degrees;
+    if (!unit->inj.create_injector())
+    {
+        injector.single_pitch_degrees = old_pitch;
+        injector.single_yaw_degrees = old_yaw;
+        return false;
+    }
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_material(injector.material));
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    emit unit_data_updated(unit.get());
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
 bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
                                            const QVector3D &position)
 {
