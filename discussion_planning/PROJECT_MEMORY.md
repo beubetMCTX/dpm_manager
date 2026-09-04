@@ -246,6 +246,8 @@ Unit
 - Application-config loading now restores and validates constructed reference
   dimensions, radius, thickness, and direction for Datum Origin and Section
   Plane entries.
+- IGES reference-geometry import now verifies that at least one root entity
+  was transferred before accepting the resulting shape.
 - Constructed reference numeric fields in application config now reject wrong
   JSON types instead of silently falling back to defaults.
 - Project-session regression coverage now verifies constructed reference

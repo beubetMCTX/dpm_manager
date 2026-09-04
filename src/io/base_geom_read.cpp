@@ -217,8 +217,12 @@ bool Base_Geom_Read::readIGESFile(const QString& filePath)
 
     emit progressUpdate(50);
 
-    // 转换所有根实体
-    reader.TransferRoots();
+    // 转换所有根实体，并拒绝没有成功转换实体的文件。
+    const Standard_Integer transferred_roots = reader.TransferRoots();
+    if (transferred_roots <= 0)
+    {
+        return report_error("IGES文件实体转换失败");
+    }
     m_shape = reader.OneShape();
 
     emit progressUpdate(100);

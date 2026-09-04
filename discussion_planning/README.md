@@ -2289,6 +2289,11 @@ References:
   dimensions instead of silently using defaults.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Harden IGES Geometry Import
+
+- IGES import now rejects files whose root entities cannot be transferred.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Constructed Reference Session Validation
 
 - Added round-trip coverage for datum-plane construction parameters and
