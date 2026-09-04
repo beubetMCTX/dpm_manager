@@ -193,9 +193,9 @@ Unit
 ## Known Limits
 
 - Constructed reference aids beyond datum planes, datum axes, datum origins,
-  and section planes (alignment frames) still need a persisted construction-
-  object model; imported reference geometry and selected-face frames are
-  implemented.
+  section planes, and alignment frames still need a broader persisted
+  construction-object model; imported reference geometry and selected-face
+  frames are implemented.
 - The reference-geometry panel can create datum planes and datum axes through
   the existing display/selection/coordinate/lock/transform path. Application
   config and project sessions distinguish `datum_plane` and `datum_axis` from
@@ -237,6 +237,8 @@ Unit
 - A text-based Section Plane action now creates a thin oriented reference
   plane and restores it through the same state path. Actual boolean/model
   clipping against the section plane remains a later operation.
+- A text-based Alignment Frame action now creates an independent AIS trihedron
+  with an origin marker, while preserving the world coordinate system.
 - Project-session regression coverage now verifies both Section Plane and
   Datum Origin kinds and their construction parameters round-trip correctly.
 - Application-config loading now restores and validates constructed reference

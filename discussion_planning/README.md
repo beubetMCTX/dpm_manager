@@ -2257,6 +2257,14 @@ References:
   persisted; boolean model clipping remains future work.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Alignment Frame Reference Aid
+
+- Added a text-based Alignment Frame action with an independent local
+  trihedron and origin marker.
+- The frame reuses reference visibility, locking, transform, and persistence
+  paths without replacing the world coordinate system.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Reference-Aid Session Round Trips
 
 - Added project-session regression coverage for Section Plane and Datum Origin

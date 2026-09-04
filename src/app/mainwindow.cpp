@@ -1151,6 +1151,17 @@ bool MainWindow::load_project_session(const QString &file_path)
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
         m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
     }
+    else if (has_reference_geometry &&
+             data.reference_geometry.kind == QStringLiteral("alignment_frame"))
+    {
+        m_3d_widget->create_reference_alignment_frame(
+            data.reference_geometry.construction_size,
+            data.reference_geometry.construction_direction);
+        m_3d_widget->set_reference_transform(data.reference_geometry.position,
+                                              data.reference_geometry.rotation);
+        m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
+        m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
+    }
 
     update_object_list_panel();
     update_reference_geometry_panel();
@@ -1655,6 +1666,16 @@ void MainWindow::restore_reference_geometry()
         update_reference_geometry_panel();
         return;
     }
+    if (config.kind == QStringLiteral("alignment_frame"))
+    {
+        m_3d_widget->create_reference_alignment_frame(
+            config.construction_size, config.construction_direction);
+        m_3d_widget->set_reference_transform(config.position, config.rotation);
+        m_3d_widget->set_reference_geometry_locked(config.locked);
+        m_3d_widget->set_reference_geometry_visible(config.visible);
+        update_reference_geometry_panel();
+        return;
+    }
     const QFileInfo file_info(config.file_path);
     if (!file_info.exists() || !file_info.isFile())
     {
@@ -1835,6 +1856,7 @@ void MainWindow::create_reference_geometry_panel()
     m_create_datum_axis = new QPushButton("Create Datum Axis", panel);
     m_create_datum_origin = new QPushButton("Create Datum Origin", panel);
     m_create_section_plane = new QPushButton("Create Section Plane", panel);
+    m_create_alignment_frame = new QPushButton("Create Alignment Frame", panel);
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
 
@@ -1862,6 +1884,7 @@ void MainWindow::create_reference_geometry_panel()
     panel_layout->addWidget(m_create_datum_axis);
     panel_layout->addWidget(m_create_datum_origin);
     panel_layout->addWidget(m_create_section_plane);
+    panel_layout->addWidget(m_create_alignment_frame);
     panel_layout->addWidget(source_group);
     panel_layout->addWidget(face_info_group);
     panel_layout->addWidget(m_reference_geometry_lock);
@@ -1929,6 +1952,14 @@ void MainWindow::create_reference_geometry_panel()
     connect(m_create_section_plane, &QPushButton::clicked, this, [this]()
     {
         if (m_3d_widget->create_reference_section_plane())
+        {
+            update_reference_geometry_panel();
+            mark_project_dirty();
+        }
+    });
+    connect(m_create_alignment_frame, &QPushButton::clicked, this, [this]()
+    {
+        if (m_3d_widget->create_reference_alignment_frame())
         {
             update_reference_geometry_panel();
             mark_project_dirty();

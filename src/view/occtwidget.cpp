@@ -568,6 +568,10 @@ bool OCCTWidget::set_reference_geometry_visible(bool visible)
         {
             m_context->Display(face_trihedron, Standard_False);
         }
+        if (!m_reference_alignment_trihedron.IsNull())
+        {
+            m_context->Display(m_reference_alignment_trihedron, Standard_False);
+        }
     }
     else
     {
@@ -582,6 +586,10 @@ bool OCCTWidget::set_reference_geometry_visible(bool visible)
         if (!face_trihedron.IsNull())
         {
             m_context->Erase(face_trihedron, Standard_False);
+        }
+        if (!m_reference_alignment_trihedron.IsNull())
+        {
+            m_context->Erase(m_reference_alignment_trihedron, Standard_False);
         }
     }
 
@@ -2623,6 +2631,47 @@ bool OCCTWidget::create_reference_section_plane(Standard_Real size,
     return true;
 }
 
+bool OCCTWidget::create_reference_alignment_frame(Standard_Real size,
+                                                  const QVector3D &direction)
+{
+    if (m_context.IsNull() || m_view.IsNull() || size <= 0.0 ||
+        direction.lengthSquared() <= 1.0e-12f)
+    {
+        return false;
+    }
+
+    try
+    {
+        const TopoDS_Shape origin = BRepPrimAPI_MakeSphere(
+            gp_Pnt(0.0, 0.0, 0.0), std::max(0.05 * size, 0.001)).Shape();
+        geometry.adopt_shape(origin, QStringLiteral("<alignment frame>"));
+        m_reference_geometry_kind = QStringLiteral("alignment_frame");
+        m_reference_construction_size = size;
+        m_reference_construction_direction = direction.normalized();
+        add_readed_geometry();
+
+        if (!m_reference_alignment_trihedron.IsNull())
+        {
+            m_context->Remove(m_reference_alignment_trihedron, Standard_False);
+        }
+        const gp_Ax2 axis(gp_Pnt(0.0, 0.0, 0.0),
+                          gp_Dir(direction.x(), direction.y(), direction.z()));
+        m_reference_alignment_trihedron = make_local_trihedron(axis, size);
+        m_reference_alignment_trihedron->SetLocalTransformation(m_reference_transform);
+        m_context->Display(m_reference_alignment_trihedron, Standard_False);
+        m_context->Deactivate(m_reference_alignment_trihedron, TopAbs_SHAPE);
+        if (!m_view.IsNull())
+        {
+            m_view->Redraw();
+        }
+        return !ref_geom.IsNull();
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
 void OCCTWidget::refresh_open_unit_editors()
 {
     for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
@@ -2664,6 +2713,11 @@ bool OCCTWidget::clear_reference_geometry()
     {
         m_context->Remove(base_geometry, Standard_False);
     }
+    if (!m_context.IsNull() && !m_reference_alignment_trihedron.IsNull())
+    {
+        m_context->Remove(m_reference_alignment_trihedron, Standard_False);
+    }
+    m_reference_alignment_trihedron.Nullify();
 
     if (!compound.IsNull() && !ref_geom.IsNull())
     {
@@ -2912,6 +2966,14 @@ void OCCTWidget::apply_reference_transform()
         if (!m_context.IsNull())
         {
             m_context->Redisplay(face_trihedron, Standard_False);
+        }
+    }
+    if (!m_reference_alignment_trihedron.IsNull())
+    {
+        m_reference_alignment_trihedron->SetLocalTransformation(m_reference_transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(m_reference_alignment_trihedron, Standard_False);
         }
     }
 

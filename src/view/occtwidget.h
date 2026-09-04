@@ -104,6 +104,8 @@ public:
     bool create_reference_section_plane(Standard_Real size = 10.0,
                                         Standard_Real thickness = 0.01,
                                         const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
+    bool create_reference_alignment_frame(Standard_Real size = 2.0,
+                                          const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     QString reference_geometry_kind() const { return m_reference_geometry_kind; }
     double reference_construction_size() const { return m_reference_construction_size; }
     double reference_construction_thickness() const { return m_reference_construction_thickness; }
@@ -440,6 +442,7 @@ private:
     double m_reference_construction_thickness = 0.01;
     double m_reference_construction_radius = 0.05;
     QVector3D m_reference_construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
+    Handle(AIS_Trihedron) m_reference_alignment_trihedron;
     bool m_is_destroying = false;
     std::optional<CopiedUnit> m_copied_unit;
     QVector<UnitMoveHistoryEntry> m_move_history;
