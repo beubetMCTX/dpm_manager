@@ -544,13 +544,16 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
     for (const Unit &placement : placements)
     {
         int source_index = -1;
+        int matched_name_length = -1;
         for (int index = 0; index < source_values.size(); ++index)
         {
-            if (placement.inj.injector_data.name.startsWith(
-                    source_values.at(index).inj.injector_data.name))
+            const QString source_name =
+                source_values.at(index).inj.injector_data.name;
+            if (placement.inj.injector_data.name.startsWith(source_name) &&
+                source_name.size() > matched_name_length)
             {
                 source_index = index;
-                break;
+                matched_name_length = source_name.size();
             }
         }
         if (source_index < 0 && sources.size() == 1)

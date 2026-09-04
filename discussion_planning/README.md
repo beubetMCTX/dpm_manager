@@ -2449,6 +2449,13 @@ References:
   child trees, parent ownership, and cleanup during dissolution.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Harden Composite Fill Source Matching
+
+- Mixed composite fills now choose the longest matching source name when
+  deriving placement ownership, avoiding prefix collisions such as `A`/`AB`.
+- Added regression coverage for the collision case.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Integrate Composite Mirror Arrays
 
 - Assembly-sourced mirror arrays now create complete derived Unit subtrees and

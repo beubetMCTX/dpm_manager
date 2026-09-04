@@ -278,5 +278,20 @@ int main(int argc, char **argv)
                    tree_fill_instances[0]->child_units.size() == 1 &&
                    tree_fill_instances[1]->child_units.size() == 1,
                "Composite fill expansion should preserve hierarchy") && ok;
+    Unit prefix_source = assembly_source;
+    prefix_source.inj.injector_data.name = "A";
+    Unit longer_prefix_source = assembly_source;
+    longer_prefix_source.inj.injector_data.name = "AB";
+    const QList<std::shared_ptr<Unit>> prefix_sources = {
+        std::make_shared<Unit>(prefix_source),
+        std::make_shared<Unit>(longer_prefix_source)};
+    UnitFillSpec prefix_fill = tree_fill_spec;
+    prefix_fill.columns = 2;
+    prefix_fill.source_weights = {1, 1};
+    const QList<std::shared_ptr<Unit>> prefix_instances =
+        expand_unit_tree_fill(prefix_sources, prefix_fill);
+    ok = check(prefix_instances.size() == 2 &&
+                   prefix_instances[1]->inj.injector_data.name.startsWith("AB"),
+               "Composite fill should prefer the longest source-name match") && ok;
     return ok ? 0 : 1;
 }
