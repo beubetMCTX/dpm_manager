@@ -250,6 +250,8 @@ Unit
   round-trip.
 - Project-session regression now verifies Section Plane clipping state
   round-trip.
+- The project-session test now explicitly exercises enabled clipping state,
+  protecting backward-compatible default-off loading.
 - OCCT edit-history regression now covers Section Plane clipping and restoring
   the original reference shape.
 - A text-based Alignment Frame action now creates an independent AIS trihedron

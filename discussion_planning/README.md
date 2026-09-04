@@ -2548,6 +2548,12 @@ References:
   survives save/load round-trips.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Strengthen Project Clip Regression
+
+- Project-session regression now explicitly round-trips an enabled Section
+  Plane clipping state and verifies it after loading.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Section Plane Clipping
 
 - Added offscreen regression coverage for enabling, observing, disabling, and
