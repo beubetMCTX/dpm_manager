@@ -174,6 +174,8 @@ public:
     bool detach_from_assembly(const QUuid &uuid);
     bool dissolve_assembly(const QUuid &uuid);
     int rebuild_unit_array(const QUuid &source_uuid);
+    void rebuild_dependent_arrays(const QUuid &prototype_uuid,
+                                  QSet<QUuid> &visited);
     int rebuild_unit_fill(const QUuid &source_uuid);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);
     bool restore_unit_array_inheritance(const QUuid &uuid);

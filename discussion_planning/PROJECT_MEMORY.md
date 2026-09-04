@@ -502,6 +502,13 @@ Unit
   changes its persisted local orientation.
 - Unit edit history now snapshots and restores Assembly local position and
   rotation together with Injector data during undo, redo, and cancel.
+- Array-derived Units now persist a `prototype_uuid` identifying the Unit they
+  were expanded from; editing a following child redirects to that prototype.
+- Geometry refresh now recursively rebuilds dependent inner and outer array
+  roots, so nested array instances follow prototype edits while detached
+  (`follows_array == false`) children remain independent overrides.
+- Current runtime expansion still represents Assembly arrays through flattened
+  display copies; a full nested Unit-instance tree remains future work.
 
 ## History
 

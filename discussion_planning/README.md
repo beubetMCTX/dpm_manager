@@ -2341,3 +2341,13 @@ References:
   direction.
 - Added validation coverage for zero construction directions.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Propagate Prototype Edits Through Nested Arrays
+
+- Array-derived Units now retain a `prototype_uuid`, allowing a following
+  child edit to resolve to its source Unit instead of mutating a display copy.
+- Refreshing a prototype now rebuilds dependent inner and outer array roots in
+  dependency order; detached children remain independent overrides.
+- Runtime Assembly expansion is still flattened for display, while the
+  persisted Unit hierarchy remains the planned long-term model.
+- Release build and all 12 focused regressions passed.

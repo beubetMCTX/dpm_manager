@@ -1247,10 +1247,22 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
 
 bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
 {
-    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    std::shared_ptr<Unit> unit = unit_hash.value(uuid);
     if (unit == nullptr || unit->type == Assebly || unit->ais_display.IsNull())
     {
         return false;
+    }
+
+    if (unit->is_array_child && unit->follows_array &&
+        !unit->prototype_uuid.isNull())
+    {
+        const std::shared_ptr<Unit> prototype =
+            unit_hash.value(unit->prototype_uuid);
+        if (prototype != nullptr && prototype->type != Assebly &&
+            !prototype->ais_display.IsNull())
+        {
+            unit = prototype;
+        }
     }
 
     open_edit_widget(unit->ais_display);
@@ -1534,6 +1546,10 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         stored_child->array_parent_uuid = source_uuid;
         stored_child->is_array_child = true;
         stored_child->follows_array = true;
+        if (!source_is_assembly)
+        {
+            stored_child->prototype_uuid = source_uuid;
+        }
         // Assembly sources are flattened in this phase; do not copy their
         // persistent parent/child links into a runtime array instance.
         stored_child->assembly_parent_uuid = QUuid();
@@ -1619,6 +1635,8 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         stored_child->is_array_child = true;
         stored_child->follows_array = true;
         stored_child->array_parent_uuid = source_uuids.first();
+        stored_child->prototype_uuid = source_uuids.at(
+            displayed_count % source_uuids.size());
         stored_child->assembly_parent_uuid = QUuid();
         stored_child->assembly_child_uuids.clear();
         stored_child->child_units.clear();
@@ -1707,6 +1725,56 @@ int OCCTWidget::rebuild_unit_array(const QUuid &source_uuid)
     }
     const UnitArraySpec spec = source->array_spec;
     return create_unit_array(source_uuid, spec);
+}
+
+void OCCTWidget::rebuild_dependent_arrays(const QUuid &prototype_uuid,
+                                          QSet<QUuid> &visited)
+{
+    if (prototype_uuid.isNull() || visited.contains(prototype_uuid))
+    {
+        return;
+    }
+    visited.insert(prototype_uuid);
+
+    QList<QUuid> dependent_roots;
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> candidate = it.value();
+        if (candidate == nullptr || candidate->is_array_child ||
+            (!candidate->has_array_spec && !candidate->has_fill_spec))
+        {
+            continue;
+        }
+
+        for (const std::shared_ptr<Unit> &child : candidate->child_units)
+        {
+            if (child != nullptr && child->is_array_child &&
+                child->follows_array &&
+                child->prototype_uuid == prototype_uuid)
+            {
+                dependent_roots.append(candidate->inj.uuid);
+                break;
+            }
+        }
+    }
+
+    for (const QUuid &root_uuid : dependent_roots)
+    {
+        const std::shared_ptr<Unit> root = unit_hash.value(root_uuid);
+        if (root == nullptr)
+        {
+            continue;
+        }
+        if (root->has_array_spec)
+        {
+            rebuild_unit_array(root_uuid);
+        }
+        else if (root->has_fill_spec)
+        {
+            rebuild_unit_fill(root_uuid);
+        }
+        rebuild_dependent_arrays(root_uuid, visited);
+    }
 }
 
 bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
@@ -3799,6 +3867,8 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
     {
         rebuild_unit_array(unit->inj.uuid);
     }
+    QSet<QUuid> visited;
+    rebuild_dependent_arrays(unit->inj.uuid, visited);
     m_view->Redraw();
 }
 
