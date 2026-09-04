@@ -2008,6 +2008,34 @@ bool OCCTWidget::attach_unit_to_selected_face(const QUuid &uuid)
     gp_Trsf transformation;
     transformation.SetTransformation(target_frame, source_frame);
 
+    QList<std::shared_ptr<Unit>> transformed_nodes;
+    std::function<void(const std::shared_ptr<Unit> &)> collect_tree;
+    collect_tree = [&](const std::shared_ptr<Unit> &node)
+    {
+        if (node == nullptr || node->ais_display.IsNull())
+        {
+            return;
+        }
+        transformed_nodes.append(node);
+        for (const std::shared_ptr<Unit> &child : node->child_units)
+        {
+            collect_tree(child);
+        }
+    };
+    collect_tree(unit);
+    const QUuid edit_batch_id = QUuid::createUuid();
+    m_active_edit_batch_id = edit_batch_id;
+    for (const std::shared_ptr<Unit> &node : transformed_nodes)
+    {
+        UnitEditTransaction transaction;
+        transaction.uuid = node->inj.uuid;
+        transaction.before_type = node->type;
+        transaction.before_data = node->inj.injector_data;
+        transaction.before_local_position = node->assembly_local_position;
+        transaction.before_local_rotation = node->assembly_local_rotation;
+        m_edit_transactions.insert(transaction.uuid, std::move(transaction));
+    }
+
     std::function<bool(const std::shared_ptr<Unit> &)> transform_tree;
     transform_tree = [&](const std::shared_ptr<Unit> &node)
     {
@@ -2039,8 +2067,24 @@ bool OCCTWidget::attach_unit_to_selected_face(const QUuid &uuid)
 
     if (!transform_tree(unit))
     {
+        for (const std::shared_ptr<Unit> &node : transformed_nodes)
+        {
+            m_edit_transactions.remove(node->inj.uuid);
+        }
+        m_active_edit_batch_id = QUuid();
         return false;
     }
+    for (const std::shared_ptr<Unit> &node : transformed_nodes)
+    {
+        const auto transaction_it = m_edit_transactions.find(node->inj.uuid);
+        if (transaction_it != m_edit_transactions.end())
+        {
+            const UnitEditTransaction transaction = transaction_it.value();
+            m_edit_transactions.erase(transaction_it);
+            record_edit(transaction, *node);
+        }
+    }
+    m_active_edit_batch_id = QUuid();
     QSet<QUuid> visited;
     rebuild_dependent_arrays(uuid, visited);
     emit unit_data_updated(unit.get());
