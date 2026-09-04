@@ -5296,11 +5296,17 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         gp_Pnt2d converted_pnt_pln  = ProjLib::Project(ref_pln,gp_Pnt(occt_x1,occt_y1,occt_z1));
         gp_Pnt2d converted_pnt_pln2 = ProjLib::Project(ref_pln,gp_Pnt(occt_x2,occt_y2,occt_z2));
 
-        gp_Pnt ResultPoint = ElSLib::Value(converted_pnt_pln.X()-converted_pnt_pln2.X(),
-                                           converted_pnt_pln.Y()-converted_pnt_pln2.Y(),
-                                           ref_pln);
+        const gp_Pnt delta_point = ElSLib::Value(
+            converted_pnt_pln.X() - converted_pnt_pln2.X(),
+            converted_pnt_pln.Y() - converted_pnt_pln2.Y(),
+            ref_pln);
+        const gp_Pnt plane_origin = ElSLib::Value(0.0, 0.0, ref_pln);
+        const gp_Vec delta_occt(plane_origin, delta_point);
         gp_Trsf trsf;
-        const QVector3D delta_vec = to_qvector3d(ResultPoint);
+        const QVector3D delta_vec(
+            static_cast<float>(delta_occt.X()),
+            static_cast<float>(delta_occt.Y()),
+            static_cast<float>(delta_occt.Z()));
 
         if (selected_shape == base_geometry)
         {
@@ -5315,7 +5321,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             return;
         }
 
-        trsf.SetTranslation(gp_Vec(ResultPoint.X(),ResultPoint.Y(),ResultPoint.Z()));
+        trsf.SetTranslation(delta_occt);
         selected_shape->SetLocalTransformation(trsf * selected_shape->LocalTransformation());
 
         if (Unit *unit = get_unit(selected_shape))
