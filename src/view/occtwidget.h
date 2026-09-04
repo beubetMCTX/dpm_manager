@@ -134,6 +134,8 @@ public:
                                 const QVector3D &delta);
     QVector3D unit_position_by_uuid(const QUuid &uuid) const;
     bool set_unit_position_by_uuid(const QUuid &uuid, const QVector3D &position);
+    QVector3D unit_direction_by_uuid(const QUuid &uuid) const;
+    bool set_unit_direction_by_uuid(const QUuid &uuid, const QVector3D &direction);
     int rotate_units_by_uuid(const QList<QUuid> &uuids,
                              const QVector3D &axis,
                              float angle_degrees,

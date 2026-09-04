@@ -763,6 +763,64 @@ QVector3D OCCTWidget::unit_position_by_uuid(const QUuid &uuid) const
     return unit != nullptr ? unit->inj.injector_data.pos : QVector3D();
 }
 
+QVector3D OCCTWidget::unit_direction_by_uuid(const QUuid &uuid) const
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    return unit != nullptr ? injector_frame_direction(unit->inj.injector_data)
+                           : QVector3D();
+}
+
+bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
+                                            const QVector3D &direction)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit_locked(uuid) ||
+        !std::isfinite(direction.x()) || !std::isfinite(direction.y()) ||
+        !std::isfinite(direction.z()) || direction.lengthSquared() <= 1.0e-12f)
+    {
+        return false;
+    }
+
+    Injector &injector = unit->inj.injector_data;
+    if (injector.injection_type == single &&
+        injector.single_direction_mode != Single_Direction_Mode::Vector)
+    {
+        return false;
+    }
+    switch (injector.injection_type)
+    {
+    case cone:
+        injector.axis = direction;
+        break;
+    case flat_fan_atomizer:
+        injector.ff_normal = direction;
+        break;
+    case plain_oriface_atomizer:
+    case pressure_swirl_atomizer:
+    case air_blast_atomizer:
+    case effervescent_atomizer:
+        injector.atomizer_axis = direction;
+        break;
+    default:
+        injector.vel = direction;
+        break;
+    }
+
+    if (!unit->inj.create_injector())
+    {
+        return false;
+    }
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_material(injector.material));
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    emit unit_data_updated(unit.get());
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
 bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
                                            const QVector3D &position)
 {

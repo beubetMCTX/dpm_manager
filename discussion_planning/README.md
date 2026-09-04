@@ -2111,3 +2111,11 @@ References:
 - Position edits reuse the existing translation, lock, Assembly propagation,
   synchronization, and Undo/Redo paths; reference selections remain disabled.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Unit Direction Inspector
+
+- The Objects panel now displays and edits the effective direction vector for
+  supported injector types using their type-specific field.
+- Single Pitch/Yaw and Target Hitpoint modes show the derived direction while
+  preserving their parameterized source controls; Group `vel2` remains unused.
+- Release build and all 12 focused regressions passed.

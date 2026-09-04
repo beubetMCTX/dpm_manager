@@ -2048,6 +2048,25 @@ void MainWindow::create_object_list_panel()
     position_layout->addRow("Z", m_unit_position_z);
     layout->addWidget(position_group);
 
+    auto *direction_group = new QGroupBox("Unit Direction", panel);
+    auto *direction_layout = new QFormLayout(direction_group);
+    auto create_direction_box = [direction_group]()
+    {
+        auto *box = new QDoubleSpinBox(direction_group);
+        box->setRange(-1.0e9, 1.0e9);
+        box->setDecimals(6);
+        box->setSingleStep(0.1);
+        box->setEnabled(false);
+        return box;
+    };
+    m_unit_direction_x = create_direction_box();
+    m_unit_direction_y = create_direction_box();
+    m_unit_direction_z = create_direction_box();
+    direction_layout->addRow("X", m_unit_direction_x);
+    direction_layout->addRow("Y", m_unit_direction_y);
+    direction_layout->addRow("Z", m_unit_direction_z);
+    layout->addWidget(direction_group);
+
     m_object_list_dock->setWidget(panel);
     addDockWidget(Qt::LeftDockWidgetArea, m_object_list_dock);
 
@@ -2093,6 +2112,44 @@ void MainWindow::create_object_list_panel()
             [this, apply_position]()
     {
         apply_position(m_unit_position_x, m_unit_position_y, m_unit_position_z);
+    });
+    const auto apply_direction = [this](QDoubleSpinBox *x,
+                                        QDoubleSpinBox *y,
+                                        QDoubleSpinBox *z)
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr ||
+            x == nullptr || y == nullptr || z == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+        {
+            return;
+        }
+        const QUuid uuid(item->data(Qt::UserRole).toString());
+        if (!uuid.isNull() && m_3d_widget->set_unit_direction_by_uuid(
+                uuid, QVector3D(static_cast<float>(x->value()),
+                                static_cast<float>(y->value()),
+                                static_cast<float>(z->value()))))
+        {
+            update_unit_position_controls();
+        }
+    };
+    connect(m_unit_direction_x, &QDoubleSpinBox::editingFinished, this,
+            [this, apply_direction]()
+    {
+        apply_direction(m_unit_direction_x, m_unit_direction_y, m_unit_direction_z);
+    });
+    connect(m_unit_direction_y, &QDoubleSpinBox::editingFinished, this,
+            [this, apply_direction]()
+    {
+        apply_direction(m_unit_direction_x, m_unit_direction_y, m_unit_direction_z);
+    });
+    connect(m_unit_direction_z, &QDoubleSpinBox::editingFinished, this,
+            [this, apply_direction]()
+    {
+        apply_direction(m_unit_direction_x, m_unit_direction_y, m_unit_direction_z);
     });
 
     connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
@@ -3336,7 +3393,8 @@ void MainWindow::update_unit_position_controls()
 {
     if (m_unit_position_x == nullptr || m_unit_position_y == nullptr ||
         m_unit_position_z == nullptr || m_object_list == nullptr ||
-        m_3d_widget == nullptr)
+        m_3d_widget == nullptr || m_unit_direction_x == nullptr ||
+        m_unit_direction_y == nullptr || m_unit_direction_z == nullptr)
     {
         return;
     }
@@ -3347,6 +3405,9 @@ void MainWindow::update_unit_position_controls()
         m_unit_position_x->setEnabled(false);
         m_unit_position_y->setEnabled(false);
         m_unit_position_z->setEnabled(false);
+        m_unit_direction_x->setEnabled(false);
+        m_unit_direction_y->setEnabled(false);
+        m_unit_direction_z->setEnabled(false);
         return;
     }
 
@@ -3356,19 +3417,37 @@ void MainWindow::update_unit_position_controls()
         m_unit_position_x->setEnabled(false);
         m_unit_position_y->setEnabled(false);
         m_unit_position_z->setEnabled(false);
+        m_unit_direction_x->setEnabled(false);
+        m_unit_direction_y->setEnabled(false);
+        m_unit_direction_z->setEnabled(false);
         return;
     }
 
     const QVector3D position = m_3d_widget->unit_position_by_uuid(uuid);
+    const QVector3D direction = m_3d_widget->unit_direction_by_uuid(uuid);
     const QSignalBlocker x_blocker(m_unit_position_x);
     const QSignalBlocker y_blocker(m_unit_position_y);
     const QSignalBlocker z_blocker(m_unit_position_z);
+    const QSignalBlocker direction_x_blocker(m_unit_direction_x);
+    const QSignalBlocker direction_y_blocker(m_unit_direction_y);
+    const QSignalBlocker direction_z_blocker(m_unit_direction_z);
     m_unit_position_x->setValue(position.x());
     m_unit_position_y->setValue(position.y());
     m_unit_position_z->setValue(position.z());
+    m_unit_direction_x->setValue(direction.x());
+    m_unit_direction_y->setValue(direction.y());
+    m_unit_direction_z->setValue(direction.z());
     m_unit_position_x->setEnabled(true);
     m_unit_position_y->setEnabled(true);
     m_unit_position_z->setEnabled(true);
+    const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+    const bool editable_direction = unit != nullptr &&
+        !(unit->inj.injector_data.injection_type == single &&
+          unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Vector) &&
+        !m_3d_widget->unit_locked(uuid);
+    m_unit_direction_x->setEnabled(editable_direction);
+    m_unit_direction_y->setEnabled(editable_direction);
+    m_unit_direction_z->setEnabled(editable_direction);
 }
 
 void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)

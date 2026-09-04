@@ -394,6 +394,9 @@ Unit
 - The Objects panel now exposes a numeric Position X/Y/Z inspector for the
   current Unit; edits reuse the validated translation path, synchronize model
   data and geometry, respect locks/Assembly propagation, and enter move history.
+- The same panel now exposes the effective local direction vector. It edits
+  `vel`, `axis`, `ff_normal`, or `atomizer_axis` according to injector type;
+  parameterized Single Pitch/Yaw and Target Hitpoint modes remain read-only.
 
 ## History
 

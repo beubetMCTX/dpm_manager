@@ -166,5 +166,8 @@ private:
     QDoubleSpinBox *m_unit_position_x = nullptr;
     QDoubleSpinBox *m_unit_position_y = nullptr;
     QDoubleSpinBox *m_unit_position_z = nullptr;
+    QDoubleSpinBox *m_unit_direction_x = nullptr;
+    QDoubleSpinBox *m_unit_direction_y = nullptr;
+    QDoubleSpinBox *m_unit_direction_z = nullptr;
 };
 #endif // MAINWINDOW_H
