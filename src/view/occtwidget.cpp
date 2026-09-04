@@ -787,6 +787,8 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     {
         return false;
     }
+    const Injector before = injector;
+    begin_unit_edit_transaction(unit.get());
     switch (injector.injection_type)
     {
     case cone:
@@ -808,12 +810,15 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
 
     if (!unit->inj.create_injector())
     {
+        injector = before;
+        m_edit_transactions.remove(uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_material(injector.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
     emit unit_data_updated(unit.get());
+    finish_unit_edit_transaction(unit.get(), true);
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -850,6 +855,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
         return false;
     }
     Injector &injector = unit->inj.injector_data;
+    begin_unit_edit_transaction(unit.get());
     const double old_pitch = injector.single_pitch_degrees;
     const double old_yaw = injector.single_yaw_degrees;
     injector.single_pitch_degrees = pitch_degrees;
@@ -858,12 +864,14 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     {
         injector.single_pitch_degrees = old_pitch;
         injector.single_yaw_degrees = old_yaw;
+        m_edit_transactions.remove(uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_material(injector.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
     emit unit_data_updated(unit.get());
+    finish_unit_edit_transaction(unit.get(), true);
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -896,17 +904,20 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
         return false;
     }
     Injector &injector = unit->inj.injector_data;
+    begin_unit_edit_transaction(unit.get());
     const QVector3D old_target = injector.single_target_hitpoint;
     injector.single_target_hitpoint = target;
     if (!unit->inj.create_injector())
     {
         injector.single_target_hitpoint = old_target;
+        m_edit_transactions.remove(uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_material(injector.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
     emit unit_data_updated(unit.get());
+    finish_unit_edit_transaction(unit.get(), true);
     if (!m_view.IsNull())
     {
         m_view->Redraw();

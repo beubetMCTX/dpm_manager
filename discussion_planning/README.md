@@ -2135,3 +2135,11 @@ References:
 - Zero-length targets are rejected; valid edits rebuild the geometry, resolve
   color from the Species/Color table, and synchronize the Unit.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Track Direction Inspector Edits
+
+- Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit
+  edit-history entries and can be undone/redone consistently with dialog edits.
+- Failed geometry rebuilds remove the pending transaction and leave the prior
+  injector data intact.
+- Release build and all 12 focused regressions passed.
