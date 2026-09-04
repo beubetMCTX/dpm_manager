@@ -456,7 +456,8 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
     QList<std::shared_ptr<Unit>> result;
     if (spec.type != UnitArrayType::Linear &&
         spec.type != UnitArrayType::Rotational &&
-        spec.type != UnitArrayType::Mirror)
+        spec.type != UnitArrayType::Mirror &&
+        spec.type != UnitArrayType::Elliptical)
     {
         return result;
     }
@@ -464,6 +465,8 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
     const int count = qBound(1, spec.count, 100000);
     const QVector3D direction = normalized_or(
         spec.direction, QVector3D(1.0f, 0.0f, 0.0f));
+    const QVector3D plane_normal = normalized_or(
+        spec.plane_normal, QVector3D(0.0f, 0.0f, 1.0f));
     const float angle_step = spec.type == UnitArrayType::Rotational && count > 0
                                  ? qDegreesToRadians(spec.angle_degrees) /
                                        static_cast<float>(count)
@@ -483,6 +486,24 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
         {
             transform_unit_tree(*instance, QVector3D(), direction, 0.0f,
                                 direction * (spec.spacing * index));
+        }
+        else if (spec.type == UnitArrayType::Elliptical)
+        {
+            const float angle = count > 0
+                                    ? qDegreesToRadians(spec.angle_degrees) /
+                                          static_cast<float>(count) * index
+                                    : 0.0f;
+            const QVector3D ellipse_y = normalized_or(
+                QVector3D::crossProduct(plane_normal, direction),
+                QVector3D(0.0f, 1.0f, 0.0f));
+            const QVector3D target = spec.origin +
+                                     direction * (spec.major_radius * std::cos(angle)) +
+                                     ellipse_y * (spec.minor_radius * std::sin(angle));
+            const QVector3D rotated_source = spec.origin +
+                rotate_vector(source.inj.injector_data.pos - spec.origin,
+                              plane_normal, angle);
+            transform_unit_tree(*instance, spec.origin, plane_normal, angle,
+                                target - rotated_source);
         }
         else
         {

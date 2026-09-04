@@ -2449,3 +2449,11 @@ References:
   recursively mirror their injector geometry and directions.
 - Added regression coverage for hierarchy preservation in mirrored instances.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Integrate Composite Elliptical Arrays
+
+- Assembly-sourced elliptical arrays now create complete derived Unit trees.
+- Each instance is rotated around the ellipse normal and positioned using the
+  configured major/minor radii while preserving its child hierarchy.
+- Added hierarchy and placement regression coverage.
+- Release build and all 12 focused regressions passed.

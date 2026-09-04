@@ -259,6 +259,14 @@ int main(int argc, char **argv)
                    mirrored_tree_instances[1]->child_units.first()->inj.injector_data.pos.x() <
                        mirrored_tree_instances[0]->child_units.first()->inj.injector_data.pos.x(),
                "Composite mirror expansion should preserve hierarchy") && ok;
+    UnitArraySpec tree_ellipse = elliptical;
+    const QList<std::shared_ptr<Unit>> elliptical_tree_instances =
+        expand_unit_tree_array(assembly_source, tree_ellipse);
+    ok = check(elliptical_tree_instances.size() == 4 &&
+                   elliptical_tree_instances[0]->child_units.size() == 1 &&
+                   qAbs(elliptical_tree_instances[0]->inj.injector_data.pos.x() -
+                        tree_ellipse.major_radius) < 1.0e-4f,
+               "Composite elliptical expansion should preserve hierarchy") && ok;
     const QList<std::shared_ptr<Unit>> tree_fill_sources = {cloned_tree};
     UnitFillSpec tree_fill_spec;
     tree_fill_spec.rows = 1;

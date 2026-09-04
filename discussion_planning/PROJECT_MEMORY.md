@@ -546,6 +546,9 @@ Unit
   weighted source path.
 - Assembly-sourced mirror arrays now also expand as complete composite Unit
   instances, recursively mirroring every injector in the subtree.
+- Assembly-sourced elliptical arrays now create complete composite instances;
+  each tree is rotated around the ellipse normal and translated to its
+  major/minor-radius placement.
 
 ## History
 
