@@ -4278,6 +4278,7 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         header_action->setEnabled(false);
         menu.addSeparator();
         QAction *dissolve_action = menu.addAction("Dissolve Assembly");
+        QAction *clone_action = menu.addAction("Clone Unit Tree");
         QAction *lock_action = menu.addAction(
             unit_locked(selected_unit->inj.uuid)
                 ? "Unlock Assembly"
@@ -4285,6 +4286,8 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         const QUuid target_uuid = selected_unit->inj.uuid;
         connect(dissolve_action, &QAction::triggered, this,
                 [this, target_uuid]() { dissolve_assembly(target_uuid); });
+        connect(clone_action, &QAction::triggered, this,
+                [this, target_uuid]() { clone_unit_tree_by_uuid(target_uuid); });
         connect(lock_action, &QAction::triggered, this,
                 [this, target_uuid]()
         {

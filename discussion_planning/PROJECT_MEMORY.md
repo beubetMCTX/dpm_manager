@@ -526,6 +526,8 @@ Unit
 - The cloned tree is registered recursively with local frames, visibility,
   locks, material-derived colors, and Volume transparency initialized through
   the same runtime paths as imported Units.
+- `Clone Unit Tree` is now available from both the Objects-panel context menu
+  and the OpenCASCADE Assembly context menu.
 - Added a reusable rigid-transform operation for persistent Unit trees. It
   applies rotation and translation recursively to injector spatial fields and
   directions while preserving World-scoped Single target points.

@@ -2395,6 +2395,12 @@ References:
   colors, and Volume transparency.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add 3D Assembly Clone Action
+
+- Added the text-based `Clone Unit Tree` action to the OpenCASCADE Assembly
+  context menu, matching the Objects-panel action.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Add Unit Tree Rigid Transform
 
 - Added a model-level recursive rigid transform for Unit/Assembly trees.
