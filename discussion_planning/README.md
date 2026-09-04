@@ -2095,3 +2095,11 @@ References:
   points.
 - Added regression coverage for the translated center and volume bounds.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Enforce Species-Based Injector Colors And Metadata Validation
+
+- Injector colors remain exclusively driven by the Species/Color table lookup
+  for `injector_data.material`; no update path may copy an unrelated color.
+- Project-session validation rejects non-finite array/fill metadata and
+  parallel reference axes before geometry restoration.
+- Release build and all 12 focused regressions passed.

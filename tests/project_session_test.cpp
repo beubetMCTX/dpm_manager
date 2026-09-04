@@ -55,15 +55,18 @@ int main(int argc, char *argv[])
     unit.fill_spec.spacing_y = 2.0f;
     unit.fill_spec.origin = QVector3D(4.0f, 5.0f, 6.0f);
     unit.fill_source_uuids = {unit.inj.uuid};
-    unit.has_array_spec = true;
+    unit.has_array_spec = false;
     unit.array_spec.type = UnitArrayType::Elliptical;
     unit.array_spec.count = 6;
     unit.array_spec.major_radius = 12.0f;
     unit.array_spec.minor_radius = 7.0f;
+    unit.array_spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    unit.array_spec.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
     if (!check(unit.inj.create_injector(), "Unable to create source injector geometry"))
     {
         return 1;
     }
+    unit.has_array_spec = true;
 
     project_session::Data source;
     source.units.append(unit);
@@ -100,17 +103,36 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
-    project_session::Data invalid_fill_spec = source;
-    invalid_fill_spec.units.first().fill_spec.spacing_x =
+    invalid_array_spec.units.first().array_spec.major_radius = 12.0f;
+    invalid_array_spec.units.first().array_spec.direction =
+        QVector3D(0.0f, 0.0f, 1.0f);
+    invalid_array_spec.units.first().array_spec.plane_normal =
+        QVector3D(0.0f, 0.0f, 2.0f);
+    invalid_array_spec.units.first().array_spec.use_reference_geometry = true;
+    if (!check(!project_session::validate(invalid_array_spec, &reference_error) &&
+                   reference_error.contains("invalid array specification"),
+               "parallel array reference axes should be rejected"))
+    {
+        return 1;
+    }
+    Unit fill_only_unit = unit;
+    fill_only_unit.has_array_spec = false;
+    fill_only_unit.has_fill_spec = true;
+    fill_only_unit.fill_spec.spacing_x =
         std::numeric_limits<float>::infinity();
-    if (!check(!project_session::validate(invalid_fill_spec, &reference_error) &&
+    project_session::Data invalid_fill_spec;
+    invalid_fill_spec.units.append(fill_only_unit);
+    const bool invalid_fill_valid = project_session::validate(invalid_fill_spec,
+                                                              &reference_error);
+    if (!check(!invalid_fill_valid &&
                    reference_error.contains("invalid fill specification"),
                "non-finite fill metadata should be rejected"))
     {
         return 1;
     }
-    if (!check(project_session::validate_references(source, {"O2", "N2"}, &reference_error),
-               reference_error))
+    const bool source_references_valid =
+        project_session::validate_references(source, {"O2", "N2"}, &reference_error);
+    if (!check(source_references_valid, reference_error))
     {
         return 1;
     }

@@ -385,6 +385,12 @@ Unit
 - Rotational arrays with axial spacing now translate all spatial injector
   fields, including fan centers, volume bounds, and non-world target points,
   keeping helical child geometry coherent.
+- Injector rendering colors are always resolved from the existing Species/Color
+  table using `injector_data.material` as the species key; updates, array
+  rebuilds, and restores must not copy arbitrary parent or default colors.
+- Project-session validation now rejects non-finite array/fill values and
+  unusable reference frames before restoration; focused regression coverage
+  includes invalid counts, ellipse radii, fill spacing, and parallel axes.
 
 ## History
 

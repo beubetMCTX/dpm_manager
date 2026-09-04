@@ -626,6 +626,14 @@ bool is_finite_vector(const QVector3D &value)
            std::isfinite(static_cast<double>(value.z()));
 }
 
+bool is_usable_reference_frame(const QVector3D &x_axis,
+                               const QVector3D &z_axis)
+{
+    return x_axis.lengthSquared() > 1.0e-12f &&
+           z_axis.lengthSquared() > 1.0e-12f &&
+           QVector3D::crossProduct(x_axis, z_axis).lengthSquared() > 1.0e-12f;
+}
+
 QString session_path_for_storage(const QString &path, const QString &session_file_path)
 {
     if (path.trimmed().isEmpty() || !QFileInfo(path).isAbsolute())
@@ -769,8 +777,9 @@ bool validate(const Data &data, QString *error_message)
         if (unit.has_array_spec)
         {
             const UnitArraySpec &spec = unit.array_spec;
-            if (spec.type < UnitArrayType::Linear ||
-                spec.type > UnitArrayType::Elliptical ||
+            const int array_type = static_cast<int>(spec.type);
+            if (array_type < static_cast<int>(UnitArrayType::Linear) ||
+                array_type > static_cast<int>(UnitArrayType::Elliptical) ||
                 spec.count < 1 || spec.count > 100000 ||
                 !is_finite_vector(spec.direction) ||
                 !is_finite_vector(spec.origin) ||
@@ -779,6 +788,8 @@ bool validate(const Data &data, QString *error_message)
                 !std::isfinite(spec.angle_degrees) ||
                 !std::isfinite(spec.major_radius) ||
                 !std::isfinite(spec.minor_radius) ||
+                (spec.use_reference_geometry &&
+                 !is_usable_reference_frame(spec.direction, spec.plane_normal)) ||
                 (spec.type == UnitArrayType::Elliptical &&
                  (spec.major_radius <= 0.0f || spec.minor_radius < 0.0f)))
             {
@@ -791,8 +802,9 @@ bool validate(const Data &data, QString *error_message)
         if (unit.has_fill_spec)
         {
             const UnitFillSpec &spec = unit.fill_spec;
-            if (spec.pattern < UnitFillPattern::Square ||
-                spec.pattern > UnitFillPattern::Hexagonal ||
+            const int fill_pattern = static_cast<int>(spec.pattern);
+            if (fill_pattern < static_cast<int>(UnitFillPattern::Square) ||
+                fill_pattern > static_cast<int>(UnitFillPattern::Hexagonal) ||
                 spec.rows < 1 || spec.rows > 1000 ||
                 spec.columns < 1 || spec.columns > 1000 ||
                 !is_finite_vector(spec.origin) ||
@@ -801,6 +813,8 @@ bool validate(const Data &data, QString *error_message)
                 !std::isfinite(spec.spacing_x) ||
                 !std::isfinite(spec.spacing_y) ||
                 !std::isfinite(spec.boundary_radius) ||
+                (spec.use_reference_geometry &&
+                 !is_usable_reference_frame(spec.direction, spec.plane_normal)) ||
                 (spec.circular_boundary && spec.boundary_radius < 0.0f))
             {
                 set_error(error_message,
