@@ -654,6 +654,9 @@ Unit
 - All injector display rebuild paths now take transparency from active visual
   preferences, preserving the setting after import, paste, array rebuild, or
   undo/redo.
+- The Objects inspector now displays position and target values in the active
+  length unit, converts edits back to internal metres, and refreshes labels
+  immediately after unit preference changes.
 
 ## History
 

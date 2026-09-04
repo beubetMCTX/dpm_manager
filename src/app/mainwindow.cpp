@@ -449,6 +449,7 @@ void MainWindow::open_unit_preferences_dialog()
     {
         m_3d_widget->apply_visual_preferences(preferences);
         m_3d_widget->refresh_open_unit_editors();
+        update_unit_position_controls();
     }
     statusBar()->showMessage("Display units updated", 3000);
 }
@@ -2486,6 +2487,20 @@ void MainWindow::create_object_list_panel()
     m_unit_target_scope->addItem("Reference Local", static_cast<int>(Single_Target_Scope::Reference_Local));
     m_unit_target_scope->setEnabled(false);
     direction_layout->addRow("Target Scope", m_unit_target_scope);
+    const auto refresh_inspector_units = [this]()
+    {
+        const QString length = UnitSystem::preferred_display_unit("m");
+        const QString angle = UnitSystem::preferred_display_unit("deg");
+        for (QDoubleSpinBox *box : {m_unit_position_x, m_unit_position_y,
+                                    m_unit_position_z, m_unit_target_x,
+                                    m_unit_target_y, m_unit_target_z})
+        {
+            if (box != nullptr) box->setSuffix(" " + length);
+        }
+        m_unit_pitch->setSuffix(" " + angle);
+        m_unit_yaw->setSuffix(" " + angle);
+    };
+    refresh_inspector_units();
     layout->addWidget(direction_group);
 
     m_object_list_dock->setWidget(panel);
@@ -2511,10 +2526,20 @@ void MainWindow::create_object_list_panel()
             return;
         }
         const QUuid uuid(item->data(Qt::UserRole).toString());
-        if (!uuid.isNull() && m_3d_widget->set_unit_position_by_uuid(
-                uuid, QVector3D(static_cast<float>(x->value()),
-                                static_cast<float>(y->value()),
-                                static_cast<float>(z->value()))))
+        bool ok_x = false;
+        bool ok_y = false;
+        bool ok_z = false;
+        const QString display_unit = UnitSystem::preferred_display_unit("m");
+        const auto to_storage = [&display_unit](double value, bool *ok)
+        {
+            return UnitSystem::convert(value, display_unit, "m", ok);
+        };
+        const QVector3D storage_position(
+            static_cast<float>(to_storage(x->value(), &ok_x)),
+            static_cast<float>(to_storage(y->value(), &ok_y)),
+            static_cast<float>(to_storage(z->value(), &ok_z)));
+        if (!uuid.isNull() && ok_x && ok_y && ok_z &&
+            m_3d_widget->set_unit_position_by_uuid(uuid, storage_position))
         {
             update_unit_position_controls();
         }
@@ -4027,17 +4052,33 @@ void MainWindow::update_unit_position_controls()
     const QSignalBlocker target_y_blocker(m_unit_target_y);
     const QSignalBlocker target_z_blocker(m_unit_target_z);
     const QSignalBlocker target_scope_blocker(m_unit_target_scope);
-    m_unit_position_x->setValue(position.x());
-    m_unit_position_y->setValue(position.y());
-    m_unit_position_z->setValue(position.z());
+    const QString display_length = UnitSystem::preferred_display_unit("m");
+    const QString display_angle = UnitSystem::preferred_display_unit("deg");
+    for (QDoubleSpinBox *box : {m_unit_position_x, m_unit_position_y,
+                                m_unit_position_z, m_unit_target_x,
+                                m_unit_target_y, m_unit_target_z})
+    {
+        box->setSuffix(" " + display_length);
+    }
+    m_unit_pitch->setSuffix(" " + display_angle);
+    m_unit_yaw->setSuffix(" " + display_angle);
+    const auto from_storage = [&display_length](double value)
+    {
+        bool ok = false;
+        const double converted = UnitSystem::convert(value, "m", display_length, &ok);
+        return ok ? converted : value;
+    };
+    m_unit_position_x->setValue(from_storage(position.x()));
+    m_unit_position_y->setValue(from_storage(position.y()));
+    m_unit_position_z->setValue(from_storage(position.z()));
     m_unit_direction_x->setValue(direction.x());
     m_unit_direction_y->setValue(direction.y());
     m_unit_direction_z->setValue(direction.z());
     m_unit_pitch->setValue(pitch);
     m_unit_yaw->setValue(yaw);
-    m_unit_target_x->setValue(target.x());
-    m_unit_target_y->setValue(target.y());
-    m_unit_target_z->setValue(target.z());
+    m_unit_target_x->setValue(from_storage(target.x()));
+    m_unit_target_y->setValue(from_storage(target.y()));
+    m_unit_target_z->setValue(from_storage(target.z()));
     const int target_scope_index = m_unit_target_scope->findData(
         static_cast<int>(target_scope));
     if (target_scope_index >= 0)

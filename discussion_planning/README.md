@@ -39,6 +39,10 @@ duplicating its parameter logic.
 Injector transparency is now reapplied from active visual preferences across
 all geometry refresh, paste, array, restore, and undo paths.
 
+The Objects inspector now converts position and target coordinates between the
+active display length unit and internal metres, and refreshes its unit suffixes
+when preferences change.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9
