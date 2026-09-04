@@ -9,6 +9,8 @@
 - Unit-array regression coverage verifies weighted and legacy source ordering.
 - Project-session validation rejects invalid fill source weights and protects
   older valid sessions from silent corruption.
+- Legacy multi-source fills receive one default weight per source, while new
+  sessions require matching weight and source counts.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing

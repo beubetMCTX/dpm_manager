@@ -477,6 +477,9 @@ Unit
   legacy round-robin fallback when weights are absent.
 - Project-session validation now rejects empty, non-positive, or excessively
   large fill source weights instead of silently normalizing invalid data.
+- Legacy fill sessions without a weight array now receive one default weight
+  per stored source; current sessions require the weight/source counts to
+  match.
 
 ## History
 

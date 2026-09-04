@@ -589,10 +589,6 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
                 unit->fill_spec.source_weights.append(qMax(1, weight_value.toInt(1)));
             }
         }
-        if (unit->fill_spec.source_weights.isEmpty())
-        {
-            unit->fill_spec.source_weights = {1};
-        }
         const QJsonArray sources = object.value("fill_source_uuids").toArray();
         for (const QJsonValue &source : sources)
         {
@@ -601,6 +597,11 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
             {
                 unit->fill_source_uuids.append(uuid);
             }
+        }
+        if (unit->fill_spec.source_weights.isEmpty())
+        {
+            unit->fill_spec.source_weights = QVector<int>(
+                qMax(1, unit->fill_source_uuids.size()), 1);
         }
     }
     if (unit->has_array_spec && object.value("array_spec").isObject())
@@ -842,6 +843,8 @@ bool validate(const Data &data, QString *error_message)
                 !std::isfinite(spec.spacing_y) ||
                 !std::isfinite(spec.boundary_radius) ||
                 spec.source_weights.isEmpty() ||
+                (!unit.fill_source_uuids.isEmpty() &&
+                 spec.source_weights.size() != unit.fill_source_uuids.size()) ||
                 std::any_of(spec.source_weights.cbegin(),
                             spec.source_weights.cend(),
                             [](int weight) { return weight <= 0; }) ||

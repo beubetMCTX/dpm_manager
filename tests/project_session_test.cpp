@@ -139,6 +139,16 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    invalid_fill_spec.units.first().fill_spec.source_weights = {1};
+    invalid_fill_spec.units.first().fill_source_uuids =
+        {QUuid::createUuid(), QUuid::createUuid()};
+    reference_error.clear();
+    if (!check(!project_session::validate(invalid_fill_spec, &reference_error) &&
+                   reference_error.contains("invalid fill specification"),
+               "fill source weight count should match source count"))
+    {
+        return 1;
+    }
     const bool source_references_valid =
         project_session::validate_references(source, {"O2", "N2"}, &reference_error);
     if (!check(source_references_valid, reference_error))
