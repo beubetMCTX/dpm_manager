@@ -2265,6 +2265,12 @@ References:
   paths without replacing the world coordinate system.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Cover Alignment Frame Sessions
+
+- Added project-session regression coverage for Alignment Frame direction and
+  size round-trips, including invalid construction parameters.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Reference-Aid Session Round Trips
 
 - Added project-session regression coverage for Section Plane and Datum Origin

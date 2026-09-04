@@ -607,6 +607,36 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data frame_source = datum_source;
+    frame_source.reference_geometry.kind = "alignment_frame";
+    frame_source.reference_geometry.construction_size = 4.5;
+    const QString frame_path = temporary_directory.filePath("alignment_frame.dpmproj");
+    if (!check(project_session::save(frame_path, frame_source, &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_frame;
+    if (!check(project_session::load(frame_path, &restored_frame, &error_message),
+               error_message) ||
+        !check(restored_frame.reference_geometry.kind == "alignment_frame" &&
+                   restored_frame.reference_geometry.construction_size == 4.5 &&
+                   restored_frame.reference_geometry.construction_direction ==
+                       frame_source.reference_geometry.construction_direction,
+               "Alignment frame parameters did not round-trip"))
+    {
+        return 1;
+    }
+
+    project_session::Data invalid_frame = frame_source;
+    invalid_frame.reference_geometry.construction_radius = 0.0;
+    if (!check(!project_session::validate(invalid_frame, &validation_error) &&
+                   validation_error.contains("constructed reference geometry"),
+               "invalid alignment frame radius should fail validation"))
+    {
+        return 1;
+    }
+
     project_session::Data section_source = datum_source;
     section_source.reference_geometry.kind = "section_plane";
     section_source.reference_geometry.construction_size = 31.0;
@@ -652,6 +682,7 @@ int main(int argc, char *argv[])
     QFile::remove(datum_path);
     QFile::remove(section_path);
     QFile::remove(origin_path);
+    QFile::remove(frame_path);
     QFile::remove(malformed_path);
     QFile::remove(malformed_transform_path);
     QFile::remove(malformed_unit_path);
