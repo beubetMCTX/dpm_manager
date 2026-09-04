@@ -4725,14 +4725,16 @@ void OCCTWidget::m_initialize_context()
 
         m_view->SetZoom(100);   // 放大
 
-        // The application uses metres internally; show a 1 mm grid for
-        // millimetre-scale injector placement without creating a selectable
-        // AIS object in the scene.
+        m_view->SetProj(V3d_Zpos);
+
+        // The application uses metres internally; show a 1 mm grid on the
+        // final XY privileged plane without creating a selectable AIS object.
+        m_viewer->SetPrivilegedPlane(
+            gp_Ax3(gp::Origin(), gp::DZ(), gp::DX()));
         m_viewer->SetRectangularGridValues(0.0, 0.0, 1.0e-3, 1.0e-3, 0.0);
         m_viewer->SetRectangularGridGraphicValues(0.1, 0.1, 0.0);
         m_viewer->ActivateGrid(Aspect_GT_Rectangular, Aspect_GDM_Lines);
-
-        m_view->SetProj(V3d_Zpos);
+        m_view->Redraw();
     }
 }
 
