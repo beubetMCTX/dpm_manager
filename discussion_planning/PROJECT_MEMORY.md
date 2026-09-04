@@ -498,6 +498,8 @@ Unit
 - Assembly child local rotation now uses a rotation-vector representation and
   quaternion composition for independent child rotations; parent-inclusive
   rotations preserve the child's local orientation.
+- OCCT regression coverage now verifies that an independent child rotation
+  changes its persisted local orientation.
 
 ## History
 

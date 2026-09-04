@@ -105,6 +105,17 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    const QVector3D local_rotation_before_child_edit =
+        widget.unit_hash.value(member_uuid)->assembly_local_rotation;
+    if (!check(widget.rotate_units_by_uuid(
+                   {member_uuid}, QVector3D(0.0f, 0.0f, 1.0f), 30.0f) > 0,
+               "Independent child rotation should succeed") ||
+        !check(widget.unit_hash.value(member_uuid)->assembly_local_rotation !=
+                   local_rotation_before_child_edit,
+               "Independent child rotation must update local orientation"))
+    {
+        return 1;
+    }
     if (!check(!widget.copy_unit_by_uuid(uuid),
                "Assembly copy should be rejected until composite cloning exists"))
     {
