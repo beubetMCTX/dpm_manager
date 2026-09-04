@@ -3786,7 +3786,7 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
         gp_Pnt(origin.x(), origin.y(), origin.z()),
         gp_Dir(direction.x(), direction.y(), direction.z()));
     trihedron->SetComponent(new Geom_Axis2Placement(axis));
-    trihedron->SetSize(std::max(get_trihedron_size() * 0.45, 1.0));
+    trihedron->SetSize(std::max(get_trihedron_size() * 0.45, 1.0e-3));
     m_context->Redisplay(trihedron, Standard_False);
 }
 
@@ -4551,7 +4551,7 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
     selected_face_axis = face_axis;
     face_axis_placement = new Geom_Axis2Placement(face_axis);
     face_trihedron = new AIS_Trihedron(face_axis_placement);
-    face_trihedron->SetSize(std::max(get_trihedron_size() * 0.75, 1.0));
+    face_trihedron->SetSize(std::max(get_trihedron_size() * 0.75, 1.0e-3));
     face_trihedron->SetDatumDisplayMode(Prs3d_DM_Shaded);
     face_trihedron->SetDatumPartColor(Prs3d_DP_XAxis, Quantity_NOC_RED);
     face_trihedron->SetDatumPartColor(Prs3d_DP_XArrow, Quantity_NOC_RED);
@@ -4725,12 +4725,12 @@ void OCCTWidget::m_initialize_context()
 
         m_view->SetZoom(100);   // 放大
 
-        m_view->SetProj(V3d_Zpos);
+        m_view->SetProj(V3d_Ypos);
 
         // The application uses metres internally; show a 1 mm grid on the
-        // final XY privileged plane without creating a selectable AIS object.
+        // final XZ privileged plane without creating a selectable AIS object.
         m_viewer->SetPrivilegedPlane(
-            gp_Ax3(gp::Origin(), gp::DZ(), gp::DX()));
+            gp_Ax3(gp::Origin(), gp::DY(), gp::DX()));
         m_viewer->SetRectangularGridValues(0.0, 0.0, 1.0e-3, 1.0e-3, 0.0);
         m_viewer->SetRectangularGridGraphicValues(0.1, 0.1, 0.0);
         m_viewer->ActivateGrid(Aspect_GT_Rectangular, Aspect_GDM_Lines);
