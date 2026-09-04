@@ -2372,7 +2372,9 @@ void MainWindow::create_object_list_panel()
     auto *array_tools_action = new QAction(tr("Array Tools..."), interaction_toolbar);
     auto *reference_tools_action = new QAction(tr("Reference Tools"), interaction_toolbar);
     auto *new_injector_action = new QAction(tr("New Injector"), interaction_toolbar);
+    auto *assembly_tools_action = new QAction(tr("Create Assembly"), interaction_toolbar);
     interaction_toolbar->addAction(new_injector_action);
+    interaction_toolbar->addAction(assembly_tools_action);
     interaction_toolbar->addAction(array_tools_action);
     interaction_toolbar->addAction(reference_tools_action);
     auto *interaction_status = new QLabel(tr("Mode: Select"), interaction_toolbar);
@@ -2476,6 +2478,42 @@ void MainWindow::create_object_list_panel()
         update_object_list_panel();
         mark_project_dirty();
         statusBar()->showMessage(tr("Created a new injector"), 3000);
+    });
+    connect(assembly_tools_action, &QAction::triggered, this, [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+        QList<QUuid> selected_units;
+        for (QListWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr ||
+                item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+            {
+                continue;
+            }
+            const QUuid uuid(item->data(Qt::UserRole).toString());
+            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
+            {
+                selected_units.append(uuid);
+            }
+        }
+        if (selected_units.size() < 2)
+        {
+            statusBar()->showMessage(
+                tr("Select at least two units to create an Assembly"), 4000);
+            return;
+        }
+        if (m_3d_widget->create_assembly(selected_units))
+        {
+            update_object_list_panel();
+            mark_project_dirty();
+            statusBar()->showMessage(
+                QString("Created Assembly with %1 member Unit(s)")
+                    .arg(selected_units.size()),
+                4000);
+        }
     });
     connect(m_3d_widget, &OCCTWidget::interaction_mode_changed,
             this, [toolbar_selection, toolbar_translation, toolbar_rotation,
