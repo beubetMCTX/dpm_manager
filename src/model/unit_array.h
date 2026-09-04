@@ -5,6 +5,7 @@
 #include "unit_array_spec.h"
 
 #include <QList>
+#include <QHash>
 #include <QVector3D>
 
 // Expands one leaf Unit into independent display-ready child Units.
@@ -14,5 +15,10 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec);
 // Expands one or more seed Units over a square or hexagonal point layout.
 // Seeds are assigned by the optional deterministic source-weight cycle.
 QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spec);
+
+// Clones a persistent Assembly/Unit subtree with fresh UUIDs. Runtime
+// derived array children are omitted and can be rebuilt from their metadata.
+std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
+                                      QHash<QUuid, QUuid> &uuid_map);
 
 #endif // UNIT_ARRAY_H

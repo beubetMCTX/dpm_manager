@@ -218,5 +218,24 @@ int main(int argc, char **argv)
     ok = check(reference_filled[0].inj.injector_data.single_target_hitpoint ==
                    QVector3D(8.0f, 21.0f, 33.0f),
                "reference-frame fill should resolve local target points") && ok;
+
+    Unit assembly_source(source);
+    Unit assembly_child(second_source);
+    assembly_source.type = Assebly;
+    assembly_source.child_units.append(
+        std::make_shared<Unit>(assembly_child));
+    assembly_source.assembly_child_uuids.append(
+        assembly_source.child_units.first()->inj.uuid);
+    QHash<QUuid, QUuid> uuid_map;
+    const std::shared_ptr<Unit> cloned_tree =
+        clone_unit_tree(assembly_source, uuid_map);
+    ok = check(cloned_tree != nullptr && cloned_tree->type == Assebly &&
+                   cloned_tree->child_units.size() == 1 &&
+                   cloned_tree->inj.uuid != assembly_source.inj.uuid &&
+                   cloned_tree->child_units.first()->inj.uuid !=
+                       assembly_child.inj.uuid &&
+                   cloned_tree->child_units.first()->assembly_parent_uuid ==
+                       cloned_tree->inj.uuid,
+               "Assembly tree clone should remap UUIDs and parent links") && ok;
     return ok ? 0 : 1;
 }

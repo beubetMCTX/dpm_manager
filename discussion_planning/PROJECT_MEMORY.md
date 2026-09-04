@@ -517,6 +517,9 @@ Unit
 - Dependent-array refresh now collects the full dependency closure and rebuilds
   roots in prototype-depth order, preventing an outer array from being rebuilt
   from stale inner-array geometry.
+- Added model-level recursive Unit-tree cloning with fresh UUIDs and remapped
+  Assembly parent/child links; runtime derived array children are intentionally
+  omitted and remain rebuildable from their specifications.
 
 ## History
 

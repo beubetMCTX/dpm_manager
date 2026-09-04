@@ -372,3 +372,36 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
     }
     return result;
 }
+
+std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
+                                      QHash<QUuid, QUuid> &uuid_map)
+{
+    const std::shared_ptr<Unit> clone = std::make_shared<Unit>(source);
+    const QUuid source_uuid = source.inj.uuid;
+    const QUuid clone_uuid = QUuid::createUuid();
+    uuid_map.insert(source_uuid, clone_uuid);
+
+    clone->inj.uuid = clone_uuid;
+    clone->assembly_parent_uuid = QUuid();
+    clone->assembly_child_uuids.clear();
+    clone->child_units.clear();
+    clone->is_array_child = false;
+    clone->follows_array = true;
+    clone->array_parent_uuid = QUuid();
+    clone->prototype_uuid = QUuid();
+    clone->prototype_chain.clear();
+
+    for (const std::shared_ptr<Unit> &source_child : source.child_units)
+    {
+        if (source_child == nullptr || source_child->is_array_child)
+        {
+            continue;
+        }
+        const std::shared_ptr<Unit> child =
+            clone_unit_tree(*source_child, uuid_map);
+        child->assembly_parent_uuid = clone_uuid;
+        clone->assembly_child_uuids.append(child->inj.uuid);
+        clone->child_units.append(child);
+    }
+    return clone;
+}

@@ -2371,3 +2371,11 @@ References:
 - Rebuild order follows prototype-chain depth from inner to outer, so multiple
   nested array levels do not transiently consume stale child geometry.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Unit Tree Clone Foundation
+
+- Added recursive model-level cloning for Assembly/Unit subtrees.
+- Clone operations generate fresh UUIDs and remap parent/child links while
+  excluding runtime-derived array children.
+- Added focused regression coverage for cloned hierarchy integrity.
+- Release build and all 12 focused regressions passed.
