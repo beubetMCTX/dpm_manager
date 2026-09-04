@@ -3836,6 +3836,34 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
 
     }
 
+    if (selected_unit->type == Assebly)
+    {
+        QMenu menu;
+        QAction *header_action = menu.addAction(
+            selected_unit->inj.injector_data.name.isEmpty()
+                ? QStringLiteral("Assembly")
+                : selected_unit->inj.injector_data.name);
+        header_action->setEnabled(false);
+        menu.addSeparator();
+        QAction *dissolve_action = menu.addAction("Dissolve Assembly");
+        QAction *lock_action = menu.addAction(
+            unit_locked(selected_unit->inj.uuid)
+                ? "Unlock Assembly"
+                : "Lock Assembly");
+        const QUuid target_uuid = selected_unit->inj.uuid;
+        connect(dissolve_action, &QAction::triggered, this,
+                [this, target_uuid]() { dissolve_assembly(target_uuid); });
+        connect(lock_action, &QAction::triggered, this,
+                [this, target_uuid]()
+        {
+            set_unit_locked(target_uuid, !unit_locked(target_uuid));
+        });
+        menu.exec(event->globalPos());
+        clear_context_selection_safely();
+        event->accept();
+        return;
+    }
+
     clear_context_selection_safely();
     event->ignore();
 }

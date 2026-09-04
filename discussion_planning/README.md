@@ -2180,6 +2180,13 @@ References:
 - Added regression coverage for the rejection path.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Assembly Context Menu
+
+- Right-clicking an Assembly now exposes text actions for recursive lock/unlock
+  and dissolving the composite.
+- The actions reuse the existing Assembly lifecycle and lock propagation code.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit
