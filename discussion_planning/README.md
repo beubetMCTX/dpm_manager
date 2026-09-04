@@ -36,6 +36,9 @@ The viewport toolbar now exposes Array Tools and Reference Tools. Array Tools
 opens the existing complete array workflow for the current object rather than
 duplicating its parameter logic.
 
+Injector transparency is now reapplied from active visual preferences across
+all geometry refresh, paste, array, restore, and undo paths.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9

@@ -651,6 +651,9 @@ Unit
   consuming an older history entry.
 - The top viewport toolbar now exposes Array Tools and Reference Tools; Array
   Tools reuses the established full context-menu parameter workflow.
+- All injector display rebuild paths now take transparency from active visual
+  preferences, preserving the setting after import, paste, array rebuild, or
+  undo/redo.
 
 ## History
 

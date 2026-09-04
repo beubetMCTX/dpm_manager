@@ -23,6 +23,12 @@ QColor placeholder_color_for_species(const QString &species_name)
     return QColor::fromHsv(hue, saturation, value);
 }
 
+Standard_Real configured_injector_transparency(const Injector &injector)
+{
+    const double configured = UnitSystem::active_preferences().injector_transparency;
+    return injector.injection_type == volume ? std::max(0.82, configured) : configured;
+}
+
 QVector3D to_qvector3d(const gp_Pnt &point)
 {
     return QVector3D(static_cast<float>(point.X()),
@@ -416,7 +422,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         stored_unit->ais_display->SetColor(
             color_for_injector(stored_unit->inj.injector_data));
         stored_unit->ais_display->SetTransparency(
-            stored_unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(stored_unit->inj.injector_data));
 
         m_context->Activate(stored_unit->ais_display, TopAbs_SHAPE, Standard_True);
         m_context->Display(stored_unit->ais_display, Standard_False);
@@ -995,7 +1001,7 @@ void OCCTWidget::restore_transform_gizmo_preview()
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
         unit->ais_display->SetTransparency(
-            unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+            configured_injector_transparency(unit->inj.injector_data));
         if (!m_context.IsNull())
         {
             m_context->Redisplay(unit->ais_display, Standard_False);
@@ -1087,7 +1093,7 @@ void OCCTWidget::finish_transform_gizmo(bool apply)
             unit->ais_display->Set(unit->inj.shape);
             unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
             unit->ais_display->SetTransparency(
-                unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+                configured_injector_transparency(unit->inj.injector_data));
             m_context->Redisplay(unit->ais_display, Standard_False);
             update_unit_local_coordinate_frame(uuid);
 
@@ -1328,7 +1334,7 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetTransparency(
-        injector.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(uuid);
@@ -1384,7 +1390,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetTransparency(
-        injector.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(uuid);
@@ -1433,7 +1439,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetTransparency(
-        injector.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(uuid);
@@ -1481,7 +1487,7 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetTransparency(
-        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(unit->inj.injector_data));
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(uuid);
@@ -1878,7 +1884,7 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
-        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(uuid);
     clear_move_history();
@@ -1924,7 +1930,7 @@ bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
         unit->ais_display->SetColor(
             color_for_injector(unit->inj.injector_data));
         unit->ais_display->SetTransparency(
-            unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+            configured_injector_transparency(unit->inj.injector_data));
         m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
         m_context->Display(unit->ais_display, Standard_False);
         for (const std::shared_ptr<Unit> &child : unit->child_units)
@@ -2150,7 +2156,7 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
             unit->ais_display->SetColor(
                 color_for_injector(unit->inj.injector_data));
             unit->ais_display->SetTransparency(
-                unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+            configured_injector_transparency(unit->inj.injector_data));
             m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
             m_context->Display(unit->ais_display, Standard_False);
             for (const std::shared_ptr<Unit> &child : unit->child_units)
@@ -2251,7 +2257,7 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         stored_child->ais_display->SetColor(
             color_for_injector(stored_child->inj.injector_data));
         stored_child->ais_display->SetTransparency(
-            stored_child->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+            configured_injector_transparency(stored_child->inj.injector_data));
 
         unit_hash.insert(stored_child->inj.uuid, stored_child);
         m_unit_visibility.insert(stored_child->inj.uuid, true);
@@ -2350,7 +2356,7 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
             unit->ais_display->SetColor(
                 color_for_injector(unit->inj.injector_data));
             unit->ais_display->SetTransparency(
-                unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+                configured_injector_transparency(unit->inj.injector_data));
             m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
             m_context->Display(unit->ais_display, Standard_False);
             for (const std::shared_ptr<Unit> &child : unit->child_units)
@@ -2416,7 +2422,8 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         m_context->Display(stored_child->ais_display, Standard_False);
         if (stored_child->inj.injector_data.injection_type == volume)
         {
-            stored_child->ais_display->SetTransparency(0.82f);
+            stored_child->ais_display->SetTransparency(
+                configured_injector_transparency(stored_child->inj.injector_data));
         }
         if (!sources.isEmpty())
         {
@@ -2816,7 +2823,7 @@ bool OCCTWidget::restore_deleted_unit(const UnitDeleteHistoryEntry &entry)
     restored_unit->ais_display->SetColor(
         color_for_injector(restored_unit->inj.injector_data));
     restored_unit->ais_display->SetTransparency(
-        restored_unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(restored_unit->inj.injector_data));
 
     unit_hash.insert(entry.uuid, restored_unit);
     m_unit_visibility.insert(entry.uuid, entry.visible);
@@ -3130,7 +3137,7 @@ bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
-        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(entry.uuid);
     m_view->Redraw();
@@ -3333,7 +3340,7 @@ bool OCCTWidget::cancel_active_drag_for_undo()
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(injector));
         unit->ais_display->SetTransparency(
-            injector.injection_type == volume ? 0.82f : 0.0f);
+            configured_injector_transparency(injector));
         m_context->Redisplay(unit->ais_display, Standard_False);
         update_unit_local_coordinate_frame(unit->inj.uuid);
         emit unit_position_updated(unit.get());
@@ -4926,7 +4933,7 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
-        unit->inj.injector_data.injection_type == volume ? 0.82f : 0.0f);
+        configured_injector_transparency(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
     if (unit->has_array_spec && !unit->is_array_child)
