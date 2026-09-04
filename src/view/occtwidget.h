@@ -254,6 +254,7 @@ signals:
     void unit_display_list_changed();
     void unit_removed(const QUuid &uuid);
     void selection_changed(const QUuid &uuid, bool reference_geometry);
+    void unit_selection_changed(const QList<QUuid> &uuids);
     void move_history_changed(bool can_undo, bool can_redo);
     void edit_history_changed(bool can_undo, bool can_redo);
     void delete_history_changed(bool can_undo, bool can_redo);

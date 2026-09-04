@@ -4773,15 +4773,39 @@ bool OCCTWidget::select_injector()
         return false;
     }
 
+    const auto emit_unit_selection = [this]()
+    {
+        QList<QUuid> selected_units;
+        if (!m_context.IsNull())
+        {
+            for (m_context->InitSelected(); m_context->MoreSelected();
+                 m_context->NextSelected())
+            {
+                const Handle(AIS_Shape) shape =
+                    Handle(AIS_Shape)::DownCast(m_context->SelectedInteractive());
+                if (Unit *unit = get_unit(shape))
+                {
+                    if (!selected_units.contains(unit->inj.uuid))
+                    {
+                        selected_units.append(unit->inj.uuid);
+                    }
+                }
+            }
+        }
+        emit unit_selection_changed(selected_units);
+    };
+
     if (select(TopAbs_COMPOUND) && get_unit(selected_shape) != nullptr)
     {
         emit selection_changed(get_unit(selected_shape)->inj.uuid, false);
+        emit_unit_selection();
         return true;
     }
 
     if (select(TopAbs_SHAPE) && get_unit(selected_shape) != nullptr)
     {
         emit selection_changed(get_unit(selected_shape)->inj.uuid, false);
+        emit_unit_selection();
         return true;
     }
 

@@ -307,6 +307,32 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_3d_widget, &OCCTWidget::selection_changed,
             this, &MainWindow::update_object_list_selection);
+    connect(m_3d_widget, &OCCTWidget::unit_selection_changed, this,
+            [this](const QList<QUuid> &uuids)
+    {
+        if (m_object_list == nullptr)
+        {
+            return;
+        }
+        const QSignalBlocker blocker(m_object_list);
+        m_object_list->clearSelection();
+        QListWidgetItem *current = nullptr;
+        for (int row = 0; row < m_object_list->count(); ++row)
+        {
+            QListWidgetItem *item = m_object_list->item(row);
+            if (uuids.contains(QUuid(item->data(Qt::UserRole).toString())))
+            {
+                item->setSelected(true);
+                if (current == nullptr) current = item;
+            }
+        }
+        if (current != nullptr)
+        {
+            m_object_list->setCurrentItem(current, QItemSelectionModel::NoUpdate);
+            m_object_list->scrollToItem(current);
+        }
+        update_unit_position_controls();
+    });
     connect(ui->actionUndo_Move, &QAction::triggered, m_3d_widget,
             &OCCTWidget::undo_last_move);
     connect(ui->actionRedo_Move, &QAction::triggered, m_3d_widget,

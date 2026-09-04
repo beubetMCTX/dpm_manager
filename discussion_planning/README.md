@@ -49,6 +49,9 @@ Shift-click additive selection through OCCT selection schemes.
 Position and direction inspector groups now appear only for a selected leaf
 injector, remaining hidden for blank, reference, and Assembly selections.
 
+The OCCT selection set now synchronizes with the object list, preserving
+modifier-based multi-selection while retaining one current item for inspection.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9

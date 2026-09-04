@@ -661,6 +661,9 @@ Unit
   Ctrl-click toggles, and Shift-click adds to the OCCT selection.
 - Position and direction inspector groups are hidden without a selected leaf
   injector; Assembly and reference selections no longer consume inspector space.
+- The 3D selection set now synchronizes to the object list; plain click replaces,
+  Ctrl-click toggles, and Shift-click adds while retaining a current inspector
+  item.
 
 ## History
 
