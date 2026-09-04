@@ -2484,3 +2484,10 @@ References:
   prototype links and remain included in recursive transforms.
 - Added regression coverage for child prototype resolution.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Preserve Composite Array Overrides
+
+- Rebuilding a composite array now detaches `follows_array == false` child
+  overrides back to the source Unit rather than deleting them with derived
+  instances.
+- Release build and all 12 focused regressions passed.

@@ -1901,6 +1901,14 @@ void OCCTWidget::clear_unit_array_children(Unit &source)
         const QVector<std::shared_ptr<Unit>> descendants = node->child_units;
         for (const std::shared_ptr<Unit> &descendant : descendants)
         {
+            if (descendant != nullptr &&
+                (!descendant->is_array_child || !descendant->follows_array))
+            {
+                descendant->assembly_parent_uuid = QUuid();
+                descendant->array_parent_uuid = QUuid();
+                source.child_units.append(descendant);
+                continue;
+            }
             remove_derived_tree(descendant);
         }
         const QUuid node_uuid = node->inj.uuid;

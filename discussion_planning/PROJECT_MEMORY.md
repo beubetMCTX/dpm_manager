@@ -558,6 +558,9 @@ Unit
 - Derived composite child Units now retain their own prototype links, so
   editing a child inside a composite array can resolve back to its source
   Assembly member; recursive tree transforms include these derived children.
+- Composite-array cleanup now preserves independent child overrides: nodes with
+  `follows_array == false` are detached back to the source Unit instead of being
+  deleted with the regenerated derived tree.
 
 ## History
 
