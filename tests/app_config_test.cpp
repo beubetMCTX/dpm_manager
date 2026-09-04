@@ -396,6 +396,43 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    reference_geometry.kind = "datum_origin";
+    reference_geometry.file_path.clear();
+    reference_geometry.construction_radius = 0.42;
+    reference_geometry.construction_direction = QVector3D(1.0f, 2.0f, 3.0f).normalized();
+    reference_geometry_test_ok = save_reference_geometry_config(
+        reference_geometry, &config_error);
+    loaded_reference_geometry = ReferenceGeometryConfig();
+    reference_geometry_test_ok = reference_geometry_test_ok &&
+        load_reference_geometry_config(&loaded_reference_geometry, &config_error) &&
+        loaded_reference_geometry.kind == "datum_origin" &&
+        loaded_reference_geometry.file_path.isEmpty() &&
+        loaded_reference_geometry.construction_radius == 0.42 &&
+        loaded_reference_geometry.construction_direction ==
+            reference_geometry.construction_direction;
+    if (!check(reference_geometry_test_ok,
+               "constructed reference geometry config should round-trip"))
+    {
+        return 1;
+    }
+
+    reference_geometry.kind = "section_plane";
+    reference_geometry.construction_size = 31.0;
+    reference_geometry.construction_thickness = 0.35;
+    reference_geometry_test_ok = save_reference_geometry_config(
+        reference_geometry, &config_error);
+    loaded_reference_geometry = ReferenceGeometryConfig();
+    reference_geometry_test_ok = reference_geometry_test_ok &&
+        load_reference_geometry_config(&loaded_reference_geometry, &config_error) &&
+        loaded_reference_geometry.kind == "section_plane" &&
+        loaded_reference_geometry.construction_size == 31.0 &&
+        loaded_reference_geometry.construction_thickness == 0.35;
+    if (!check(reference_geometry_test_ok,
+               "section plane config should round-trip"))
+    {
+        return 1;
+    }
+
     QFile invalid_reference_file(settings_path);
     reference_geometry_test_ok = invalid_reference_file.open(
         QIODevice::WriteOnly | QIODevice::Text);

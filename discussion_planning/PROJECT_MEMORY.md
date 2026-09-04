@@ -239,6 +239,9 @@ Unit
   clipping against the section plane remains a later operation.
 - Project-session regression coverage now verifies both Section Plane and
   Datum Origin kinds and their construction parameters round-trip correctly.
+- Application-config loading now restores and validates constructed reference
+  dimensions, radius, thickness, and direction for Datum Origin and Section
+  Plane entries.
 - Project-session regression coverage now verifies constructed reference
   geometry round-trip and rejects zero construction directions.
 - Removed the unused early OCCT primitive-demo entry points that created a

@@ -559,6 +559,42 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     loaded_config.locked = locked_value.toBool();
     loaded_config.visible = visible_value.toBool();
 
+    if (geometry_object.contains("construction_direction") &&
+        !read_vector("construction_direction", &loaded_config.construction_direction))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry construction direction must be a finite 3D vector.",
+            error_message);
+    }
+    loaded_config.construction_size = geometry_object.value("construction_size")
+                                          .toDouble(loaded_config.construction_size);
+    loaded_config.construction_thickness = geometry_object.value("construction_thickness")
+                                               .toDouble(loaded_config.construction_thickness);
+    loaded_config.construction_radius = geometry_object.value("construction_radius")
+                                            .toDouble(loaded_config.construction_radius);
+    const bool invalid_construction_size =
+        !std::isfinite(loaded_config.construction_size) ||
+        loaded_config.construction_size <= 0.0;
+    const bool invalid_construction_thickness =
+        (kind == "datum_plane" || kind == "section_plane") &&
+        (!std::isfinite(loaded_config.construction_thickness) ||
+         loaded_config.construction_thickness <= 0.0);
+    const bool invalid_construction_radius =
+        (kind == "datum_axis" || kind == "datum_origin") &&
+        (!std::isfinite(loaded_config.construction_radius) ||
+         loaded_config.construction_radius <= 0.0);
+    if (kind != "file" &&
+        (loaded_config.construction_direction.lengthSquared() <= 1.0e-12f ||
+         invalid_construction_size || invalid_construction_thickness ||
+         invalid_construction_radius))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Constructed reference geometry parameters are invalid.",
+            error_message);
+    }
+
     if (config != nullptr)
     {
         *config = loaded_config;

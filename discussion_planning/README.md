@@ -2263,6 +2263,12 @@ References:
   kinds, dimensions, direction, and radius.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Complete Application Reference-Aid Config Loading
+
+- Application configuration now restores and validates constructed reference
+  parameters for Datum Origin and Section Plane entries.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Constructed Reference Session Validation
 
 - Added round-trip coverage for datum-plane construction parameters and
