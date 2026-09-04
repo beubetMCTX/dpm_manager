@@ -2536,6 +2536,12 @@ References:
   to clipping disabled.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Cover Section Clip Configuration
+
+- Application-config regression now verifies that Section Plane clipping is
+  saved and restored as part of the reference geometry settings.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Section Plane Clipping
 
 - Added offscreen regression coverage for enabling, observing, disabling, and

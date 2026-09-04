@@ -419,6 +419,7 @@ int main(int argc, char **argv)
     reference_geometry.kind = "section_plane";
     reference_geometry.construction_size = 31.0;
     reference_geometry.construction_thickness = 0.35;
+    reference_geometry.section_clipping = true;
     reference_geometry_test_ok = save_reference_geometry_config(
         reference_geometry, &config_error);
     loaded_reference_geometry = ReferenceGeometryConfig();
@@ -426,7 +427,8 @@ int main(int argc, char **argv)
         load_reference_geometry_config(&loaded_reference_geometry, &config_error) &&
         loaded_reference_geometry.kind == "section_plane" &&
         loaded_reference_geometry.construction_size == 31.0 &&
-        loaded_reference_geometry.construction_thickness == 0.35;
+        loaded_reference_geometry.construction_thickness == 0.35 &&
+        loaded_reference_geometry.section_clipping;
     if (!check(reference_geometry_test_ok,
                "section plane config should round-trip"))
     {
