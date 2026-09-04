@@ -2370,12 +2370,14 @@ void MainWindow::create_object_list_panel()
     }
     interaction_toolbar->addSeparator();
     auto *array_tools_action = new QAction(tr("Array Tools..."), interaction_toolbar);
+    auto *fill_tools_action = new QAction(tr("Fill Tools..."), interaction_toolbar);
     auto *reference_tools_action = new QAction(tr("Reference Tools"), interaction_toolbar);
     auto *new_injector_action = new QAction(tr("New Injector"), interaction_toolbar);
     auto *assembly_tools_action = new QAction(tr("Create Assembly"), interaction_toolbar);
     interaction_toolbar->addAction(new_injector_action);
     interaction_toolbar->addAction(assembly_tools_action);
     interaction_toolbar->addAction(array_tools_action);
+    interaction_toolbar->addAction(fill_tools_action);
     interaction_toolbar->addAction(reference_tools_action);
     auto *interaction_status = new QLabel(tr("Mode: Select"), interaction_toolbar);
     interaction_status->setObjectName("interactionModeStatus");
@@ -2409,6 +2411,25 @@ void MainWindow::create_object_list_panel()
         }
         QListWidgetItem *item = m_object_list->currentItem();
         if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+        {
+            statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
+            return;
+        }
+        const QPoint item_position = m_object_list->visualItemRect(item).center();
+        if (!item_position.isNull())
+        {
+            emit m_object_list->customContextMenuRequested(item_position);
+        }
+    });
+    connect(fill_tools_action, &QAction::triggered, this, [this]()
+    {
+        if (m_object_list == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr ||
+            item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
             return;
