@@ -719,7 +719,7 @@ void MainWindow::on_actionSave_DPM_triggered()
         return;
     }
 
-    const QString file_path = QFileDialog::getSaveFileName(
+    QString file_path = QFileDialog::getSaveFileName(
         this,
         "Save DPM File",
         ".",
@@ -750,7 +750,7 @@ void MainWindow::on_actionOpen_Project_triggered()
         this,
         "Open Project Session",
         ".",
-        "DPM Manager Project (*.dpmproj);;All Files (*.*)");
+        "DPM Manager Project (*.dpmpj *.dpmproj);;All Files (*.*)");
     if (file_path.trimmed().isEmpty())
     {
         statusBar()->showMessage("Project session open canceled", 5000);
@@ -1007,15 +1007,20 @@ bool MainWindow::save_current_project_session()
 
 bool MainWindow::save_project_session_as()
 {
-    const QString file_path = QFileDialog::getSaveFileName(
+    QString file_path = QFileDialog::getSaveFileName(
         this,
         "Save Project Session",
         ".",
-        "DPM Manager Project (*.dpmproj);;All Files (*.*)");
+        "DPM Manager Project (*.dpmpj);;Legacy Project (*.dpmproj);;All Files (*.*)");
     if (file_path.trimmed().isEmpty())
     {
         statusBar()->showMessage("Project session save canceled", 5000);
         return false;
+    }
+
+    if (QFileInfo(file_path).suffix().isEmpty())
+    {
+        file_path += ".dpmpj";
     }
 
     return save_project_session(file_path);

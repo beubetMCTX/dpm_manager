@@ -52,6 +52,9 @@ injector, remaining hidden for blank, reference, and Assembly selections.
 The OCCT selection set now synchronizes with the object list, preserving
 modifier-based multi-selection while retaining one current item for inspection.
 
+Project Session dialogs now default to `.dpmpj`; legacy `.dpmproj` files remain
+openable.
+
 Assembly entries can now collapse or expand their visible descendants from the
 object-list context menu without changing model ownership or UUIDs.
 
