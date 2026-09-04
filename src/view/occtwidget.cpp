@@ -742,6 +742,24 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
         ++translated_count;
     }
 
+    // Recompute all local offsets after the complete recursive operation so
+    // nested children do not depend on traversal order.
+    for (const QUuid &uuid : operation_uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit == nullptr || unit->assembly_parent_uuid.isNull())
+        {
+            continue;
+        }
+        const std::shared_ptr<Unit> parent =
+            unit_hash.value(unit->assembly_parent_uuid);
+        if (parent != nullptr)
+        {
+            unit->assembly_local_position =
+                unit->inj.injector_data.pos - parent->inj.injector_data.pos;
+        }
+    }
+
     m_active_edit_batch_id = QUuid();
     m_active_move_batch_id = QUuid();
     if (translated_count > 0 && !m_view.IsNull())
@@ -1059,6 +1077,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
             return pivot + rotate_vector(point - pivot);
         };
 
+        injector.pos = rotate_point(injector.pos);
         injector.pos2 = rotate_point(injector.pos2);
         injector.ff_center = rotate_point(injector.ff_center);
         injector.ff_virtual_origin = rotate_point(injector.ff_virtual_origin);
@@ -1102,6 +1121,22 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         record_edit(transaction, *unit);
         emit unit_data_updated(unit.get());
         ++rotated_count;
+    }
+
+    for (const QUuid &uuid : operation_uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit == nullptr || unit->assembly_parent_uuid.isNull())
+        {
+            continue;
+        }
+        const std::shared_ptr<Unit> parent =
+            unit_hash.value(unit->assembly_parent_uuid);
+        if (parent != nullptr)
+        {
+            unit->assembly_local_position =
+                unit->inj.injector_data.pos - parent->inj.injector_data.pos;
+        }
     }
 
     m_active_edit_batch_id = QUuid();

@@ -26,6 +26,8 @@
   position; operations including the parent preserve that local offset.
 - OCCT regression coverage verifies parent-inclusive and independent child
   local-position behavior.
+- Fixed shared-pivot rotation to transform the primary injector position;
+  parent Assembly rotation now updates child world positions and local offsets.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing

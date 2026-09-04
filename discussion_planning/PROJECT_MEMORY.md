@@ -492,6 +492,9 @@ Unit
   recursive operations preserve the stored local offset.
 - OCCT edit-history regression coverage now verifies both local-position rules
   for parent-inclusive and independent child translations.
+- Shared-pivot rotation now rotates the injector primary position as well as
+  secondary spatial fields; this fixes parent Assembly rotation and keeps
+  nested child local positions consistent.
 
 ## History
 

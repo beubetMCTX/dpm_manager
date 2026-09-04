@@ -93,6 +93,18 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    const QVector3D child_local_before_parent_rotation =
+        widget.unit_hash.value(member_uuid)->assembly_local_position;
+    if (!check(widget.rotate_units_by_uuid(
+                   {uuid}, QVector3D(0.0f, 0.0f, 1.0f), 90.0f,
+                   widget.unit_hash.value(uuid)->inj.injector_data.pos, true) > 0,
+               "Assembly rotation should succeed") ||
+        !check(widget.unit_hash.value(member_uuid)->assembly_local_position !=
+                   child_local_before_parent_rotation,
+               "Parent rotation must refresh child local position"))
+    {
+        return 1;
+    }
     if (!check(!widget.copy_unit_by_uuid(uuid),
                "Assembly copy should be rejected until composite cloning exists"))
     {
