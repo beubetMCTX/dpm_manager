@@ -2242,6 +2242,13 @@ References:
 - Project restore and state collection preserve that direction.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Add Datum Origin Reference Aid
+
+- Added a text-based Datum Origin action using a small spherical marker.
+- Datum origins use the existing reference geometry display, coordinate,
+  selection, locking, transform, and persistence paths.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Constructed Reference Session Validation
 
 - Added round-trip coverage for datum-plane construction parameters and

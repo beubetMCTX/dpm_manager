@@ -1,6 +1,7 @@
 #include "occtwidget.h"
 #include "runtime_debug.h"
 #include <AIS_ViewCube.hxx>
+#include <BRepPrimAPI_MakeSphere.hxx>
 #include <QTimer>
 #include <QtMath>
 #include <QMessageBox>
@@ -2577,6 +2578,30 @@ bool OCCTWidget::create_reference_datum_axis(Standard_Real length,
         m_reference_construction_size = length;
         m_reference_construction_radius = radius;
         m_reference_construction_direction = direction.normalized();
+        add_readed_geometry();
+        return !ref_geom.IsNull();
+    }
+    catch (...)
+    {
+        return false;
+    }
+}
+
+bool OCCTWidget::create_reference_datum_origin(Standard_Real radius)
+{
+    if (m_context.IsNull() || m_view.IsNull() || radius <= 0.0)
+    {
+        return false;
+    }
+
+    try
+    {
+        const TopoDS_Shape origin = BRepPrimAPI_MakeSphere(
+            gp_Pnt(0.0, 0.0, 0.0), radius).Shape();
+        geometry.adopt_shape(origin, QStringLiteral("<datum origin>"));
+        m_reference_geometry_kind = QStringLiteral("datum_origin");
+        m_reference_construction_radius = radius;
+        m_reference_construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
         add_readed_geometry();
         return !ref_geom.IsNull();
     }

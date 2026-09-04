@@ -192,10 +192,10 @@ Unit
 
 ## Known Limits
 
-- Constructed reference aids beyond datum planes and datum axes (origins,
-  section planes, and alignment frames) still need a persisted construction-
-  object model; imported reference geometry and selected-face frames are
-  implemented.
+- Constructed reference aids beyond datum planes, datum axes, and datum
+  origins (section planes and alignment frames) still need a persisted
+  construction-object model; imported reference geometry and selected-face
+  frames are implemented.
 - The reference-geometry panel can create datum planes and datum axes through
   the existing display/selection/coordinate/lock/transform path. Application
   config and project sessions distinguish `datum_plane` and `datum_axis` from
@@ -232,6 +232,8 @@ Unit
   Constructed reference parameters are validated during session loading.
 - Datum plane and datum axis generation now uses the persisted construction
   direction instead of always creating along the world Z axis.
+- A text-based Datum Origin action now creates a small spherical origin marker
+  and restores it through application/project reference-geometry state.
 - Project-session regression coverage now verifies constructed reference
   geometry round-trip and rejects zero construction directions.
 - Removed the unused early OCCT primitive-demo entry points that created a

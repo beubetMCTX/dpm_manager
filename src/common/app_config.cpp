@@ -492,7 +492,8 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
 
     const QJsonObject geometry_object = geometry_value.toObject();
     const QString kind = geometry_object.value("kind").toString("file").trimmed().toLower();
-    if (kind != "file" && kind != "datum_plane" && kind != "datum_axis")
+    if (kind != "file" && kind != "datum_plane" && kind != "datum_axis" &&
+        kind != "datum_origin")
     {
         return reject_invalid_config(
             app_settings_file_path(),
