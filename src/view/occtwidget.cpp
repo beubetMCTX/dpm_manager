@@ -99,7 +99,7 @@ Handle(AIS_Trihedron) make_local_trihedron(const gp_Ax2 &axis,
 {
     Handle(Geom_Axis2Placement) placement = new Geom_Axis2Placement(axis);
     Handle(AIS_Trihedron) trihedron = new AIS_Trihedron(placement);
-    trihedron->SetSize(std::max(size, 1.0));
+    trihedron->SetSize(std::max(size, 1.0e-3));
     trihedron->SetDatumDisplayMode(Prs3d_DM_Shaded);
     trihedron->SetDatumPartColor(Prs3d_DP_XAxis, Quantity_NOC_RED);
     trihedron->SetDatumPartColor(Prs3d_DP_XArrow, Quantity_NOC_RED);
@@ -3688,7 +3688,7 @@ Standard_Real OCCTWidget::get_trihedron_size()
     const Standard_Real size = cbrt(geometry.xyz_length.x() *
                                     geometry.xyz_length.y() *
                                     geometry.xyz_length.z()) / 10.0;
-    return std::max(size, 1.0);
+    return std::max(size, 1.0e-3);
 }
 
 Quantity_Color OCCTWidget::color_for_material(const QString &material) const
@@ -4678,7 +4678,7 @@ void OCCTWidget::m_initialize_context()
         trihedron_main->SetTextColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);         // Y标签绿色
         trihedron_main->SetTextColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
 
-        trihedron_main->SetSize(2.0);
+        trihedron_main->SetSize(0.01);
         trihedron_main->SetDatumDisplayMode(Prs3d_DM_Shaded);
 
 
@@ -4725,10 +4725,12 @@ void OCCTWidget::m_initialize_context()
 
         m_view->SetZoom(100);   // 放大
 
-        // //激活二维网格
-        // m_viewer->SetRectangularGridValues(0,0,1,1,0);
-        // m_viewer->SetRectangularGridGraphicValues(10.01,0,10.01);
-        // m_viewer->ActivateGrid(Aspect_GT_Rectangular,Aspect_GDM_Lines);
+        // The application uses metres internally; show a 1 mm grid for
+        // millimetre-scale injector placement without creating a selectable
+        // AIS object in the scene.
+        m_viewer->SetRectangularGridValues(0.0, 0.0, 1.0e-3, 1.0e-3, 0.0);
+        m_viewer->SetRectangularGridGraphicValues(0.1, 0.1, 0.0);
+        m_viewer->ActivateGrid(Aspect_GT_Rectangular, Aspect_GDM_Lines);
 
         m_view->SetProj(V3d_Zpos);
     }
