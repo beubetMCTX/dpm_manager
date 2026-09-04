@@ -1110,7 +1110,8 @@ bool MainWindow::load_project_session(const QString &file_path)
     {
         m_3d_widget->create_reference_datum_plane(
             data.reference_geometry.construction_size,
-            data.reference_geometry.construction_thickness);
+            data.reference_geometry.construction_thickness,
+            data.reference_geometry.construction_direction);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1121,7 +1122,8 @@ bool MainWindow::load_project_session(const QString &file_path)
     {
         m_3d_widget->create_reference_datum_axis(
             data.reference_geometry.construction_size,
-            data.reference_geometry.construction_radius);
+            data.reference_geometry.construction_radius,
+            data.reference_geometry.construction_direction);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1298,6 +1300,8 @@ project_session::Data MainWindow::collect_project_data() const
                 m_3d_widget->reference_construction_thickness();
             data.reference_geometry.construction_radius =
                 m_3d_widget->reference_construction_radius();
+            data.reference_geometry.construction_direction =
+                m_3d_widget->reference_construction_direction();
         }
         data.reference_geometry.position = m_3d_widget->reference_position();
         data.reference_geometry.rotation = m_3d_widget->reference_rotation();
@@ -1590,7 +1594,8 @@ void MainWindow::restore_reference_geometry()
     if (config.kind == QStringLiteral("datum_plane"))
     {
         m_3d_widget->create_reference_datum_plane(
-            config.construction_size, config.construction_thickness);
+            config.construction_size, config.construction_thickness,
+            config.construction_direction);
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
@@ -1600,7 +1605,8 @@ void MainWindow::restore_reference_geometry()
     if (config.kind == QStringLiteral("datum_axis"))
     {
         m_3d_widget->create_reference_datum_axis(
-            config.construction_size, config.construction_radius);
+            config.construction_size, config.construction_radius,
+            config.construction_direction);
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);

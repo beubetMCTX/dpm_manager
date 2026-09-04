@@ -2527,23 +2527,26 @@ void OCCTWidget::add_readed_geometry()
 }
 
 bool OCCTWidget::create_reference_datum_plane(Standard_Real size,
-                                              Standard_Real thickness)
+                                              Standard_Real thickness,
+                                              const QVector3D &direction)
 {
-    if (m_context.IsNull() || m_view.IsNull() || size <= 0.0 || thickness <= 0.0)
+    if (m_context.IsNull() || m_view.IsNull() || size <= 0.0 || thickness <= 0.0 ||
+        direction.lengthSquared() <= 1.0e-12f)
     {
         return false;
     }
 
     try
     {
-        const gp_Ax2 plane_axis(gp_Pnt(-size * 0.5, -size * 0.5, 0.0),
-                                gp_Dir(0.0, 0.0, 1.0));
+        const gp_Ax2 plane_axis(gp_Pnt(0.0, 0.0, 0.0),
+                                gp_Dir(direction.x(), direction.y(), direction.z()));
         const TopoDS_Shape plane = BRepPrimAPI_MakeBox(
             plane_axis, size, size, thickness).Shape();
         geometry.adopt_shape(plane, QStringLiteral("<datum plane>"));
         m_reference_geometry_kind = QStringLiteral("datum_plane");
         m_reference_construction_size = size;
         m_reference_construction_thickness = thickness;
+        m_reference_construction_direction = direction.normalized();
         add_readed_geometry();
         return !ref_geom.IsNull();
     }
@@ -2554,22 +2557,26 @@ bool OCCTWidget::create_reference_datum_plane(Standard_Real size,
 }
 
 bool OCCTWidget::create_reference_datum_axis(Standard_Real length,
-                                             Standard_Real radius)
+                                             Standard_Real radius,
+                                             const QVector3D &direction)
 {
-    if (m_context.IsNull() || m_view.IsNull() || length <= 0.0 || radius <= 0.0)
+    if (m_context.IsNull() || m_view.IsNull() || length <= 0.0 || radius <= 0.0 ||
+        direction.lengthSquared() <= 1.0e-12f)
     {
         return false;
     }
 
     try
     {
-        const gp_Ax2 axis(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(0.0, 0.0, 1.0));
+        const gp_Ax2 axis(gp_Pnt(0.0, 0.0, 0.0),
+                          gp_Dir(direction.x(), direction.y(), direction.z()));
         const TopoDS_Shape datum_axis = BRepPrimAPI_MakeCylinder(
             axis, radius, length).Shape();
         geometry.adopt_shape(datum_axis, QStringLiteral("<datum axis>"));
         m_reference_geometry_kind = QStringLiteral("datum_axis");
         m_reference_construction_size = length;
         m_reference_construction_radius = radius;
+        m_reference_construction_direction = direction.normalized();
         add_readed_geometry();
         return !ref_geom.IsNull();
     }

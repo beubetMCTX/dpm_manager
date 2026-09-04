@@ -2234,3 +2234,10 @@ References:
 - Project sessions now read and validate constructed reference geometry
   parameters and transforms for datum planes and axes.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Apply Constructed Reference Direction
+
+- Datum plane and datum axis creation now accepts and applies the configured
+  construction direction.
+- Project restore and state collection preserve that direction.
+- Release build and all 12 focused regressions passed.

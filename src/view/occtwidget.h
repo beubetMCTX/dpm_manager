@@ -95,13 +95,16 @@ public:
 
     void add_readed_geometry();
     bool create_reference_datum_plane(Standard_Real size = 10.0,
-                                      Standard_Real thickness = 0.01);
+                                      Standard_Real thickness = 0.01,
+                                      const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     bool create_reference_datum_axis(Standard_Real length = 10.0,
-                                     Standard_Real radius = 0.05);
+                                     Standard_Real radius = 0.05,
+                                     const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     QString reference_geometry_kind() const { return m_reference_geometry_kind; }
     double reference_construction_size() const { return m_reference_construction_size; }
     double reference_construction_thickness() const { return m_reference_construction_thickness; }
     double reference_construction_radius() const { return m_reference_construction_radius; }
+    QVector3D reference_construction_direction() const { return m_reference_construction_direction; }
     bool clear_reference_geometry();
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }
@@ -432,6 +435,7 @@ private:
     double m_reference_construction_size = 10.0;
     double m_reference_construction_thickness = 0.01;
     double m_reference_construction_radius = 0.05;
+    QVector3D m_reference_construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
     bool m_is_destroying = false;
     std::optional<CopiedUnit> m_copied_unit;
     QVector<UnitMoveHistoryEntry> m_move_history;

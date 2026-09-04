@@ -230,6 +230,8 @@ Unit
 - Project-session reference geometry now serializes constructed-object kind,
   dimensions, construction direction, visibility, lock state, and transforms.
   Constructed reference parameters are validated during session loading.
+- Datum plane and datum axis generation now uses the persisted construction
+  direction instead of always creating along the world Z axis.
 - Removed the unused early OCCT primitive-demo entry points that created a
   fake Unit and bypassed the current reference-geometry/unit display paths.
 - Assembly parents are now treated as composite objects by the editing UI:
