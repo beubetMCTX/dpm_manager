@@ -871,6 +871,49 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     return true;
 }
 
+QVector3D OCCTWidget::unit_single_target_by_uuid(const QUuid &uuid) const
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit->inj.injector_data.injection_type != single ||
+        unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint)
+    {
+        return QVector3D();
+    }
+    return unit->inj.injector_data.single_target_hitpoint;
+}
+
+bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
+                                                const QVector3D &target)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || unit_locked(uuid) ||
+        !std::isfinite(target.x()) || !std::isfinite(target.y()) ||
+        !std::isfinite(target.z()) ||
+        unit->inj.injector_data.injection_type != single ||
+        unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint ||
+        (target - unit->inj.injector_data.pos).lengthSquared() <= 1.0e-12f)
+    {
+        return false;
+    }
+    Injector &injector = unit->inj.injector_data;
+    const QVector3D old_target = injector.single_target_hitpoint;
+    injector.single_target_hitpoint = target;
+    if (!unit->inj.create_injector())
+    {
+        injector.single_target_hitpoint = old_target;
+        return false;
+    }
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetColor(color_for_material(injector.material));
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    emit unit_data_updated(unit.get());
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
 bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
                                            const QVector3D &position)
 {

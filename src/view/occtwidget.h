@@ -142,6 +142,8 @@ public:
     bool set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                            double pitch_degrees,
                                            double yaw_degrees);
+    QVector3D unit_single_target_by_uuid(const QUuid &uuid) const;
+    bool set_unit_single_target_by_uuid(const QUuid &uuid, const QVector3D &target);
     int rotate_units_by_uuid(const QList<QUuid> &uuids,
                              const QVector3D &axis,
                              float angle_degrees,

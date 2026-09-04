@@ -2127,3 +2127,11 @@ References:
 - The update path rebuilds and recolors the injector from the Species/Color
   table, then synchronizes the Unit; other direction modes remain unchanged.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Single Target Inspector
+
+- Single Target Hitpoint mode now exposes editable target coordinates in the
+  Objects panel.
+- Zero-length targets are rejected; valid edits rebuild the geometry, resolve
+  color from the Species/Color table, and synchronize the Unit.
+- Release build and all 12 focused regressions passed.

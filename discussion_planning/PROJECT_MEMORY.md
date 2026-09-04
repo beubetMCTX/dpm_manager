@@ -400,6 +400,9 @@ Unit
 - Single Pitch/Yaw mode now exposes editable pitch and yaw fields in the same
   panel; changes rebuild the injector and synchronize the owning Unit while
   preserving the direction source semantics.
+- Single Target Hitpoint mode now exposes editable target X/Y/Z fields; zero
+  length targets are rejected and valid changes rebuild and synchronize the
+  injector without involving `vel2`.
 
 ## History
 

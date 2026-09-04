@@ -2076,6 +2076,21 @@ void MainWindow::create_object_list_panel()
     }
     direction_layout->addRow("Pitch (deg)", m_unit_pitch);
     direction_layout->addRow("Yaw (deg)", m_unit_yaw);
+    auto create_target_box = [direction_group]()
+    {
+        auto *box = new QDoubleSpinBox(direction_group);
+        box->setRange(-1.0e9, 1.0e9);
+        box->setDecimals(6);
+        box->setSingleStep(0.1);
+        box->setEnabled(false);
+        return box;
+    };
+    m_unit_target_x = create_target_box();
+    m_unit_target_y = create_target_box();
+    m_unit_target_z = create_target_box();
+    direction_layout->addRow("Target X", m_unit_target_x);
+    direction_layout->addRow("Target Y", m_unit_target_y);
+    direction_layout->addRow("Target Z", m_unit_target_z);
     layout->addWidget(direction_group);
 
     m_object_list_dock->setWidget(panel);
@@ -2183,6 +2198,31 @@ void MainWindow::create_object_list_panel()
     };
     connect(m_unit_pitch, &QDoubleSpinBox::editingFinished, this, apply_pitch_yaw);
     connect(m_unit_yaw, &QDoubleSpinBox::editingFinished, this, apply_pitch_yaw);
+    const auto apply_target = [this]()
+    {
+        if (m_object_list == nullptr || m_3d_widget == nullptr ||
+            m_unit_target_x == nullptr || m_unit_target_y == nullptr ||
+            m_unit_target_z == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr)
+        {
+            return;
+        }
+        const QUuid uuid(item->data(Qt::UserRole).toString());
+        if (!uuid.isNull() && m_3d_widget->set_unit_single_target_by_uuid(
+                uuid, QVector3D(static_cast<float>(m_unit_target_x->value()),
+                                static_cast<float>(m_unit_target_y->value()),
+                                static_cast<float>(m_unit_target_z->value()))))
+        {
+            update_unit_position_controls();
+        }
+    };
+    connect(m_unit_target_x, &QDoubleSpinBox::editingFinished, this, apply_target);
+    connect(m_unit_target_y, &QDoubleSpinBox::editingFinished, this, apply_target);
+    connect(m_unit_target_z, &QDoubleSpinBox::editingFinished, this, apply_target);
 
     connect(fit_all_button, &QPushButton::clicked, m_3d_widget,
             &OCCTWidget::fit_all_view);
@@ -3427,7 +3467,9 @@ void MainWindow::update_unit_position_controls()
         m_unit_position_z == nullptr || m_object_list == nullptr ||
         m_3d_widget == nullptr || m_unit_direction_x == nullptr ||
         m_unit_direction_y == nullptr || m_unit_direction_z == nullptr ||
-        m_unit_pitch == nullptr || m_unit_yaw == nullptr)
+        m_unit_pitch == nullptr || m_unit_yaw == nullptr ||
+        m_unit_target_x == nullptr || m_unit_target_y == nullptr ||
+        m_unit_target_z == nullptr)
     {
         return;
     }
@@ -3443,6 +3485,9 @@ void MainWindow::update_unit_position_controls()
         m_unit_direction_z->setEnabled(false);
         m_unit_pitch->setEnabled(false);
         m_unit_yaw->setEnabled(false);
+        m_unit_target_x->setEnabled(false);
+        m_unit_target_y->setEnabled(false);
+        m_unit_target_z->setEnabled(false);
         return;
     }
 
@@ -3457,6 +3502,9 @@ void MainWindow::update_unit_position_controls()
         m_unit_direction_z->setEnabled(false);
         m_unit_pitch->setEnabled(false);
         m_unit_yaw->setEnabled(false);
+        m_unit_target_x->setEnabled(false);
+        m_unit_target_y->setEnabled(false);
+        m_unit_target_z->setEnabled(false);
         return;
     }
 
@@ -3466,6 +3514,11 @@ void MainWindow::update_unit_position_controls()
     double yaw = 0.0;
     const bool has_pitch_yaw = m_3d_widget->unit_single_pitch_yaw_by_uuid(
         uuid, &pitch, &yaw);
+    const QVector3D target = m_3d_widget->unit_single_target_by_uuid(uuid);
+    const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+    const bool has_target = unit != nullptr &&
+        unit->inj.injector_data.injection_type == single &&
+        unit->inj.injector_data.single_direction_mode == Single_Direction_Mode::Target_Hitpoint;
     const QSignalBlocker x_blocker(m_unit_position_x);
     const QSignalBlocker y_blocker(m_unit_position_y);
     const QSignalBlocker z_blocker(m_unit_position_z);
@@ -3474,6 +3527,9 @@ void MainWindow::update_unit_position_controls()
     const QSignalBlocker direction_z_blocker(m_unit_direction_z);
     const QSignalBlocker pitch_blocker(m_unit_pitch);
     const QSignalBlocker yaw_blocker(m_unit_yaw);
+    const QSignalBlocker target_x_blocker(m_unit_target_x);
+    const QSignalBlocker target_y_blocker(m_unit_target_y);
+    const QSignalBlocker target_z_blocker(m_unit_target_z);
     m_unit_position_x->setValue(position.x());
     m_unit_position_y->setValue(position.y());
     m_unit_position_z->setValue(position.z());
@@ -3482,10 +3538,12 @@ void MainWindow::update_unit_position_controls()
     m_unit_direction_z->setValue(direction.z());
     m_unit_pitch->setValue(pitch);
     m_unit_yaw->setValue(yaw);
+    m_unit_target_x->setValue(target.x());
+    m_unit_target_y->setValue(target.y());
+    m_unit_target_z->setValue(target.z());
     m_unit_position_x->setEnabled(true);
     m_unit_position_y->setEnabled(true);
     m_unit_position_z->setEnabled(true);
-    const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
     const bool editable_direction = unit != nullptr &&
         !(unit->inj.injector_data.injection_type == single &&
           unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Vector) &&
@@ -3495,6 +3553,10 @@ void MainWindow::update_unit_position_controls()
     m_unit_direction_z->setEnabled(editable_direction);
     m_unit_pitch->setEnabled(has_pitch_yaw && !m_3d_widget->unit_locked(uuid));
     m_unit_yaw->setEnabled(has_pitch_yaw && !m_3d_widget->unit_locked(uuid));
+    const bool editable_target = has_target && !m_3d_widget->unit_locked(uuid);
+    m_unit_target_x->setEnabled(editable_target);
+    m_unit_target_y->setEnabled(editable_target);
+    m_unit_target_z->setEnabled(editable_target);
 }
 
 void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)
