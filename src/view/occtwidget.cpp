@@ -1549,6 +1549,7 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         if (!source_is_assembly)
         {
             stored_child->prototype_uuid = source_uuid;
+            stored_child->prototype_chain = {source_uuid};
         }
         // Assembly sources are flattened in this phase; do not copy their
         // persistent parent/child links into a runtime array instance.
@@ -1750,7 +1751,8 @@ void OCCTWidget::rebuild_dependent_arrays(const QUuid &prototype_uuid,
         {
             if (child != nullptr && child->is_array_child &&
                 child->follows_array &&
-                child->prototype_uuid == prototype_uuid)
+                (child->prototype_uuid == prototype_uuid ||
+                 child->prototype_chain.contains(prototype_uuid)))
             {
                 dependent_roots.append(candidate->inj.uuid);
                 break;

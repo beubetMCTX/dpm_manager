@@ -2357,3 +2357,10 @@ References:
 - Added regression checks proving ordinary and weighted-fill child instances
   retain the UUID of their actual source Unit.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Preserve Nested Prototype Chains
+
+- Derived array and fill Units now retain their complete prototype UUID chain.
+- Dependent-array refresh can therefore recognize nested ancestry without
+  relying on flattened display-instance UUIDs.
+- Release build and all 12 focused regressions passed.

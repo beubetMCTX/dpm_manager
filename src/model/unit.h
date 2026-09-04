@@ -78,6 +78,7 @@ public:
     bool is_array_child = false;
     bool follows_array = true;
     QUuid prototype_uuid;
+    QList<QUuid> prototype_chain;
     bool has_array_spec = false;
     UnitArraySpec array_spec;
     bool has_fill_spec = false;
@@ -104,6 +105,7 @@ public:
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
         , prototype_uuid(other.prototype_uuid)
+        , prototype_chain(other.prototype_chain)
         , has_array_spec(other.has_array_spec)
         , array_spec(other.array_spec)
         , has_fill_spec(other.has_fill_spec)
@@ -131,6 +133,7 @@ public:
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
         prototype_uuid = other.prototype_uuid;
+        prototype_chain = other.prototype_chain;
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
         has_fill_spec = other.has_fill_spec;
@@ -151,6 +154,7 @@ public:
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
         , prototype_uuid(other.prototype_uuid)
+        , prototype_chain(other.prototype_chain)
         , has_array_spec(other.has_array_spec)
         , array_spec(std::move(other.array_spec))
         , has_fill_spec(other.has_fill_spec)
@@ -178,6 +182,7 @@ public:
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
         prototype_uuid = other.prototype_uuid;
+        prototype_chain = other.prototype_chain;
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
         has_fill_spec = other.has_fill_spec;

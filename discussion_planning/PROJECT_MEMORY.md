@@ -511,6 +511,9 @@ Unit
   display copies; a full nested Unit-instance tree remains future work.
 - Unit-array regression coverage now verifies prototype UUID retention for
   ordinary and weighted-fill children.
+- Derived Units now also retain a prototype UUID chain, allowing dependency
+  refresh to identify nested-array ancestry even while Assembly display
+  instances are still flattened at runtime.
 
 ## History
 

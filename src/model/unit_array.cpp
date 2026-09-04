@@ -160,6 +160,8 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
         Unit child(source);
         child.inj.uuid = QUuid::createUuid();
         child.prototype_uuid = source.inj.uuid;
+        child.prototype_chain = source.prototype_chain;
+        child.prototype_chain.append(source.inj.uuid);
         child.inj.injector_data.name = QString("%1[%2]")
                                            .arg(source.inj.injector_data.name)
                                            .arg(index + 1);
@@ -314,6 +316,8 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             Unit child(source);
             child.inj.uuid = QUuid::createUuid();
             child.prototype_uuid = source.inj.uuid;
+            child.prototype_chain = source.prototype_chain;
+            child.prototype_chain.append(source.inj.uuid);
             child.inj.injector_data.name = QString("%1[%2]")
                                                .arg(source.inj.injector_data.name)
                                                .arg(placement_index + 1);
