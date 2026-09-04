@@ -2143,3 +2143,9 @@ References:
 - Failed geometry rebuilds remove the pending transaction and leave the prior
   injector data intact.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Keep Inspector Display State Consistent
+
+- Direction inspector updates now refresh the Unit local coordinate frame.
+- Rebuilt Volume previews retain the configured transparent rendering state.
+- Release build and all 12 focused regressions passed.

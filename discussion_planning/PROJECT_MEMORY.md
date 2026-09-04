@@ -406,6 +406,8 @@ Unit
 - Direction, Pitch/Yaw, and Target Hitpoint edits from the Objects panel now
   use the existing Unit edit transaction and therefore participate in Undo/Redo
   instead of being untracked direct mutations.
+- Inspector direction edits now refresh the Unit local coordinate trihedron and
+  preserve Volume transparency during geometry replacement.
 
 ## History
 

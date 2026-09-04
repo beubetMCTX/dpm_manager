@@ -815,8 +815,11 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(
+        injector.injection_type == volume ? 0.82f : 0.0f);
     unit->ais_display->SetColor(color_for_material(injector.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     if (!m_view.IsNull())
@@ -868,8 +871,11 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(
+        injector.injection_type == volume ? 0.82f : 0.0f);
     unit->ais_display->SetColor(color_for_material(injector.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     if (!m_view.IsNull())
@@ -914,8 +920,11 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(
+        injector.injection_type == volume ? 0.82f : 0.0f);
     unit->ais_display->SetColor(color_for_material(injector.material));
     m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     if (!m_view.IsNull())
