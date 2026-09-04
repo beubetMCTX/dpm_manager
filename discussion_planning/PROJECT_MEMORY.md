@@ -528,6 +528,8 @@ Unit
   the same runtime paths as imported Units.
 - `Clone Unit Tree` is now available from both the Objects-panel context menu
   and the OpenCASCADE Assembly context menu.
+- Cloned Unit-tree names now receive a `[Clone]` suffix so original and copy
+  remain distinguishable in the object list.
 - Added a reusable rigid-transform operation for persistent Unit trees. It
   applies rotation and translation recursively to injector spatial fields and
   directions while preserving World-scoped Single target points.

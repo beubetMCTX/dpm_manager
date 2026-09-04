@@ -382,6 +382,7 @@ std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
     uuid_map.insert(source_uuid, clone_uuid);
 
     clone->inj.uuid = clone_uuid;
+    clone->inj.injector_data.name += QStringLiteral(" [Clone]");
     clone->assembly_parent_uuid = QUuid();
     clone->assembly_child_uuids.clear();
     clone->child_units.clear();

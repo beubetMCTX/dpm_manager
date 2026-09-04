@@ -235,7 +235,8 @@ int main(int argc, char **argv)
                    cloned_tree->child_units.first()->inj.uuid !=
                        assembly_child.inj.uuid &&
                    cloned_tree->child_units.first()->assembly_parent_uuid ==
-                       cloned_tree->inj.uuid,
+                       cloned_tree->inj.uuid &&
+                   cloned_tree->inj.injector_data.name.endsWith("[Clone]"),
                "Assembly tree clone should remap UUIDs and parent links") && ok;
     transform_unit_tree(*cloned_tree, QVector3D(0.0f, 0.0f, 0.0f),
                         QVector3D(0.0f, 0.0f, 1.0f),

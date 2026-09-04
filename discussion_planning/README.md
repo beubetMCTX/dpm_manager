@@ -2401,6 +2401,12 @@ References:
   context menu, matching the Objects-panel action.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Distinguish Cloned Unit Trees
+
+- Recursive Unit-tree clones now receive a `[Clone]` name suffix for clear
+  identification beside the original hierarchy.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Add Unit Tree Rigid Transform
 
 - Added a model-level recursive rigid transform for Unit/Assembly trees.
