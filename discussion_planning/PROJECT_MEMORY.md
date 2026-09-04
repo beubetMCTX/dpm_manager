@@ -221,8 +221,8 @@ Unit
   local coordinate trihedrons for each injector and every imported reference
   geometry face. These trihedrons are display-only and follow visibility,
   editing, dragging, undo/redo, paste, delete/restore, and reference transforms.
-- Checkpoint commit `9b84d9d` was pushed to `origin/main` after Release build
-  and all 11 focused regressions passed.
+- The latest checkpoint is pushed to `origin/main`; the current Release build
+  passes all 12 focused regressions.
 
 ## Single Direction Mode Progress
 
@@ -237,8 +237,8 @@ Unit
 - Focused Unit Editor regression coverage verifies all three mode layouts.
 - Array expansion now transforms `single_target_hitpoint` together with the
   injector origin for linear, rotational, and mirror children.
-- Single target points now have explicit `World` and `Array Local` scopes;
-  only the latter follows array transforms.
+- Single target points now have explicit `World`, `Array Local`, `Parent Local`,
+  and `Reference Local` scopes; local scopes follow the applicable transforms.
 - Rotational array creation now exposes axial spacing per child, providing the
   planned helical-array behavior without introducing a separate top-level mode.
 - Added model-level square and hexagonal fill expansion for one or more seed
