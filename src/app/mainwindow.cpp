@@ -3516,6 +3516,10 @@ void MainWindow::create_object_list_panel()
                                            m_align_reference_face->isEnabled());
             QAction *array_fill_face_action = menu.addAction(
                 "Open Array/Fill Tools for Selected Face...");
+            QAction *assembly_face_action = menu.addAction(
+                "Create Assembly on Selected Face...");
+            assembly_face_action->setEnabled(m_3d_widget->has_selected_face() &&
+                                              m_object_list->selectedItems().size() >= 2);
             const auto open_current_unit_menu = [this]()
             {
                 if (m_object_list == nullptr)
@@ -3564,6 +3568,35 @@ void MainWindow::create_object_list_panel()
             else if (chosen_action == array_fill_face_action)
             {
                 open_current_unit_menu();
+            }
+            else if (chosen_action == assembly_face_action)
+            {
+                QList<QUuid> selected_unit_ids;
+                for (QListWidgetItem *selected_item : m_object_list->selectedItems())
+                {
+                    if (selected_item == nullptr ||
+                        selected_item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+                    {
+                        continue;
+                    }
+                    const QUuid selected_uuid(
+                        selected_item->data(Qt::UserRole).toString());
+                    if (!selected_uuid.isNull() &&
+                        m_3d_widget->unit_hash.contains(selected_uuid))
+                    {
+                        selected_unit_ids.append(selected_uuid);
+                    }
+                }
+                if (selected_unit_ids.size() >= 2 &&
+                    m_3d_widget->create_assembly(selected_unit_ids))
+                {
+                    m_3d_widget->attach_unit_to_selected_face(
+                        selected_unit_ids.first());
+                    update_object_list_panel();
+                    mark_project_dirty();
+                    statusBar()->showMessage(
+                        "Created and attached Assembly to selected face", 4000);
+                }
             }
             else if (chosen_action == lock_action)
             {
