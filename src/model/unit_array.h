@@ -26,6 +26,11 @@ std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
 QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
                                                     const UnitArraySpec &spec);
 
+// Expands mixed leaf or composite sources over a square/hexagonal layout,
+// preserving the complete source tree for every placement.
+QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
+    const QList<std::shared_ptr<Unit>> &sources, const UnitFillSpec &spec);
+
 // Applies one rigid transform to every injector in a persistent Unit tree.
 void transform_unit_tree(Unit &root, const QVector3D &pivot,
                          const QVector3D &axis, float angle_radians,

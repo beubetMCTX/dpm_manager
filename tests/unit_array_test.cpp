@@ -251,5 +251,16 @@ int main(int argc, char **argv)
                    tree_instances[2]->child_units.first()->inj.injector_data.pos.x() >
                        tree_instances[1]->child_units.first()->inj.injector_data.pos.x(),
                "Unit tree array expansion should preserve hierarchy") && ok;
+    const QList<std::shared_ptr<Unit>> tree_fill_sources = {cloned_tree};
+    UnitFillSpec tree_fill_spec;
+    tree_fill_spec.rows = 1;
+    tree_fill_spec.columns = 2;
+    tree_fill_spec.spacing_x = 5.0f;
+    const QList<std::shared_ptr<Unit>> tree_fill_instances =
+        expand_unit_tree_fill(tree_fill_sources, tree_fill_spec);
+    ok = check(tree_fill_instances.size() == 2 &&
+                   tree_fill_instances[0]->child_units.size() == 1 &&
+                   tree_fill_instances[1]->child_units.size() == 1,
+               "Composite fill expansion should preserve hierarchy") && ok;
     return ok ? 0 : 1;
 }

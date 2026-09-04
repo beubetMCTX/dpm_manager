@@ -480,3 +480,59 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
     }
     return result;
 }
+
+QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
+    const QList<std::shared_ptr<Unit>> &sources, const UnitFillSpec &spec)
+{
+    QList<std::shared_ptr<Unit>> result;
+    if (sources.isEmpty())
+    {
+        return result;
+    }
+
+    QList<Unit> source_values;
+    for (const std::shared_ptr<Unit> &source : sources)
+    {
+        if (source != nullptr)
+        {
+            source_values.append(*source);
+        }
+    }
+    const QList<Unit> placements = expand_unit_fill(source_values, spec);
+    for (const Unit &placement : placements)
+    {
+        int source_index = -1;
+        for (int index = 0; index < source_values.size(); ++index)
+        {
+            if (placement.inj.injector_data.name.startsWith(
+                    source_values.at(index).inj.injector_data.name))
+            {
+                source_index = index;
+                break;
+            }
+        }
+        if (source_index < 0 && sources.size() == 1)
+        {
+            source_index = 0;
+        }
+        if (source_index < 0 || source_index >= sources.size())
+        {
+            continue;
+        }
+
+        QHash<QUuid, QUuid> uuid_map;
+        const std::shared_ptr<Unit> instance =
+            clone_unit_tree(*sources.at(source_index), uuid_map);
+        if (instance == nullptr)
+        {
+            continue;
+        }
+        instance->inj.injector_data.name = placement.inj.injector_data.name;
+        const QVector3D offset = placement.inj.injector_data.pos -
+                                  sources.at(source_index)->inj.injector_data.pos;
+        transform_unit_tree(*instance, QVector3D(),
+                            QVector3D(0.0f, 0.0f, 1.0f), 0.0f, offset);
+        result.append(instance);
+    }
+    return result;
+}
