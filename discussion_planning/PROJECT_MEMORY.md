@@ -644,6 +644,9 @@ Unit
   preserving Unit, Assembly, Array, and reference relationships.
 - The object list already uses extended selection; its redundant top batch
   controls are now hidden in favor of the existing context-menu actions.
+- Empty-space left-button dragging now performs incremental camera panning,
+  while detected Units and reference faces retain their selection/transform
+  behavior.
 
 ## History
 

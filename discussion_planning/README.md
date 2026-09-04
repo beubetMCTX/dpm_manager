@@ -26,6 +26,9 @@ The object list already supports extended selection. Redundant top-level batch
 controls are hidden so the dock can remain compact while the context menu keeps
 the operations available.
 
+Empty-space left-button dragging now pans the camera by incremental screen
+deltas, without changing object or reference-geometry transforms.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9

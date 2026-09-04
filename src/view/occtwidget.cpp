@@ -4459,6 +4459,16 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         ensure_reference_face_selection_mode();
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
 
+        // Empty-space dragging navigates the camera instead of entering an
+        // object drag. Use incremental screen deltas so the behavior remains
+        // stable after zooming or changing the view orientation.
+        if (!m_context->HasDetected())
+        {
+            m_camera_panning = true;
+            event->accept();
+            return;
+        }
+
         if (!m_transform_gizmo.IsNull() && m_context->HasDetected() &&
             m_context->DetectedInteractive() == m_transform_gizmo)
         {
@@ -4570,6 +4580,8 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
             event->accept();
             return;
         }
+
+        m_camera_panning = false;
 
         // 将鼠标位置传递到交互环境
         m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
@@ -4886,6 +4898,15 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         const gp_Trsf transformation =
             m_transform_gizmo->Transform(pos.x(), pos.y(), m_view);
         update_transform_gizmo_preview(transformation);
+        m_view->Redraw();
+        return;
+    }
+
+    if (m_camera_panning && (event->buttons() & Qt::LeftButton))
+    {
+        m_view->Pan(pos.x() - m_x_max, m_y_max - pos.y());
+        m_x_max = pos.x();
+        m_y_max = pos.y();
         m_view->Redraw();
         return;
     }

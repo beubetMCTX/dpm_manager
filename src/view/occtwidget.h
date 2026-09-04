@@ -445,6 +445,7 @@ private:
     CurrentAction3d m_current_mode; //!三维场景转换模式
 
     bool mouse_middle_mod;
+    bool m_camera_panning = false;
     Standard_Real m_dpi_scale;
 
     gp_Ax2 coordinate_system_main;
