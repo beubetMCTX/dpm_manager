@@ -306,6 +306,7 @@ private:
     void update_transform_gizmo_preview(const gp_Trsf &transformation);
     void restore_transform_gizmo_preview();
     void finish_transform_gizmo(bool apply);
+    bool cancel_active_drag_for_undo();
 
     void open_edit_widget(Handle(AIS_Shape) shape);
     struct UnitMoveSnapshot

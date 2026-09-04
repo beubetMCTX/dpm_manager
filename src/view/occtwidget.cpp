@@ -3193,6 +3193,10 @@ bool OCCTWidget::can_redo_edit() const
 
 bool OCCTWidget::undo_last_edit()
 {
+    if (cancel_active_drag_for_undo())
+    {
+        return true;
+    }
     if (!can_undo_edit())
     {
         return false;
@@ -3263,6 +3267,10 @@ bool OCCTWidget::can_redo_move() const
 
 bool OCCTWidget::undo_last_move()
 {
+    if (cancel_active_drag_for_undo())
+    {
+        return true;
+    }
     if (!can_undo_move())
     {
         return false;
@@ -3286,6 +3294,55 @@ bool OCCTWidget::undo_last_move()
 
     m_move_history_index = batch_start;
     emit move_history_changed(can_undo_move(), can_redo_move());
+    return true;
+}
+
+bool OCCTWidget::cancel_active_drag_for_undo()
+{
+    if (m_transform_gizmo_dragging)
+    {
+        finish_transform_gizmo(false);
+        return true;
+    }
+    if (!myIsDragging || m_drag_unit_uuid.isNull() ||
+        !m_drag_move_snapshot_valid)
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> unit = unit_hash.value(m_drag_unit_uuid);
+    if (unit == nullptr)
+    {
+        myIsDragging = false;
+        m_drag_unit_uuid = QUuid();
+        m_drag_move_snapshot_valid = false;
+        return true;
+    }
+
+    UnitMoveSnapshot &snapshot = m_drag_move_before;
+    Injector &injector = unit->inj.injector_data;
+    injector.pos = snapshot.pos;
+    injector.pos2 = snapshot.pos2;
+    injector.ff_center = snapshot.ff_center;
+    injector.ff_virtual_origin = snapshot.ff_virtual_origin;
+    injector.volume_bgeom_min = snapshot.volume_bgeom_min;
+    injector.volume_bgeom_max = snapshot.volume_bgeom_max;
+    if (unit->inj.create_injector() && !unit->ais_display.IsNull())
+    {
+        unit->ais_display->SetLocalTransformation(gp_Trsf());
+        unit->ais_display->Set(unit->inj.shape);
+        unit->ais_display->SetColor(color_for_injector(injector));
+        unit->ais_display->SetTransparency(
+            injector.injection_type == volume ? 0.82f : 0.0f);
+        m_context->Redisplay(unit->ais_display, Standard_False);
+        update_unit_local_coordinate_frame(unit->inj.uuid);
+        emit unit_position_updated(unit.get());
+    }
+    myIsDragging = false;
+    m_drag_unit_uuid = QUuid();
+    m_drag_move_snapshot_valid = false;
+    clear_context_selection_safely(false);
+    if (!m_view.IsNull()) m_view->Redraw();
     return true;
 }
 

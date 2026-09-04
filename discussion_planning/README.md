@@ -29,6 +29,9 @@ the operations available.
 Empty-space left-button dragging now pans the camera by incremental screen
 deltas, without changing object or reference-geometry transforms.
 
+Undo Move/Edit now restores an active, uncommitted drag first; older history is
+consumed only when no transform is in progress.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9

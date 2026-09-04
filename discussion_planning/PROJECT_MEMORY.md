@@ -647,6 +647,8 @@ Unit
 - Empty-space left-button dragging now performs incremental camera panning,
   while detected Units and reference faces retain their selection/transform
   behavior.
+- Undo Move/Edit now cancels and restores an active object or gizmo drag before
+  consuming an older history entry.
 
 ## History
 
