@@ -59,6 +59,26 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // Selecting an object must not implicitly leave the persistent toolbar
+    // mode. The mouse release path is covered by the same mode contract.
+    widget.set_interaction_mode(OCCTWidget::Interaction_Mode::Translation);
+    if (!check(widget.select_unit_by_uuid(uuid) &&
+                   widget.interaction_mode() ==
+                       OCCTWidget::Interaction_Mode::Translation,
+               "Translation mode should persist after selecting an injector"))
+    {
+        return 1;
+    }
+    widget.set_interaction_mode(OCCTWidget::Interaction_Mode::Rotation);
+    if (!check(widget.select_unit_by_uuid(uuid) &&
+                   widget.interaction_mode() ==
+                       OCCTWidget::Interaction_Mode::Rotation,
+               "Rotation mode should persist after selecting an injector"))
+    {
+        return 1;
+    }
+    widget.set_interaction_mode(OCCTWidget::Interaction_Mode::Selection);
+
     Unit second_source = make_valid_unit();
     second_source.inj.injector_data.name = "assembly-seed";
     second_source.inj.injector_data.pos = QVector3D(5.0f, 2.0f, 3.0f);
