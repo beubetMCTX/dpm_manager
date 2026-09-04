@@ -1264,7 +1264,12 @@ project_session::Data MainWindow::collect_project_data() const
     }
     if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
     {
+        data.reference_geometry.kind = m_3d_widget->reference_geometry_kind();
         data.reference_geometry.file_path = m_3d_widget->geometry.file_path();
+        if (data.reference_geometry.kind != QStringLiteral("file"))
+        {
+            data.reference_geometry.file_path.clear();
+        }
         data.reference_geometry.position = m_3d_widget->reference_position();
         data.reference_geometry.rotation = m_3d_widget->reference_rotation();
         data.reference_geometry.locked = m_3d_widget->reference_geometry_locked();
@@ -1553,6 +1558,26 @@ void MainWindow::restore_reference_geometry()
         return;
     }
 
+    if (config.kind == QStringLiteral("datum_plane"))
+    {
+        m_3d_widget->create_reference_datum_plane(
+            config.construction_size, config.construction_thickness);
+        m_3d_widget->set_reference_transform(config.position, config.rotation);
+        m_3d_widget->set_reference_geometry_locked(config.locked);
+        m_3d_widget->set_reference_geometry_visible(config.visible);
+        update_reference_geometry_panel();
+        return;
+    }
+    if (config.kind == QStringLiteral("datum_axis"))
+    {
+        m_3d_widget->create_reference_datum_axis(
+            config.construction_size, config.construction_radius);
+        m_3d_widget->set_reference_transform(config.position, config.rotation);
+        m_3d_widget->set_reference_geometry_locked(config.locked);
+        m_3d_widget->set_reference_geometry_visible(config.visible);
+        update_reference_geometry_panel();
+        return;
+    }
     const QFileInfo file_info(config.file_path);
     if (!file_info.exists() || !file_info.isFile())
     {
@@ -1600,7 +1625,12 @@ void MainWindow::save_reference_geometry_state()
     ReferenceGeometryConfig config;
     if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
     {
+        config.kind = m_3d_widget->reference_geometry_kind();
         config.file_path = m_3d_widget->geometry.file_path();
+        if (config.kind != QStringLiteral("file"))
+        {
+            config.file_path.clear();
+        }
         config.position = m_3d_widget->reference_position();
         config.rotation = m_3d_widget->reference_rotation();
         config.locked = m_3d_widget->reference_geometry_locked();

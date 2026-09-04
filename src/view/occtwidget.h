@@ -98,6 +98,18 @@ public:
                                       Standard_Real thickness = 0.01);
     bool create_reference_datum_axis(Standard_Real length = 10.0,
                                      Standard_Real radius = 0.05);
+    QString reference_geometry_kind() const
+    {
+        if (geometry.file_path() == QStringLiteral("<datum plane>"))
+        {
+            return QStringLiteral("datum_plane");
+        }
+        if (geometry.file_path() == QStringLiteral("<datum axis>"))
+        {
+            return QStringLiteral("datum_axis");
+        }
+        return QStringLiteral("file");
+    }
     bool clear_reference_geometry();
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }

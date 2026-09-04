@@ -19,9 +19,14 @@ struct MaterialConfigEntry
 
 struct ReferenceGeometryConfig
 {
+    QString kind = "file";
     QString file_path;
     QVector3D position;
     QVector3D rotation;
+    QVector3D construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
+    double construction_size = 10.0;
+    double construction_thickness = 0.01;
+    double construction_radius = 0.05;
     bool locked = false;
     bool visible = true;
 };

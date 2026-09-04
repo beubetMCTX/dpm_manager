@@ -491,8 +491,16 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     }
 
     const QJsonObject geometry_object = geometry_value.toObject();
+    const QString kind = geometry_object.value("kind").toString("file").trimmed().toLower();
+    if (kind != "file" && kind != "datum_plane" && kind != "datum_axis")
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry configuration has an invalid kind.",
+            error_message);
+    }
     const QString file_path = geometry_object.value("file_path").toString().trimmed();
-    if (file_path.isEmpty())
+    if (kind == "file" && file_path.isEmpty())
     {
         return reject_invalid_config(
             app_settings_file_path(),
@@ -527,6 +535,7 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     };
 
     ReferenceGeometryConfig loaded_config;
+    loaded_config.kind = kind;
     loaded_config.file_path = file_path;
     if (!read_vector("position", &loaded_config.position) ||
         !read_vector("rotation", &loaded_config.rotation))
@@ -574,7 +583,8 @@ bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
         }
     }
 
-    if (config.file_path.trimmed().isEmpty())
+    if (config.kind.trimmed().toLower() == QStringLiteral("file") &&
+        config.file_path.trimmed().isEmpty())
     {
         root_object.remove("reference_geometry");
     }
@@ -590,10 +600,18 @@ bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
         };
 
         QJsonObject geometry_object;
+        const QString kind = config.kind.trimmed().isEmpty()
+            ? QStringLiteral("file") : config.kind.trimmed().toLower();
+        geometry_object.insert("kind", kind);
         geometry_object.insert("file_path", QDir::toNativeSeparators(
             QFileInfo(config.file_path).absoluteFilePath()));
         geometry_object.insert("position", vector_to_json(config.position));
         geometry_object.insert("rotation", vector_to_json(config.rotation));
+        geometry_object.insert("construction_direction",
+                              vector_to_json(config.construction_direction));
+        geometry_object.insert("construction_size", config.construction_size);
+        geometry_object.insert("construction_thickness", config.construction_thickness);
+        geometry_object.insert("construction_radius", config.construction_radius);
         geometry_object.insert("locked", config.locked);
         geometry_object.insert("visible", config.visible);
         root_object.insert("reference_geometry", geometry_object);
