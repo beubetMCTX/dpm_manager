@@ -2206,10 +2206,10 @@ References:
 
 ### 2026-09-04 Persist Datum Reference Kind In App Config
 
-- Reference configuration now distinguishes imported files from `datum_plane`
-  and `datum_axis` objects, allowing constructed aids to be restored on startup.
-- Existing file-based configurations remain backward-compatible; project-session
-  construction parameters are still a separate follow-up item.
+- Reference configuration and project sessions distinguish imported files from
+  `datum_plane` and `datum_axis` objects, allowing constructed aids and their
+  dimensions/direction to be restored on startup.
+- Existing file-based configurations remain backward-compatible.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Track Direction Inspector Edits
