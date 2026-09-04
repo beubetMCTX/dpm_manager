@@ -12,7 +12,7 @@
 QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec);
 
 // Expands one or more seed Units over a square or hexagonal point layout.
-// Seeds are assigned round-robin, allowing a simple deterministic mixture.
+// Seeds are assigned by the optional deterministic source-weight cycle.
 QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spec);
 
 #endif // UNIT_ARRAY_H

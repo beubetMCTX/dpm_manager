@@ -6,6 +6,7 @@
   selected injector, such as `2,1` for a repeating 2:1 source ratio.
 - Fill expansion applies the weights deterministically; older sessions default
   to one weight per source for backward compatibility.
+- Unit-array regression coverage verifies weighted and legacy source ordering.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing

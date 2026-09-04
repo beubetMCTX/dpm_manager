@@ -473,6 +473,8 @@ Unit
 - Square and hexagonal fill arrays now accept positive integer source weights;
   selected injector sources are expanded in a repeating weighted ratio. Older
   project sessions default to a weight of one for each source.
+- Unit-array regression coverage verifies weighted `2:1` expansion and the
+  legacy round-robin fallback when weights are absent.
 
 ## History
 

@@ -155,6 +155,30 @@ int main(int argc, char **argv)
                    qAbs(filled[3].inj.injector_data.pos.y() - 23.0f) < 1.0e-4f,
                "hexagonal row offset mismatch") && ok;
 
+    UnitFillSpec weighted_fill = hex_fill;
+    weighted_fill.rows = 1;
+    weighted_fill.columns = 6;
+    weighted_fill.source_weights = {2, 1};
+    const QList<Unit> weighted_filled =
+        expand_unit_fill({source, second_source}, weighted_fill);
+    ok = check(weighted_filled.size() == 6,
+               "weighted fill count mismatch") && ok;
+    ok = check(weighted_filled[0].inj.injector_data.name.startsWith("master") &&
+                   weighted_filled[1].inj.injector_data.name.startsWith("master") &&
+                   weighted_filled[2].inj.injector_data.name.startsWith("secondary") &&
+                   weighted_filled[3].inj.injector_data.name.startsWith("master"),
+               "weighted fill source ratio mismatch") && ok;
+
+    UnitFillSpec legacy_fill = hex_fill;
+    legacy_fill.rows = 1;
+    legacy_fill.columns = 2;
+    legacy_fill.source_weights.clear();
+    const QList<Unit> legacy_filled =
+        expand_unit_fill({source, second_source}, legacy_fill);
+    ok = check(legacy_filled[0].inj.injector_data.name.startsWith("master") &&
+                   legacy_filled[1].inj.injector_data.name.startsWith("secondary"),
+               "legacy fill default ratio mismatch") && ok;
+
     hex_fill.circular_boundary = true;
     hex_fill.boundary_radius = 4.1f;
     const QList<Unit> circular_filled = expand_unit_fill({source}, hex_fill);
