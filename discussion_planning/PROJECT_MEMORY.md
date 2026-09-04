@@ -214,6 +214,9 @@ Unit
   do not restore the old smoke-test archive or add icon-only button tests.
 - Removed the unused early OCCT primitive-demo entry points that created a
   fake Unit and bypassed the current reference-geometry/unit display paths.
+- Assembly parents are now treated as composite objects by the editing UI:
+  they cannot open leaf-injector editing or direct position/direction/target
+  inspectors; whole-Assembly translate/rotate operations remain available.
 - Buttons currently use text labels. The remaining icon resources are limited
   to the application icon and combo-box arrow indicators.
 - Release startup displays the stable default injector preview in both Debug

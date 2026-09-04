@@ -747,7 +747,7 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
                                             const QVector3D &direction)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
         !std::isfinite(direction.x()) || !std::isfinite(direction.y()) ||
         !std::isfinite(direction.z()) || direction.lengthSquared() <= 1.0e-12f)
     {
@@ -823,7 +823,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                                    double yaw_degrees)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
         !std::isfinite(pitch_degrees) || !std::isfinite(yaw_degrees) ||
         unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Pitch_Yaw)
@@ -873,7 +873,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
                                                 const QVector3D &target)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
         !std::isfinite(target.x()) || !std::isfinite(target.y()) ||
         !std::isfinite(target.z()) ||
         unit->inj.injector_data.injection_type != single ||
@@ -922,7 +922,7 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
                                                       Single_Target_Scope scope)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
         unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint ||
         scope < Single_Target_Scope::World || scope > Single_Target_Scope::Reference_Local)
@@ -959,7 +959,7 @@ bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
                                            const QVector3D &position)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || !std::isfinite(position.x()) ||
+    if (unit == nullptr || unit->type == Assebly || !std::isfinite(position.x()) ||
         !std::isfinite(position.y()) || !std::isfinite(position.z()))
     {
         return false;
@@ -1156,7 +1156,7 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
 bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit->ais_display.IsNull())
+    if (unit == nullptr || unit->type == Assebly || unit->ais_display.IsNull())
     {
         return false;
     }

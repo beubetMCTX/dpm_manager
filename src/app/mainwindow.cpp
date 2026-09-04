@@ -3578,19 +3578,20 @@ void MainWindow::update_unit_position_controls()
     {
         m_unit_target_scope->setCurrentIndex(target_scope_index);
     }
-    m_unit_position_x->setEnabled(true);
-    m_unit_position_y->setEnabled(true);
-    m_unit_position_z->setEnabled(true);
-    const bool editable_direction = unit != nullptr &&
-        !(unit->inj.injector_data.injection_type == single &&
-          unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Vector) &&
+    const bool editable_unit = unit != nullptr && unit->type != Assebly &&
         !m_3d_widget->unit_locked(uuid);
+    m_unit_position_x->setEnabled(editable_unit);
+    m_unit_position_y->setEnabled(editable_unit);
+    m_unit_position_z->setEnabled(editable_unit);
+    const bool editable_direction = editable_unit &&
+        !(unit->inj.injector_data.injection_type == single &&
+          unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Vector);
     m_unit_direction_x->setEnabled(editable_direction);
     m_unit_direction_y->setEnabled(editable_direction);
     m_unit_direction_z->setEnabled(editable_direction);
-    m_unit_pitch->setEnabled(has_pitch_yaw && !m_3d_widget->unit_locked(uuid));
-    m_unit_yaw->setEnabled(has_pitch_yaw && !m_3d_widget->unit_locked(uuid));
-    const bool editable_target = has_target && !m_3d_widget->unit_locked(uuid);
+    m_unit_pitch->setEnabled(has_pitch_yaw && editable_unit);
+    m_unit_yaw->setEnabled(has_pitch_yaw && editable_unit);
+    const bool editable_target = has_target && editable_unit;
     m_unit_target_x->setEnabled(editable_target);
     m_unit_target_y->setEnabled(editable_target);
     m_unit_target_z->setEnabled(editable_target);

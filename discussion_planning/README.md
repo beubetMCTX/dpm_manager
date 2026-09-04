@@ -2165,6 +2165,14 @@ References:
   and Unit display interfaces.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Guard Composite Assembly Editing
+
+- Assembly parent Units no longer enter the leaf injector editor or direct
+  position/direction/target inspectors.
+- Existing whole-Assembly translation and rotation operations remain the edit
+  path for composite objects.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit
