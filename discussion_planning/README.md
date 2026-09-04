@@ -2519,3 +2519,9 @@ References:
 - The clipping toggle remains a current-scene interaction and is not added to
   the deferred project save format.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Cover Section Plane Clipping
+
+- Added offscreen regression coverage for enabling, observing, disabling, and
+  restoring Section Plane clipping.
+- Release build and all 12 focused regressions passed.

@@ -300,8 +300,21 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
-    return check(stored_unit->inj.injector_data.vel == valid_velocity,
-                 "Failed undo should preserve the valid current injector data")
-               ? 0
-               : 1;
+    if (!check(stored_unit->inj.injector_data.vel == valid_velocity,
+               "Failed undo should preserve the valid current injector data") ||
+        !check(widget.create_reference_section_plane(10.0, 0.01,
+                                                    QVector3D(0.0f, 0.0f, 1.0f)),
+               "Section Plane creation should succeed") ||
+        !check(widget.set_section_plane_clipping(true),
+               "Section Plane clipping should succeed") ||
+        !check(widget.section_plane_clipping_enabled(),
+               "Section Plane clipping should be enabled") ||
+        !check(widget.set_section_plane_clipping(false),
+               "Section Plane clipping should be reversible") ||
+        !check(!widget.section_plane_clipping_enabled(),
+               "Section Plane clipping should be disabled after restore"))
+    {
+        return 1;
+    }
+    return 0;
 }

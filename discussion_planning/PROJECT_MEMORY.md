@@ -242,6 +242,8 @@ Unit
   available through the Section Plane panel as an explicit current-scene
   toggle; the original shape is retained for disabling the clip. The clipping
   toggle itself is not yet part of the deferred project save format.
+- OCCT edit-history regression now covers Section Plane clipping and restoring
+  the original reference shape.
 - A text-based Alignment Frame action now creates an independent AIS trihedron
   with an origin marker, while preserving the world coordinate system.
 - Project-session regression coverage now verifies Alignment Frame direction,
