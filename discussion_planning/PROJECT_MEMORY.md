@@ -490,6 +490,8 @@ Unit
 - Translation and rotation operations now refresh a child local position when
   its parent is not part of the same operation, while parent-inclusive
   recursive operations preserve the stored local offset.
+- OCCT edit-history regression coverage now verifies both local-position rules
+  for parent-inclusive and independent child translations.
 
 ## History
 

@@ -74,6 +74,25 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    const QVector3D assembly_local_before =
+        widget.unit_hash.value(member_uuid)->assembly_local_position;
+    if (!check(widget.translate_units_by_uuid({uuid}, QVector3D(2.0f, 0.0f, 0.0f)) > 0,
+               "Assembly translation should succeed") ||
+        !check(widget.unit_hash.value(member_uuid)->assembly_local_position ==
+                   assembly_local_before,
+               "Parent translation must preserve child local position"))
+    {
+        return 1;
+    }
+    if (!check(widget.translate_units_by_uuid({member_uuid},
+                                              QVector3D(0.0f, 1.0f, 0.0f)) > 0,
+               "Independent child translation should succeed") ||
+        !check(widget.unit_hash.value(member_uuid)->assembly_local_position !=
+                   assembly_local_before,
+               "Independent child translation must update local position"))
+    {
+        return 1;
+    }
     if (!check(!widget.copy_unit_by_uuid(uuid),
                "Assembly copy should be rejected until composite cloning exists"))
     {

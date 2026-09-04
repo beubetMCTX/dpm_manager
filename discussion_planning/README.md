@@ -24,6 +24,8 @@
   zero rotation; this checkpoint does not yet alter runtime geometry.
 - Independent child translation/rotation now synchronizes the persisted local
   position; operations including the parent preserve that local offset.
+- OCCT regression coverage verifies parent-inclusive and independent child
+  local-position behavior.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing
