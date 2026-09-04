@@ -200,10 +200,13 @@ int main(int argc, char *argv[])
                                       "(injection-type . cone)");
     invalid_geometry_contents.replace("(cone-type . point)",
                                       "(cone-type . ring)");
-    invalid_geometry_contents.replace("(inner-radius . 5)",
-                                      "(inner-radius . 10)");
-    invalid_geometry_contents.replace("(radius . 10)",
-                                      "(radius . 5)");
+    // Keep this fixture independent from Injector's display-sized defaults.
+    invalid_geometry_contents.replace(
+        QRegularExpression("\\(inner-radius \\. [^\\)]*\\)"),
+        "(inner-radius . 10)");
+    invalid_geometry_contents.replace(
+        QRegularExpression("\\(radius \\. [^\\)]*\\)"),
+        "(radius . 5)");
     const QString invalid_geometry_path = temporary_directory.filePath("invalid-geometry.dpm");
     if (!check(write_file(invalid_geometry_path, invalid_geometry_contents),
                "Unable to create invalid-geometry DPM fixture"))
