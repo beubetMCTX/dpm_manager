@@ -764,6 +764,8 @@ QJsonObject data_to_json(const project_session::Data &data,
     reference_geometry.insert("rotation", vector_to_json(data.reference_geometry.rotation));
     reference_geometry.insert("locked", data.reference_geometry.locked);
     reference_geometry.insert("visible", data.reference_geometry.visible);
+    reference_geometry.insert("section_clipping",
+                             data.reference_geometry.section_clipping);
     reference_geometry.insert("construction_direction",
                               vector_to_json(data.reference_geometry.construction_direction));
     reference_geometry.insert("construction_size", data.reference_geometry.construction_size);
@@ -1376,7 +1378,9 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     if ((reference_geometry.contains("locked") &&
          !reference_geometry.value("locked").isBool()) ||
         (reference_geometry.contains("visible") &&
-         !reference_geometry.value("visible").isBool()))
+         !reference_geometry.value("visible").isBool()) ||
+        (reference_geometry.contains("section_clipping") &&
+         !reference_geometry.value("section_clipping").isBool()))
     {
         set_error(error_message,
                   "Project session contains invalid reference geometry visibility flags.");
@@ -1404,6 +1408,8 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
     parsed.reference_geometry.locked = reference_geometry.value("locked").toBool(false);
     parsed.reference_geometry.visible = reference_geometry.value("visible").toBool(true);
+    parsed.reference_geometry.section_clipping =
+        reference_geometry.value("section_clipping").toBool(false);
     if (reference_geometry.contains("construction_size"))
     {
         parsed.reference_geometry.construction_size =

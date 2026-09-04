@@ -1340,6 +1340,8 @@ project_session::Data MainWindow::collect_project_data() const
         data.reference_geometry.rotation = m_3d_widget->reference_rotation();
         data.reference_geometry.locked = m_3d_widget->reference_geometry_locked();
         data.reference_geometry.visible = m_3d_widget->reference_geometry_visible();
+        data.reference_geometry.section_clipping =
+            m_3d_widget->section_plane_clipping_enabled();
     }
     return data;
 }

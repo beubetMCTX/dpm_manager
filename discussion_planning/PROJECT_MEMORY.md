@@ -244,6 +244,8 @@ Unit
   toggle itself is not yet part of the deferred project save format. Section
   Plane clipping state is now also included in application reference geometry
   config and restored on startup; missing legacy values default to off.
+- Project sessions now also persist and restore the Section Plane clipping
+  state; older sessions without the optional field default to off.
 - OCCT edit-history regression now covers Section Plane clipping and restoring
   the original reference shape.
 - A text-based Alignment Frame action now creates an independent AIS trihedron

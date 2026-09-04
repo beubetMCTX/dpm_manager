@@ -2528,6 +2528,14 @@ References:
   default to clipping disabled.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Persist Section Plane Clip In Projects
+
+- Project-session JSON now stores and restores the Section Plane clipping
+  state alongside the reference geometry settings.
+- Older project files without the optional field remain compatible and default
+  to clipping disabled.
+- Release build and all 12 focused regressions passed.
+
 ### 2026-09-04 Cover Section Plane Clipping
 
 - Added offscreen regression coverage for enabling, observing, disabling, and
