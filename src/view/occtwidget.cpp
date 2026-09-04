@@ -1923,7 +1923,28 @@ bool OCCTWidget::paste_copied_unit_to_selected_face()
     pasted.inj.injector_data = m_copied_unit->injector_data;
     pasted.inj.uuid = QUuid::createUuid();
     pasted.inj.injector_data.name += " (Face)";
-    pasted.inj.injector_data.pos = face_origin;
+
+    Injector &pasted_injector = pasted.inj.injector_data;
+    const QVector3D translation = face_origin - pasted_injector.pos;
+    pasted_injector.pos = face_origin;
+    pasted_injector.pos2 += translation;
+    pasted_injector.ff_center += translation;
+    pasted_injector.ff_virtual_origin += translation;
+    pasted_injector.volume_bgeom_min += translation;
+    pasted_injector.volume_bgeom_max += translation;
+
+    // Directional injector models use the selected face normal as their
+    // attachment direction. Preserve each vector's magnitude while changing
+    // only its orientation.
+    const auto along_face_normal = [&face_normal](const QVector3D &value)
+    {
+        return face_normal * value.length();
+    };
+    pasted_injector.axis = along_face_normal(pasted_injector.axis);
+    pasted_injector.atomizer_axis = along_face_normal(pasted_injector.atomizer_axis);
+    pasted_injector.ff_normal = along_face_normal(pasted_injector.ff_normal);
+    pasted_injector.vel = along_face_normal(pasted_injector.vel);
+    pasted_injector.vel2 = along_face_normal(pasted_injector.vel2);
 
     if (!pasted.inj.create_injector())
     {
