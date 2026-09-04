@@ -482,6 +482,8 @@ Unit
   match.
 - Project-session regression coverage verifies fill source weights survive a
   save/load round trip.
+- The OCCT fill creation entry point independently validates weight count and
+  positivity, protecting callers that bypass the dialog.
 
 ## History
 

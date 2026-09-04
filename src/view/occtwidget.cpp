@@ -1502,6 +1502,18 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
     {
         return 0;
     }
+    if (spec.source_weights.isEmpty() ||
+        spec.source_weights.size() != sources.size())
+    {
+        return 0;
+    }
+    for (const int weight : spec.source_weights)
+    {
+        if (weight <= 0)
+        {
+            return 0;
+        }
+    }
 
     const std::shared_ptr<Unit> parent = unit_hash.value(source_uuids.first());
     if (parent != nullptr)
