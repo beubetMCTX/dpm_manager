@@ -86,12 +86,12 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="139"/>
         <source>Open Project Session</source>
-        <translation type="unfinished"></translation>
+        <translation>打开工程会话</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="144"/>
         <source>Save Project Session</source>
-        <translation type="unfinished"></translation>
+        <translation>保存工程会话</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="147"/>
@@ -101,37 +101,37 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="152"/>
         <source>Save Project Session As</source>
-        <translation type="unfinished"></translation>
+        <translation>工程会话另存为</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="157"/>
         <source>Validate Project</source>
-        <translation type="unfinished"></translation>
+        <translation>验证工程</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="162"/>
         <source>Materials</source>
-        <translation type="unfinished"></translation>
+        <translation>材料</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="167"/>
         <source>Objects Panel</source>
-        <translation type="unfinished"></translation>
+        <translation>对象面板</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="178"/>
         <source>Reference Geometry Panel</source>
-        <translation type="unfinished"></translation>
+        <translation>参考几何体面板</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="192"/>
         <source>Reset Window Layout</source>
-        <translation type="unfinished"></translation>
+        <translation>重置窗口布局</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="197"/>
         <source>Undo Move</source>
-        <translation type="unfinished"></translation>
+        <translation>撤回平移</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="200"/>
@@ -141,7 +141,7 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="208"/>
         <source>Redo Move</source>
-        <translation type="unfinished"></translation>
+        <translation>重做平移</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="211"/>
@@ -151,7 +151,7 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="219"/>
         <source>Undo Unit Edit</source>
-        <translation type="unfinished"></translation>
+        <translation>撤回喷注器编辑</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="222"/>
@@ -161,7 +161,7 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="230"/>
         <source>Redo Unit Edit</source>
-        <translation type="unfinished"></translation>
+        <translation>重做喷注器编辑</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="233"/>
@@ -171,7 +171,7 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="241"/>
         <source>Undo Delete</source>
-        <translation type="unfinished"></translation>
+        <translation>撤回删除</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="244"/>
@@ -181,7 +181,7 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="252"/>
         <source>Redo Delete</source>
-        <translation type="unfinished"></translation>
+        <translation>重做删除</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="255"/>
@@ -191,7 +191,7 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="263"/>
         <source>Undo Reference Transform</source>
-        <translation type="unfinished"></translation>
+        <translation>撤回参考几何体变换</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="266"/>
@@ -201,7 +201,7 @@
     <message>
         <location filename="src/app/mainwindow.ui" line="274"/>
         <source>Redo Reference Transform</source>
-        <translation type="unfinished"></translation>
+        <translation>重做参考几何体变换</translation>
     </message>
     <message>
         <location filename="src/app/mainwindow.ui" line="277"/>
@@ -214,7 +214,7 @@
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="14"/>
         <source>Species Colors</source>
-        <translation type="unfinished"></translation>
+        <translation>组分颜色</translation>
     </message>
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="38"/>
@@ -224,7 +224,7 @@
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="48"/>
         <source>Filter species...</source>
-        <translation type="unfinished"></translation>
+        <translation>筛选组分...</translation>
     </message>
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="79"/>
@@ -234,7 +234,7 @@
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="84"/>
         <source>Color</source>
-        <translation type="unfinished"></translation>
+        <translation>颜色</translation>
     </message>
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="116"/>
@@ -244,7 +244,7 @@
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="195"/>
         <source>Save Colors</source>
-        <translation type="unfinished"></translation>
+        <translation>保存颜色</translation>
     </message>
     <message>
         <location filename="src/ui/dialogs/species_color_dialog.ui" line="202"/>
