@@ -2491,3 +2491,9 @@ References:
   overrides back to the source Unit rather than deleting them with derived
   instances.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Cover Composite Override Lifecycle
+
+- Added OCCT regression coverage proving independent composite-fill overrides
+  survive rebuild and Assembly dissolution without corrupting source state.
+- Release build and all 12 focused regressions passed.

@@ -196,14 +196,37 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    std::shared_ptr<Unit> override_child;
+    for (const std::shared_ptr<Unit> &instance :
+         widget.unit_hash.value(uuid)->child_units)
+    {
+        if (instance != nullptr && instance->is_array_child &&
+            !instance->child_units.isEmpty())
+        {
+            override_child = instance->child_units.first();
+            break;
+        }
+    }
+    if (!check(override_child != nullptr,
+               "Composite fill should expose a child for override testing") ||
+        !check(widget.set_unit_follow_array(override_child->inj.uuid, false),
+               "Composite child should support independent override") ||
+        !check(widget.rebuild_unit_fill(uuid) > 0,
+               "Composite fill rebuild should succeed with an override") ||
+        !check(widget.unit_hash.contains(override_child->inj.uuid),
+               "Independent composite override must survive rebuild"))
+    {
+        return 1;
+    }
 
     if (!check(widget.dissolve_assembly(uuid),
                "Assembly with generated children should dissolve cleanly") ||
-        !check(widget.unit_hash.size() == 2 &&
+        !check(widget.unit_hash.size() == 3 &&
                    widget.unit_hash.value(uuid)->child_units.isEmpty() &&
                    widget.unit_hash.value(uuid)->type == injector &&
-                   !widget.unit_hash.value(uuid)->has_array_spec,
-               "Dissolving an Assembly should remove derived children and metadata"))
+                   !widget.unit_hash.value(uuid)->has_array_spec &&
+                   widget.unit_hash.contains(override_child->inj.uuid),
+               "Dissolving an Assembly should preserve independent overrides"))
     {
         return 1;
     }
@@ -211,7 +234,7 @@ int main(int argc, char *argv[])
                "Assembly creation with no valid child should fail") ||
         !check(widget.unit_hash.value(uuid)->type == injector &&
                    widget.unit_hash.value(uuid)->assembly_child_uuids.isEmpty() &&
-                   widget.unit_hash.size() == 2,
+                   widget.unit_hash.size() == 3,
                "Failed Assembly creation must not mutate the source"))
     {
         return 1;

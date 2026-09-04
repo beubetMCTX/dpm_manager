@@ -561,6 +561,8 @@ Unit
 - Composite-array cleanup now preserves independent child overrides: nodes with
   `follows_array == false` are detached back to the source Unit instead of being
   deleted with the regenerated derived tree.
+- OCCT edit-history regression now verifies an independent child override
+  survives composite-fill rebuild and Assembly dissolution.
 
 ## History
 
