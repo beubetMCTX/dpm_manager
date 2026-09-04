@@ -500,6 +500,8 @@ Unit
   rotations preserve the child's local orientation.
 - OCCT regression coverage now verifies that an independent child rotation
   changes its persisted local orientation.
+- Unit edit history now snapshots and restores Assembly local position and
+  rotation together with Injector data during undo, redo, and cancel.
 
 ## History
 

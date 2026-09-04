@@ -1237,6 +1237,8 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
     transaction.uuid = uuid;
     transaction.before_type = unit->type;
     transaction.before_data = unit->inj.injector_data;
+    transaction.before_local_position = unit->assembly_local_position;
+    transaction.before_local_rotation = unit->assembly_local_rotation;
     unit->inj.injector_data.name = normalized_name;
     record_edit(transaction, *unit);
     emit unit_data_updated(unit.get());
@@ -2183,10 +2185,16 @@ bool OCCTWidget::cancel_unit_edit_transaction(Unit *unit)
     before_entry.after_type = transaction.before_type;
     before_entry.before_data = transaction.before_data;
     before_entry.after_data = transaction.before_data;
+    before_entry.before_local_position = transaction.before_local_position;
+    before_entry.before_local_rotation = transaction.before_local_rotation;
+    before_entry.after_local_position = transaction.before_local_position;
+    before_entry.after_local_rotation = transaction.before_local_rotation;
 
     if (!apply_edit_snapshot(before_entry,
                              transaction.before_type,
-                             transaction.before_data))
+                             transaction.before_data,
+                             transaction.before_local_position,
+                             transaction.before_local_rotation))
     {
         return false;
     }
@@ -2197,7 +2205,9 @@ bool OCCTWidget::cancel_unit_edit_transaction(Unit *unit)
 
 bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
                                      Unit_Type type,
-                                     const Injector &data)
+                                     const Injector &data,
+                                     const QVector3D &local_position,
+                                     const QVector3D &local_rotation)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(entry.uuid);
     if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
@@ -2210,6 +2220,8 @@ bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
     const TopoDS_Compound previous_shape = unit->inj.shape;
     unit->type = type;
     unit->inj.injector_data = data;
+    unit->assembly_local_position = local_position;
+    unit->assembly_local_rotation = local_rotation;
     if (!unit->inj.create_injector())
     {
         unit->type = previous_type;
@@ -2250,6 +2262,10 @@ void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
     entry.after_type = unit.type;
     entry.before_data = transaction.before_data;
     entry.after_data = unit.inj.injector_data;
+    entry.before_local_position = transaction.before_local_position;
+    entry.before_local_rotation = transaction.before_local_rotation;
+    entry.after_local_position = unit.assembly_local_position;
+    entry.after_local_rotation = unit.assembly_local_rotation;
     m_edit_history.append(std::move(entry));
     m_edit_history_index = m_edit_history.size();
     emit edit_history_changed(can_undo_edit(), can_redo_edit());
@@ -2296,7 +2312,9 @@ bool OCCTWidget::undo_last_edit()
     for (int index = m_edit_history_index - 1; index >= batch_start; --index)
     {
         const UnitEditHistoryEntry &entry = m_edit_history[index];
-        if (!apply_edit_snapshot(entry, entry.before_type, entry.before_data))
+        if (!apply_edit_snapshot(entry, entry.before_type, entry.before_data,
+                                 entry.before_local_position,
+                                 entry.before_local_rotation))
         {
             return false;
         }
@@ -2324,7 +2342,9 @@ bool OCCTWidget::redo_edit()
     for (int index = m_edit_history_index; index < batch_end; ++index)
     {
         const UnitEditHistoryEntry &entry = m_edit_history[index];
-        if (!apply_edit_snapshot(entry, entry.after_type, entry.after_data))
+        if (!apply_edit_snapshot(entry, entry.after_type, entry.after_data,
+                                 entry.after_local_position,
+                                 entry.after_local_rotation))
         {
             return false;
         }

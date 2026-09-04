@@ -31,6 +31,8 @@
 - Local child orientation now records independent rotations as a rotation
   vector composed through quaternions, while parent rotations preserve it.
 - OCCT regression coverage verifies independent child orientation updates.
+- Unit edit history now restores Assembly local transforms together with
+  injector data for undo, redo, and cancel operations.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing

@@ -294,6 +294,8 @@ private:
         QUuid uuid;
         Unit_Type before_type = injector;
         Injector before_data;
+        QVector3D before_local_position;
+        QVector3D before_local_rotation;
     };
     struct UnitEditHistoryEntry
     {
@@ -303,6 +305,10 @@ private:
         Unit_Type after_type = injector;
         Injector before_data;
         Injector after_data;
+        QVector3D before_local_position;
+        QVector3D before_local_rotation;
+        QVector3D after_local_position;
+        QVector3D after_local_rotation;
     };
     struct CopiedUnit
     {
@@ -335,7 +341,9 @@ private:
     void clear_move_history();
     bool apply_edit_snapshot(const UnitEditHistoryEntry &entry,
                              Unit_Type type,
-                             const Injector &data);
+                             const Injector &data,
+                             const QVector3D &local_position,
+                             const QVector3D &local_rotation);
     void record_edit(const UnitEditTransaction &transaction,
                      const Unit &unit);
     void clear_edit_history();
