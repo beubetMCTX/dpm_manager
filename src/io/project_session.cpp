@@ -861,6 +861,30 @@ bool validate(const Data &data, QString *error_message)
         return false;
     }
 
+    const QString reference_kind = data.reference_geometry.kind.trimmed().toLower();
+    if (reference_kind != "file" && reference_kind != "datum_plane" &&
+        reference_kind != "datum_axis")
+    {
+        set_error(error_message, "Project contains an invalid reference geometry kind.");
+        return false;
+    }
+    if (reference_kind != "file" &&
+        (!is_finite_vector(data.reference_geometry.construction_direction) ||
+         data.reference_geometry.construction_direction.lengthSquared() <= 1.0e-12f ||
+         !std::isfinite(data.reference_geometry.construction_size) ||
+         data.reference_geometry.construction_size <= 0.0 ||
+         (reference_kind == "datum_plane" &&
+          (!std::isfinite(data.reference_geometry.construction_thickness) ||
+           data.reference_geometry.construction_thickness <= 0.0)) ||
+         (reference_kind == "datum_axis" &&
+          (!std::isfinite(data.reference_geometry.construction_radius) ||
+           data.reference_geometry.construction_radius <= 0.0))))
+    {
+        set_error(error_message,
+                  "Project contains invalid constructed reference geometry parameters.");
+        return false;
+    }
+
     if (error_message != nullptr)
     {
         error_message->clear();

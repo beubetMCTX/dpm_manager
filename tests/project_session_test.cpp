@@ -571,8 +571,45 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data datum_source = source;
+    datum_source.reference_geometry.kind = "datum_plane";
+    datum_source.reference_geometry.file_path.clear();
+    datum_source.reference_geometry.construction_direction =
+        QVector3D(1.0f, 2.0f, 3.0f).normalized();
+    datum_source.reference_geometry.construction_size = 24.0;
+    datum_source.reference_geometry.construction_thickness = 0.2;
+    const QString datum_path = temporary_directory.filePath("datum.dpmproj");
+    if (!check(project_session::save(datum_path, datum_source, &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_datum;
+    if (!check(project_session::load(datum_path, &restored_datum, &error_message),
+               error_message) ||
+        !check(restored_datum.reference_geometry.kind == "datum_plane" &&
+                   restored_datum.reference_geometry.file_path.isEmpty() &&
+                   restored_datum.reference_geometry.construction_direction ==
+                       datum_source.reference_geometry.construction_direction &&
+                   restored_datum.reference_geometry.construction_size == 24.0 &&
+                   restored_datum.reference_geometry.construction_thickness == 0.2,
+               "Constructed reference geometry did not round-trip"))
+    {
+        return 1;
+    }
+
+    project_session::Data invalid_datum = datum_source;
+    invalid_datum.reference_geometry.construction_direction = QVector3D();
+    if (!check(!project_session::validate(invalid_datum, &validation_error) &&
+                   validation_error.contains("constructed reference geometry"),
+               "zero constructed reference direction should fail validation"))
+    {
+        return 1;
+    }
+
     QFile::remove(session_path);
     QFile::remove(assembly_path);
+    QFile::remove(datum_path);
     QFile::remove(malformed_path);
     QFile::remove(malformed_transform_path);
     QFile::remove(malformed_unit_path);

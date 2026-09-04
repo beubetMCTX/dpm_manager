@@ -2241,3 +2241,10 @@ References:
   construction direction.
 - Project restore and state collection preserve that direction.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Cover Constructed Reference Session Validation
+
+- Added round-trip coverage for datum-plane construction parameters and
+  direction.
+- Added validation coverage for zero construction directions.
+- Release build and all 12 focused regressions passed.

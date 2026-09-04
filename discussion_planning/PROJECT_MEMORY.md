@@ -232,6 +232,8 @@ Unit
   Constructed reference parameters are validated during session loading.
 - Datum plane and datum axis generation now uses the persisted construction
   direction instead of always creating along the world Z axis.
+- Project-session regression coverage now verifies constructed reference
+  geometry round-trip and rejects zero construction directions.
 - Removed the unused early OCCT primitive-demo entry points that created a
   fake Unit and bypassed the current reference-geometry/unit display paths.
 - Assembly parents are now treated as composite objects by the editing UI:
