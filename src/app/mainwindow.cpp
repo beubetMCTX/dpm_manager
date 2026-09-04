@@ -4185,8 +4185,10 @@ void MainWindow::update_unit_position_controls()
     const bool editable_unit = unit != nullptr && unit->type != Assebly &&
         !m_3d_widget->unit_locked(uuid);
     const bool show_inspector = unit != nullptr && unit->type != Assebly;
+    const bool show_direction = show_inspector &&
+        unit->inj.injector_data.injection_type != volume;
     m_unit_position_group->setVisible(show_inspector);
-    m_unit_direction_group->setVisible(show_inspector);
+    m_unit_direction_group->setVisible(show_direction);
     m_unit_position_x->setEnabled(editable_unit);
     m_unit_position_y->setEnabled(editable_unit);
     m_unit_position_z->setEnabled(editable_unit);
