@@ -5,6 +5,7 @@
 #include <QTimer>
 #include <QtMath>
 #include <QMessageBox>
+#include <QQuaternion>
 
 #include <algorithm>
 #include <cmath>
@@ -1024,6 +1025,8 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
     const float radians = qDegreesToRadians(angle_degrees);
     const float cosine = std::cos(radians);
     const float sine = std::sin(radians);
+    const QQuaternion delta_rotation =
+        QQuaternion::fromAxisAndAngle(unit_axis, qRadiansToDegrees(radians));
     const auto rotate_vector = [&](const QVector3D &value)
     {
         return value * cosine + QVector3D::crossProduct(unit_axis, value) * sine +
@@ -1099,6 +1102,25 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
         {
             injector = before;
             continue;
+        }
+
+        if (!unit->assembly_parent_uuid.isNull() &&
+            !operation_set.contains(unit->assembly_parent_uuid))
+        {
+            QQuaternion local_rotation = QQuaternion(1.0f, 0.0f, 0.0f, 0.0f);
+            const QVector3D local_vector = unit->assembly_local_rotation;
+            const float local_angle = local_vector.length();
+            if (local_angle > 1.0e-6f)
+            {
+                local_rotation = QQuaternion::fromAxisAndAngle(
+                    local_vector.normalized(), qRadiansToDegrees(local_angle));
+            }
+            const QQuaternion combined = delta_rotation * local_rotation;
+            QVector3D combined_axis;
+            float combined_angle_degrees = 0.0f;
+            combined.getAxisAndAngle(&combined_axis, &combined_angle_degrees);
+            unit->assembly_local_rotation =
+                combined_axis * qDegreesToRadians(combined_angle_degrees);
         }
 
         if (!unit->assembly_parent_uuid.isNull() &&

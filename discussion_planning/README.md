@@ -28,6 +28,8 @@
   local-position behavior.
 - Fixed shared-pivot rotation to transform the primary injector position;
   parent Assembly rotation now updates child world positions and local offsets.
+- Local child orientation now records independent rotations as a rotation
+  vector composed through quaternions, while parent rotations preserve it.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing

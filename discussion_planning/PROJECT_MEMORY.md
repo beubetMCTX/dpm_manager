@@ -495,6 +495,9 @@ Unit
 - Shared-pivot rotation now rotates the injector primary position as well as
   secondary spatial fields; this fixes parent Assembly rotation and keeps
   nested child local positions consistent.
+- Assembly child local rotation now uses a rotation-vector representation and
+  quaternion composition for independent child rotations; parent-inclusive
+  rotations preserve the child's local orientation.
 
 ## History
 
