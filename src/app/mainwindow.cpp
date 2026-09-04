@@ -3556,10 +3556,15 @@ void MainWindow::create_object_list_panel()
 
             UnitArraySpec spec;
             spec.count = count;
-            if (m_3d_widget->reference_geometry_visible())
+            if (m_3d_widget->reference_geometry_visible() ||
+                m_3d_widget->has_selected_face())
             {
+                const QString reference_prompt =
+                    m_3d_widget->has_selected_face()
+                        ? "Use the selected reference face frame?"
+                        : "Use the visible reference geometry frame?";
                 const auto use_reference = QMessageBox::question(
-                    this, "Create Array", "Use the visible reference geometry frame?",
+                    this, "Create Array", reference_prompt,
                     QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
                 if (use_reference == QMessageBox::Yes)
                 {
@@ -3667,10 +3672,15 @@ void MainWindow::create_object_list_panel()
             spec.pattern = fill_type == "Hexagonal"
                                ? UnitFillPattern::Hexagonal
                                : UnitFillPattern::Square;
-            if (m_3d_widget->reference_geometry_visible())
+            if (m_3d_widget->reference_geometry_visible() ||
+                m_3d_widget->has_selected_face())
             {
+                const QString reference_prompt =
+                    m_3d_widget->has_selected_face()
+                        ? "Use the selected reference face frame?"
+                        : "Use the visible reference geometry frame?";
                 const auto use_reference = QMessageBox::question(
-                    this, "Create Fill", "Use the visible reference geometry frame?",
+                    this, "Create Fill", reference_prompt,
                     QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
                 if (use_reference == QMessageBox::Yes)
                 {
