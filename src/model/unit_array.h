@@ -21,4 +21,9 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
 std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
                                       QHash<QUuid, QUuid> &uuid_map);
 
+// Applies one rigid transform to every injector in a persistent Unit tree.
+void transform_unit_tree(Unit &root, const QVector3D &pivot,
+                         const QVector3D &axis, float angle_radians,
+                         const QVector3D &translation = QVector3D());
+
 #endif // UNIT_ARRAY_H

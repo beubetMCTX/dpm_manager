@@ -2394,3 +2394,11 @@ References:
   including local coordinate frames, visibility/lock defaults, species-derived
   colors, and Volume transparency.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Add Unit Tree Rigid Transform
+
+- Added a model-level recursive rigid transform for Unit/Assembly trees.
+- Rotation and translation update all injector geometry and direction fields;
+  World-scoped target points remain fixed while local targets follow the tree.
+- Added focused regression coverage for the transformed root.
+- Release build and all 12 focused regressions passed.

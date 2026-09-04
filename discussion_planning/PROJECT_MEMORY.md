@@ -526,6 +526,9 @@ Unit
 - The cloned tree is registered recursively with local frames, visibility,
   locks, material-derived colors, and Volume transparency initialized through
   the same runtime paths as imported Units.
+- Added a reusable rigid-transform operation for persistent Unit trees. It
+  applies rotation and translation recursively to injector spatial fields and
+  directions while preserving World-scoped Single target points.
 
 ## History
 

@@ -405,3 +405,33 @@ std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
     }
     return clone;
 }
+
+void transform_unit_tree(Unit &root, const QVector3D &pivot,
+                         const QVector3D &axis, float angle_radians,
+                         const QVector3D &translation)
+{
+    const QVector3D usable_axis = normalized_or(
+        axis, QVector3D(0.0f, 0.0f, 1.0f));
+    rotate_injector_data(root.inj.injector_data, pivot, usable_axis,
+                         angle_radians);
+    root.inj.injector_data.pos += translation;
+    root.inj.injector_data.pos2 += translation;
+    root.inj.injector_data.ff_center += translation;
+    root.inj.injector_data.ff_virtual_origin += translation;
+    root.inj.injector_data.volume_bgeom_min += translation;
+    root.inj.injector_data.volume_bgeom_max += translation;
+    if (root.inj.injector_data.single_target_scope != Single_Target_Scope::World &&
+        root.inj.injector_data.single_target_scope != Single_Target_Scope::Reference_Local)
+    {
+        root.inj.injector_data.single_target_hitpoint += translation;
+    }
+
+    for (const std::shared_ptr<Unit> &child : root.child_units)
+    {
+        if (child != nullptr && !child->is_array_child)
+        {
+            transform_unit_tree(*child, pivot, usable_axis, angle_radians,
+                                translation);
+        }
+    }
+}

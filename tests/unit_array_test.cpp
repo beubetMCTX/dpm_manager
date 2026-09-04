@@ -237,5 +237,11 @@ int main(int argc, char **argv)
                    cloned_tree->child_units.first()->assembly_parent_uuid ==
                        cloned_tree->inj.uuid,
                "Assembly tree clone should remap UUIDs and parent links") && ok;
+    transform_unit_tree(*cloned_tree, QVector3D(0.0f, 0.0f, 0.0f),
+                        QVector3D(0.0f, 0.0f, 1.0f),
+                        qDegreesToRadians(90.0f), QVector3D(2.0f, 0.0f, 0.0f));
+    ok = check(qAbs(cloned_tree->inj.injector_data.pos.x()) < 1.0e-4f &&
+                   qAbs(cloned_tree->inj.injector_data.pos.y() - 1.0f) < 1.0e-4f,
+               "Unit tree rigid transform should update the root") && ok;
     return ok ? 0 : 1;
 }
