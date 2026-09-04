@@ -563,6 +563,12 @@ Unit
   deleted with the regenerated derived tree.
 - OCCT edit-history regression now verifies an independent child override
   survives composite-fill rebuild and Assembly dissolution.
+- Object-inspector position, direction, and Single direction-mode accessors now
+  resolve following array children through their prototype chain before reading
+  or writing; detached children (`follows_array == false`) continue to expose
+  and edit their own data.
+- Added regression coverage for inspector position resolution in both following
+  and independent composite-child states.
 
 ## History
 

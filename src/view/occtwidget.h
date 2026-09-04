@@ -272,6 +272,7 @@ private:
     void schedule_unit_visual_refresh(Unit *unit);
     void refresh_unit_visual(Unit *unit);
     void clear_unit_array_children(Unit &source);
+    std::shared_ptr<Unit> resolve_effective_edit_unit(const QUuid &uuid) const;
     Quantity_Color color_for_material(const QString &material) const;
     void refresh_unit_colors();
 

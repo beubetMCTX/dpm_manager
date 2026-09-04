@@ -209,8 +209,14 @@ int main(int argc, char *argv[])
     }
     if (!check(override_child != nullptr,
                "Composite fill should expose a child for override testing") ||
+        !check(widget.unit_position_by_uuid(override_child->inj.uuid) ==
+                   widget.unit_position_by_uuid(member_uuid),
+               "Following composite child should resolve inspector position to its prototype") ||
         !check(widget.set_unit_follow_array(override_child->inj.uuid, false),
                "Composite child should support independent override") ||
+        !check(widget.unit_position_by_uuid(override_child->inj.uuid) ==
+                   override_child->inj.injector_data.pos,
+               "Independent composite child should expose its own inspector position") ||
         !check(widget.rebuild_unit_fill(uuid) > 0,
                "Composite fill rebuild should succeed with an override") ||
         !check(widget.unit_hash.contains(override_child->inj.uuid),

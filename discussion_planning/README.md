@@ -2497,3 +2497,13 @@ References:
 - Added OCCT regression coverage proving independent composite-fill overrides
   survive rebuild and Assembly dissolution without corrupting source state.
 - Release build and all 12 focused regressions passed.
+
+### 2026-09-04 Unify Inspector Array Editing
+
+- Object-inspector position, direction, and Single direction-mode accessors now
+  follow the prototype chain for array-linked children, matching the existing
+  Unit editor semantics.
+- Detached children with `follows_array == false` remain independently readable
+  and editable.
+- Added regression coverage for following and independent inspector positions.
+- Release build and all 12 focused regressions passed.
