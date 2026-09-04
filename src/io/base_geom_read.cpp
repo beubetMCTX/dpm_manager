@@ -169,6 +169,7 @@ bool Base_Geom_Read::readFile(QString& filePath)
             return report_error("参考几何体单位转换失败");
         }
         m_shape = unit_transform.Shape();
+        get_bounding_box();
 
         m_file_path = fileInfo.absoluteFilePath();
         emit fileReadSuccess(fileInfo.fileName());
