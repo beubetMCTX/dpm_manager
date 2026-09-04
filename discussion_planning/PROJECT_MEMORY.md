@@ -192,6 +192,12 @@ Unit
 
 ## Known Limits
 
+- Constructed reference aids (datum planes, rotation axes, origins, and section
+  planes) still need a persisted construction-object model; imported reference
+  geometry and selected-face frames are implemented.
+- Full nested composite Units are not complete: Assembly array expansion is
+  currently flattened into derived children rather than nested Assembly
+  instances with independent local transform nodes.
 - Dynamic-mesh surface eligibility and Wall-Film-specific fields are not
   represented in the current `Injector`/case-context model, so they are not
   hard-locked in the editor.
@@ -221,6 +227,10 @@ Unit
   exists; this prevents silently losing child relationships during paste.
 - Assembly objects now have a text right-click menu with recursive lock/unlock
   and dissolve actions, matching the existing injector context-menu workflow.
+- Assembly copy remains intentionally unavailable: the current copy operation
+  is leaf-parameter paste, not a composite-tree clone. A future clone must
+  preserve recursive child UUID remapping, array/fill metadata, transforms,
+  inheritance flags, and history atomically.
 - Buttons currently use text labels. The remaining icon resources are limited
   to the application icon and combo-box arrow indicators.
 - Release startup displays the stable default injector preview in both Debug

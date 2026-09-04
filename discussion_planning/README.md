@@ -2187,6 +2187,15 @@ References:
 - The actions reuse the existing Assembly lifecycle and lock propagation code.
 - Release build and all 12 focused regressions passed.
 
+### 2026-09-04 Audit Composite And Reference-Geometry Scope
+
+- Recorded that Assembly copy is leaf-parameter paste only and remains
+  unavailable until recursive composite cloning can remap relationships
+  atomically.
+- Recorded constructed reference aids and fully nested Assembly instances as
+  explicit remaining implementation items; imported geometry and face frames
+  remain supported.
+
 ### 2026-09-04 Track Direction Inspector Edits
 
 - Direction-vector, Pitch/Yaw, and Target Hitpoint edits now create normal Unit
