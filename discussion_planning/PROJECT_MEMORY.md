@@ -248,6 +248,8 @@ Unit
   state; older sessions without the optional field default to off.
 - Application-config regression now verifies Section Plane clipping state
   round-trip.
+- Project-session regression now verifies Section Plane clipping state
+  round-trip.
 - OCCT edit-history regression now covers Section Plane clipping and restoring
   the original reference shape.
 - A text-based Alignment Frame action now creates an independent AIS trihedron

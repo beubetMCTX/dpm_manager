@@ -662,6 +662,7 @@ int main(int argc, char *argv[])
     section_source.reference_geometry.kind = "section_plane";
     section_source.reference_geometry.construction_size = 31.0;
     section_source.reference_geometry.construction_thickness = 0.35;
+    section_source.reference_geometry.section_clipping = true;
     const QString section_path = temporary_directory.filePath("section.dpmproj");
     if (!check(project_session::save(section_path, section_source, &error_message),
                error_message))
@@ -673,7 +674,8 @@ int main(int argc, char *argv[])
                error_message) ||
         !check(restored_section.reference_geometry.kind == "section_plane" &&
                    restored_section.reference_geometry.construction_size == 31.0 &&
-                   restored_section.reference_geometry.construction_thickness == 0.35,
+                   restored_section.reference_geometry.construction_thickness == 0.35 &&
+                   restored_section.reference_geometry.section_clipping,
                "Section plane parameters did not round-trip"))
     {
         return 1;
