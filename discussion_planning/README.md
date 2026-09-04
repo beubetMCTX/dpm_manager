@@ -11,6 +11,7 @@
   older valid sessions from silent corruption.
 - Legacy multi-source fills receive one default weight per source, while new
   sessions require matching weight and source counts.
+- Project-session regression coverage verifies weight persistence.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing

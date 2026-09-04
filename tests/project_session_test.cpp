@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
     unit.fill_spec.spacing_x = 2.5f;
     unit.fill_spec.spacing_y = 2.0f;
     unit.fill_spec.origin = QVector3D(4.0f, 5.0f, 6.0f);
+    unit.fill_spec.source_weights = {1};
     unit.fill_source_uuids = {unit.inj.uuid};
     unit.has_array_spec = false;
     unit.array_spec.type = UnitArrayType::Elliptical;
@@ -291,6 +292,7 @@ int main(int argc, char *argv[])
         !check(restored.units.first().has_fill_spec &&
                    restored.units.first().fill_spec.pattern == UnitFillPattern::Hexagonal &&
                    restored.units.first().fill_spec.rows == 3 &&
+                   restored.units.first().fill_spec.source_weights == QVector<int>({1}) &&
                    restored.units.first().fill_source_uuids == QVector<QUuid>({unit.inj.uuid}),
                "Fill metadata did not round-trip") ||
         !check(restored.units.first().has_array_spec &&

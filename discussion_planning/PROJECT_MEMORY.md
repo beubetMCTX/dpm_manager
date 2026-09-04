@@ -480,6 +480,8 @@ Unit
 - Legacy fill sessions without a weight array now receive one default weight
   per stored source; current sessions require the weight/source counts to
   match.
+- Project-session regression coverage verifies fill source weights survive a
+  save/load round trip.
 
 ## History
 
