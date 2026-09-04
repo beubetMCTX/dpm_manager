@@ -14,15 +14,6 @@
 
 namespace
 {
-constexpr Standard_Real kDisplayScale = 1000.0;
-
-gp_Trsf display_scale_transform()
-{
-    gp_Trsf scale;
-    scale.SetScale(gp::Origin(), kDisplayScale);
-    return scale;
-}
-
 QColor placeholder_color_for_species(const QString &species_name)
 {
     const uint hash_value = qHash(species_name);
@@ -426,7 +417,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         m_unit_locks.insert(stored_unit->inj.uuid, false);
 
         stored_unit->ais_display->Set(stored_unit->inj.shape);
-        stored_unit->ais_display->SetLocalTransformation(display_scale_transform());
+stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
         stored_unit->u_owner->set_unit(stored_unit.get());
         stored_unit->ais_display->SetOwner(stored_unit->u_owner);
         stored_unit->ais_display->SetColor(
@@ -1014,7 +1005,7 @@ void OCCTWidget::restore_transform_gizmo_preview()
     unit->inj.injector_data = m_transform_gizmo_before_data;
     if (unit->inj.create_injector() && !unit->ais_display.IsNull())
     {
-        unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
         unit->ais_display->SetTransparency(
@@ -1106,7 +1097,7 @@ void OCCTWidget::finish_transform_gizmo(bool apply)
 
         if (unit->inj.create_injector() && !unit->ais_display.IsNull())
         {
-            unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
             unit->ais_display->Set(unit->inj.shape);
             unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
             unit->ais_display->SetTransparency(
@@ -1234,7 +1225,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
             }
         }
 
-        unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
         m_context->Redisplay(unit->ais_display, Standard_False);
@@ -1657,7 +1648,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
             }
         }
 
-        unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(injector));
         m_context->Redisplay(unit->ais_display, Standard_False);
@@ -1897,7 +1888,7 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
         return false;
     }
 
-    unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
@@ -2103,7 +2094,7 @@ bool OCCTWidget::attach_unit_to_selected_face(const QUuid &uuid)
         {
             return false;
         }
-        node->ais_display->SetLocalTransformation(display_scale_transform());
+node->ais_display->SetLocalTransformation(gp_Trsf());
         node->ais_display->Set(node->inj.shape);
         node->ais_display->SetColor(color_for_injector(node->inj.injector_data));
         node->ais_display->SetTransparency(
@@ -3240,7 +3231,7 @@ bool OCCTWidget::apply_move_snapshot(const UnitMoveHistoryEntry &entry,
         return false;
     }
 
-    unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
@@ -3386,7 +3377,7 @@ bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
         return false;
     }
 
-    unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(
@@ -3589,7 +3580,7 @@ bool OCCTWidget::cancel_active_drag_for_undo()
     injector.volume_bgeom_max = snapshot.volume_bgeom_max;
     if (unit->inj.create_injector() && !unit->ais_display.IsNull())
     {
-        unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(injector));
         unit->ais_display->SetTransparency(
@@ -3885,7 +3876,7 @@ void OCCTWidget::add_readed_geometry()
     clear_reference_face_coordinate_frames();
 
     base_geometry->Set(compound);
-    base_geometry->SetLocalTransformation(display_scale_transform());
+base_geometry->SetLocalTransformation(gp_Trsf());
     m_reference_geometry_visible = true;
 
     m_context->Redisplay(base_geometry, Standard_True);
@@ -4387,7 +4378,7 @@ void OCCTWidget::apply_reference_transform()
     if (!base_geometry.IsNull())
     {
         base_geometry->SetLocalTransformation(
-            display_scale_transform() * m_reference_transform);
+            m_reference_transform);
         if (!m_context.IsNull())
         {
             m_context->Redisplay(base_geometry, Standard_False);
@@ -5247,7 +5238,7 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
         return;
     }
 
-    unit->ais_display->SetLocalTransformation(display_scale_transform());
+unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     unit->ais_display->SetTransparency(

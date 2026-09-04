@@ -22,6 +22,8 @@
 #include <TDataStd_Name.hxx>
 #include <BRepTools.hxx>
 #include <BRep_Builder.hxx>
+#include <BRepBuilderAPI_Transform.hxx>
+#include <gp_Trsf.hxx>
 #include <qvectornd.h>
 
 #include <BRepBndLib.hxx> // 用于从形状生成边界框
