@@ -2320,6 +2320,10 @@ void MainWindow::create_object_list_panel()
         interaction_toolbar->addAction(action);
     }
     interaction_toolbar->addSeparator();
+    auto *array_tools_action = new QAction("Array Tools...", interaction_toolbar);
+    auto *reference_tools_action = new QAction("Reference Tools", interaction_toolbar);
+    interaction_toolbar->addAction(array_tools_action);
+    interaction_toolbar->addAction(reference_tools_action);
     auto *interaction_status = new QLabel("Mode: Select", interaction_toolbar);
     interaction_status->setObjectName("interactionModeStatus");
     interaction_toolbar->addWidget(interaction_status);
@@ -2343,6 +2347,32 @@ void MainWindow::create_object_list_panel()
     {
         m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Rotation);
         interaction_status->setText("Mode: Rotate");
+    });
+    connect(array_tools_action, &QAction::triggered, this, [this]()
+    {
+        if (m_object_list == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr || item->data(Qt::UserRole).toString() == QStringLiteral("reference"))
+        {
+            statusBar()->showMessage("Select an injector or Assembly first", 4000);
+            return;
+        }
+        const QPoint item_position = m_object_list->visualItemRect(item).center();
+        if (!item_position.isNull())
+        {
+            emit m_object_list->customContextMenuRequested(item_position);
+        }
+    });
+    connect(reference_tools_action, &QAction::triggered, this, [this]()
+    {
+        if (m_reference_geometry_dock != nullptr)
+        {
+            m_reference_geometry_dock->show();
+            m_reference_geometry_dock->raise();
+        }
     });
     connect(m_3d_widget, &OCCTWidget::interaction_mode_changed,
             this, [toolbar_selection, toolbar_translation, toolbar_rotation,

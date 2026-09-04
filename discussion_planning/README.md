@@ -32,6 +32,10 @@ deltas, without changing object or reference-geometry transforms.
 Undo Move/Edit now restores an active, uncommitted drag first; older history is
 consumed only when no transform is in progress.
 
+The viewport toolbar now exposes Array Tools and Reference Tools. Array Tools
+opens the existing complete array workflow for the current object rather than
+duplicating its parameter logic.
+
 ### 2026-09-05 Add Injector Transform Gizmos
 
 - Single-selection quick Translate/Rotate now activates OCCT 7.9

@@ -649,6 +649,8 @@ Unit
   behavior.
 - Undo Move/Edit now cancels and restores an active object or gizmo drag before
   consuming an older history entry.
+- The top viewport toolbar now exposes Array Tools and Reference Tools; Array
+  Tools reuses the established full context-menu parameter workflow.
 
 ## History
 
