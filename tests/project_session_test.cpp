@@ -130,6 +130,15 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    invalid_fill_spec.units.first().fill_spec.spacing_x = 1.0f;
+    invalid_fill_spec.units.first().fill_spec.source_weights = {2, 0};
+    reference_error.clear();
+    if (!check(!project_session::validate(invalid_fill_spec, &reference_error) &&
+                   reference_error.contains("invalid fill specification"),
+               "non-positive fill source weights should be rejected"))
+    {
+        return 1;
+    }
     const bool source_references_valid =
         project_session::validate_references(source, {"O2", "N2"}, &reference_error);
     if (!check(source_references_valid, reference_error))

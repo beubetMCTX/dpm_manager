@@ -7,6 +7,8 @@
 - Fill expansion applies the weights deterministically; older sessions default
   to one weight per source for backward compatibility.
 - Unit-array regression coverage verifies weighted and legacy source ordering.
+- Project-session validation rejects invalid fill source weights and protects
+  older valid sessions from silent corruption.
 - Release build and all 12 focused regressions passed.
 
 ### 2026-09-04 Per-Property Array Follow/Override Editing

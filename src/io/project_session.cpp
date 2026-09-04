@@ -13,7 +13,9 @@
 #include <QCryptographicHash>
 
 #include <cmath>
+#include <algorithm>
 #include <limits>
+#include <numeric>
 
 
 namespace
@@ -839,6 +841,12 @@ bool validate(const Data &data, QString *error_message)
                 !std::isfinite(spec.spacing_x) ||
                 !std::isfinite(spec.spacing_y) ||
                 !std::isfinite(spec.boundary_radius) ||
+                spec.source_weights.isEmpty() ||
+                std::any_of(spec.source_weights.cbegin(),
+                            spec.source_weights.cend(),
+                            [](int weight) { return weight <= 0; }) ||
+                std::accumulate(spec.source_weights.cbegin(),
+                                spec.source_weights.cend(), 0LL) > 1000000LL ||
                 (spec.use_reference_geometry &&
                  !is_usable_reference_frame(spec.direction, spec.plane_normal)) ||
                 (spec.circular_boundary && spec.boundary_radius < 0.0f))

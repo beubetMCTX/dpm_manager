@@ -475,6 +475,8 @@ Unit
   project sessions default to a weight of one for each source.
 - Unit-array regression coverage verifies weighted `2:1` expansion and the
   legacy round-robin fallback when weights are absent.
+- Project-session validation now rejects empty, non-positive, or excessively
+  large fill source weights instead of silently normalizing invalid data.
 
 ## History
 
