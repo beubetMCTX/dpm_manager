@@ -175,6 +175,51 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (!check(widget.set_unit_direction_by_uuid(
+                   uuid, QVector3D(0.0f, 0.0f, 1.0f)),
+               "Editing a two-layer array source should succeed"))
+    {
+        return 1;
+    }
+
+    QList<std::shared_ptr<Unit>> nested_leaf_units;
+    std::function<void(const std::shared_ptr<Unit> &)> collect_leaf_units;
+    collect_leaf_units = [&](const std::shared_ptr<Unit> &node)
+    {
+        if (node == nullptr)
+        {
+            return;
+        }
+        if (node->child_units.isEmpty())
+        {
+            nested_leaf_units.append(node);
+            return;
+        }
+        for (const std::shared_ptr<Unit> &child : node->child_units)
+        {
+            collect_leaf_units(child);
+        }
+    };
+    for (const std::shared_ptr<Unit> &child : widget.unit_hash.value(uuid)->child_units)
+    {
+        collect_leaf_units(child);
+    }
+    if (!check(nested_leaf_units.size() == 6,
+               "Two-layer array should expose all first and second layer leaves") ||
+        !check(std::all_of(nested_leaf_units.cbegin(), nested_leaf_units.cend(),
+                           [](const std::shared_ptr<Unit> &leaf)
+                           {
+                               const QVector3D direction =
+                                   leaf->inj.injector_data.vel;
+                               return std::abs(direction.x()) < 1.0e-4f &&
+                                      std::abs(direction.y()) < 1.0e-4f &&
+                                      direction.z() > 0.99f;
+                           }),
+               "Two-layer array leaves should rebuild from the edited source"))
+    {
+        return 1;
+    }
+
     UnitArraySpec edited_first_layer = leaf_array;
     edited_first_layer.count = 3;
     if (!check(widget.update_unit_array_layer(uuid, 0, edited_first_layer),
