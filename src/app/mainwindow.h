@@ -28,6 +28,8 @@
 #include "project_session.h"
 
 class QGroupBox;
+class QComboBox;
+class QStackedWidget;
 
 
 QT_BEGIN_NAMESPACE
@@ -85,6 +87,10 @@ private slots:
 
     void on_actionSpecies_Materials_triggered();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void changeEvent(QEvent *event) override;
+
 private:
     void closeEvent(QCloseEvent *event) override;
     bool confirm_project_change(const QString &action_description,
@@ -113,6 +119,7 @@ private:
     void create_reference_geometry_panel();
     void update_reference_geometry_panel();
     void update_reference_geometry_controls();
+    void position_viewport_interaction_toolbar();
     void apply_reference_geometry_transform();
     void create_object_list_panel();
     void update_object_list_panel();
@@ -141,6 +148,7 @@ private:
     bool m_loading_project_session = false;
     QList<MaterialConfigEntry> m_material_entries;
     QToolBar *m_chemkin_toolbar = nullptr;
+    QToolBar *m_viewport_interaction_toolbar = nullptr;
     QLabel *m_chemkin_status_label = nullptr;
     QLineEdit *m_chemkin_path_edit = nullptr;
     QMenu *m_recent_projects_menu = nullptr;
@@ -186,6 +194,8 @@ private:
     QComboBox *m_unit_target_scope = nullptr;
     QGroupBox *m_unit_position_group = nullptr;
     QGroupBox *m_unit_direction_group = nullptr;
+    QComboBox *m_unit_direction_mode = nullptr;
+    QStackedWidget *m_unit_direction_stack = nullptr;
     QSet<QUuid> m_collapsed_assemblies;
 };
 #endif // MAINWINDOW_H

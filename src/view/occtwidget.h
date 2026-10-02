@@ -163,6 +163,8 @@ public:
     bool set_unit_position_by_uuid(const QUuid &uuid, const QVector3D &position);
     QVector3D unit_direction_by_uuid(const QUuid &uuid) const;
     bool set_unit_direction_by_uuid(const QUuid &uuid, const QVector3D &direction);
+    bool set_unit_single_direction_mode_by_uuid(const QUuid &uuid,
+                                                Single_Direction_Mode mode);
     bool unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                        double *pitch_degrees,
                                        double *yaw_degrees) const;

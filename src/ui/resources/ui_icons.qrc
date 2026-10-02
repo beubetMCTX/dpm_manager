@@ -4,5 +4,17 @@
         <file>chevron-up.svg</file>
         <file>dpm_manager.svg</file>
         <file>dpm_manager.ico</file>
+        <file>icon-read-dpm.svg</file>
+        <file>icon-reference-geometry.svg</file>
+        <file>icon-injector.svg</file>
+        <file>icon-fit-view.svg</file>
+        <file>icon-translate.svg</file>
+        <file>icon-rotate.svg</file>
+        <file>icon-select.svg</file>
+        <file>icon-new-injector.svg</file>
+        <file>icon-assembly.svg</file>
+        <file>icon-array.svg</file>
+        <file>icon-fill.svg</file>
+        <file>icon-reference-tool.svg</file>
     </qresource>
 </RCC>

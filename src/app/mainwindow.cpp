@@ -32,8 +32,11 @@
 #include <QMenu>
 #include <QComboBox>
 #include <QSignalBlocker>
+#include <QStackedWidget>
+#include <QWidget>
 #include <QVBoxLayout>
 #include <QRandomGenerator>
+#include <QTimer>
 #include <QToolBar>
 #include <QStyle>
 #include <QSettings>
@@ -183,6 +186,7 @@ MainWindow::MainWindow(QWidget *parent)
     //this->setCentralWidget(m_3d_widget);
     m_3d_widget = new OCCTWidget(this);
     this->setCentralWidget(m_3d_widget);
+    m_3d_widget->installEventFilter(this);
     m_3d_widget->apply_visual_preferences(UnitSystem::active_preferences());
     runtime_debug::trace("MainWindow OCCTWidget created");
 
@@ -2226,6 +2230,17 @@ void MainWindow::restore_window_layout()
         restoreState(saved_state);
     }
 
+    // Older saved layouts may still contain this toolbar as a docked toolbar.
+    // Keep it as one overlay child of the main window instead.
+    if (m_viewport_interaction_toolbar != nullptr)
+    {
+        removeToolBar(m_viewport_interaction_toolbar);
+        m_viewport_interaction_toolbar->setParent(this);
+        m_viewport_interaction_toolbar->show();
+        QTimer::singleShot(0, this,
+                           &MainWindow::position_viewport_interaction_toolbar);
+    }
+
     if (m_reference_geometry_dock != nullptr &&
         m_3d_widget != nullptr && m_3d_widget->geometry.getShape().IsNull())
     {
@@ -2262,6 +2277,46 @@ void MainWindow::reset_window_layout()
     }
 
     save_window_layout();
+}
+
+void MainWindow::position_viewport_interaction_toolbar()
+{
+    if (m_viewport_interaction_toolbar == nullptr || m_3d_widget == nullptr)
+    {
+        return;
+    }
+
+    m_viewport_interaction_toolbar->move(
+        m_3d_widget->mapTo(this, QPoint(8, 8)));
+    m_viewport_interaction_toolbar->raise();
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_3d_widget && event != nullptr &&
+        (event->type() == QEvent::Move || event->type() == QEvent::Resize))
+    {
+        position_viewport_interaction_toolbar();
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    QMainWindow::changeEvent(event);
+    if (event != nullptr && event->type() == QEvent::WindowStateChange)
+    {
+        QTimer::singleShot(0, this, [this]()
+        {
+            if (m_viewport_interaction_toolbar != nullptr)
+            {
+                removeToolBar(m_viewport_interaction_toolbar);
+                m_viewport_interaction_toolbar->setParent(this);
+                m_viewport_interaction_toolbar->show();
+            }
+            position_viewport_interaction_toolbar();
+        });
+    }
 }
 
 void MainWindow::create_object_list_panel()
@@ -2348,62 +2403,121 @@ void MainWindow::create_object_list_panel()
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
     });
 
-    auto *interaction_toolbar = new QToolBar(tr("Viewport Tools"), this);
+    // Keep the viewport tools overlaid on the OCCT view instead of consuming
+    // space in the main window's top toolbar area.
+    m_viewport_interaction_toolbar = new QToolBar(tr("Viewport Tools"), this);
+    auto *interaction_toolbar = m_viewport_interaction_toolbar;
     interaction_toolbar->setObjectName("viewportInteractionToolbar");
     interaction_toolbar->setMovable(false);
     interaction_toolbar->setFloatable(false);
-    interaction_toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
-    addToolBar(Qt::TopToolBarArea, interaction_toolbar);
+    interaction_toolbar->setAllowedAreas(Qt::NoToolBarArea);
+    interaction_toolbar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    interaction_toolbar->setIconSize(QSize(22, 22));
+    interaction_toolbar->setContentsMargins(2, 1, 2, 1);
+    interaction_toolbar->setFixedHeight(30);
+    interaction_toolbar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    interaction_toolbar->setStyleSheet(
+        "QToolBar#viewportInteractionToolbar {"
+        "  background: transparent;"
+        "  border: none;"
+        "  padding: 0px;"
+        "  spacing: 0px;"
+        "}"
+        "QToolBar#viewportInteractionToolbar QToolButton {"
+        "  background: transparent;"
+        "  border: none;"
+        "  border-radius: 3px;"
+        "  padding: 1px;"
+        "  margin: 0px;"
+        "}"
+        "QToolBar#viewportInteractionToolbar QToolButton:hover {"
+        "  background: rgba(255, 255, 255, 32);"
+        "}"
+        "QToolBar#viewportInteractionToolbar QToolButton:checked {"
+        "  background: rgba(150, 220, 205, 64);"
+        "}"
+        "QToolBar#viewportInteractionToolbar::separator {"
+        "  width: 1px;"
+        "  background: rgba(235, 240, 245, 80);"
+        "  margin: 5px 2px;"
+        "}");
+    interaction_toolbar->setAttribute(Qt::WA_TranslucentBackground);
+    interaction_toolbar->setAutoFillBackground(false);
+    interaction_toolbar->setAttribute(Qt::WA_NativeWindow);
+    position_viewport_interaction_toolbar();
+    interaction_toolbar->show();
+    interaction_toolbar->raise();
+    QTimer::singleShot(0, this, &MainWindow::position_viewport_interaction_toolbar);
     auto *toolbar_selection = new QAction(
-        style()->standardIcon(QStyle::SP_FileDialogDetailedView),
+        QIcon(QStringLiteral(":/ui/icons/icon-select.svg")),
         tr("Select"), interaction_toolbar);
     auto *toolbar_translation = new QAction(
-        style()->standardIcon(QStyle::SP_ArrowForward), tr("Translate"), interaction_toolbar);
+        QIcon(QStringLiteral(":/ui/icons/icon-translate.svg")),
+        tr("Translate"), interaction_toolbar);
     auto *toolbar_rotation = new QAction(
-        style()->standardIcon(QStyle::SP_BrowserReload), tr("Rotate"), interaction_toolbar);
+        QIcon(QStringLiteral(":/ui/icons/icon-rotate.svg")),
+        tr("Rotate"), interaction_toolbar);
+    toolbar_selection->setToolTip(tr("Select"));
+    toolbar_translation->setToolTip(tr("Translate"));
+    toolbar_rotation->setToolTip(tr("Rotate"));
     for (QAction *action : {toolbar_selection, toolbar_translation, toolbar_rotation})
     {
         action->setCheckable(true);
         interaction_toolbar->addAction(action);
     }
     interaction_toolbar->addSeparator();
-    auto *array_tools_action = new QAction(tr("Array Tools..."), interaction_toolbar);
-    auto *fill_tools_action = new QAction(tr("Fill Tools..."), interaction_toolbar);
-    auto *reference_tools_action = new QAction(tr("Reference Tools"), interaction_toolbar);
-    auto *new_injector_action = new QAction(tr("New Injector"), interaction_toolbar);
-    auto *assembly_tools_action = new QAction(tr("Create Assembly"), interaction_toolbar);
+    auto *array_tools_action = new QAction(
+        QIcon(QStringLiteral(":/ui/icons/icon-array.svg")),
+        tr("Array Tools..."), interaction_toolbar);
+    auto *fill_tools_action = new QAction(
+        QIcon(QStringLiteral(":/ui/icons/icon-fill.svg")),
+        tr("Fill Tools..."), interaction_toolbar);
+    auto *test_set_action = new QAction(
+        QIcon(QStringLiteral(":/ui/icons/icon-injector.svg")),
+        tr("Load Test Injector Set"), interaction_toolbar);
+    auto *reference_tools_action = new QAction(
+        QIcon(QStringLiteral(":/ui/icons/icon-reference-tool.svg")),
+        tr("Reference Tools"), interaction_toolbar);
+    auto *new_injector_action = new QAction(
+        QIcon(QStringLiteral(":/ui/icons/icon-new-injector.svg")),
+        tr("New Injector"), interaction_toolbar);
+    auto *assembly_tools_action = new QAction(
+        QIcon(QStringLiteral(":/ui/icons/icon-assembly.svg")),
+        tr("Create Assembly"), interaction_toolbar);
+    for (QAction *action : {array_tools_action, fill_tools_action, test_set_action,
+                            reference_tools_action, new_injector_action,
+                            assembly_tools_action})
+    {
+        action->setToolTip(action->text());
+    }
     interaction_toolbar->addAction(new_injector_action);
     interaction_toolbar->addAction(assembly_tools_action);
     interaction_toolbar->addAction(array_tools_action);
     interaction_toolbar->addAction(fill_tools_action);
+    interaction_toolbar->addAction(test_set_action);
     interaction_toolbar->addAction(reference_tools_action);
-    auto *interaction_status = new QLabel(tr("Mode: Select"), interaction_toolbar);
-    interaction_status->setObjectName("interactionModeStatus");
-    interaction_toolbar->addWidget(interaction_status);
+    interaction_toolbar->adjustSize();
     auto *toolbar_mode_group = new QActionGroup(interaction_toolbar);
     toolbar_mode_group->setExclusive(true);
     toolbar_mode_group->addAction(toolbar_selection);
     toolbar_mode_group->addAction(toolbar_translation);
     toolbar_mode_group->addAction(toolbar_rotation);
     toolbar_selection->setChecked(true);
-    connect(toolbar_selection, &QAction::triggered, this, [this, interaction_status]()
+    connect(toolbar_selection, &QAction::triggered, this, [this]()
     {
         m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Selection);
-        interaction_status->setText(tr("Mode: Select"));
     });
-    connect(toolbar_translation, &QAction::triggered, this, [this, interaction_status]()
+    connect(toolbar_translation, &QAction::triggered, this, [this]()
     {
         m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Translation);
-        interaction_status->setText(tr("Mode: Translate"));
     });
-    connect(toolbar_rotation, &QAction::triggered, this, [this, interaction_status]()
+    connect(toolbar_rotation, &QAction::triggered, this, [this]()
     {
         m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Rotation);
-        interaction_status->setText(tr("Mode: Rotate"));
     });
     connect(array_tools_action, &QAction::triggered, this, [this]()
     {
-        if (m_object_list == nullptr)
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
         {
             return;
         }
@@ -2413,11 +2527,164 @@ void MainWindow::create_object_list_panel()
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
             return;
         }
-        const QPoint item_position = m_object_list->visualItemRect(item).center();
-        if (!item_position.isNull())
+
+        const QUuid source_uuid(item->data(Qt::UserRole).toString());
+        auto *dialog = new QDialog(this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setWindowTitle(tr("Array Tools"));
+        dialog->setModal(false);
+        dialog->resize(430, 360);
+
+        auto *layout = new QVBoxLayout(dialog);
+        auto *form = new QFormLayout();
+        auto *type = new QComboBox(dialog);
+        type->addItems({tr("Linear"), tr("Rotational"), tr("Mirror"), tr("Elliptical")});
+        auto *count = new QSpinBox(dialog);
+        count->setRange(1, 100000);
+        count->setValue(4);
+        auto *spacing = new QDoubleSpinBox(dialog);
+        spacing->setRange(-1.0e6, 1.0e6);
+        spacing->setDecimals(3);
+        spacing->setValue(5.0);
+        auto *angle = new QDoubleSpinBox(dialog);
+        angle->setRange(-360000.0, 360000.0);
+        angle->setDecimals(3);
+        angle->setValue(360.0);
+        auto *major_radius = new QDoubleSpinBox(dialog);
+        major_radius->setRange(0.0, 1.0e6);
+        major_radius->setDecimals(3);
+        major_radius->setValue(10.0);
+        auto *minor_radius = new QDoubleSpinBox(dialog);
+        minor_radius->setRange(0.0, 1.0e6);
+        minor_radius->setDecimals(3);
+        minor_radius->setValue(5.0);
+        auto make_vector_component = [dialog](double value)
         {
-            emit m_object_list->customContextMenuRequested(item_position);
-        }
+            auto *spin = new QDoubleSpinBox(dialog);
+            spin->setRange(-1.0e6, 1.0e6);
+            spin->setDecimals(4);
+            spin->setValue(value);
+            return spin;
+        };
+        auto *direction_x = make_vector_component(1.0);
+        auto *direction_y = make_vector_component(0.0);
+        auto *direction_z = make_vector_component(0.0);
+        auto *normal_x = make_vector_component(1.0);
+        auto *normal_y = make_vector_component(0.0);
+        auto *normal_z = make_vector_component(0.0);
+        auto *use_reference = new QCheckBox(
+            tr("Use selected/visible reference coordinate frame"), dialog);
+        use_reference->setChecked(m_3d_widget->has_selected_face() ||
+                                  m_3d_widget->reference_geometry_visible());
+        form->addRow(tr("Array type"), type);
+        form->addRow(tr("Children"), count);
+        form->addRow(tr("Spacing"), spacing);
+        form->addRow(tr("Total angle"), angle);
+        form->addRow(tr("Major radius"), major_radius);
+        form->addRow(tr("Minor radius"), minor_radius);
+        form->addRow(tr("Array vector X"), direction_x);
+        form->addRow(tr("Array vector Y"), direction_y);
+        form->addRow(tr("Array vector Z"), direction_z);
+        form->addRow(tr("Plane normal X"), normal_x);
+        form->addRow(tr("Plane normal Y"), normal_y);
+        form->addRow(tr("Plane normal Z"), normal_z);
+        layout->addLayout(form);
+        layout->addWidget(use_reference);
+
+        auto *hint = new QLabel(
+            tr("The fields are shared by the supported array types.\n"
+               "Unused fields are ignored when applying."), dialog);
+        hint->setWordWrap(true);
+        layout->addWidget(hint);
+        auto *buttons = new QDialogButtonBox(
+            QDialogButtonBox::Apply | QDialogButtonBox::Close, dialog);
+        layout->addWidget(buttons);
+
+        connect(buttons->button(QDialogButtonBox::Close), &QPushButton::clicked,
+                dialog, &QDialog::close);
+        connect(buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked,
+                this, [this, dialog, source_uuid, type, count, spacing, angle,
+                       major_radius, minor_radius, direction_x, direction_y,
+                       direction_z, normal_x, normal_y, normal_z, use_reference]()
+        {
+            UnitArraySpec spec;
+            spec.count = count->value();
+            const int index = type->currentIndex();
+            if (index == 0)
+            {
+                spec.type = UnitArrayType::Linear;
+                spec.spacing = static_cast<float>(spacing->value());
+            }
+            else if (index == 1)
+            {
+                spec.type = UnitArrayType::Rotational;
+                spec.angle_degrees = angle->value();
+                spec.spacing = static_cast<float>(spacing->value());
+                spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
+            }
+            else if (index == 2)
+            {
+                spec.type = UnitArrayType::Mirror;
+                spec.count = 2;
+                spec.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
+            }
+            else
+            {
+                spec.type = UnitArrayType::Elliptical;
+                spec.major_radius = static_cast<float>(major_radius->value());
+                spec.minor_radius = static_cast<float>(minor_radius->value());
+                spec.angle_degrees = angle->value();
+            }
+
+            if (use_reference->isChecked())
+            {
+                QVector3D origin;
+                QVector3D reference_x;
+                QVector3D reference_z;
+                if (!m_3d_widget->reference_frame(&origin, &reference_x,
+                                                  &reference_z))
+                {
+                    QMessageBox::warning(this, tr("Array Tools"),
+                                         tr("No usable reference coordinate frame is available."));
+                    return;
+                }
+                spec.use_reference_geometry = true;
+                spec.origin = origin;
+                spec.direction = reference_x;
+                spec.plane_normal = reference_z;
+            }
+            else
+            {
+                const auto source = m_3d_widget->unit_hash.value(source_uuid);
+                if (source != nullptr)
+                {
+                    spec.origin = source->inj.injector_data.pos;
+                }
+                spec.direction = QVector3D(
+                    static_cast<float>(direction_x->value()),
+                    static_cast<float>(direction_y->value()),
+                    static_cast<float>(direction_z->value()));
+                spec.plane_normal = QVector3D(
+                    static_cast<float>(normal_x->value()),
+                    static_cast<float>(normal_y->value()),
+                    static_cast<float>(normal_z->value()));
+            }
+
+            const int created = m_3d_widget->create_unit_array(source_uuid, spec);
+            if (created <= 0)
+            {
+                QMessageBox::warning(this, tr("Array Tools"),
+                                     tr("The array could not be created."));
+                return;
+            }
+            mark_project_dirty();
+            update_object_list_panel();
+            statusBar()->showMessage(
+                tr("Created %1 array child units").arg(created), 5000);
+        });
+        dialog->show();
+        dialog->raise();
+        dialog->activateWindow();
     });
     connect(fill_tools_action, &QAction::triggered, this, [this]()
     {
@@ -2437,6 +2704,14 @@ void MainWindow::create_object_list_panel()
         {
             emit m_object_list->customContextMenuRequested(item_position);
         }
+    });
+    connect(test_set_action, &QAction::triggered, this, [this]()
+    {
+        units = build_test_injector_units();
+        m_3d_widget->display_units(units);
+        update_object_list_panel();
+        statusBar()->showMessage(
+            QString("Loaded %1 test injector units").arg(units.size()), 5000);
     });
     connect(reference_tools_action, &QAction::triggered, this, [this]()
     {
@@ -2536,7 +2811,7 @@ void MainWindow::create_object_list_panel()
     });
     connect(m_3d_widget, &OCCTWidget::interaction_mode_changed,
             this, [toolbar_selection, toolbar_translation, toolbar_rotation,
-                   interaction_status](int mode)
+                   interaction_toolbar](int mode)
     {
         toolbar_selection->setChecked(
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Selection));
@@ -2544,12 +2819,7 @@ void MainWindow::create_object_list_panel()
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Translation));
         toolbar_rotation->setChecked(
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
-        interaction_status->setText(
-            mode == static_cast<int>(OCCTWidget::Interaction_Mode::Translation)
-                ? tr("Mode: Translate")
-                : mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation)
-                    ? tr("Mode: Rotate")
-                    : tr("Mode: Select"));
+        interaction_toolbar->raise();
     });
     auto *assembly_selected_button = new QPushButton("Create Assembly From Selected", panel);
     layout->addWidget(assembly_selected_button);
@@ -2598,8 +2868,14 @@ void MainWindow::create_object_list_panel()
     layout->addWidget(m_unit_position_group);
 
     m_unit_direction_group = new QGroupBox("Unit Direction", panel);
-    auto *direction_layout = new QFormLayout(m_unit_direction_group);
+    auto *direction_layout = new QVBoxLayout(m_unit_direction_group);
     m_unit_direction_group->hide();
+    m_unit_direction_mode = new QComboBox(m_unit_direction_group);
+    m_unit_direction_mode->addItem("Vector", static_cast<int>(Single_Direction_Mode::Vector));
+    m_unit_direction_mode->addItem("Pitch / Yaw", static_cast<int>(Single_Direction_Mode::Pitch_Yaw));
+    m_unit_direction_mode->addItem("Target Hitpoint", static_cast<int>(Single_Direction_Mode::Target_Hitpoint));
+    direction_layout->addWidget(m_unit_direction_mode);
+    m_unit_direction_stack = new QStackedWidget(m_unit_direction_group);
     auto create_direction_box = [this]()
     {
         auto *box = new QDoubleSpinBox(m_unit_direction_group);
@@ -2609,12 +2885,16 @@ void MainWindow::create_object_list_panel()
         box->setEnabled(false);
         return box;
     };
+    auto *vector_page = new QWidget(m_unit_direction_stack);
+    auto *vector_layout = new QFormLayout(vector_page);
     m_unit_direction_x = create_direction_box();
     m_unit_direction_y = create_direction_box();
     m_unit_direction_z = create_direction_box();
-    direction_layout->addRow("X", m_unit_direction_x);
-    direction_layout->addRow("Y", m_unit_direction_y);
-    direction_layout->addRow("Z", m_unit_direction_z);
+    vector_layout->addRow("X", m_unit_direction_x);
+    vector_layout->addRow("Y", m_unit_direction_y);
+    vector_layout->addRow("Z", m_unit_direction_z);
+    auto *angle_page = new QWidget(m_unit_direction_stack);
+    auto *angle_layout = new QFormLayout(angle_page);
     m_unit_pitch = new QDoubleSpinBox(m_unit_direction_group);
     m_unit_yaw = new QDoubleSpinBox(m_unit_direction_group);
     for (QDoubleSpinBox *box : {m_unit_pitch, m_unit_yaw})
@@ -2624,8 +2904,10 @@ void MainWindow::create_object_list_panel()
         box->setSingleStep(1.0);
         box->setEnabled(false);
     }
-    direction_layout->addRow("Pitch (deg)", m_unit_pitch);
-    direction_layout->addRow("Yaw (deg)", m_unit_yaw);
+    angle_layout->addRow("Pitch (deg)", m_unit_pitch);
+    angle_layout->addRow("Yaw (deg)", m_unit_yaw);
+    auto *target_page = new QWidget(m_unit_direction_stack);
+    auto *target_layout = new QFormLayout(target_page);
     auto create_target_box = [this]()
     {
         auto *box = new QDoubleSpinBox(m_unit_direction_group);
@@ -2638,16 +2920,20 @@ void MainWindow::create_object_list_panel()
     m_unit_target_x = create_target_box();
     m_unit_target_y = create_target_box();
     m_unit_target_z = create_target_box();
-    direction_layout->addRow("Target X", m_unit_target_x);
-    direction_layout->addRow("Target Y", m_unit_target_y);
-    direction_layout->addRow("Target Z", m_unit_target_z);
+    target_layout->addRow("Target X", m_unit_target_x);
+    target_layout->addRow("Target Y", m_unit_target_y);
+    target_layout->addRow("Target Z", m_unit_target_z);
     m_unit_target_scope = new QComboBox(m_unit_direction_group);
     m_unit_target_scope->addItem("World", static_cast<int>(Single_Target_Scope::World));
     m_unit_target_scope->addItem("Array Local", static_cast<int>(Single_Target_Scope::Array_Local));
     m_unit_target_scope->addItem("Parent Local", static_cast<int>(Single_Target_Scope::Parent_Local));
     m_unit_target_scope->addItem("Reference Local", static_cast<int>(Single_Target_Scope::Reference_Local));
     m_unit_target_scope->setEnabled(false);
-    direction_layout->addRow("Target Scope", m_unit_target_scope);
+    target_layout->addRow("Target Scope", m_unit_target_scope);
+    m_unit_direction_stack->addWidget(vector_page);
+    m_unit_direction_stack->addWidget(angle_page);
+    m_unit_direction_stack->addWidget(target_page);
+    direction_layout->addWidget(m_unit_direction_stack);
     const auto refresh_inspector_units = [this]()
     {
         const QString length = UnitSystem::preferred_display_unit("m");
@@ -2663,6 +2949,32 @@ void MainWindow::create_object_list_panel()
     };
     refresh_inspector_units();
     layout->addWidget(m_unit_direction_group);
+
+    connect(m_unit_direction_mode, &QComboBox::currentIndexChanged, this,
+            [this](int index)
+    {
+        if (m_unit_direction_stack != nullptr)
+        {
+            m_unit_direction_stack->setCurrentIndex(index);
+        }
+        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        {
+            return;
+        }
+        QListWidgetItem *item = m_object_list->currentItem();
+        if (item == nullptr)
+        {
+            return;
+        }
+        const QUuid uuid(item->data(Qt::UserRole).toString());
+        const auto mode = static_cast<Single_Direction_Mode>(
+            m_unit_direction_mode->itemData(index).toInt());
+        if (!uuid.isNull() && m_3d_widget->set_unit_single_direction_mode_by_uuid(uuid, mode))
+        {
+            update_unit_position_controls();
+            mark_project_dirty();
+        }
+    });
 
     m_object_list_dock->setWidget(panel);
     addDockWidget(Qt::LeftDockWidgetArea, m_object_list_dock);
@@ -4300,6 +4612,7 @@ void MainWindow::update_unit_position_controls()
         m_unit_target_y->setEnabled(false);
         m_unit_target_z->setEnabled(false);
         m_unit_target_scope->setEnabled(false);
+        m_unit_direction_mode->setEnabled(false);
         return;
     }
 
@@ -4320,6 +4633,7 @@ void MainWindow::update_unit_position_controls()
         m_unit_target_y->setEnabled(false);
         m_unit_target_z->setEnabled(false);
         m_unit_target_scope->setEnabled(false);
+        m_unit_direction_mode->setEnabled(false);
         return;
     }
 
@@ -4386,8 +4700,20 @@ void MainWindow::update_unit_position_controls()
     const bool show_inspector = unit != nullptr && unit->type != Assebly;
     const bool show_direction = show_inspector &&
         unit->inj.injector_data.injection_type != volume;
+    const bool is_single = unit->inj.injector_data.injection_type == single;
+    const int direction_mode_index = m_unit_direction_mode->findData(
+        static_cast<int>(unit->inj.injector_data.single_direction_mode));
+    {
+        const QSignalBlocker mode_blocker(m_unit_direction_mode);
+        m_unit_direction_mode->setCurrentIndex(
+            direction_mode_index >= 0 ? direction_mode_index : 0);
+    }
+    m_unit_direction_stack->setCurrentIndex(
+        direction_mode_index >= 0 ? direction_mode_index : 0);
     m_unit_position_group->setVisible(show_inspector);
     m_unit_direction_group->setVisible(show_direction);
+    m_unit_direction_mode->setVisible(is_single);
+    m_unit_direction_mode->setEnabled(is_single && editable_unit);
     m_unit_position_x->setEnabled(editable_unit);
     m_unit_position_y->setEnabled(editable_unit);
     m_unit_position_z->setEnabled(editable_unit);
@@ -4490,6 +4816,11 @@ QList<Unit> MainWindow::build_test_injector_units() const
 
     auto finalize_unit = [&](Unit &unit)
     {
+        if (!m_chemkin_species_names.isEmpty())
+        {
+            unit.inj.injector_data.material = m_chemkin_species_names.first();
+            unit.inj.injector_data.evaporating_species = m_chemkin_species_names.first();
+        }
         scale_preview_geometry(unit);
         if (!unit.inj.create_injector())
         {
@@ -4504,7 +4835,25 @@ QList<Unit> MainWindow::build_test_injector_units() const
     }
 
     {
-        Unit unit = make_test_unit("group_demo", group, QVector3D(20.0f, 0.0f, 0.0f));
+        Unit unit = make_test_unit("single_pitch_yaw_demo", single,
+                                   QVector3D(20.0f, 0.0f, 0.0f));
+        unit.inj.injector_data.single_direction_mode = Single_Direction_Mode::Pitch_Yaw;
+        unit.inj.injector_data.single_pitch_degrees = 12.0;
+        unit.inj.injector_data.single_yaw_degrees = 18.0;
+        finalize_unit(unit);
+    }
+
+    {
+        Unit unit = make_test_unit("single_target_demo", single,
+                                   QVector3D(40.0f, 0.0f, 0.0f));
+        unit.inj.injector_data.single_direction_mode = Single_Direction_Mode::Target_Hitpoint;
+        unit.inj.injector_data.single_target_hitpoint =
+            unit.inj.injector_data.pos + QVector3D(12.0f, 5.0f, 4.0f);
+        finalize_unit(unit);
+    }
+
+    {
+        Unit unit = make_test_unit("group_demo", group, QVector3D(60.0f, 0.0f, 0.0f));
         unit.inj.injector_data.pos2 = unit.inj.injector_data.pos + QVector3D(10.0f, 0.0f, 0.0f);
         unit.inj.injector_data.vel = QVector3D(90.0f, 0.0f, 0.0f);
         unit.inj.injector_data.vel2 = QVector3D(80.0f, 0.0f, 0.0f);
@@ -4513,7 +4862,7 @@ QList<Unit> MainWindow::build_test_injector_units() const
     }
 
     {
-        Unit unit = make_test_unit("volume_box_demo", volume, QVector3D(40.0f, 0.0f, 0.0f));
+        Unit unit = make_test_unit("volume_box_demo", volume, QVector3D(80.0f, 0.0f, 0.0f));
         unit.inj.injector_data.volume_specification = bouning_geometry;
         unit.inj.injector_data.volume_bgeom_shapes = hexahedron;
         unit.inj.injector_data.volume_bgeom_min = unit.inj.injector_data.pos + QVector3D(-3.0f, -2.0f, -2.0f);
@@ -4522,7 +4871,7 @@ QList<Unit> MainWindow::build_test_injector_units() const
     }
 
     {
-        Unit unit = make_test_unit("volume_cyl_demo", volume, QVector3D(60.0f, 0.0f, 0.0f));
+        Unit unit = make_test_unit("volume_cyl_demo", volume, QVector3D(100.0f, 0.0f, 0.0f));
         unit.inj.injector_data.volume_specification = bouning_geometry;
         unit.inj.injector_data.volume_bgeom_shapes = cylinder;
         unit.inj.injector_data.volume_bgeom_min = unit.inj.injector_data.pos + QVector3D(-4.0f, 0.0f, 0.0f);
@@ -4532,7 +4881,7 @@ QList<Unit> MainWindow::build_test_injector_units() const
     }
 
     {
-        Unit unit = make_test_unit("volume_sphere_demo", volume, QVector3D(80.0f, 0.0f, 0.0f));
+        Unit unit = make_test_unit("volume_sphere_demo", volume, QVector3D(120.0f, 0.0f, 0.0f));
         unit.inj.injector_data.volume_specification = bouning_geometry;
         unit.inj.injector_data.volume_bgeom_shapes = sphere;
         unit.inj.injector_data.volume_bgeom_radius = 2.8;
@@ -4542,7 +4891,7 @@ QList<Unit> MainWindow::build_test_injector_units() const
     }
 
     {
-        Unit unit = make_test_unit("volume_cone_demo", volume, QVector3D(100.0f, 0.0f, 0.0f));
+        Unit unit = make_test_unit("volume_cone_demo", volume, QVector3D(140.0f, 0.0f, 0.0f));
         unit.inj.injector_data.volume_specification = bouning_geometry;
         unit.inj.injector_data.volume_bgeom_shapes = cone_;
         unit.inj.injector_data.volume_bgeom_min = unit.inj.injector_data.pos + QVector3D(-4.5f, 0.0f, 0.0f);

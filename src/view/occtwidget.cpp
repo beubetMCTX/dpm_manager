@@ -1051,8 +1051,20 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         {
             preview.single_target_hitpoint += delta;
         }
+
+        // AIS_Manipulator has already moved the display using the raw mouse
+        // transform. Keep the previewed display on the same snapped transform
+        // as the data and the local coordinate frame.
+        snapped_transformation.SetTranslationPart(
+            snapped_transformation.TranslationPart() +
+            gp_XYZ(delta.x(), delta.y(), delta.z()));
     }
     unit->inj.injector_data = preview;
+    if (!unit->ais_display.IsNull())
+    {
+        unit->ais_display->SetLocalTransformation(snapped_transformation);
+        m_context->Redisplay(unit->ais_display, Standard_False);
+    }
     m_transform_gizmo_preview_changed =
         m_transform_gizmo_preview_changed || snapped_transformation.Form() != gp_Identity;
 
@@ -1368,7 +1380,7 @@ QVector3D OCCTWidget::unit_direction_by_uuid(const QUuid &uuid) const
 }
 
 bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
-                                            const QVector3D &direction)
+                                             const QVector3D &direction)
 {
     const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
     if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
@@ -1414,6 +1426,43 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetTransparency(
         configured_injector_transparency(injector));
+    unit->ais_display->SetColor(color_for_injector(injector));
+    m_context->Redisplay(unit->ais_display, Standard_False);
+    update_unit_local_coordinate_frame(uuid);
+    emit unit_data_updated(unit.get());
+    finish_unit_edit_transaction(unit.get(), true);
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
+bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
+    const QUuid &uuid, Single_Direction_Mode mode)
+{
+    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
+        unit->inj.injector_data.injection_type != single)
+    {
+        return false;
+    }
+    Injector &injector = unit->inj.injector_data;
+    if (injector.single_direction_mode == mode)
+    {
+        return true;
+    }
+    const Single_Direction_Mode before = injector.single_direction_mode;
+    begin_unit_edit_transaction(unit.get());
+    injector.single_direction_mode = mode;
+    if (!unit->inj.create_injector())
+    {
+        injector.single_direction_mode = before;
+        m_edit_transactions.remove(uuid);
+        return false;
+    }
+    unit->ais_display->Set(unit->inj.shape);
+    unit->ais_display->SetTransparency(configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(uuid);
