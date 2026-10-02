@@ -181,9 +181,15 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
-    if (!check(widget.create_unit_array(leaf_children.first()->inj.uuid,
-                                        leaf_array) == 0,
-               "Following array children must not become unstable array sources"))
+    const int nested_array_count =
+        widget.create_unit_array(leaf_children.first()->inj.uuid, leaf_array);
+    if (!check(nested_array_count == 2,
+               "A following array child should be promoted for nested arrays") ||
+        !check(widget.unit_hash.value(leaf_child_uuid) != nullptr &&
+                   !widget.unit_hash.value(leaf_child_uuid)->follows_array &&
+                   widget.unit_hash.value(leaf_child_uuid)->has_array_spec &&
+                   widget.unit_hash.value(leaf_child_uuid)->child_units.size() == 2,
+               "Promoted array child should become a persistent nested source"))
     {
         return 1;
     }

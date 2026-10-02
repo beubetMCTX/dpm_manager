@@ -326,6 +326,8 @@ private:
     Unit* get_unit(Handle(AIS_Shape) shape);
     void schedule_unit_visual_refresh(Unit *unit);
     void refresh_unit_visual(Unit *unit);
+    bool promote_derived_unit_to_persistent(
+        const std::shared_ptr<Unit> &unit);
     void clear_unit_array_children(Unit &source);
     int rebuild_unit_array_layers(const QUuid &source_uuid);
     int create_unit_fill_internal(const QList<QUuid> &source_uuids,

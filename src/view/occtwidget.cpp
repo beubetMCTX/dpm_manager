@@ -2850,11 +2850,9 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     {
         return 0;
     }
-    if (source->is_array_child && source->follows_array)
+    if (source->is_array_child && source->follows_array &&
+        !promote_derived_unit_to_persistent(source))
     {
-        // Generated children do not have stable identities across rebuilds.
-        // Apply another layer to the owning source instead, or detach this
-        // child first when an independent nested array is intended.
         return 0;
     }
 
@@ -3238,15 +3236,23 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         return 0;
     }
 
+    const QList<Unit> before = record_history
+                                   ? capture_persistent_units()
+                                   : QList<Unit>();
     QList<Unit> sources;
     for (const QUuid &uuid : source_uuids)
     {
         const std::shared_ptr<Unit> source = unit_hash.value(uuid);
-        if (source != nullptr && !source->ais_display.IsNull() &&
-            !(source->is_array_child && source->follows_array))
+        if (source == nullptr || source->ais_display.IsNull())
         {
-            sources.append(*source);
+            continue;
         }
+        if (source->is_array_child && source->follows_array &&
+            !promote_derived_unit_to_persistent(source))
+        {
+            continue;
+        }
+        sources.append(*source);
     }
     if (sources.isEmpty())
     {
@@ -3264,10 +3270,6 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
             return 0;
         }
     }
-    const QList<Unit> before = record_history
-                                   ? capture_persistent_units()
-                                   : QList<Unit>();
-
     const std::shared_ptr<Unit> parent = unit_hash.value(source_uuids.first());
     if (parent != nullptr)
     {
@@ -3427,6 +3429,32 @@ int OCCTWidget::rebuild_unit_fill(const QUuid &source_uuid)
     }
     return create_unit_fill_internal(parent->fill_source_uuids,
                                      parent->fill_spec, false, false);
+}
+
+bool OCCTWidget::promote_derived_unit_to_persistent(
+    const std::shared_ptr<Unit> &unit)
+{
+    if (unit == nullptr)
+    {
+        return false;
+    }
+
+    if (!unit->is_array_child || !unit->follows_array)
+    {
+        return true;
+    }
+
+    // Keep the generated object in its current parent tree, but stop treating
+    // it as disposable output. This gives Array/Fill a stable source node
+    // for a second composition step without silently editing the original
+    // array rule.
+    unit->follows_array = false;
+    if (unit->prototype_uuid.isNull())
+    {
+        unit->prototype_uuid = unit->array_parent_uuid;
+    }
+    emit unit_data_updated(unit.get());
+    return true;
 }
 
 void OCCTWidget::clear_unit_array_children(Unit &source)
