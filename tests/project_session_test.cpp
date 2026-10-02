@@ -299,13 +299,51 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(!QFileInfo(saved_root.value("chemkin_file_path").toString()).isAbsolute() &&
+    if (!check(saved_root.value("schema_version").toInt() == 2,
+               "New project sessions should use schema version 2") ||
+        !check(!QFileInfo(saved_root.value("chemkin_file_path").toString()).isAbsolute() &&
                    !QFileInfo(saved_root.value("reference_geometry")
                                   .toObject()
                                   .value("file_path")
                                   .toString())
                        .isAbsolute(),
                "Project sessions should store paths relative to the session file"))
+    {
+        return 1;
+    }
+
+    QJsonObject legacy_root = saved_root;
+    legacy_root.insert("schema_version", 1);
+    QJsonArray legacy_units = legacy_root.value("units").toArray();
+    QJsonObject legacy_unit = legacy_units.first().toObject();
+    const QJsonArray current_array_specs =
+        legacy_unit.value("array_specs").toArray();
+    legacy_unit.remove("array_specs");
+    legacy_unit.remove("array_spec");
+    legacy_unit.insert("array_specs", current_array_specs.first());
+    legacy_units[0] = legacy_unit;
+    legacy_root.insert("units", legacy_units);
+    const QString legacy_session_path =
+        temporary_directory.filePath("legacy-v1.dpmproj");
+    QFile legacy_session(legacy_session_path);
+    if (!check(legacy_session.open(QIODevice::WriteOnly | QIODevice::Text),
+               "Unable to create legacy project session"))
+    {
+        return 1;
+    }
+    legacy_session.write(QJsonDocument(legacy_root).toJson(QJsonDocument::Indented));
+    legacy_session.close();
+
+    project_session::Data migrated_legacy;
+    if (!check(project_session::load(legacy_session_path,
+                                     &migrated_legacy,
+                                     &error_message),
+               error_message) ||
+        !check(migrated_legacy.units.size() == 1 &&
+                   migrated_legacy.units.first().array_specs.size() == 1 &&
+                   migrated_legacy.units.first().array_specs.first().type ==
+                       UnitArrayType::Elliptical,
+               "Schema v1 array_specs should migrate to the v2 list form"))
     {
         return 1;
     }

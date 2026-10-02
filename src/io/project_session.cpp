@@ -20,7 +20,8 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 1;
+constexpr int kSessionSchemaVersion = 2;
+constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
 {
@@ -854,6 +855,69 @@ QJsonObject data_to_json(const project_session::Data &data,
     root.insert("reference_geometry", reference_geometry);
     return root;
 }
+
+bool migrate_schema_v1_to_v2(QJsonObject *root, QString *error_message)
+{
+    if (root == nullptr)
+    {
+        set_error(error_message, "Unable to migrate an empty project session.");
+        return false;
+    }
+
+    const QJsonValue units_value = root->value("units");
+    if (!units_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session migration requires a valid units array.");
+        return false;
+    }
+
+    QJsonArray units = units_value.toArray();
+    for (int index = 0; index < units.size(); ++index)
+    {
+        if (!units.at(index).isObject())
+        {
+            set_error(error_message,
+                      "Project session migration found an invalid unit entry.");
+            return false;
+        }
+
+        QJsonObject unit = units.at(index).toObject();
+        const QJsonValue legacy_array_specs = unit.value("array_specs");
+        if (legacy_array_specs.isObject())
+        {
+            QJsonArray normalized_specs;
+            normalized_specs.append(legacy_array_specs);
+            unit.insert("array_specs", normalized_specs);
+        }
+
+        if (unit.value("has_fill_spec").toBool(false) &&
+            unit.value("fill_spec").isObject())
+        {
+            QJsonObject fill_spec = unit.value("fill_spec").toObject();
+            if (!fill_spec.contains("source_weights"))
+            {
+                QJsonArray weights;
+                const QJsonArray source_uuids =
+                    unit.value("fill_source_uuids").toArray();
+                for (int source_index = 0;
+                     source_index < qMax(1, source_uuids.size());
+                     ++source_index)
+                {
+                    weights.append(1);
+                }
+                fill_spec.insert("source_weights", weights);
+                unit.insert("fill_spec", fill_spec);
+            }
+        }
+
+        units[index] = unit;
+    }
+
+    root->insert("units", units);
+    root->insert("schema_version", kSessionSchemaVersion);
+    return true;
+}
 }
 
 namespace project_session
@@ -1295,7 +1359,7 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         return false;
     }
 
-    const QJsonObject root = document.object();
+    QJsonObject root = document.object();
     const QJsonValue version_value = root.value("schema_version");
     if (!version_value.isDouble() ||
         !std::isfinite(version_value.toDouble()) ||
@@ -1308,9 +1372,15 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
 
     const int version = version_value.toInt(-1);
-    if (version != kSessionSchemaVersion)
+    if (version < kFirstSupportedSchemaVersion ||
+        version > kSessionSchemaVersion)
     {
         set_error(error_message, QString("Unsupported project session schema version: %1").arg(version));
+        return false;
+    }
+
+    if (version == 1 && !migrate_schema_v1_to_v2(&root, error_message))
+    {
         return false;
     }
 
