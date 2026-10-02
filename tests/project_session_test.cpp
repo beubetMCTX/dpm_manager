@@ -724,6 +724,67 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QFile assembly_session_file(assembly_path);
+    if (!check(assembly_session_file.open(QIODevice::ReadOnly | QIODevice::Text),
+               "Unable to inspect recursive Assembly session"))
+    {
+        return 1;
+    }
+    const QJsonObject assembly_root =
+        QJsonDocument::fromJson(assembly_session_file.readAll()).object();
+    assembly_session_file.close();
+    const QJsonArray assembly_tree = assembly_root.value("unit_tree").toArray();
+    if (!check(assembly_tree.size() == 1 &&
+                   assembly_tree.first().toObject().value("children").toArray().size() == 1,
+               "Project session should persist the recursive unit tree"))
+    {
+        return 1;
+    }
+
+    project_session::Data nested_tree_data = source;
+    Unit nested_root = source.units.first();
+    nested_root.type = Assebly;
+    nested_root.assembly_parent_uuid = QUuid();
+    nested_root.assembly_child_uuids.clear();
+    Unit nested_parent = assembly_member;
+    nested_parent.inj.uuid = QUuid::createUuid();
+    nested_parent.inj.injector_data.name = "nested-parent";
+    nested_parent.type = Assebly;
+    nested_parent.assembly_parent_uuid = nested_root.inj.uuid;
+    nested_parent.assembly_child_uuids.clear();
+    Unit nested_leaf = unit;
+    nested_leaf.inj.uuid = QUuid::createUuid();
+    nested_leaf.inj.injector_data.name = "nested-leaf";
+    nested_leaf.type = injector;
+    nested_leaf.assembly_parent_uuid = nested_parent.inj.uuid;
+    nested_leaf.assembly_child_uuids.clear();
+    nested_root.assembly_child_uuids = {nested_parent.inj.uuid};
+    nested_parent.assembly_child_uuids = {nested_leaf.inj.uuid};
+    nested_tree_data.units = {nested_root, nested_parent, nested_leaf};
+    const QString nested_tree_path =
+        temporary_directory.filePath("nested-tree.dpmproj");
+    if (!check(project_session::save(nested_tree_path, nested_tree_data,
+                                     &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_nested_tree;
+    if (!check(project_session::load(nested_tree_path, &restored_nested_tree,
+                                     &error_message),
+               error_message) ||
+        !check(restored_nested_tree.units.size() == 3 &&
+                   restored_nested_tree.units.first().assembly_child_uuids ==
+                       QList<QUuid>({nested_parent.inj.uuid}) &&
+                   restored_nested_tree.units.at(1).assembly_child_uuids ==
+                       QList<QUuid>({nested_leaf.inj.uuid}) &&
+                   restored_nested_tree.units.at(2).assembly_parent_uuid ==
+                       nested_parent.inj.uuid,
+               "Nested Assembly unit tree did not round-trip"))
+    {
+        return 1;
+    }
+
     project_session::Data invalid_combined = assembly_data;
     invalid_combined.units.first().has_fill_spec = true;
     if (!check(!project_session::validate(invalid_combined, &validation_error) &&
@@ -869,6 +930,7 @@ int main(int argc, char *argv[])
 
     QFile::remove(session_path);
     QFile::remove(assembly_path);
+    QFile::remove(nested_tree_path);
     QFile::remove(datum_path);
     QFile::remove(section_path);
     QFile::remove(origin_path);

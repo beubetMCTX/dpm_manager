@@ -86,6 +86,8 @@ QVector<int> int_list_from_json(const QJsonValue &json_value,
 
 QJsonObject array_spec_to_json(const UnitArraySpec &spec);
 bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec);
+bool unit_from_json(const QJsonValue &json_value, Unit *unit);
+void set_error(QString *error_message, const QString &message);
 
 void injector_to_json(const Injector &value, QJsonObject *object)
 {
@@ -537,6 +539,101 @@ QJsonObject unit_to_json(const Unit &unit)
     return result;
 }
 
+QJsonObject unit_tree_to_json(const Unit &unit,
+                              const QHash<QUuid, const Unit *> &unit_index,
+                              QSet<QUuid> *visited)
+{
+    QJsonObject result = unit_to_json(unit);
+    QJsonArray children;
+
+    if (visited != nullptr)
+    {
+        visited->insert(unit.inj.uuid);
+    }
+
+    for (const QUuid &child_uuid : unit.assembly_child_uuids)
+    {
+        const Unit *child = unit_index.value(child_uuid, nullptr);
+        if (child == nullptr || child->inj.uuid.isNull() ||
+            (child->is_array_child && child->follows_array) ||
+            (visited != nullptr && visited->contains(child->inj.uuid)))
+        {
+            continue;
+        }
+
+        children.append(unit_tree_to_json(*child, unit_index, visited));
+    }
+
+    if (!children.isEmpty())
+    {
+        result.insert("children", children);
+    }
+    return result;
+}
+
+bool parse_unit_tree(const QJsonValue &json_value,
+                     QList<Unit> *units,
+                     QSet<QUuid> *visited,
+                     QString *error_message)
+{
+    if (units == nullptr || visited == nullptr || !json_value.isObject())
+    {
+        set_error(error_message, "Project session contains an invalid unit tree node.");
+        return false;
+    }
+
+    Unit unit;
+    if (!unit_from_json(json_value, &unit))
+    {
+        set_error(error_message, "Project session contains an invalid unit tree node.");
+        return false;
+    }
+
+    if (unit.inj.uuid.isNull() || visited->contains(unit.inj.uuid))
+    {
+        set_error(error_message,
+                  "Project session unit tree contains a duplicate UUID.");
+        return false;
+    }
+    visited->insert(unit.inj.uuid);
+    units->append(unit);
+
+    const QJsonValue children_value = json_value.toObject().value("children");
+    if (!children_value.isUndefined() && !children_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid unit tree children array.");
+        return false;
+    }
+
+    for (const QJsonValue &child_value : children_value.toArray())
+    {
+        if (!child_value.isObject())
+        {
+            set_error(error_message,
+                      "Project session contains an invalid unit tree child.");
+            return false;
+        }
+
+        const QJsonObject child_object = child_value.toObject();
+        const QUuid child_uuid(child_object.value("uuid").toString());
+        if (child_uuid.isNull() ||
+            QUuid(child_object.value("assembly_parent_uuid").toString()) !=
+                unit.inj.uuid)
+        {
+            set_error(error_message,
+                      "Project session contains an inconsistent unit tree parent reference.");
+            return false;
+        }
+
+        if (!parse_unit_tree(child_value, units, visited, error_message))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool unit_from_json(const QJsonValue &json_value, Unit *unit)
 {
     if (unit == nullptr || !json_value.isObject())
@@ -819,11 +916,31 @@ QJsonObject data_to_json(const project_session::Data &data,
     root.insert("species_colors", species_colors);
 
     QJsonArray units;
+    QHash<QUuid, const Unit *> unit_index;
     for (const Unit &unit : data.units)
     {
         units.append(unit_to_json(unit));
+        unit_index.insert(unit.inj.uuid, &unit);
     }
     root.insert("units", units);
+
+    // Keep a recursive representation alongside the legacy flat list. The
+    // flat list remains useful for old readers and structural validation,
+    // while the tree preserves the intended Assembly ownership explicitly.
+    QJsonArray unit_tree;
+    QSet<QUuid> visited_tree_units;
+    for (const Unit &unit : data.units)
+    {
+        if (!unit.assembly_parent_uuid.isNull() ||
+            (unit.is_array_child && unit.follows_array) ||
+            visited_tree_units.contains(unit.inj.uuid))
+        {
+            continue;
+        }
+        unit_tree.append(unit_tree_to_json(unit, unit_index,
+                                           &visited_tree_units));
+    }
+    root.insert("unit_tree", unit_tree);
 
     QJsonArray materials;
     for (const MaterialConfigEntry &entry : data.materials)
@@ -1385,10 +1502,17 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
 
     const QJsonValue units_value = root.value("units");
-    if (!units_value.isArray())
+    const QJsonValue unit_tree_value = root.value("unit_tree");
+    if (!units_value.isArray() && !unit_tree_value.isArray())
     {
         set_error(error_message,
-                  "Project session is missing a valid units array.");
+                  "Project session is missing a valid units or unit_tree array.");
+        return false;
+    }
+    if (!unit_tree_value.isUndefined() && !unit_tree_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid unit_tree array.");
         return false;
     }
 
@@ -1497,7 +1621,8 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         parsed.species_colors.insert(it.key(), color);
     }
 
-    for (const QJsonValue &unit_value : root.value("units").toArray())
+    QList<Unit> flat_units;
+    for (const QJsonValue &unit_value : units_value.toArray())
     {
         Unit unit;
         if (!unit_from_json(unit_value, &unit))
@@ -1505,7 +1630,36 @@ bool load(const QString &file_path, Data *data, QString *error_message)
             set_error(error_message, "Project session contains an invalid injector entry.");
             return false;
         }
-        parsed.units.append(std::move(unit));
+        flat_units.append(std::move(unit));
+    }
+
+    if (unit_tree_value.isArray())
+    {
+        QSet<QUuid> tree_ids;
+        for (const QJsonValue &root_value : unit_tree_value.toArray())
+        {
+            if (!parse_unit_tree(root_value, &parsed.units, &tree_ids,
+                                 error_message))
+            {
+                return false;
+            }
+        }
+
+        QSet<QUuid> flat_ids;
+        for (const Unit &unit : flat_units)
+        {
+            flat_ids.insert(unit.inj.uuid);
+        }
+        if (flat_ids != tree_ids)
+        {
+            set_error(error_message,
+                      "Project session flat units and unit tree do not contain the same UUIDs.");
+            return false;
+        }
+    }
+    else
+    {
+        parsed.units = std::move(flat_units);
     }
 
     for (const QJsonValue &material_value : root.value("materials").toArray())
