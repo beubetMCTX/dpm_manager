@@ -321,6 +321,10 @@ private:
     void refresh_unit_visual(Unit *unit);
     void clear_unit_array_children(Unit &source);
     int rebuild_unit_array_layers(const QUuid &source_uuid);
+    int create_unit_fill_internal(const QList<QUuid> &source_uuids,
+                                  const UnitFillSpec &spec,
+                                  bool record_history,
+                                  bool fit_view);
     void rebuild_array_dependency_index();
     std::shared_ptr<Unit> resolve_effective_edit_unit(const QUuid &uuid) const;
     Quantity_Color color_for_material(const QString &material) const;

@@ -2829,7 +2829,6 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
 
     source->type = source_is_assembly ? Assebly : array;
     rebuild_unit_local_coordinate_frames();
-    m_view->FitAll();
     m_view->Redraw();
     emit unit_display_list_changed();
     emit unit_data_updated(source.get());
@@ -2971,7 +2970,6 @@ bool OCCTWidget::remove_unit_array_layer(const QUuid &source_uuid,
         source->array_spec = UnitArraySpec();
         source->type = source_was_assembly ? Assebly : injector;
         rebuild_unit_local_coordinate_frames();
-        m_view->FitAll();
         m_view->Redraw();
         emit unit_display_list_changed();
         emit unit_data_updated(source.get());
@@ -3220,6 +3218,14 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
 int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
                                  const UnitFillSpec &spec)
 {
+    return create_unit_fill_internal(source_uuids, spec, true, false);
+}
+
+int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
+                                          const UnitFillSpec &spec,
+                                          bool record_history,
+                                          bool fit_view)
+{
     if (source_uuids.isEmpty() || m_context.IsNull())
     {
         return 0;
@@ -3251,7 +3257,9 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
             return 0;
         }
     }
-    const QList<Unit> before = capture_persistent_units();
+    const QList<Unit> before = record_history
+                                   ? capture_persistent_units()
+                                   : QList<Unit>();
 
     const std::shared_ptr<Unit> parent = unit_hash.value(source_uuids.first());
     if (parent != nullptr)
@@ -3328,7 +3336,10 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         if (displayed_count > 0)
         {
             rebuild_unit_local_coordinate_frames();
-            m_view->FitAll();
+            if (fit_view)
+            {
+                m_view->FitAll();
+            }
             m_view->Redraw();
             emit unit_display_list_changed();
         }
@@ -3336,7 +3347,7 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         {
             emit unit_data_updated(parent.get());
         }
-        if (displayed_count > 0)
+        if (displayed_count > 0 && record_history)
         {
             record_structure_edit(before, capture_persistent_units());
         }
@@ -3386,10 +3397,16 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
     if (displayed_count > 0)
     {
         rebuild_unit_local_coordinate_frames();
-        m_view->FitAll();
+        if (fit_view)
+        {
+            m_view->FitAll();
+        }
         m_view->Redraw();
         emit unit_display_list_changed();
-        record_structure_edit(before, capture_persistent_units());
+        if (record_history)
+        {
+            record_structure_edit(before, capture_persistent_units());
+        }
     }
     return displayed_count;
 }
@@ -3401,7 +3418,8 @@ int OCCTWidget::rebuild_unit_fill(const QUuid &source_uuid)
     {
         return 0;
     }
-    return create_unit_fill(parent->fill_source_uuids, parent->fill_spec);
+    return create_unit_fill_internal(parent->fill_source_uuids,
+                                     parent->fill_spec, false, false);
 }
 
 void OCCTWidget::clear_unit_array_children(Unit &source)
