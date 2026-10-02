@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utility>
 
 namespace
 {
@@ -7050,28 +7051,44 @@ void OCCTWidget::schedule_unit_visual_refresh(Unit *unit)
     m_pending_visual_refreshes.insert(uuid);
     // Give a burst of field commits one short coalescing window. Data remains
     // synchronized immediately; only the expensive OCCT rebuild is deferred.
-    QTimer::singleShot(30, this, [this, uuid]()
+    QTimer::singleShot(30, this, [this]()
     {
-        m_pending_visual_refreshes.remove(uuid);
-        const std::shared_ptr<Unit> current_unit = unit_hash.value(uuid);
-        if (current_unit != nullptr)
+        const QSet<QUuid> pending_units = std::exchange(
+            m_pending_visual_refreshes, QSet<QUuid>());
+        QSet<QUuid> refreshed_units;
+        for (const QUuid &uuid : pending_units)
         {
-            refresh_unit_visual(current_unit.get());
+            const std::shared_ptr<Unit> current_unit = unit_hash.value(uuid);
+            if (current_unit != nullptr &&
+                refresh_unit_visual(current_unit.get()))
+            {
+                refreshed_units.insert(uuid);
+            }
+        }
+
+        QSet<QUuid> visited;
+        for (const QUuid &uuid : refreshed_units)
+        {
+            rebuild_unit_outputs(uuid, visited);
+        }
+        if (!refreshed_units.isEmpty() && !m_view.IsNull())
+        {
+            m_view->Redraw();
         }
     });
 }
 
-void OCCTWidget::refresh_unit_visual(Unit *unit)
+bool OCCTWidget::refresh_unit_visual(Unit *unit)
 {
     if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
     {
-        return;
+        return false;
     }
 
     const std::shared_ptr<Unit> current_unit = unit_hash.value(unit->inj.uuid);
     if (current_unit == nullptr || current_unit.get() != unit)
     {
-        return;
+        return false;
     }
 
     if (!unit->inj.create_injector())
@@ -7080,7 +7097,7 @@ void OCCTWidget::refresh_unit_visual(Unit *unit)
                                     .arg(unit->inj.injector_data.name);
         qWarning() << message;
         emit unit_geometry_refresh_failed(unit->inj.uuid, message);
-        return;
+        return false;
     }
 
 unit->ais_display->SetLocalTransformation(gp_Trsf());
@@ -7090,9 +7107,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         configured_injector_transparency(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
-    QSet<QUuid> visited;
-    rebuild_unit_outputs(unit->inj.uuid, visited);
-    m_view->Redraw();
+    return true;
 }
 
 void OCCTWidget::mouseMoveEvent(QMouseEvent *event)

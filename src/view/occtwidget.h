@@ -334,7 +334,7 @@ private:
 
     Unit* get_unit(Handle(AIS_Shape) shape);
     void schedule_unit_visual_refresh(Unit *unit);
-    void refresh_unit_visual(Unit *unit);
+    bool refresh_unit_visual(Unit *unit);
     std::shared_ptr<Unit> resolve_effective_edit_unit_for_scope(
         const QUuid &uuid, bool geometry_scope) const;
     UnitArrayOverride *find_array_override(Unit &source,
