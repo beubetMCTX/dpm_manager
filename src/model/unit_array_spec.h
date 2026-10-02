@@ -1,6 +1,8 @@
 #ifndef UNIT_ARRAY_SPEC_H
 #define UNIT_ARRAY_SPEC_H
 
+#include <QList>
+#include <QUuid>
 #include <QVector3D>
 
 enum class UnitArrayType
@@ -19,6 +21,13 @@ enum class UnitFillPattern
 
 struct UnitArraySpec
 {
+    // Stable identity for this array layer. Optional in legacy project files;
+    // the scene normalizes it before expansion.
+    QUuid layer_uuid;
+    // Stable identity for each logical placement. Ordering still follows the
+    // visible array order, but edits no longer have to identify a child only
+    // by its current numeric index.
+    QList<QUuid> placement_uuids;
     UnitArrayType type = UnitArrayType::Linear;
     int count = 1;
     QVector3D direction = QVector3D(1.0f, 0.0f, 0.0f);
@@ -34,6 +43,9 @@ struct UnitArraySpec
 
 struct UnitFillSpec
 {
+    // Stable identity for this fill operation and its logical grid slots.
+    QUuid fill_uuid;
+    QList<QUuid> placement_uuids;
     UnitFillPattern pattern = UnitFillPattern::Square;
     int rows = 1;
     int columns = 1;

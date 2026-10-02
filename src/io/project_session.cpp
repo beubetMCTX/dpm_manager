@@ -20,7 +20,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 2;
+constexpr int kSessionSchemaVersion = 3;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -82,6 +82,52 @@ QVector<int> int_list_from_json(const QJsonValue &json_value,
         }
     }
     return result;
+}
+
+QJsonArray uuid_list_to_json(const QVector<QUuid> &values)
+{
+    QJsonArray result;
+    for (const QUuid &value : values)
+    {
+        if (!value.isNull())
+        {
+            result.append(value.toString(QUuid::WithoutBraces));
+        }
+    }
+    return result;
+}
+
+bool uuid_list_from_json(const QJsonValue &json_value,
+                         QVector<QUuid> *values)
+{
+    if (values == nullptr)
+    {
+        return false;
+    }
+    if (json_value.isUndefined())
+    {
+        return true;
+    }
+    if (!json_value.isArray())
+    {
+        return false;
+    }
+
+    values->clear();
+    for (const QJsonValue &value : json_value.toArray())
+    {
+        if (!value.isString())
+        {
+            return false;
+        }
+        const QUuid uuid(value.toString());
+        if (uuid.isNull())
+        {
+            return false;
+        }
+        values->append(uuid);
+    }
+    return true;
 }
 
 QJsonObject array_spec_to_json(const UnitArraySpec &spec);
@@ -475,6 +521,16 @@ QJsonObject unit_to_json(const Unit &unit)
         result.insert("array_instance_path",
                       int_list_to_json(unit.array_instance_path));
     }
+    if (!unit.array_instance_key.isEmpty())
+    {
+        result.insert("array_instance_key",
+                      uuid_list_to_json(unit.array_instance_key));
+    }
+    if (!unit.array_layer_uuid.isNull())
+    {
+        result.insert("array_layer_uuid",
+                      unit.array_layer_uuid.toString(QUuid::WithoutBraces));
+    }
     if (!unit.array_overrides.isEmpty())
     {
         QJsonArray overrides;
@@ -483,6 +539,11 @@ QJsonObject unit_to_json(const Unit &unit)
             QJsonObject item;
             item.insert("instance_path",
                         int_list_to_json(array_override.instance_path));
+            if (!array_override.instance_key.isEmpty())
+            {
+                item.insert("instance_key",
+                            uuid_list_to_json(array_override.instance_key));
+            }
             item.insert("override_physical", array_override.override_physical);
             item.insert("override_geometry", array_override.override_geometry);
             QJsonObject snapshot;
@@ -515,6 +576,13 @@ QJsonObject unit_to_json(const Unit &unit)
     if (unit.has_fill_spec)
     {
         QJsonObject fill_spec;
+        if (!unit.fill_spec.fill_uuid.isNull())
+        {
+            fill_spec.insert("fill_uuid",
+                             unit.fill_spec.fill_uuid.toString(QUuid::WithoutBraces));
+        }
+        fill_spec.insert("placement_uuids",
+                         uuid_list_to_json(unit.fill_spec.placement_uuids));
         fill_spec.insert("pattern", static_cast<int>(unit.fill_spec.pattern));
         fill_spec.insert("rows", unit.fill_spec.rows);
         fill_spec.insert("columns", unit.fill_spec.columns);
@@ -736,6 +804,14 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
             unit->array_instance_path.append(value.toInt());
         }
     }
+    unit->array_instance_key.clear();
+    if (!uuid_list_from_json(object.value("array_instance_key"),
+                             &unit->array_instance_key))
+    {
+        return false;
+    }
+    unit->array_layer_uuid = QUuid(
+        object.value("array_layer_uuid").toString());
     unit->array_overrides.clear();
     const QJsonValue overrides_value = object.value("array_overrides");
     if (!overrides_value.isUndefined() && !overrides_value.isArray())
@@ -762,6 +838,11 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
                 return false;
             }
             array_override.instance_path.append(value.toInt());
+        }
+        if (!uuid_list_from_json(override_object.value("instance_key"),
+                                 &array_override.instance_key))
+        {
+            return false;
         }
         array_override.override_physical =
             override_object.value("override_physical").toBool(false);
@@ -800,6 +881,13 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     if (unit->has_fill_spec && object.value("fill_spec").isObject())
     {
         const QJsonObject fill_spec = object.value("fill_spec").toObject();
+        unit->fill_spec.fill_uuid = QUuid(
+            fill_spec.value("fill_uuid").toString());
+        if (!uuid_list_from_json(fill_spec.value("placement_uuids"),
+                                 &unit->fill_spec.placement_uuids))
+        {
+            return false;
+        }
         unit->fill_spec.pattern = static_cast<UnitFillPattern>(
             fill_spec.value("pattern").toInt(static_cast<int>(UnitFillPattern::Square)));
         unit->fill_spec.rows = fill_spec.value("rows").toInt(1);
@@ -902,6 +990,12 @@ bool is_usable_reference_frame(const QVector3D &x_axis,
 QJsonObject array_spec_to_json(const UnitArraySpec &spec)
 {
     QJsonObject result;
+    if (!spec.layer_uuid.isNull())
+    {
+        result.insert("layer_uuid",
+                      spec.layer_uuid.toString(QUuid::WithoutBraces));
+    }
+    result.insert("placement_uuids", uuid_list_to_json(spec.placement_uuids));
     result.insert("type", static_cast<int>(spec.type));
     result.insert("count", spec.count);
     result.insert("direction", vector_to_json(spec.direction));
@@ -924,6 +1018,16 @@ bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec)
     }
 
     const QJsonObject object = json_value.toObject();
+    const QUuid layer_uuid(object.value("layer_uuid").toString());
+    if (!layer_uuid.isNull())
+    {
+        spec->layer_uuid = layer_uuid;
+    }
+    if (!uuid_list_from_json(object.value("placement_uuids"),
+                             &spec->placement_uuids))
+    {
+        return false;
+    }
     spec->type = static_cast<UnitArrayType>(
         object.value("type").toInt(static_cast<int>(UnitArrayType::Linear)));
     spec->count = object.value("count").toInt(1);

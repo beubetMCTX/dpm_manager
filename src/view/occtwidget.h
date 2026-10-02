@@ -336,9 +336,11 @@ private:
     std::shared_ptr<Unit> resolve_effective_edit_unit_for_scope(
         const QUuid &uuid, bool geometry_scope) const;
     UnitArrayOverride *find_array_override(Unit &source,
-                                           const QVector<int> &instance_path);
+                                           const QVector<int> &instance_path,
+                                           const QVector<QUuid> &instance_key = {});
     const UnitArrayOverride *find_array_override(
-        const Unit &source, const QVector<int> &instance_path) const;
+        const Unit &source, const QVector<int> &instance_path,
+        const QVector<QUuid> &instance_key = {}) const;
     UnitArrayOverride *ensure_array_override(Unit &unit);
     void remove_array_override(Unit &unit);
     void capture_array_override_snapshot(Unit &unit);

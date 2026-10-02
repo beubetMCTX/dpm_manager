@@ -37,4 +37,16 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
                          const QVector3D &axis, float angle_radians,
                          const QVector3D &translation = QVector3D());
 
+// Normalize stable identities while preserving existing IDs when a caller
+// changes only count/rows/columns. These functions are also used to migrate
+// legacy sessions that contain only numeric instance paths.
+void initialize_new_array_spec_identity(UnitArraySpec &spec);
+void reconcile_array_spec_identity(UnitArraySpec &spec,
+                                   const UnitArraySpec &previous);
+void ensure_array_spec_identity(UnitArraySpec &spec);
+void initialize_new_fill_spec_identity(UnitFillSpec &spec);
+void reconcile_fill_spec_identity(UnitFillSpec &spec,
+                                  const UnitFillSpec &previous);
+void ensure_fill_spec_identity(UnitFillSpec &spec);
+
 #endif // UNIT_ARRAY_H

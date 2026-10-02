@@ -1,6 +1,7 @@
 #include "unit_array.h"
 
 #include <QQuaternion>
+#include <QSet>
 #include <QtMath>
 
 namespace
@@ -146,18 +147,115 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_direction(injector.axis);
 }
 
-void append_array_instance_path(Unit &root, int placement_index)
+QList<QUuid> stable_ids_for_count(int count,
+                                   const QList<QUuid> &preferred,
+                                   const QList<QUuid> &fallback)
+{
+    QList<QUuid> result;
+    QSet<QUuid> used;
+    result.reserve(count);
+    for (int index = 0; index < count; ++index)
+    {
+        QUuid candidate;
+        if (index < fallback.size())
+        {
+            candidate = fallback.at(index);
+        }
+        if (candidate.isNull() && index < preferred.size())
+        {
+            candidate = preferred.at(index);
+        }
+        if (candidate.isNull() || used.contains(candidate))
+        {
+            do
+            {
+                candidate = QUuid::createUuid();
+            }
+            while (candidate.isNull() || used.contains(candidate));
+        }
+        used.insert(candidate);
+        result.append(candidate);
+    }
+    return result;
+}
+
+void append_array_instance_path(Unit &root, int placement_index,
+                                const QUuid &placement_uuid,
+                                const QUuid &layer_uuid)
 {
     root.array_instance_path.append(placement_index);
+    root.array_instance_key.append(placement_uuid);
+    root.array_layer_uuid = layer_uuid;
     root.array_overrides.clear();
     for (const std::shared_ptr<Unit> &child : root.child_units)
     {
         if (child != nullptr)
         {
-            append_array_instance_path(*child, placement_index);
+            append_array_instance_path(*child, placement_index,
+                                       placement_uuid, layer_uuid);
         }
     }
 }
+}
+
+void initialize_new_array_spec_identity(UnitArraySpec &spec)
+{
+    spec.layer_uuid = QUuid::createUuid();
+    spec.placement_uuids.clear();
+    ensure_array_spec_identity(spec);
+}
+
+void reconcile_array_spec_identity(UnitArraySpec &spec,
+                                   const UnitArraySpec &previous)
+{
+    spec.layer_uuid = previous.layer_uuid.isNull()
+                          ? QUuid::createUuid()
+                          : previous.layer_uuid;
+    const int count = qBound(1, spec.count, 100000);
+    spec.placement_uuids = stable_ids_for_count(
+        count, spec.placement_uuids, previous.placement_uuids);
+}
+
+void ensure_array_spec_identity(UnitArraySpec &spec)
+{
+    if (spec.layer_uuid.isNull())
+    {
+        spec.layer_uuid = QUuid::createUuid();
+    }
+    const int count = qBound(1, spec.count, 100000);
+    spec.placement_uuids = stable_ids_for_count(
+        count, spec.placement_uuids, {});
+}
+
+void initialize_new_fill_spec_identity(UnitFillSpec &spec)
+{
+    spec.fill_uuid = QUuid::createUuid();
+    spec.placement_uuids.clear();
+    ensure_fill_spec_identity(spec);
+}
+
+void reconcile_fill_spec_identity(UnitFillSpec &spec,
+                                  const UnitFillSpec &previous)
+{
+    spec.fill_uuid = previous.fill_uuid.isNull()
+                         ? QUuid::createUuid()
+                         : previous.fill_uuid;
+    const int slot_count = qBound(1, spec.rows, 1000) *
+                           qBound(1, spec.columns, 1000);
+    spec.placement_uuids = stable_ids_for_count(
+        slot_count, spec.placement_uuids, previous.placement_uuids);
+}
+
+void ensure_fill_spec_identity(UnitFillSpec &spec)
+{
+    if (spec.fill_uuid.isNull())
+    {
+        spec.fill_uuid = QUuid::createUuid();
+    }
+    const int slot_count = qBound(1, spec.rows, 1000) *
+                           qBound(1, spec.columns, 1000);
+    spec.placement_uuids = stable_ids_for_count(
+        slot_count, spec.placement_uuids, {});
 }
 
 QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
@@ -176,6 +274,11 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
         child.prototype_chain = source.prototype_chain;
         child.prototype_chain.append(source.inj.uuid);
         child.array_instance_path = {index};
+        child.array_instance_key = {
+            index < spec.placement_uuids.size()
+                ? spec.placement_uuids.at(index)
+                : QUuid::createUuid()};
+        child.array_layer_uuid = spec.layer_uuid;
         child.array_overrides.clear();
         child.inj.injector_data.name = QString("%1[%2]")
                                            .arg(source.inj.injector_data.name)
@@ -338,6 +441,12 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             child.prototype_chain = source.prototype_chain;
             child.prototype_chain.append(source.inj.uuid);
             child.array_instance_path = {placement_index};
+            const int slot_index = row * columns + column;
+            child.array_instance_key = {
+                slot_index < spec.placement_uuids.size()
+                    ? spec.placement_uuids.at(slot_index)
+                    : QUuid::createUuid()};
+            child.array_layer_uuid = spec.fill_uuid;
             child.array_overrides.clear();
             child.inj.injector_data.name = QString("%1[%2]")
                                                .arg(source.inj.injector_data.name)
@@ -593,7 +702,11 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
         {
             continue;
         }
-        append_array_instance_path(*instance, index);
+        const QUuid placement_uuid = index < spec.placement_uuids.size()
+                                         ? spec.placement_uuids.at(index)
+                                         : QUuid::createUuid();
+        append_array_instance_path(*instance, index, placement_uuid,
+                                    spec.layer_uuid);
         instance->inj.injector_data.name =
             QStringLiteral("%1[%2]").arg(source.inj.injector_data.name)
                                      .arg(index + 1);
@@ -694,7 +807,11 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
         const int placement_index = placement.array_instance_path.isEmpty()
             ? result.size()
             : placement.array_instance_path.last();
-        append_array_instance_path(*instance, placement_index);
+        const QUuid placement_uuid = placement.array_instance_key.isEmpty()
+                                         ? QUuid::createUuid()
+                                         : placement.array_instance_key.last();
+        append_array_instance_path(*instance, placement_index, placement_uuid,
+                                    spec.fill_uuid);
         instance->inj.injector_data.name = placement.inj.injector_data.name;
         const QVector3D offset = placement.inj.injector_data.pos -
                                   sources.at(source_index)->inj.injector_data.pos;

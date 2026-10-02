@@ -514,6 +514,24 @@ void OCCTWidget::display_units(const QList<Unit> &units,
     {
         const Unit &unit = units[i];
         const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
+        if (stored_unit->has_array_spec)
+        {
+            QList<UnitArraySpec> specs = stored_unit->array_specs;
+            if (specs.isEmpty())
+            {
+                specs.append(stored_unit->array_spec);
+            }
+            for (UnitArraySpec &spec : specs)
+            {
+                ensure_array_spec_identity(spec);
+            }
+            stored_unit->array_specs = specs;
+            stored_unit->array_spec = specs.last();
+        }
+        if (stored_unit->has_fill_spec)
+        {
+            ensure_fill_spec_identity(stored_unit->fill_spec);
+        }
         unit_hash.insert(stored_unit->inj.uuid, stored_unit);
         m_unit_visibility.insert(stored_unit->inj.uuid, true);
         m_unit_locks.insert(stored_unit->inj.uuid, false);
@@ -1532,11 +1550,28 @@ std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit(
 }
 
 const UnitArrayOverride *OCCTWidget::find_array_override(
-    const Unit &source, const QVector<int> &instance_path) const
+    const Unit &source, const QVector<int> &instance_path,
+    const QVector<QUuid> &instance_key) const
 {
     for (const UnitArrayOverride &array_override : source.array_overrides)
     {
-        if (array_override.instance_path == instance_path)
+        if (!instance_key.isEmpty() && !array_override.instance_key.isEmpty())
+        {
+            if (array_override.instance_key == instance_key)
+            {
+                return &array_override;
+            }
+            continue;
+        }
+        if (instance_key.isEmpty() && array_override.instance_key.isEmpty() &&
+            array_override.instance_path == instance_path)
+        {
+            return &array_override;
+        }
+        // Legacy override records have no UUID key. Allow one lookup by path
+        // so they can be upgraded in place when the derived child is touched.
+        if (!instance_key.isEmpty() && array_override.instance_key.isEmpty() &&
+            array_override.instance_path == instance_path)
         {
             return &array_override;
         }
@@ -1545,11 +1580,26 @@ const UnitArrayOverride *OCCTWidget::find_array_override(
 }
 
 UnitArrayOverride *OCCTWidget::find_array_override(
-    Unit &source, const QVector<int> &instance_path)
+    Unit &source, const QVector<int> &instance_path,
+    const QVector<QUuid> &instance_key)
 {
     for (UnitArrayOverride &array_override : source.array_overrides)
     {
-        if (array_override.instance_path == instance_path)
+        if (!instance_key.isEmpty() && !array_override.instance_key.isEmpty())
+        {
+            if (array_override.instance_key == instance_key)
+            {
+                return &array_override;
+            }
+            continue;
+        }
+        if (instance_key.isEmpty() && array_override.instance_key.isEmpty() &&
+            array_override.instance_path == instance_path)
+        {
+            return &array_override;
+        }
+        if (!instance_key.isEmpty() && array_override.instance_key.isEmpty() &&
+            array_override.instance_path == instance_path)
         {
             return &array_override;
         }
@@ -1572,14 +1622,21 @@ UnitArrayOverride *OCCTWidget::ensure_array_override(Unit &unit)
     }
 
     UnitArrayOverride *array_override =
-        find_array_override(*parent, unit.array_instance_path);
+        find_array_override(*parent, unit.array_instance_path,
+                            unit.array_instance_key);
     if (array_override == nullptr)
     {
         UnitArrayOverride new_override;
         new_override.instance_path = unit.array_instance_path;
+        new_override.instance_key = unit.array_instance_key;
         new_override.snapshot = unit.inj.injector_data;
         parent->array_overrides.append(std::move(new_override));
         array_override = &parent->array_overrides.last();
+    }
+    else if (array_override->instance_key.isEmpty() &&
+             !unit.array_instance_key.isEmpty())
+    {
+        array_override->instance_key = unit.array_instance_key;
     }
     return array_override;
 }
@@ -1599,8 +1656,17 @@ void OCCTWidget::remove_array_override(Unit &unit)
 
     for (int index = parent->array_overrides.size() - 1; index >= 0; --index)
     {
-        if (parent->array_overrides.at(index).instance_path ==
-            unit.array_instance_path)
+        const UnitArrayOverride &array_override =
+            parent->array_overrides.at(index);
+        const bool same_key = !unit.array_instance_key.isEmpty() &&
+                              !array_override.instance_key.isEmpty() &&
+                              array_override.instance_key ==
+                                  unit.array_instance_key;
+        const bool same_legacy_path = unit.array_instance_key.isEmpty() &&
+                                      array_override.instance_key.isEmpty() &&
+                                      array_override.instance_path ==
+                                          unit.array_instance_path;
+        if (same_key || same_legacy_path)
         {
             parent->array_overrides.removeAt(index);
         }
@@ -1622,7 +1688,8 @@ std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit_for_scope(
         const UnitArrayOverride *array_override =
             parent == nullptr
                 ? nullptr
-                : find_array_override(*parent, current->array_instance_path);
+                : find_array_override(*parent, current->array_instance_path,
+                                      current->array_instance_key);
         const bool is_overridden = array_override != nullptr &&
             (geometry_scope ? array_override->override_geometry
                             : array_override->override_physical);
@@ -1656,7 +1723,8 @@ void OCCTWidget::capture_array_override_snapshot(Unit &unit)
         return;
     }
     UnitArrayOverride *array_override =
-        find_array_override(*parent, unit.array_instance_path);
+        find_array_override(*parent, unit.array_instance_path,
+                            unit.array_instance_key);
     if (array_override != nullptr)
     {
         array_override->snapshot = unit.inj.injector_data;
@@ -1685,7 +1753,8 @@ bool OCCTWidget::apply_array_overrides_to_tree(Unit &root,
         }
     }
     const UnitArrayOverride *array_override =
-        find_array_override(*override_source, root.array_instance_path);
+        find_array_override(*override_source, root.array_instance_path,
+                            root.array_instance_key);
     if (array_override != nullptr &&
         (array_override->override_physical ||
          array_override->override_geometry))
@@ -2946,6 +3015,11 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         return 0;
     }
 
+    for (UnitArraySpec &spec : specs)
+    {
+        ensure_array_spec_identity(spec);
+    }
+
     clear_unit_array_children(*source);
     source->array_specs = specs;
     source->array_spec = specs.last();
@@ -2986,6 +3060,8 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         unit->is_array_child = true;
         unit->follows_array = true;
         unit->array_layer = layer;
+        const int spec_index = qBound(0, layer - 1, specs.size() - 1);
+        unit->array_layer_uuid = specs.at(spec_index).layer_uuid;
         if (unit->prototype_uuid.isNull())
         {
             unit->prototype_uuid = source_uuid;
@@ -3025,6 +3101,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         pattern->is_array_child = false;
         pattern->follows_array = true;
         pattern->array_layer = 0;
+        pattern->array_layer_uuid = QUuid();
         pattern->prototype_uuid = QUuid();
         pattern->prototype_chain.clear();
         pattern->has_array_spec = false;
@@ -3059,14 +3136,22 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
                                      source_has_persistent_children;
     int displayed_count = 0;
     std::shared_ptr<Unit> pattern;
-    const auto has_preserved_instance = [&](const QVector<int> &path)
+    const auto has_preserved_instance = [&](const QVector<int> &path,
+                                            const QVector<QUuid> &key)
     {
         return std::any_of(
             source->child_units.cbegin(), source->child_units.cend(),
             [&](const std::shared_ptr<Unit> &child)
             {
-                return child != nullptr && !child->follows_array &&
-                       child->array_instance_path == path;
+                if (child == nullptr || child->follows_array)
+                {
+                    return false;
+                }
+                if (!key.isEmpty() && !child->array_instance_key.isEmpty())
+                {
+                    return child->array_instance_key == key;
+                }
+                return child->array_instance_path == path;
             });
     };
 
@@ -3077,7 +3162,8 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         for (const std::shared_ptr<Unit> &instance : instances)
         {
             if (instance != nullptr &&
-                has_preserved_instance(instance->array_instance_path))
+                has_preserved_instance(instance->array_instance_path,
+                                       instance->array_instance_key))
             {
                 continue;
             }
@@ -3100,7 +3186,8 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         const QList<Unit> children = expand_unit_array(*source, first_spec);
         for (const Unit &child : children)
         {
-            if (has_preserved_instance(child.array_instance_path))
+            if (has_preserved_instance(child.array_instance_path,
+                                       child.array_instance_key))
             {
                 continue;
             }
@@ -3149,7 +3236,8 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         {
             const std::shared_ptr<Unit> &instance = instances.at(index);
             if (instance != nullptr &&
-                has_preserved_instance(instance->array_instance_path))
+                has_preserved_instance(instance->array_instance_path,
+                                       instance->array_instance_key))
             {
                 continue;
             }
@@ -3207,9 +3295,11 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     {
         source->array_specs.append(source->array_spec);
     }
-    source->array_specs.append(spec);
+    UnitArraySpec new_spec = spec;
+    initialize_new_array_spec_identity(new_spec);
+    source->array_specs.append(new_spec);
     source->has_array_spec = true;
-    source->array_spec = spec;
+    source->array_spec = new_spec;
     source->has_fill_spec = false;
     source->fill_source_uuids.clear();
     const int created = rebuild_unit_array_layers(source_uuid);
@@ -3266,7 +3356,9 @@ bool OCCTWidget::update_unit_array_layer(const QUuid &source_uuid,
     const QList<Unit> before = capture_persistent_units();
     const QList<UnitArraySpec> previous_specs = specs;
     const UnitArraySpec previous_latest = source->array_spec;
-    specs[layer_index] = spec;
+    UnitArraySpec updated_spec = spec;
+    reconcile_array_spec_identity(updated_spec, specs.at(layer_index));
+    specs[layer_index] = updated_spec;
     source->array_specs = specs;
     source->array_spec = specs.last();
 
@@ -3620,13 +3712,24 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         }
     }
     const std::shared_ptr<Unit> parent = unit_hash.value(source_uuids.first());
+    UnitFillSpec normalized_spec = spec;
+    if (parent != nullptr && parent->has_fill_spec &&
+        !spec.fill_uuid.isNull() &&
+        parent->fill_spec.fill_uuid == spec.fill_uuid)
+    {
+        reconcile_fill_spec_identity(normalized_spec, parent->fill_spec);
+    }
+    else
+    {
+        initialize_new_fill_spec_identity(normalized_spec);
+    }
     if (parent != nullptr)
     {
         clear_unit_array_children(*parent);
         parent->has_array_spec = false;
         parent->array_specs.clear();
         parent->has_fill_spec = true;
-        parent->fill_spec = spec;
+        parent->fill_spec = normalized_spec;
         parent->fill_source_uuids = source_uuids;
     }
 
@@ -3646,7 +3749,7 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
     if (has_composite_source)
     {
         const QList<std::shared_ptr<Unit>> tree_children =
-            expand_unit_tree_fill(shared_sources, spec);
+            expand_unit_tree_fill(shared_sources, normalized_spec);
         int displayed_count = 0;
         std::function<void(const std::shared_ptr<Unit> &)> register_tree;
         register_tree = [&](const std::shared_ptr<Unit> &unit)
@@ -3717,7 +3820,7 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         return displayed_count;
     }
 
-    const QList<Unit> children = expand_unit_fill(sources, spec);
+    const QList<Unit> children = expand_unit_fill(sources, normalized_spec);
     int displayed_count = 0;
     for (const Unit &child : children)
     {
@@ -4079,7 +4182,8 @@ bool OCCTWidget::set_unit_array_override_scope(const QUuid &uuid,
     bool restore_physical = false;
     bool restore_geometry = false;
     const UnitArrayOverride *existing_override =
-        find_array_override(*parent, unit->array_instance_path);
+        find_array_override(*parent, unit->array_instance_path,
+                            unit->array_instance_key);
     if (existing_override != nullptr)
     {
         restore_physical = existing_override->override_physical &&
@@ -4139,7 +4243,8 @@ bool OCCTWidget::unit_array_override_scope(const QUuid &uuid,
         return false;
     }
     const UnitArrayOverride *array_override =
-        find_array_override(*parent, unit->array_instance_path);
+        find_array_override(*parent, unit->array_instance_path,
+                            unit->array_instance_key);
     if (array_override == nullptr)
     {
         return true;

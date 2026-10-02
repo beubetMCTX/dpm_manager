@@ -29,6 +29,7 @@ int main(int argc, char **argv)
     linear.type = UnitArrayType::Linear;
     linear.count = 3;
     linear.spacing = 4.0f;
+    initialize_new_array_spec_identity(linear);
     const QList<Unit> linear_children = expand_unit_array(source, linear);
     bool ok = check(linear_children.size() == 3, "linear count mismatch") &&
               check(linear_children[2].inj.injector_data.pos == QVector3D(9.0f, 2.0f, 0.0f),
@@ -40,11 +41,33 @@ int main(int argc, char **argv)
               check(linear_children[0].prototype_chain ==
                         QList<QUuid>{source.inj.uuid},
                     "linear child must retain its prototype chain") &&
+              check(linear_children[0].array_instance_key.size() == 1 &&
+                        linear_children[1].array_instance_key.size() == 1 &&
+                        linear_children[0].array_instance_key.at(0) ==
+                            linear.placement_uuids.at(0) &&
+                        linear_children[1].array_instance_key.at(0) ==
+                            linear.placement_uuids.at(1) &&
+                        linear_children[0].array_instance_key.at(0) !=
+                            linear_children[1].array_instance_key.at(0),
+                    "array children must retain stable placement UUIDs") &&
               check(source.inj.injector_data.pos == QVector3D(1.0f, 2.0f, 0.0f),
                     "source was mutated") &&
               check(linear_children[2].inj.injector_data.single_target_hitpoint ==
                         QVector3D(11.0f, 2.0f, 0.0f),
                     "linear target hitpoint mismatch");
+
+    UnitArraySpec resized_linear = linear;
+    resized_linear.count = 5;
+    reconcile_array_spec_identity(resized_linear, linear);
+    ok = check(resized_linear.layer_uuid == linear.layer_uuid &&
+                   resized_linear.placement_uuids.size() == 5 &&
+                   resized_linear.placement_uuids.at(0) ==
+                       linear.placement_uuids.at(0) &&
+                   resized_linear.placement_uuids.at(2) ==
+                       linear.placement_uuids.at(2) &&
+                   resized_linear.placement_uuids.at(3) !=
+                       linear.placement_uuids.at(0),
+               "resizing an array must preserve existing placement UUIDs") && ok;
 
     UnitArraySpec rotational;
     rotational.type = UnitArrayType::Rotational;
@@ -150,6 +173,7 @@ int main(int argc, char **argv)
     hex_fill.spacing_x = 4.0f;
     hex_fill.spacing_y = 3.0f;
     hex_fill.origin = QVector3D(10.0f, 20.0f, 0.0f);
+    initialize_new_fill_spec_identity(hex_fill);
     const QList<Unit> filled = expand_unit_fill({source, second_source}, hex_fill);
     ok = check(filled.size() == 4, "fill count mismatch") && ok;
     ok = check(filled[0].inj.injector_data.name.startsWith("master"),
@@ -159,6 +183,13 @@ int main(int argc, char **argv)
     ok = check(qAbs(filled[3].inj.injector_data.pos.x() - 16.0f) < 1.0e-4f &&
                    qAbs(filled[3].inj.injector_data.pos.y() - 23.0f) < 1.0e-4f,
                "hexagonal row offset mismatch") && ok;
+    ok = check(filled[0].array_instance_key.size() == 1 &&
+                   filled[1].array_instance_key.size() == 1 &&
+                   filled[0].array_instance_key.at(0) ==
+                       hex_fill.placement_uuids.at(0) &&
+                   filled[1].array_instance_key.at(0) ==
+                       hex_fill.placement_uuids.at(1),
+               "fill children must retain stable grid-slot UUIDs") && ok;
 
     UnitFillSpec weighted_fill = hex_fill;
     weighted_fill.rows = 1;

@@ -96,6 +96,21 @@ int main(int argc, char *argv[])
     source.units.first().array_specs = {
         source.units.first().array_spec,
         second_array_layer};
+    source.units.first().array_specs[0].layer_uuid = QUuid::createUuid();
+    source.units.first().array_specs[0].placement_uuids = {
+        QUuid::createUuid(), QUuid::createUuid(), QUuid::createUuid(),
+        QUuid::createUuid(), QUuid::createUuid(), QUuid::createUuid()};
+    source.units.first().array_specs[1].layer_uuid = QUuid::createUuid();
+    source.units.first().array_specs[1].placement_uuids = {
+        QUuid::createUuid(), QUuid::createUuid(), QUuid::createUuid(),
+        QUuid::createUuid()};
+    source.units.first().array_spec = source.units.first().array_specs.last();
+    source.units.first().fill_spec.fill_uuid = QUuid::createUuid();
+    for (int index = 0; index < 15; ++index)
+    {
+        source.units.first().fill_spec.placement_uuids.append(
+            QUuid::createUuid());
+    }
 
     QString reference_error;
     project_session::Data invalid_array_spec = source;
@@ -299,8 +314,8 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 2,
-               "New project sessions should use schema version 2") ||
+    if (!check(saved_root.value("schema_version").toInt() == 3,
+               "New project sessions should use schema version 3") ||
         !check(!QFileInfo(saved_root.value("chemkin_file_path").toString()).isAbsolute() &&
                    !QFileInfo(saved_root.value("reference_geometry")
                                   .toObject()
@@ -386,6 +401,15 @@ int main(int argc, char *argv[])
                         UnitArrayType::Rotational &&
                     restored.units.first().array_specs.last().count == 4,
                 "Multi-layer array metadata did not round-trip") ||
+        !check(restored.units.first().array_specs.first().layer_uuid ==
+                   source.units.first().array_specs.first().layer_uuid &&
+                   restored.units.first().array_specs.first().placement_uuids ==
+                       source.units.first().array_specs.first().placement_uuids &&
+                   restored.units.first().array_specs.last().layer_uuid ==
+                       source.units.first().array_specs.last().layer_uuid &&
+                   restored.units.first().array_specs.last().placement_uuids ==
+                       source.units.first().array_specs.last().placement_uuids,
+               "Array layer and placement UUIDs did not round-trip") ||
         !check(!restored.units.first().inj.shape.IsNull(),
                "Restored injector geometry was not rebuilt") ||
         !check(restored.species_colors.value("O2") == QColor("#123456"),
@@ -432,6 +456,10 @@ int main(int argc, char *argv[])
                    restored_fill.units.first().fill_spec.pattern ==
                        UnitFillPattern::Hexagonal &&
                    restored_fill.units.first().fill_spec.rows == 3 &&
+                   restored_fill.units.first().fill_spec.fill_uuid ==
+                       source.units.first().fill_spec.fill_uuid &&
+                   restored_fill.units.first().fill_spec.placement_uuids ==
+                       source.units.first().fill_spec.placement_uuids &&
                    restored_fill.units.first().fill_spec.source_weights ==
                        QVector<int>({1}) &&
                    restored_fill.units.first().fill_source_uuids ==
@@ -690,6 +718,10 @@ int main(int argc, char *argv[])
     assembly_data.units.first().assembly_child_uuids = {assembly_member.inj.uuid};
     assembly_data.units.first().has_array_spec = true;
     assembly_data.units.first().array_specs.clear();
+    assembly_data.units.first().array_spec.direction =
+        QVector3D(1.0f, 0.0f, 0.0f);
+    assembly_data.units.first().array_spec.plane_normal =
+        QVector3D(0.0f, 0.0f, 1.0f);
     assembly_data.units.first().array_spec.use_reference_geometry = true;
     assembly_data.units.first().array_spec.conform_to_reference_normal = true;
     assembly_data.units.first().has_fill_spec = false;
