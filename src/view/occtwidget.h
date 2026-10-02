@@ -141,7 +141,9 @@ public:
     bool can_undo_reference_transform() const;
     bool can_redo_reference_transform() const;
 
-    void display_units(const QList<Unit> &units, bool clear_existing = true);
+    void display_units(const QList<Unit> &units,
+                       bool clear_existing = true,
+                       bool fit_view = true);
     bool select_unit_by_uuid(const QUuid &uuid);
     bool select_units_by_uuid(const QList<QUuid> &uuids,
                               const QUuid &primary_uuid = QUuid());

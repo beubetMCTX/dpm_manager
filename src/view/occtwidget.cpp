@@ -412,7 +412,9 @@ void OCCTWidget::discard_auxiliary_dialogs()
     runtime_debug::trace("OCCTWidget::discard_auxiliary_dialogs end");
 }
 
-void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
+void OCCTWidget::display_units(const QList<Unit> &units,
+                               bool clear_existing,
+                               bool fit_view)
 {
     if (m_context.IsNull())
     {
@@ -524,7 +526,10 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
 
     rebuild_unit_local_coordinate_frames();
 
-    m_view->FitAll();
+    if (fit_view)
+    {
+        m_view->FitAll();
+    }
     if (geometry.getShape().IsNull())
     {
         m_view->SetZoom(1000.0);
@@ -533,20 +538,23 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
     // display_units() is also called from MainWindow's constructor, before
     // this native view has received its final size. Fit once after layout so
     // the initial scene is not compressed into a corner.
-    QTimer::singleShot(0, this, [this]()
+    if (fit_view)
     {
-        if (m_view.IsNull() || width() <= 0 || height() <= 0)
+        QTimer::singleShot(0, this, [this]()
         {
-            return;
-        }
-        m_view->MustBeResized();
-        m_view->FitAll();
-        if (geometry.getShape().IsNull())
-        {
-            m_view->SetZoom(1000.0);
-        }
-        m_view->Redraw();
-    });
+            if (m_view.IsNull() || width() <= 0 || height() <= 0)
+            {
+                return;
+            }
+            m_view->MustBeResized();
+            m_view->FitAll();
+            if (geometry.getShape().IsNull())
+            {
+                m_view->SetZoom(1000.0);
+            }
+            m_view->Redraw();
+        });
+    }
     emit unit_display_list_changed();
 }
 
@@ -4401,7 +4409,7 @@ void OCCTWidget::record_structure_edit(const QList<Unit> &before,
 bool OCCTWidget::restore_structure_snapshot(const QList<Unit> &snapshot)
 {
     m_replaying_edit_history = true;
-    display_units(snapshot, true);
+    display_units(snapshot, true, false);
     m_replaying_edit_history = false;
     return true;
 }
