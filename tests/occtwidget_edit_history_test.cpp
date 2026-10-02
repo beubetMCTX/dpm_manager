@@ -246,6 +246,42 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+
+    const QVector3D member_direction(0.0f, 1.0f, 0.0f);
+    if (!check(widget.set_unit_direction_by_uuid(member_uuid,
+                                                 member_direction),
+               "Editing an Assembly member should succeed"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> regenerated_member;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(uuid)->child_units)
+    {
+        if (child == nullptr || !child->is_array_child)
+        {
+            continue;
+        }
+        for (const std::shared_ptr<Unit> &member : child->child_units)
+        {
+            if (member != nullptr && member->prototype_uuid == member_uuid)
+            {
+                regenerated_member = member;
+                break;
+            }
+        }
+        if (regenerated_member != nullptr)
+        {
+            break;
+        }
+    }
+    if (!check(regenerated_member != nullptr &&
+                   regenerated_member->inj.injector_data.vel == member_direction,
+               "Assembly array should rebuild when a member changes"))
+    {
+        return 1;
+    }
+
     if (!check(widget.unit_hash.value(member_uuid)->assembly_parent_uuid == uuid,
                "Assembly array expansion must preserve the original member link") ||
         !check(std::all_of(widget.unit_hash.value(uuid)->child_units.cbegin(),

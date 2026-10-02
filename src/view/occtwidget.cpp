@@ -355,6 +355,7 @@ OCCTWidget::~OCCTWidget()
     }
 
     unit_hash.clear();
+    m_array_dependents.clear();
     m_unit_visibility.clear();
     m_unit_locks.clear();
     reference_geometry.Nullify();
@@ -435,6 +436,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
             }
         }
         unit_hash.clear();
+        m_array_dependents.clear();
         m_unit_visibility.clear();
         m_unit_locks.clear();
     }
@@ -1340,6 +1342,14 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
 
     m_active_edit_batch_id = QUuid();
     m_active_move_batch_id = QUuid();
+    if (translated_count > 0)
+    {
+        QSet<QUuid> visited;
+        for (const QUuid &uuid : operation_uuids)
+        {
+            rebuild_dependent_arrays(uuid, visited);
+        }
+    }
     if (translated_count > 0 && !m_view.IsNull())
     {
         m_view->Redraw();
@@ -1433,6 +1443,10 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     update_unit_local_coordinate_frame(uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
+    {
+        QSet<QUuid> visited;
+        rebuild_dependent_arrays(unit->inj.uuid, visited);
+    }
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -1470,6 +1484,10 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
     update_unit_local_coordinate_frame(uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
+    {
+        QSet<QUuid> visited;
+        rebuild_dependent_arrays(unit->inj.uuid, visited);
+    }
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -1526,6 +1544,10 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     update_unit_local_coordinate_frame(uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
+    {
+        QSet<QUuid> visited;
+        rebuild_dependent_arrays(unit->inj.uuid, visited);
+    }
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -1575,6 +1597,10 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     update_unit_local_coordinate_frame(uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
+    {
+        QSet<QUuid> visited;
+        rebuild_dependent_arrays(unit->inj.uuid, visited);
+    }
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -1806,6 +1832,14 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     }
 
     m_active_edit_batch_id = QUuid();
+    if (rotated_count > 0)
+    {
+        QSet<QUuid> visited;
+        for (const QUuid &uuid : operation_uuids)
+        {
+            rebuild_dependent_arrays(uuid, visited);
+        }
+    }
     if (rotated_count > 0 && !m_view.IsNull())
     {
         m_view->Redraw();
@@ -2546,8 +2580,14 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         unit->is_array_child = true;
         unit->follows_array = true;
         unit->array_layer = layer;
-        unit->prototype_uuid = source_uuid;
-        unit->prototype_chain = {source_uuid};
+        if (unit->prototype_uuid.isNull())
+        {
+            unit->prototype_uuid = source_uuid;
+        }
+        if (unit->prototype_chain.isEmpty())
+        {
+            unit->prototype_chain = {source_uuid};
+        }
         unit->has_array_spec = false;
         unit->array_specs.clear();
         unit->has_fill_spec = false;
@@ -2692,6 +2732,13 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
     if (source == nullptr || source->ais_display.IsNull() || m_context.IsNull())
     {
+        return 0;
+    }
+    if (source->is_array_child && source->follows_array)
+    {
+        // Generated children do not have stable identities across rebuilds.
+        // Apply another layer to the owning source instead, or detach this
+        // child first when an independent nested array is intended.
         return 0;
     }
 
@@ -2895,7 +2942,8 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
     for (const QUuid &uuid : source_uuids)
     {
         const std::shared_ptr<Unit> source = unit_hash.value(uuid);
-        if (source != nullptr && !source->ais_display.IsNull())
+        if (source != nullptr && !source->ais_display.IsNull() &&
+            !(source->is_array_child && source->follows_array))
         {
             sources.append(*source);
         }
@@ -3126,6 +3174,58 @@ int OCCTWidget::rebuild_unit_array(const QUuid &source_uuid)
     return rebuild_unit_array_layers(source_uuid);
 }
 
+void OCCTWidget::rebuild_array_dependency_index()
+{
+    m_array_dependents.clear();
+
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> candidate = it.value();
+        if (candidate == nullptr ||
+            (!candidate->has_array_spec && !candidate->has_fill_spec))
+        {
+            continue;
+        }
+
+        std::function<void(const std::shared_ptr<Unit> &)> collect_dependencies;
+        collect_dependencies = [&](const std::shared_ptr<Unit> &node)
+        {
+            if (node == nullptr)
+            {
+                return;
+            }
+            if (node->is_array_child && node->follows_array)
+            {
+                QSet<QUuid> prototypes;
+                for (const QUuid &prototype_uuid : node->prototype_chain)
+                {
+                    if (!prototype_uuid.isNull())
+                    {
+                        prototypes.insert(prototype_uuid);
+                    }
+                }
+                if (!node->prototype_uuid.isNull())
+                {
+                    prototypes.insert(node->prototype_uuid);
+                }
+                for (const QUuid &prototype_uuid : prototypes)
+                {
+                    m_array_dependents[prototype_uuid].insert(
+                        candidate->inj.uuid);
+                }
+            }
+            for (const std::shared_ptr<Unit> &child : node->child_units)
+            {
+                collect_dependencies(child);
+            }
+        };
+        for (const std::shared_ptr<Unit> &child : candidate->child_units)
+        {
+            collect_dependencies(child);
+        }
+    }
+}
+
 void OCCTWidget::rebuild_dependent_arrays(const QUuid &prototype_uuid,
                                           QSet<QUuid> &visited)
 {
@@ -3135,40 +3235,34 @@ void OCCTWidget::rebuild_dependent_arrays(const QUuid &prototype_uuid,
     }
     visited.insert(prototype_uuid);
 
+    rebuild_array_dependency_index();
+
     QList<QUuid> pending{prototype_uuid};
     QList<QUuid> dependent_roots;
     QSet<QUuid> discovered;
     while (!pending.isEmpty())
     {
         const QUuid current_uuid = pending.takeFirst();
-        for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+        const QSet<QUuid> candidates =
+            m_array_dependents.value(current_uuid);
+        for (const QUuid &candidate_uuid : candidates)
         {
-            const std::shared_ptr<Unit> candidate = it.value();
-            if (candidate == nullptr || candidate->is_array_child ||
-                (!candidate->has_array_spec && !candidate->has_fill_spec) ||
-                discovered.contains(candidate->inj.uuid))
+            if (candidate_uuid.isNull() ||
+                candidate_uuid == prototype_uuid ||
+                discovered.contains(candidate_uuid))
             {
                 continue;
             }
-
-            bool depends_on_current = false;
-            for (const std::shared_ptr<Unit> &child : candidate->child_units)
+            const std::shared_ptr<Unit> candidate =
+                unit_hash.value(candidate_uuid);
+            if (candidate == nullptr ||
+                (!candidate->has_array_spec && !candidate->has_fill_spec))
             {
-                if (child != nullptr && child->is_array_child &&
-                    child->follows_array &&
-                    (child->prototype_uuid == current_uuid ||
-                     child->prototype_chain.contains(current_uuid)))
-                {
-                    depends_on_current = true;
-                    break;
-                }
+                continue;
             }
-            if (depends_on_current)
-            {
-                discovered.insert(candidate->inj.uuid);
-                dependent_roots.append(candidate->inj.uuid);
-                pending.append(candidate->inj.uuid);
-            }
+            discovered.insert(candidate_uuid);
+            dependent_roots.append(candidate_uuid);
+            pending.append(candidate_uuid);
         }
     }
 

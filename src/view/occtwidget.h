@@ -306,6 +306,7 @@ private:
     void refresh_unit_visual(Unit *unit);
     void clear_unit_array_children(Unit &source);
     int rebuild_unit_array_layers(const QUuid &source_uuid);
+    void rebuild_array_dependency_index();
     std::shared_ptr<Unit> resolve_effective_edit_unit(const QUuid &uuid) const;
     Quantity_Color color_for_material(const QString &material) const;
     Quantity_Color color_for_injector(const Injector &injector) const;
@@ -504,6 +505,7 @@ private:
     QSet<QUuid> m_pending_visual_refreshes;
     QHash<QUuid, bool> m_unit_visibility;
     QHash<QUuid, bool> m_unit_locks;
+    QHash<QUuid, QSet<QUuid>> m_array_dependents;
     bool m_reference_geometry_visible = true;
     QString m_reference_geometry_kind = "file";
     double m_reference_construction_size = 0.01;
