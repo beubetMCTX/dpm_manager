@@ -39,6 +39,9 @@ struct UnitArraySpec
     QVector3D plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
     bool use_reference_geometry = false;
     bool conform_to_reference_normal = false;
+    // Stable identity of the reference frame used by this layer. A null
+    // value is accepted only for legacy sessions and is migrated on load.
+    QUuid reference_geometry_uuid;
 };
 
 struct UnitFillSpec
@@ -58,6 +61,8 @@ struct UnitFillSpec
     QVector3D plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
     bool use_reference_geometry = false;
     bool conform_to_reference_normal = false;
+    // Stable identity of the reference frame used by this fill operation.
+    QUuid reference_geometry_uuid;
     // Positive weights select multiple source injectors in a repeating ratio.
     QVector<int> source_weights = {1};
 };

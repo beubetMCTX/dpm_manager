@@ -1335,6 +1335,7 @@ bool MainWindow::load_project_session(const QString &file_path)
     {
         m_3d_widget->geometry.adopt_loaded_geometry(loaded_geometry);
         m_3d_widget->add_readed_geometry();
+        m_3d_widget->set_reference_geometry_uuid(data.reference_geometry.uuid);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1347,6 +1348,7 @@ bool MainWindow::load_project_session(const QString &file_path)
             data.reference_geometry.construction_size,
             data.reference_geometry.construction_thickness,
             data.reference_geometry.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(data.reference_geometry.uuid);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1359,6 +1361,7 @@ bool MainWindow::load_project_session(const QString &file_path)
             data.reference_geometry.construction_size,
             data.reference_geometry.construction_thickness,
             data.reference_geometry.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(data.reference_geometry.uuid);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1371,6 +1374,7 @@ bool MainWindow::load_project_session(const QString &file_path)
             data.reference_geometry.construction_size,
             data.reference_geometry.construction_radius,
             data.reference_geometry.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(data.reference_geometry.uuid);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1381,6 +1385,7 @@ bool MainWindow::load_project_session(const QString &file_path)
     {
         m_3d_widget->create_reference_datum_origin(
             data.reference_geometry.construction_radius);
+        m_3d_widget->set_reference_geometry_uuid(data.reference_geometry.uuid);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1392,6 +1397,7 @@ bool MainWindow::load_project_session(const QString &file_path)
         m_3d_widget->create_reference_alignment_frame(
             data.reference_geometry.construction_size,
             data.reference_geometry.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(data.reference_geometry.uuid);
         m_3d_widget->set_reference_transform(data.reference_geometry.position,
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
@@ -1573,6 +1579,7 @@ project_session::Data MainWindow::collect_project_data() const
         }
         data.reference_geometry.position = m_3d_widget->reference_position();
         data.reference_geometry.rotation = m_3d_widget->reference_rotation();
+        data.reference_geometry.uuid = m_3d_widget->reference_geometry_uuid();
         data.reference_geometry.locked = m_3d_widget->reference_geometry_locked();
         data.reference_geometry.visible = m_3d_widget->reference_geometry_visible();
         data.reference_geometry.section_clipping =
@@ -1874,6 +1881,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->create_reference_datum_plane(
             config.construction_size, config.construction_thickness,
             config.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(config.uuid);
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
@@ -1885,6 +1893,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->create_reference_section_plane(
             config.construction_size, config.construction_thickness,
             config.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(config.uuid);
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
@@ -1897,6 +1906,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->create_reference_datum_axis(
             config.construction_size, config.construction_radius,
             config.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(config.uuid);
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
@@ -1906,6 +1916,7 @@ void MainWindow::restore_reference_geometry()
     if (config.kind == QStringLiteral("datum_origin"))
     {
         m_3d_widget->create_reference_datum_origin(config.construction_radius);
+        m_3d_widget->set_reference_geometry_uuid(config.uuid);
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
@@ -1916,6 +1927,7 @@ void MainWindow::restore_reference_geometry()
     {
         m_3d_widget->create_reference_alignment_frame(
             config.construction_size, config.construction_direction);
+        m_3d_widget->set_reference_geometry_uuid(config.uuid);
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
@@ -1956,6 +1968,7 @@ void MainWindow::restore_reference_geometry()
     }
 
     m_3d_widget->add_readed_geometry();
+    m_3d_widget->set_reference_geometry_uuid(config.uuid);
     m_3d_widget->set_reference_transform(config.position, config.rotation);
     m_3d_widget->set_reference_geometry_locked(config.locked);
     m_3d_widget->set_reference_geometry_visible(config.visible);
@@ -1977,6 +1990,7 @@ void MainWindow::save_reference_geometry_state()
         }
         config.position = m_3d_widget->reference_position();
         config.rotation = m_3d_widget->reference_rotation();
+        config.uuid = m_3d_widget->reference_geometry_uuid();
         config.locked = m_3d_widget->reference_geometry_locked();
         config.visible = m_3d_widget->reference_geometry_visible();
         config.section_clipping = m_3d_widget->section_plane_clipping_enabled();
@@ -2989,6 +3003,8 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
             return false;
         }
         spec.use_reference_geometry = true;
+        spec.reference_geometry_uuid =
+            m_3d_widget->reference_geometry_uuid();
         spec.origin = origin;
         spec.direction = reference_x;
         spec.plane_normal = reference_z;
@@ -4811,6 +4827,8 @@ void MainWindow::create_object_list_panel()
                         return;
                     }
                     spec.use_reference_geometry = true;
+                    spec.reference_geometry_uuid =
+                        m_3d_widget->reference_geometry_uuid();
                     spec.origin = reference_origin;
                     spec.direction = reference_x;
                     spec.plane_normal = reference_z;
@@ -4958,6 +4976,8 @@ void MainWindow::create_object_list_panel()
                         return;
                     }
                     spec.use_reference_geometry = true;
+                    spec.reference_geometry_uuid =
+                        m_3d_widget->reference_geometry_uuid();
                     spec.origin = reference_origin;
                     spec.direction = reference_x;
                     spec.plane_normal = reference_z;

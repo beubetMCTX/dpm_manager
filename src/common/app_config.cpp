@@ -537,6 +537,24 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     };
 
     ReferenceGeometryConfig loaded_config;
+    if (geometry_object.contains("uuid"))
+    {
+        if (!geometry_object.value("uuid").isString())
+        {
+            return reject_invalid_config(
+                app_settings_file_path(),
+                "Reference geometry UUID must be a string.",
+                error_message);
+        }
+        loaded_config.uuid = QUuid(geometry_object.value("uuid").toString());
+        if (loaded_config.uuid.isNull())
+        {
+            return reject_invalid_config(
+                app_settings_file_path(),
+                "Reference geometry UUID is invalid.",
+                error_message);
+        }
+    }
     loaded_config.kind = kind;
     loaded_config.file_path = file_path;
     if (!read_vector("position", &loaded_config.position) ||
@@ -664,6 +682,8 @@ bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
         QJsonObject geometry_object;
         const QString kind = config.kind.trimmed().isEmpty()
             ? QStringLiteral("file") : config.kind.trimmed().toLower();
+        const QUuid uuid = config.uuid.isNull() ? QUuid::createUuid() : config.uuid;
+        geometry_object.insert("uuid", uuid.toString(QUuid::WithoutBraces));
         geometry_object.insert("kind", kind);
         geometry_object.insert("file_path", QDir::toNativeSeparators(
             QFileInfo(config.file_path).absoluteFilePath()));

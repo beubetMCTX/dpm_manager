@@ -5523,6 +5523,9 @@ void OCCTWidget::rebuild_reference_face_coordinate_frames()
 
 void OCCTWidget::add_readed_geometry()
 {
+    // Replacing reference geometry creates a new logical reference object.
+    // Project loading may restore the saved UUID immediately afterwards.
+    m_reference_geometry_uuid = QUuid::createUuid();
     clear_reference_transform_history();
     clear_face_reference();
     set_reference_geometry_locked(false);
@@ -5812,6 +5815,7 @@ bool OCCTWidget::clear_reference_geometry()
             {
                 spec.use_reference_geometry = false;
                 spec.conform_to_reference_normal = false;
+                spec.reference_geometry_uuid = QUuid();
                 changed = true;
             }
         }
@@ -5819,12 +5823,14 @@ bool OCCTWidget::clear_reference_geometry()
         {
             unit->array_spec.use_reference_geometry = false;
             unit->array_spec.conform_to_reference_normal = false;
+            unit->array_spec.reference_geometry_uuid = QUuid();
             changed = true;
         }
         if (unit->has_fill_spec && unit->fill_spec.use_reference_geometry)
         {
             unit->fill_spec.use_reference_geometry = false;
             unit->fill_spec.conform_to_reference_normal = false;
+            unit->fill_spec.reference_geometry_uuid = QUuid();
             changed = true;
         }
         if (changed)
@@ -5857,6 +5863,7 @@ bool OCCTWidget::clear_reference_geometry()
     m_reference_rotation = QVector3D();
     m_reference_transform = gp_Trsf();
     m_reference_geometry_visible = true;
+    m_reference_geometry_uuid = QUuid();
     m_reference_geometry_kind = QStringLiteral("file");
     m_section_plane_clipping = false;
 
@@ -5882,6 +5889,17 @@ void OCCTWidget::set_reference_transform(const QVector3D &position,
     m_reference_position = position;
     m_reference_rotation = rotation_degrees;
     apply_reference_transform();
+}
+
+void OCCTWidget::set_reference_geometry_uuid(const QUuid &uuid)
+{
+    if (ref_geom.IsNull())
+    {
+        m_reference_geometry_uuid = QUuid();
+        return;
+    }
+
+    m_reference_geometry_uuid = uuid.isNull() ? QUuid::createUuid() : uuid;
 }
 
 bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,

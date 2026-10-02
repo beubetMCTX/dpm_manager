@@ -21,7 +21,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 3;
+constexpr int kSessionSchemaVersion = 4;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -155,6 +155,73 @@ void normalize_loaded_unit_identity(Unit &unit)
     if (unit.has_fill_spec)
     {
         ensure_fill_spec_identity(unit.fill_spec);
+    }
+}
+
+bool has_reference_geometry(const ReferenceGeometryConfig &config)
+{
+    return config.kind.trimmed().toLower() != QStringLiteral("file") ||
+           !config.file_path.trimmed().isEmpty();
+}
+
+QUuid legacy_reference_geometry_uuid(const ReferenceGeometryConfig &config)
+{
+    const QByteArray identity =
+        (config.kind.trimmed().toLower() + QStringLiteral("\n") +
+         QFileInfo(config.file_path).absoluteFilePath() + QStringLiteral("\n") +
+         QString::number(config.position.x(), 'g', 9) + QStringLiteral(",") +
+         QString::number(config.position.y(), 'g', 9) + QStringLiteral(",") +
+         QString::number(config.position.z(), 'g', 9) + QStringLiteral("\n") +
+         QString::number(config.rotation.x(), 'g', 9) + QStringLiteral(",") +
+         QString::number(config.rotation.y(), 'g', 9) + QStringLiteral(",") +
+         QString::number(config.rotation.z(), 'g', 9)).toUtf8();
+    return QUuid::fromRfc4122(
+        QCryptographicHash::hash(identity, QCryptographicHash::Sha1).left(16));
+}
+
+// Keep legacy sessions readable while ensuring every newly saved session has
+// an explicit reference identity for Array/Fill dependencies.
+void normalize_reference_geometry_identity(project_session::Data *data)
+{
+    if (data == nullptr || !has_reference_geometry(data->reference_geometry))
+    {
+        return;
+    }
+
+    if (data->reference_geometry.uuid.isNull())
+    {
+        data->reference_geometry.uuid =
+            legacy_reference_geometry_uuid(data->reference_geometry);
+    }
+
+    for (Unit &unit : data->units)
+    {
+        if (unit.has_array_spec)
+        {
+            QList<UnitArraySpec> specs = unit.array_specs;
+            if (specs.isEmpty())
+            {
+                specs.append(unit.array_spec);
+            }
+            for (UnitArraySpec &spec : specs)
+            {
+                if (spec.use_reference_geometry &&
+                    spec.reference_geometry_uuid.isNull())
+                {
+                    spec.reference_geometry_uuid = data->reference_geometry.uuid;
+                }
+            }
+            unit.array_specs = specs;
+            unit.array_spec = specs.last();
+        }
+
+        if (unit.has_fill_spec &&
+            unit.fill_spec.use_reference_geometry &&
+            unit.fill_spec.reference_geometry_uuid.isNull())
+        {
+            unit.fill_spec.reference_geometry_uuid =
+                data->reference_geometry.uuid;
+        }
     }
 }
 
@@ -619,6 +686,13 @@ QJsonObject unit_to_json(const Unit &unit)
         fill_spec.insert("use_reference_geometry", unit.fill_spec.use_reference_geometry);
         fill_spec.insert("conform_to_reference_normal",
                          unit.fill_spec.conform_to_reference_normal);
+        if (!unit.fill_spec.reference_geometry_uuid.isNull())
+        {
+            fill_spec.insert(
+                "reference_geometry_uuid",
+                unit.fill_spec.reference_geometry_uuid.toString(
+                    QUuid::WithoutBraces));
+        }
         QJsonArray source_weights;
         for (const int weight : unit.fill_spec.source_weights)
         {
@@ -930,6 +1004,19 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
             fill_spec.value("use_reference_geometry").toBool(false);
         unit->fill_spec.conform_to_reference_normal =
             fill_spec.value("conform_to_reference_normal").toBool(false);
+        if (fill_spec.contains("reference_geometry_uuid"))
+        {
+            if (!fill_spec.value("reference_geometry_uuid").isString())
+            {
+                return false;
+            }
+            unit->fill_spec.reference_geometry_uuid = QUuid(
+                fill_spec.value("reference_geometry_uuid").toString());
+            if (unit->fill_spec.reference_geometry_uuid.isNull())
+            {
+                return false;
+            }
+        }
         unit->fill_spec.source_weights.clear();
         const QJsonValue weights_value = fill_spec.value("source_weights");
         if (weights_value.isArray())
@@ -1054,6 +1141,12 @@ QJsonObject array_spec_to_json(const UnitArraySpec &spec)
     result.insert("plane_normal", vector_to_json(spec.plane_normal));
     result.insert("use_reference_geometry", spec.use_reference_geometry);
     result.insert("conform_to_reference_normal", spec.conform_to_reference_normal);
+    if (!spec.reference_geometry_uuid.isNull())
+    {
+        result.insert("reference_geometry_uuid",
+                      spec.reference_geometry_uuid.toString(
+                          QUuid::WithoutBraces));
+    }
     return result;
 }
 
@@ -1092,6 +1185,19 @@ bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec)
         object.value("use_reference_geometry").toBool(false);
     spec->conform_to_reference_normal =
         object.value("conform_to_reference_normal").toBool(false);
+    if (object.contains("reference_geometry_uuid"))
+    {
+        if (!object.value("reference_geometry_uuid").isString())
+        {
+            return false;
+        }
+        spec->reference_geometry_uuid = QUuid(
+            object.value("reference_geometry_uuid").toString());
+        if (spec->reference_geometry_uuid.isNull())
+        {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -1221,6 +1327,12 @@ QJsonObject data_to_json(const project_session::Data &data,
     root.insert("materials", materials);
 
     QJsonObject reference_geometry;
+    if (!data.reference_geometry.uuid.isNull())
+    {
+        reference_geometry.insert(
+            "uuid", data.reference_geometry.uuid.toString(
+                        QUuid::WithoutBraces));
+    }
     reference_geometry.insert("kind", data.reference_geometry.kind);
     reference_geometry.insert(
         "file_path",
@@ -1440,6 +1552,21 @@ bool validate(const Data &data, QString *error_message)
             }
             for (const UnitArraySpec &spec : specs)
             {
+                if (spec.use_reference_geometry &&
+                    !has_reference_geometry(data.reference_geometry))
+                {
+                    set_error(error_message,
+                              "Project Array specification references missing reference geometry.");
+                    return false;
+                }
+                if (spec.use_reference_geometry &&
+                    !spec.reference_geometry_uuid.isNull() &&
+                    spec.reference_geometry_uuid != data.reference_geometry.uuid)
+                {
+                    set_error(error_message,
+                              "Project Array specification references a different reference geometry.");
+                    return false;
+                }
                 if (!is_valid_uuid_sequence(spec.placement_uuids,
                                             qBound(1, spec.count, 100000)))
                 {
@@ -1481,6 +1608,11 @@ bool validate(const Data &data, QString *error_message)
                                 spec.source_weights.cend(), 0LL) > 1000000LL ||
                 (spec.use_reference_geometry &&
                  !is_usable_reference_frame(spec.direction, spec.plane_normal)) ||
+                (spec.use_reference_geometry &&
+                 !has_reference_geometry(data.reference_geometry)) ||
+                (spec.use_reference_geometry &&
+                 !spec.reference_geometry_uuid.isNull() &&
+                 spec.reference_geometry_uuid != data.reference_geometry.uuid) ||
                 (spec.circular_boundary && spec.boundary_radius < 0.0f))
             {
                 set_error(error_message,
@@ -1755,12 +1887,14 @@ bool save(const QString &file_path, const Data &data, QString *error_message)
         return false;
     }
 
-    if (!validate(data, error_message))
+    Data normalized = data;
+    normalize_reference_geometry_identity(&normalized);
+    if (!validate(normalized, error_message))
     {
         return false;
     }
 
-    const QJsonObject root = data_to_json(data, file_path, true);
+    const QJsonObject root = data_to_json(normalized, file_path, true);
 
     QSaveFile file(file_path);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -1781,7 +1915,9 @@ QByteArray fingerprint(const Data &data)
 {
     // The empty session path makes absolute paths stay absolute; the
     // timestamp is omitted by design.
-    const QJsonObject root = data_to_json(data, QString(), false);
+    Data normalized = data;
+    normalize_reference_geometry_identity(&normalized);
+    const QJsonObject root = data_to_json(normalized, QString(), false);
     return QCryptographicHash::hash(
                QJsonDocument(root).toJson(QJsonDocument::Compact),
                QCryptographicHash::Sha256)
@@ -2036,6 +2172,24 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     }
 
     const QJsonObject reference_geometry = reference_geometry_value.toObject();
+    if (reference_geometry.contains("uuid") &&
+        !reference_geometry.value("uuid").isString())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference geometry UUID.");
+        return false;
+    }
+    if (reference_geometry.contains("uuid"))
+    {
+        parsed.reference_geometry.uuid = QUuid(
+            reference_geometry.value("uuid").toString());
+        if (parsed.reference_geometry.uuid.isNull())
+        {
+            set_error(error_message,
+                      "Project session contains an invalid reference geometry UUID.");
+            return false;
+        }
+    }
     parsed.reference_geometry.kind = reference_geometry.value("kind").toString("file").trimmed().toLower();
     if (parsed.reference_geometry.kind != "file" &&
         parsed.reference_geometry.kind != "datum_plane" &&
@@ -2127,6 +2281,7 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         }
     }
 
+    normalize_reference_geometry_identity(&parsed);
     if (!validate(parsed, error_message))
     {
         return false;

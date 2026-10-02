@@ -368,6 +368,7 @@ int main(int argc, char **argv)
 
     ReferenceGeometryConfig reference_geometry;
     reference_geometry.file_path = temporary_directory.filePath("geometry/example.step");
+    reference_geometry.uuid = QUuid::createUuid();
     reference_geometry.position = QVector3D(1.0f, 2.0f, 3.0f);
     reference_geometry.rotation = QVector3D(4.0f, 5.0f, 6.0f);
     reference_geometry.locked = true;
@@ -383,6 +384,7 @@ int main(int argc, char **argv)
                 QFileInfo(reference_geometry.file_path).absoluteFilePath() &&
             loaded_reference_geometry.position == reference_geometry.position &&
             loaded_reference_geometry.rotation == reference_geometry.rotation &&
+            loaded_reference_geometry.uuid == reference_geometry.uuid &&
             loaded_reference_geometry.locked && !loaded_reference_geometry.visible;
         if (!reference_geometry_test_ok)
         {

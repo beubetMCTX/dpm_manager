@@ -5,6 +5,7 @@
 #include <QByteArray>
 #include <QHash>
 #include <QList>
+#include <QUuid>
 #include <QString>
 #include <QStringList>
 #include <QVector3D>
@@ -19,6 +20,9 @@ struct MaterialConfigEntry
 
 struct ReferenceGeometryConfig
 {
+    // Stable identity used by project Array/Fill specifications.
+    // Null means no persisted reference geometry is active.
+    QUuid uuid;
     QString kind = "file";
     QString file_path;
     QVector3D position;

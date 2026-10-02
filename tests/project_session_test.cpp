@@ -325,8 +325,11 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 3,
-               "New project sessions should use schema version 3") ||
+    if (!check(saved_root.value("schema_version").toInt() == 4,
+               "New project sessions should use schema version 4") ||
+        !check(!saved_root.value("reference_geometry").toObject()
+                    .value("uuid").toString().isEmpty(),
+               "Reference geometry should have a stable UUID") ||
         !check(!QFileInfo(saved_root.value("chemkin_file_path").toString()).isAbsolute() &&
                    !QFileInfo(saved_root.value("reference_geometry")
                                   .toObject()
@@ -763,9 +766,23 @@ int main(int argc, char *argv[])
                    restored_assembly.units.first().has_array_spec &&
                    restored_assembly.units.first().array_spec.use_reference_geometry &&
                    restored_assembly.units.first().array_spec.conform_to_reference_normal &&
+                   restored_assembly.units.first().array_spec.reference_geometry_uuid ==
+                       restored_assembly.reference_geometry.uuid &&
                    restored_assembly.units.at(1).assembly_parent_uuid ==
                        assembly_data.units.first().inj.uuid,
                "Assembly relationships did not round-trip"))
+    {
+        return 1;
+    }
+
+    project_session::Data invalid_reference_identity = assembly_data;
+    invalid_reference_identity.units.first().array_spec.reference_geometry_uuid =
+        QUuid::createUuid();
+    reference_error.clear();
+    if (!check(!project_session::validate(invalid_reference_identity,
+                                          &reference_error) &&
+                   reference_error.contains("different reference geometry"),
+               "Array reference UUID mismatch should be rejected"))
     {
         return 1;
     }

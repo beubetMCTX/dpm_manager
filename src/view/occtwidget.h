@@ -121,6 +121,8 @@ public:
     bool create_reference_alignment_frame(Standard_Real size = 0.002,
                                           const QVector3D &direction = QVector3D(0.0f, 0.0f, 1.0f));
     QString reference_geometry_kind() const { return m_reference_geometry_kind; }
+    QUuid reference_geometry_uuid() const { return m_reference_geometry_uuid; }
+    void set_reference_geometry_uuid(const QUuid &uuid);
     double reference_construction_size() const { return m_reference_construction_size; }
     double reference_construction_thickness() const { return m_reference_construction_thickness; }
     double reference_construction_radius() const { return m_reference_construction_radius; }
@@ -583,6 +585,7 @@ private:
     QHash<QUuid, bool> m_unit_locks;
     QHash<QUuid, QSet<QUuid>> m_array_dependents;
     bool m_reference_geometry_visible = true;
+    QUuid m_reference_geometry_uuid;
     QString m_reference_geometry_kind = "file";
     double m_reference_construction_size = 0.01;
     double m_reference_construction_thickness = 1.0e-5;
