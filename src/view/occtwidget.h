@@ -246,6 +246,10 @@ public:
     bool redo_delete();
     bool can_undo_delete() const;
     bool can_redo_delete() const;
+    bool undo_last_operation();
+    bool redo_operation();
+    bool can_undo_operation() const;
+    bool can_redo_operation() const;
     void set_chemkin_species_names(const QStringList &species_names);
     void set_species_colors(const QHash<QString, QColor> &species_colors);
     // Shared case capabilities used by every unit editor.
@@ -282,6 +286,7 @@ signals:
     void move_history_changed(bool can_undo, bool can_redo);
     void edit_history_changed(bool can_undo, bool can_redo);
     void delete_history_changed(bool can_undo, bool can_redo);
+    void operation_history_changed(bool can_undo, bool can_redo);
     void reference_transform_history_changed(bool can_undo, bool can_redo);
 
 private:
@@ -405,6 +410,18 @@ private:
         QList<Unit> before_units;
         QList<Unit> after_units;
     };
+    enum class UnitOperationHistoryKind
+    {
+        Move,
+        Edit,
+        Delete
+    };
+    struct UnitOperationHistoryEntry
+    {
+        UnitOperationHistoryKind kind = UnitOperationHistoryKind::Edit;
+        QUuid uuid;
+        QUuid batch_id;
+    };
     UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
     bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,
                              const UnitMoveSnapshot &snapshot);
@@ -432,6 +449,11 @@ private:
     void record_delete(const UnitDeleteHistoryEntry &entry);
     void clear_delete_history();
     bool restore_deleted_unit(const UnitDeleteHistoryEntry &entry);
+    void prepare_new_operation_history();
+    void record_operation(UnitOperationHistoryKind kind,
+                          const QUuid &uuid,
+                          const QUuid &batch_id = QUuid());
+    void clear_operation_history();
     bool apply_reference_transform_snapshot(const QVector3D &position,
                                             const QVector3D &rotation);
 
@@ -556,6 +578,9 @@ private:
     int m_delete_history_index = 0;
     bool m_replaying_delete_history = false;
     bool m_replaying_edit_history = false;
+    bool m_replaying_operation_history = false;
+    QVector<UnitOperationHistoryEntry> m_operation_history;
+    int m_operation_history_index = 0;
     QUuid m_drag_unit_uuid;
     UnitMoveSnapshot m_drag_move_before;
     bool m_drag_move_snapshot_valid = false;

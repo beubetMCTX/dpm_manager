@@ -424,14 +424,13 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         clear_array_preview();
         discard_auxiliary_dialogs();
         clear_unit_local_coordinate_frames();
-        clear_move_history();
-        if (!m_replaying_edit_history)
+        if (!m_replaying_edit_history && !m_replaying_delete_history &&
+            !m_replaying_operation_history)
         {
+            clear_move_history();
             clear_edit_history();
-        }
-        if (!m_replaying_delete_history)
-        {
             clear_delete_history();
+            clear_operation_history();
         }
         m_copied_unit.reset();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
@@ -3697,7 +3696,8 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     }
 
     const bool capture_delete_history = !m_replaying_delete_history &&
-                                        !m_replaying_edit_history;
+                                        !m_replaying_edit_history &&
+                                        !m_replaying_operation_history;
     const QList<Unit> before_units = capture_delete_history
         ? capture_persistent_units() : QList<Unit>();
     UnitDeleteHistoryEntry delete_entry;
@@ -3792,35 +3792,6 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
         delete_entry.after_units = capture_persistent_units();
         record_delete(delete_entry);
     }
-    for (int index = m_move_history.size() - 1; index >= 0; --index)
-    {
-        if (m_move_history[index].uuid == uuid)
-        {
-            m_move_history.removeAt(index);
-            if (index < m_move_history_index)
-            {
-                --m_move_history_index;
-            }
-        }
-    }
-    m_move_history_index = qBound(0, m_move_history_index,
-                                  m_move_history.size());
-    emit move_history_changed(can_undo_move(), can_redo_move());
-
-    for (int index = m_edit_history.size() - 1; index >= 0; --index)
-    {
-        if (m_edit_history[index].uuid == uuid)
-        {
-            m_edit_history.removeAt(index);
-            if (index < m_edit_history_index)
-            {
-                --m_edit_history_index;
-            }
-        }
-    }
-    m_edit_history_index = qBound(0, m_edit_history_index,
-                                  m_edit_history.size());
-    emit edit_history_changed(can_undo_edit(), can_redo_edit());
     emit unit_removed(uuid);
     emit unit_display_list_changed();
 
@@ -3838,6 +3809,7 @@ void OCCTWidget::record_delete(const UnitDeleteHistoryEntry &entry)
         return;
     }
 
+    prepare_new_operation_history();
     if (m_delete_history_index < m_delete_history.size())
     {
         m_delete_history.resize(m_delete_history_index);
@@ -3845,6 +3817,7 @@ void OCCTWidget::record_delete(const UnitDeleteHistoryEntry &entry)
     m_delete_history.append(entry);
     m_delete_history_index = m_delete_history.size();
     emit delete_history_changed(can_undo_delete(), can_redo_delete());
+    record_operation(UnitOperationHistoryKind::Delete, entry.uuid);
 }
 
 void OCCTWidget::clear_delete_history()
@@ -3971,6 +3944,148 @@ bool OCCTWidget::redo_delete()
     return true;
 }
 
+void OCCTWidget::prepare_new_operation_history()
+{
+    if (m_operation_history_index >= m_operation_history.size())
+    {
+        return;
+    }
+
+    m_operation_history.resize(m_operation_history_index);
+    if (m_move_history_index < m_move_history.size())
+    {
+        m_move_history.resize(m_move_history_index);
+    }
+    if (m_edit_history_index < m_edit_history.size())
+    {
+        m_edit_history.resize(m_edit_history_index);
+    }
+    if (m_delete_history_index < m_delete_history.size())
+    {
+        m_delete_history.resize(m_delete_history_index);
+    }
+}
+
+void OCCTWidget::record_operation(UnitOperationHistoryKind kind,
+                                   const QUuid &uuid,
+                                   const QUuid &batch_id)
+{
+    if (!batch_id.isNull() && !m_operation_history.isEmpty())
+    {
+        const UnitOperationHistoryEntry &last =
+            m_operation_history.constLast();
+        if (last.kind == kind && last.batch_id == batch_id)
+        {
+            return;
+        }
+    }
+
+    UnitOperationHistoryEntry entry;
+    entry.kind = kind;
+    entry.uuid = uuid;
+    entry.batch_id = batch_id;
+    m_operation_history.append(entry);
+    m_operation_history_index = m_operation_history.size();
+    emit operation_history_changed(can_undo_operation(),
+                                   can_redo_operation());
+}
+
+void OCCTWidget::clear_operation_history()
+{
+    if (m_operation_history.isEmpty() && m_operation_history_index == 0)
+    {
+        return;
+    }
+
+    m_operation_history.clear();
+    m_operation_history_index = 0;
+    emit operation_history_changed(false, false);
+}
+
+bool OCCTWidget::can_undo_operation() const
+{
+    return m_operation_history_index > 0;
+}
+
+bool OCCTWidget::can_redo_operation() const
+{
+    return m_operation_history_index < m_operation_history.size();
+}
+
+bool OCCTWidget::undo_last_operation()
+{
+    if (cancel_active_drag_for_undo())
+    {
+        return true;
+    }
+    if (!can_undo_operation())
+    {
+        return false;
+    }
+
+    const UnitOperationHistoryEntry entry =
+        m_operation_history.at(m_operation_history_index - 1);
+    m_replaying_operation_history = true;
+    bool undone = false;
+    switch (entry.kind)
+    {
+    case UnitOperationHistoryKind::Move:
+        undone = undo_last_move();
+        break;
+    case UnitOperationHistoryKind::Edit:
+        undone = undo_last_edit();
+        break;
+    case UnitOperationHistoryKind::Delete:
+        undone = undo_last_delete();
+        break;
+    }
+    m_replaying_operation_history = false;
+    if (!undone)
+    {
+        return false;
+    }
+
+    --m_operation_history_index;
+    emit operation_history_changed(can_undo_operation(),
+                                   can_redo_operation());
+    return true;
+}
+
+bool OCCTWidget::redo_operation()
+{
+    if (!can_redo_operation())
+    {
+        return false;
+    }
+
+    const UnitOperationHistoryEntry entry =
+        m_operation_history.at(m_operation_history_index);
+    m_replaying_operation_history = true;
+    bool redone = false;
+    switch (entry.kind)
+    {
+    case UnitOperationHistoryKind::Move:
+        redone = redo_move();
+        break;
+    case UnitOperationHistoryKind::Edit:
+        redone = redo_edit();
+        break;
+    case UnitOperationHistoryKind::Delete:
+        redone = redo_delete();
+        break;
+    }
+    m_replaying_operation_history = false;
+    if (!redone)
+    {
+        return false;
+    }
+
+    ++m_operation_history_index;
+    emit operation_history_changed(can_undo_operation(),
+                                   can_redo_operation());
+    return true;
+}
+
 void OCCTWidget::fit_all_view()
 {
     if (!m_view.IsNull())
@@ -4085,6 +4200,7 @@ void OCCTWidget::record_move(const QUuid &uuid,
         return;
     }
 
+    prepare_new_operation_history();
     if (m_move_history_index < m_move_history.size())
     {
         m_move_history.resize(m_move_history_index);
@@ -4098,6 +4214,7 @@ void OCCTWidget::record_move(const QUuid &uuid,
     m_move_history.append(entry);
     m_move_history_index = m_move_history.size();
     emit move_history_changed(can_undo_move(), can_redo_move());
+    record_operation(UnitOperationHistoryKind::Move, uuid, entry.batch_id);
 }
 
 void OCCTWidget::clear_move_history()
@@ -4262,6 +4379,7 @@ void OCCTWidget::record_structure_edit(const QList<Unit> &before,
     {
         return;
     }
+    prepare_new_operation_history();
     if (m_edit_history_index < m_edit_history.size())
     {
         m_edit_history.resize(m_edit_history_index);
@@ -4270,11 +4388,14 @@ void OCCTWidget::record_structure_edit(const QList<Unit> &before,
     UnitEditHistoryEntry entry;
     entry.is_structure = true;
     entry.batch_id = QUuid::createUuid();
+    const QUuid operation_batch_id = entry.batch_id;
     entry.before_units = before;
     entry.after_units = after;
     m_edit_history.append(std::move(entry));
     m_edit_history_index = m_edit_history.size();
     emit edit_history_changed(can_undo_edit(), can_redo_edit());
+    record_operation(UnitOperationHistoryKind::Edit, QUuid(),
+                     operation_batch_id);
 }
 
 bool OCCTWidget::restore_structure_snapshot(const QList<Unit> &snapshot)
@@ -4293,6 +4414,7 @@ void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
         return;
     }
 
+    prepare_new_operation_history();
     if (m_edit_history_index < m_edit_history.size())
     {
         m_edit_history.resize(m_edit_history_index);
@@ -4301,6 +4423,7 @@ void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
     UnitEditHistoryEntry entry;
     entry.uuid = transaction.uuid;
     entry.batch_id = m_active_edit_batch_id;
+    const QUuid operation_batch_id = entry.batch_id;
     entry.before_type = transaction.before_type;
     entry.after_type = unit.type;
     entry.before_data = transaction.before_data;
@@ -4312,6 +4435,8 @@ void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
     m_edit_history.append(std::move(entry));
     m_edit_history_index = m_edit_history.size();
     emit edit_history_changed(can_undo_edit(), can_redo_edit());
+    record_operation(UnitOperationHistoryKind::Edit, transaction.uuid,
+                     operation_batch_id);
 }
 
 void OCCTWidget::clear_edit_history()

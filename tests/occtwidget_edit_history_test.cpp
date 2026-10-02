@@ -82,6 +82,48 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QVector3D original_position =
+        stored_unit->inj.injector_data.pos;
+    const QVector3D unified_original_direction =
+        stored_unit->inj.injector_data.vel;
+    if (!check(widget.translate_units_by_uuid(
+                   {uuid}, QVector3D(4.0f, 0.0f, 0.0f)) == 1,
+               "Unified history move should succeed") ||
+        !check(widget.set_unit_direction_by_uuid(
+                   uuid, QVector3D(0.0f, 1.0f, 0.0f)),
+               "Unified history edit should succeed") ||
+        !check(widget.undo_last_operation(),
+               "Unified undo should first restore the latest edit") ||
+        !check(widget.unit_hash.value(uuid)->inj.injector_data.vel ==
+                   unified_original_direction &&
+                   widget.unit_hash.value(uuid)->inj.injector_data.pos !=
+                       original_position,
+               "Unified undo should preserve the earlier move") ||
+        !check(widget.undo_last_operation(),
+               "Unified undo should then restore the earlier move") ||
+        !check(widget.unit_hash.value(uuid)->inj.injector_data.pos ==
+                   original_position,
+               "Unified undo should restore the original position") ||
+        !check(widget.redo_operation(),
+               "Unified redo should reapply the move") ||
+        !check(widget.redo_operation(),
+               "Unified redo should reapply the edit") ||
+        !check(widget.unit_hash.value(uuid)->inj.injector_data.vel ==
+                   QVector3D(0.0f, 1.0f, 0.0f),
+               "Unified redo should restore the edited direction"))
+    {
+        return 1;
+    }
+
+    widget.display_units({source}, true);
+    application.processEvents();
+    stored_unit = widget.unit_hash.value(uuid);
+    if (!check(stored_unit != nullptr,
+               "History reset should restore the source injector"))
+    {
+        return 1;
+    }
+
     UnitArraySpec leaf_array;
     leaf_array.type = UnitArrayType::Linear;
     leaf_array.count = 2;

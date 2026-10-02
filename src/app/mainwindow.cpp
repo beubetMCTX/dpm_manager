@@ -389,39 +389,29 @@ MainWindow::MainWindow(QWidget *parent)
         refresh_object_list_selection_colors();
         update_unit_position_controls();
     });
+    ui->actionUndo_Move->setText("Undo");
+    ui->actionRedo_Move->setText("Redo");
+    ui->actionUndo_Edit->setVisible(false);
+    ui->actionRedo_Edit->setVisible(false);
+    ui->actionUndo_Delete->setVisible(false);
+    ui->actionRedo_Delete->setVisible(false);
+    ui->actionUndo_Edit->setShortcut(QKeySequence());
+    ui->actionRedo_Edit->setShortcut(QKeySequence());
+    ui->actionUndo_Delete->setShortcut(QKeySequence());
+    ui->actionRedo_Delete->setShortcut(QKeySequence());
     connect(ui->actionUndo_Move, &QAction::triggered, m_3d_widget,
-            &OCCTWidget::undo_last_move);
+            &OCCTWidget::undo_last_operation);
     connect(ui->actionRedo_Move, &QAction::triggered, m_3d_widget,
-            &OCCTWidget::redo_move);
-    connect(ui->actionUndo_Edit, &QAction::triggered, m_3d_widget,
-            &OCCTWidget::undo_last_edit);
-    connect(ui->actionRedo_Edit, &QAction::triggered, m_3d_widget,
-            &OCCTWidget::redo_edit);
-    connect(ui->actionUndo_Delete, &QAction::triggered, m_3d_widget,
-            &OCCTWidget::undo_last_delete);
-    connect(ui->actionRedo_Delete, &QAction::triggered, m_3d_widget,
-            &OCCTWidget::redo_delete);
+            &OCCTWidget::redo_operation);
     connect(ui->actionUndo_Reference_Transform, &QAction::triggered,
             m_3d_widget, &OCCTWidget::undo_reference_transform);
     connect(ui->actionRedo_Reference_Transform, &QAction::triggered,
             m_3d_widget, &OCCTWidget::redo_reference_transform);
-    connect(m_3d_widget, &OCCTWidget::move_history_changed, this,
+    connect(m_3d_widget, &OCCTWidget::operation_history_changed, this,
             [this](bool can_undo, bool can_redo)
     {
         ui->actionUndo_Move->setEnabled(can_undo);
         ui->actionRedo_Move->setEnabled(can_redo);
-    });
-    connect(m_3d_widget, &OCCTWidget::edit_history_changed, this,
-            [this](bool can_undo, bool can_redo)
-    {
-        ui->actionUndo_Edit->setEnabled(can_undo);
-        ui->actionRedo_Edit->setEnabled(can_redo);
-    });
-    connect(m_3d_widget, &OCCTWidget::delete_history_changed, this,
-            [this](bool can_undo, bool can_redo)
-    {
-        ui->actionUndo_Delete->setEnabled(can_undo);
-        ui->actionRedo_Delete->setEnabled(can_redo);
     });
     connect(m_3d_widget, &OCCTWidget::unit_added, this,
             [this](Unit *added_unit)
