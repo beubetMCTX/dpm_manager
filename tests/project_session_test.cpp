@@ -340,6 +340,46 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Unit independent_array_child = unit;
+    independent_array_child.inj.uuid = QUuid::createUuid();
+    independent_array_child.inj.injector_data.name = "independent-array-child";
+    independent_array_child.type = array;
+    independent_array_child.has_array_spec = false;
+    independent_array_child.array_specs.clear();
+    independent_array_child.is_array_child = true;
+    independent_array_child.follows_array = false;
+    independent_array_child.array_parent_uuid = unit.inj.uuid;
+    independent_array_child.array_layer = 2;
+
+    project_session::Data independent_child_data = source;
+    independent_child_data.units.append(independent_array_child);
+    const QString independent_child_path =
+        temporary_directory.filePath("independent-array-child.dpmproj");
+    if (!check(project_session::save(independent_child_path,
+                                     independent_child_data,
+                                     &error_message),
+               error_message))
+    {
+        return 1;
+    }
+
+    project_session::Data restored_independent_child;
+    if (!check(project_session::load(independent_child_path,
+                                     &restored_independent_child,
+                                     &error_message),
+               error_message) ||
+        !check(restored_independent_child.units.size() == 2,
+               "Independent array child did not round-trip") ||
+        !check(restored_independent_child.units.last().is_array_child &&
+                   !restored_independent_child.units.last().follows_array &&
+                   restored_independent_child.units.last().array_layer == 2 &&
+                   restored_independent_child.units.last().array_parent_uuid ==
+                       unit.inj.uuid,
+               "Independent array child metadata did not round-trip"))
+    {
+        return 1;
+    }
+
     const QString malformed_path = temporary_directory.filePath("malformed.dpmproj");
     QJsonObject malformed_root;
     malformed_root.insert("schema_version", 1);

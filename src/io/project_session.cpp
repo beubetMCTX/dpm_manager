@@ -467,6 +467,13 @@ QJsonObject unit_to_json(const Unit &unit)
                   unit.array_parent_uuid.toString(QUuid::WithoutBraces));
     result.insert("is_array_child", unit.is_array_child);
     result.insert("follows_array", unit.follows_array);
+    if (unit.is_array_child)
+    {
+        // Following children are rebuilt from the parent specification. An
+        // independent child keeps its layer marker so the object tree can
+        // restore its position after a project reload.
+        result.insert("array_layer", unit.array_layer);
+    }
     result.insert("assembly_parent_uuid",
                   unit.assembly_parent_uuid.toString(QUuid::WithoutBraces));
     QJsonArray assembly_children;
@@ -550,6 +557,7 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
     unit->is_array_child = object.value("is_array_child").toBool(false);
     unit->follows_array = object.value("follows_array").toBool(true);
+    unit->array_layer = qMax(0, object.value("array_layer").toInt(0));
     unit->assembly_parent_uuid = QUuid(
         object.value("assembly_parent_uuid").toString());
     for (const QJsonValue &child : object.value("assembly_child_uuids").toArray())

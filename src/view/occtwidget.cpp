@@ -3221,6 +3221,8 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
         return false;
     }
     unit->follows_array = follow;
+    emit unit_data_updated(unit.get());
+    emit unit_display_list_changed();
     return true;
 }
 

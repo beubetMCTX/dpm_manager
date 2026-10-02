@@ -322,7 +322,11 @@ MainWindow::MainWindow(QWidget *parent)
         update_object_list_panel();
     });
     connect(m_3d_widget, &OCCTWidget::unit_display_list_changed,
-            this, &MainWindow::update_object_list_panel);
+            this, [this]()
+    {
+        sync_persistent_units_from_occt();
+        update_object_list_panel();
+    });
     connect(m_3d_widget, &OCCTWidget::unit_lock_changed,
             this, [this](const QUuid &uuid, bool)
     {
@@ -340,15 +344,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_3d_widget, &OCCTWidget::unit_removed, this,
             [this](const QUuid &uuid)
     {
-        for (auto it = units.begin(); it != units.end(); ++it)
-        {
-            if (it->inj.uuid == uuid)
-            {
-                units.erase(it);
-                mark_project_dirty();
-                break;
-            }
-        }
+        Q_UNUSED(uuid);
+        sync_persistent_units_from_occt();
+        mark_project_dirty();
     });
     connect(m_3d_widget, &OCCTWidget::selection_changed,
             this, &MainWindow::update_object_list_selection);
@@ -419,15 +417,7 @@ MainWindow::MainWindow(QWidget *parent)
         {
             return;
         }
-
-        for (const Unit &unit : units)
-        {
-            if (unit.inj.uuid == added_unit->inj.uuid)
-            {
-                return;
-            }
-        }
-        units.append(*added_unit);
+        sync_persistent_units_from_occt();
         mark_project_dirty();
     });
     connect(m_3d_widget, &OCCTWidget::reference_transform_history_changed,
@@ -582,6 +572,76 @@ void MainWindow::sync_unit_position_from_occt(Unit *changed_unit)
     update_unit_position_controls();
 }
 
+void MainWindow::sync_persistent_units_from_occt()
+{
+    if (m_3d_widget == nullptr)
+    {
+        return;
+    }
+
+    const auto copy_persistent_state = [](Unit &target, const Unit &source)
+    {
+        target.type = source.type;
+        target.inj.uuid = source.inj.uuid;
+        target.inj.injector_data = source.inj.injector_data;
+        target.inj.shape = source.inj.shape;
+        target.array_parent_uuid = source.array_parent_uuid;
+        target.is_array_child = source.is_array_child;
+        target.follows_array = source.follows_array;
+        target.prototype_uuid = source.prototype_uuid;
+        target.prototype_chain = source.prototype_chain;
+        target.has_array_spec = source.has_array_spec;
+        target.array_spec = source.array_spec;
+        target.array_specs = source.array_specs;
+        target.has_fill_spec = source.has_fill_spec;
+        target.fill_spec = source.fill_spec;
+        target.fill_source_uuids = source.fill_source_uuids;
+        target.assembly_parent_uuid = source.assembly_parent_uuid;
+        target.assembly_child_uuids = source.assembly_child_uuids;
+        target.assembly_local_position = source.assembly_local_position;
+        target.assembly_local_rotation = source.assembly_local_rotation;
+        target.child_units.clear();
+    };
+
+    QSet<QUuid> persistent_ids;
+    for (auto it = m_3d_widget->unit_hash.constBegin();
+         it != m_3d_widget->unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> runtime_unit = it.value();
+        if (runtime_unit == nullptr ||
+            (runtime_unit->is_array_child && runtime_unit->follows_array))
+        {
+            continue;
+        }
+
+        persistent_ids.insert(runtime_unit->inj.uuid);
+        auto stored_it = std::find_if(
+            units.begin(), units.end(),
+            [&runtime_unit](const Unit &stored_unit)
+            {
+                return stored_unit.inj.uuid == runtime_unit->inj.uuid;
+            });
+        if (stored_it == units.end())
+        {
+            Unit stored_unit;
+            copy_persistent_state(stored_unit, *runtime_unit);
+            units.append(std::move(stored_unit));
+        }
+        else
+        {
+            copy_persistent_state(*stored_it, *runtime_unit);
+        }
+    }
+
+    for (int index = units.size() - 1; index >= 0; --index)
+    {
+        if (!persistent_ids.contains(units.at(index).inj.uuid))
+        {
+            units.removeAt(index);
+        }
+    }
+}
+
 void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dirty)
 {
     if (changed_unit == nullptr)
@@ -589,36 +649,19 @@ void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dir
         return;
     }
 
-    for (Unit &stored_unit : units)
+    sync_persistent_units_from_occt();
+    update_object_list_item(changed_unit->inj.uuid,
+                            changed_unit->inj.injector_data.name);
+    if (recompute_dirty)
     {
-        if (stored_unit.inj.uuid == changed_unit->inj.uuid)
-        {
-            // Do not assign a whole Unit here. Unit::operator= rebuilds
-            // OpenCASCADE/OCAF runtime state, which is unsafe and
-            // unnecessarily expensive while an editor update is active.
-            stored_unit.type = changed_unit->type;
-            stored_unit.inj.injector_data = changed_unit->inj.injector_data;
-            stored_unit.inj.shape = changed_unit->inj.shape;
-            stored_unit.has_array_spec = changed_unit->has_array_spec;
-            stored_unit.array_spec = changed_unit->array_spec;
-            stored_unit.array_parent_uuid = changed_unit->array_parent_uuid;
-            stored_unit.is_array_child = changed_unit->is_array_child;
-            stored_unit.follows_array = changed_unit->follows_array;
-            update_object_list_item(stored_unit.inj.uuid,
-                                    stored_unit.inj.injector_data.name);
-            if (recompute_dirty)
-            {
-                mark_project_dirty();
-            }
-            else if (!m_loading_project_session && !m_project_dirty)
-            {
-                // Drag events are frequent. Avoid recalculating the complete
-                // project fingerprint for every mouse-move event.
-                m_project_dirty = true;
-                update_project_session_title();
-            }
-            return;
-        }
+        mark_project_dirty();
+    }
+    else if (!m_loading_project_session && !m_project_dirty)
+    {
+        // Drag events are frequent. Avoid recalculating the complete
+        // project fingerprint for every mouse-move event.
+        m_project_dirty = true;
+        update_project_session_title();
     }
 }
 
