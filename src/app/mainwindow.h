@@ -15,6 +15,7 @@
 #include <QCheckBox>
 #include <QPushButton>
 #include <QTreeWidget>
+#include <QListWidget>
 #include <QByteArray>
 #include <QHash>
 
@@ -31,6 +32,7 @@
 class QGroupBox;
 class QComboBox;
 class QStackedWidget;
+class QSpinBox;
 
 
 QT_BEGIN_NAMESPACE
@@ -134,6 +136,11 @@ private:
     void update_reference_geometry_panel();
     void update_reference_geometry_controls();
     void create_array_editor_panel();
+    void refresh_array_editor_panel();
+    void load_array_editor_layer(int layer_index);
+    bool build_array_editor_spec(UnitArraySpec *output,
+                                 bool show_warning = false);
+    void update_array_editor_preview();
     void position_viewport_interaction_toolbar();
     void apply_reference_geometry_transform();
     void create_object_list_panel();
@@ -198,6 +205,33 @@ private:
     QDockWidget *m_array_editor_dock = nullptr;
     QLabel *m_array_editor_source_label = nullptr;
     QUuid m_array_editor_source_uuid;
+    QListWidget *m_array_editor_layers = nullptr;
+    QComboBox *m_array_editor_type = nullptr;
+    QSpinBox *m_array_editor_count = nullptr;
+    QStackedWidget *m_array_editor_parameter_stack = nullptr;
+    QDoubleSpinBox *m_array_editor_linear_spacing = nullptr;
+    QDoubleSpinBox *m_array_editor_rotational_angle = nullptr;
+    QDoubleSpinBox *m_array_editor_rotational_spacing = nullptr;
+    QDoubleSpinBox *m_array_editor_major_radius = nullptr;
+    QDoubleSpinBox *m_array_editor_minor_radius = nullptr;
+    QDoubleSpinBox *m_array_editor_elliptical_angle = nullptr;
+    QComboBox *m_array_editor_frame_mode = nullptr;
+    QDoubleSpinBox *m_array_editor_origin_x = nullptr;
+    QDoubleSpinBox *m_array_editor_origin_y = nullptr;
+    QDoubleSpinBox *m_array_editor_origin_z = nullptr;
+    QDoubleSpinBox *m_array_editor_direction_x = nullptr;
+    QDoubleSpinBox *m_array_editor_direction_y = nullptr;
+    QDoubleSpinBox *m_array_editor_direction_z = nullptr;
+    QDoubleSpinBox *m_array_editor_normal_x = nullptr;
+    QDoubleSpinBox *m_array_editor_normal_y = nullptr;
+    QDoubleSpinBox *m_array_editor_normal_z = nullptr;
+    QCheckBox *m_array_editor_conform_normal = nullptr;
+    QPushButton *m_array_editor_add_layer = nullptr;
+    QPushButton *m_array_editor_update_layer = nullptr;
+    QPushButton *m_array_editor_remove_layer = nullptr;
+    QPushButton *m_array_editor_move_layer_up = nullptr;
+    QPushButton *m_array_editor_move_layer_down = nullptr;
+    bool m_array_editor_updating = false;
     QLineEdit *m_object_filter = nullptr;
     QDoubleSpinBox *m_unit_position_x = nullptr;
     QDoubleSpinBox *m_unit_position_y = nullptr;

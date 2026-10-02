@@ -2779,7 +2779,161 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         return 0;
     }
     record_structure_edit(before, capture_persistent_units());
+    QSet<QUuid> visited;
+    rebuild_dependent_arrays(source_uuid, visited);
     return created;
+}
+
+QList<UnitArraySpec> OCCTWidget::unit_array_specs_by_uuid(
+    const QUuid &source_uuid) const
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || !source->has_array_spec)
+    {
+        return {};
+    }
+
+    QList<UnitArraySpec> specs = source->array_specs;
+    if (specs.isEmpty())
+    {
+        specs.append(source->array_spec);
+    }
+    return specs;
+}
+
+bool OCCTWidget::update_unit_array_layer(const QUuid &source_uuid,
+                                         int layer_index,
+                                         const UnitArraySpec &spec)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || source->is_array_child && source->follows_array ||
+        !source->has_array_spec)
+    {
+        return false;
+    }
+
+    QList<UnitArraySpec> specs = unit_array_specs_by_uuid(source_uuid);
+    if (layer_index < 0 || layer_index >= specs.size())
+    {
+        return false;
+    }
+
+    const QList<Unit> before = capture_persistent_units();
+    const QList<UnitArraySpec> previous_specs = specs;
+    const UnitArraySpec previous_latest = source->array_spec;
+    specs[layer_index] = spec;
+    source->array_specs = specs;
+    source->array_spec = specs.last();
+
+    if (rebuild_unit_array_layers(source_uuid) <= 0)
+    {
+        source->array_specs = previous_specs;
+        source->array_spec = previous_latest;
+        rebuild_unit_array_layers(source_uuid);
+        return false;
+    }
+
+    record_structure_edit(before, capture_persistent_units());
+    QSet<QUuid> visited;
+    rebuild_dependent_arrays(source_uuid, visited);
+    return true;
+}
+
+bool OCCTWidget::remove_unit_array_layer(const QUuid &source_uuid,
+                                         int layer_index)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || source->is_array_child && source->follows_array ||
+        !source->has_array_spec)
+    {
+        return false;
+    }
+
+    QList<UnitArraySpec> specs = unit_array_specs_by_uuid(source_uuid);
+    if (layer_index < 0 || layer_index >= specs.size())
+    {
+        return false;
+    }
+
+    const QList<Unit> before = capture_persistent_units();
+    const QList<UnitArraySpec> previous_specs = specs;
+    const UnitArraySpec previous_latest = source->array_spec;
+    const bool source_was_assembly = source->type == Assebly ||
+                                     !source->assembly_child_uuids.isEmpty();
+
+    specs.removeAt(layer_index);
+    if (specs.isEmpty())
+    {
+        clear_unit_array_children(*source);
+        source->has_array_spec = false;
+        source->array_specs.clear();
+        source->array_spec = UnitArraySpec();
+        source->type = source_was_assembly ? Assebly : injector;
+        rebuild_unit_local_coordinate_frames();
+        m_view->FitAll();
+        m_view->Redraw();
+        emit unit_display_list_changed();
+        emit unit_data_updated(source.get());
+        record_structure_edit(before, capture_persistent_units());
+        QSet<QUuid> visited;
+        rebuild_dependent_arrays(source_uuid, visited);
+        return true;
+    }
+
+    source->array_specs = specs;
+    source->array_spec = specs.last();
+    if (rebuild_unit_array_layers(source_uuid) <= 0)
+    {
+        source->array_specs = previous_specs;
+        source->array_spec = previous_latest;
+        source->has_array_spec = true;
+        rebuild_unit_array_layers(source_uuid);
+        return false;
+    }
+
+    record_structure_edit(before, capture_persistent_units());
+    QSet<QUuid> visited;
+    rebuild_dependent_arrays(source_uuid, visited);
+    return true;
+}
+
+bool OCCTWidget::move_unit_array_layer(const QUuid &source_uuid,
+                                       int from_index,
+                                       int to_index)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || source->is_array_child && source->follows_array ||
+        !source->has_array_spec)
+    {
+        return false;
+    }
+
+    QList<UnitArraySpec> specs = unit_array_specs_by_uuid(source_uuid);
+    if (from_index < 0 || from_index >= specs.size() ||
+        to_index < 0 || to_index >= specs.size() || from_index == to_index)
+    {
+        return false;
+    }
+
+    const QList<Unit> before = capture_persistent_units();
+    const QList<UnitArraySpec> previous_specs = specs;
+    const UnitArraySpec previous_latest = source->array_spec;
+    specs.move(from_index, to_index);
+    source->array_specs = specs;
+    source->array_spec = specs.last();
+
+    if (rebuild_unit_array_layers(source_uuid) <= 0)
+    {
+        source->array_specs = previous_specs;
+        source->array_spec = previous_latest;
+        rebuild_unit_array_layers(source_uuid);
+        return false;
+    }
+
+    record_structure_edit(before, capture_persistent_units());
+    QSet<QUuid> visited;
+    rebuild_dependent_arrays(source_uuid, visited);
+    return true;
 }
 
 void OCCTWidget::clear_array_preview()
@@ -2798,8 +2952,17 @@ void OCCTWidget::clear_array_preview()
 void OCCTWidget::update_array_preview(const QUuid &source_uuid,
                                       const UnitArraySpec &spec)
 {
+    QList<UnitArraySpec> specs = unit_array_specs_by_uuid(source_uuid);
+    specs.append(spec);
+    update_array_preview(source_uuid, specs);
+}
+
+void OCCTWidget::update_array_preview(const QUuid &source_uuid,
+                                      const QList<UnitArraySpec> &specs)
+{
     clear_array_preview();
-    if (source_uuid.isNull() || m_context.IsNull() || m_view.IsNull())
+    if (source_uuid.isNull() || specs.isEmpty() ||
+        m_context.IsNull() || m_view.IsNull())
     {
         return;
     }
@@ -2866,13 +3029,6 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
         }
         return pattern;
     };
-
-    QList<UnitArraySpec> specs = source->array_specs;
-    if (specs.isEmpty() && source->has_array_spec)
-    {
-        specs.append(source->array_spec);
-    }
-    specs.append(spec);
 
     const bool source_is_assembly = source->type == Assebly ||
                                     !source->assembly_child_uuids.isEmpty();

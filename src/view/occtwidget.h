@@ -197,8 +197,19 @@ public:
     bool clone_unit_tree_by_uuid(const QUuid &uuid);
     int create_unit_array(const QUuid &source_uuid,
                           const UnitArraySpec &spec);
+    QList<UnitArraySpec> unit_array_specs_by_uuid(const QUuid &source_uuid) const;
+    bool update_unit_array_layer(const QUuid &source_uuid,
+                                 int layer_index,
+                                 const UnitArraySpec &spec);
+    bool remove_unit_array_layer(const QUuid &source_uuid,
+                                 int layer_index);
+    bool move_unit_array_layer(const QUuid &source_uuid,
+                               int from_index,
+                               int to_index);
     void update_array_preview(const QUuid &source_uuid,
                               const UnitArraySpec &spec);
+    void update_array_preview(const QUuid &source_uuid,
+                              const QList<UnitArraySpec> &specs);
     void clear_array_preview();
     int create_unit_fill(const QList<QUuid> &source_uuids,
                          const UnitFillSpec &spec);

@@ -138,6 +138,31 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    UnitArraySpec edited_first_layer = leaf_array;
+    edited_first_layer.count = 3;
+    if (!check(widget.update_unit_array_layer(uuid, 0, edited_first_layer),
+               "Existing array layer should be editable") ||
+        !check(widget.unit_hash.value(uuid)->array_specs.size() == 2 &&
+                   widget.unit_hash.value(uuid)->array_specs.first().count == 3,
+               "Edited array layer should persist its new parameters"))
+    {
+        return 1;
+    }
+    if (!check(widget.move_unit_array_layer(uuid, 0, 1),
+               "Array layers should be reorderable") ||
+        !check(widget.unit_hash.value(uuid)->array_specs.first().type ==
+                   UnitArrayType::Rotational,
+               "Reordered array layers should change evaluation order") ||
+        !check(widget.remove_unit_array_layer(uuid, 1),
+               "Existing array layer should be removable") ||
+        !check(widget.unit_hash.value(uuid)->array_specs.size() == 1 &&
+                   widget.unit_hash.value(uuid)->array_specs.first().type ==
+                       UnitArrayType::Rotational,
+               "Removing a layer should retain remaining layers"))
+    {
+        return 1;
+    }
+
     // Reset to the original single injector before testing Assembly paths.
     widget.display_units({source}, true);
     application.processEvents();

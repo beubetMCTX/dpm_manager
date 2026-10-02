@@ -920,7 +920,6 @@ bool validate(const Data &data, QString *error_message)
                       "Project contains a non-array unit with an array parent reference.");
             return false;
         }
-
         if (unit.has_array_spec)
         {
             QList<UnitArraySpec> specs = unit.array_specs;
