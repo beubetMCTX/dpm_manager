@@ -40,6 +40,7 @@ public static class ReleaseShutdownProbe
 }
 "@
 
+$env:DPM_MANAGER_AUTO_DISCARD_UNSAVED = "1"
 $process = Start-Process -FilePath $executablePath `
     -WorkingDirectory (Split-Path -Parent $executablePath) `
     -PassThru

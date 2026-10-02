@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$BuildDirectory = "build/codex_msvc142_release",
+    [string]$BuildDirectory = "",
     [string]$DependencyDirectory = "build/Desktop_Qt_6_7_3_MSVC2022_64bit-Release",
     [string]$OutputDirectory = "release/dpm_manager",
     [string]$WindeployQt = "E:/Qt/6.7.3/msvc2019_64/bin/windeployqt.exe",
@@ -17,7 +17,28 @@ function Resolve-RepositoryPath([string]$path) {
     return [IO.Path]::GetFullPath((Join-Path $repositoryRoot $path))
 }
 
-$buildPath = Resolve-RepositoryPath $BuildDirectory
+if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
+    $buildRoot = Resolve-RepositoryPath "build"
+    $releaseCandidates = @(
+        Get-ChildItem -LiteralPath $buildRoot -Directory -ErrorAction SilentlyContinue |
+            ForEach-Object {
+                $candidateExecutable = Join-Path $_.FullName "dpm_manager.exe"
+                if ($_.Name -match "(?i)release" -and
+                    (Test-Path -LiteralPath $candidateExecutable -PathType Leaf)) {
+                    Get-Item -LiteralPath $candidateExecutable
+                }
+            } |
+            Sort-Object LastWriteTime -Descending
+    )
+    if ($releaseCandidates.Count -eq 0) {
+        throw "No Release dpm_manager.exe found below: $buildRoot"
+    }
+    $buildPath = $releaseCandidates[0].Directory.FullName
+    Write-Host "Auto-selected Release build: $buildPath"
+}
+else {
+    $buildPath = Resolve-RepositoryPath $BuildDirectory
+}
 $dependencyPath = Resolve-RepositoryPath $DependencyDirectory
 $outputPath = Resolve-RepositoryPath $OutputDirectory
 $executablePath = Join-Path $buildPath "dpm_manager.exe"

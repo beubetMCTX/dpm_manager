@@ -863,6 +863,13 @@ bool MainWindow::confirm_project_change(const QString &action_description,
         return true;
     }
 
+    // Release smoke probes cannot interact with a modal save prompt. Keep
+    // normal user behavior unchanged and allow only the probe to discard.
+    if (qEnvironmentVariableIntValue("DPM_MANAGER_AUTO_DISCARD_UNSAVED") == 1)
+    {
+        return true;
+    }
+
     const QString discard_hint = restore_saved_project_on_discard
         ? (m_project_session_file_path.trimmed().isEmpty()
                ? " Discard will abandon the current unsaved temporary project."
