@@ -3278,6 +3278,8 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     {
         return 0;
     }
+    const bool source_was_following = source->is_array_child &&
+                                      source->follows_array;
     if (source->is_array_child && source->follows_array &&
         !promote_derived_unit_to_persistent(source))
     {
@@ -3291,6 +3293,7 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     const bool had_fill_spec = source->has_fill_spec;
     const UnitFillSpec previous_fill_spec = source->fill_spec;
     const QList<QUuid> previous_fill_sources = source->fill_source_uuids;
+    const Unit_Type previous_type = source->type;
     if (source->array_specs.isEmpty() && source->has_array_spec)
     {
         source->array_specs.append(source->array_spec);
@@ -3311,6 +3314,22 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         source->has_fill_spec = had_fill_spec;
         source->fill_spec = previous_fill_spec;
         source->fill_source_uuids = previous_fill_sources;
+        source->type = previous_type;
+
+        // Rebuild the previous output after the failed attempt. The rebuild
+        // path may already have removed the old derived children.
+        if (had_array_spec)
+        {
+            rebuild_unit_array_layers(source_uuid);
+        }
+        else if (had_fill_spec)
+        {
+            rebuild_unit_fill(source_uuid);
+        }
+        if (source_was_following)
+        {
+            source->follows_array = true;
+        }
         return 0;
     }
     record_structure_edit(before, capture_persistent_units());
@@ -3680,6 +3699,18 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
     const QList<Unit> before = record_history
                                    ? capture_persistent_units()
                                    : QList<Unit>();
+    QList<QUuid> promoted_source_uuids;
+    const auto rollback_promotions = [&]()
+    {
+        for (const QUuid &uuid : promoted_source_uuids)
+        {
+            const std::shared_ptr<Unit> promoted = unit_hash.value(uuid);
+            if (promoted != nullptr)
+            {
+                promoted->follows_array = true;
+            }
+        }
+    };
     QList<Unit> sources;
     for (const QUuid &uuid : source_uuids)
     {
@@ -3688,30 +3719,74 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         {
             continue;
         }
-        if (source->is_array_child && source->follows_array &&
+        const bool was_following = source->is_array_child &&
+                                   source->follows_array;
+        if (was_following &&
             !promote_derived_unit_to_persistent(source))
         {
             continue;
+        }
+        if (was_following)
+        {
+            // The promotion above is the only transition that can make a
+            // following child persistent in this operation.
+            promoted_source_uuids.append(uuid);
         }
         sources.append(*source);
     }
     if (sources.isEmpty())
     {
+        rollback_promotions();
         return 0;
     }
     if (spec.source_weights.isEmpty() ||
         spec.source_weights.size() != sources.size())
     {
+        rollback_promotions();
         return 0;
     }
     for (const int weight : spec.source_weights)
     {
         if (weight <= 0)
         {
+            rollback_promotions();
             return 0;
         }
     }
     const std::shared_ptr<Unit> parent = unit_hash.value(source_uuids.first());
+    if (parent == nullptr)
+    {
+        rollback_promotions();
+        return 0;
+    }
+    const bool had_array_spec = parent->has_array_spec;
+    const QList<UnitArraySpec> previous_array_specs = parent->array_specs;
+    const UnitArraySpec previous_array_spec = parent->array_spec;
+    const bool had_fill_spec = parent->has_fill_spec;
+    const UnitFillSpec previous_fill_spec = parent->fill_spec;
+    const QList<QUuid> previous_fill_sources = parent->fill_source_uuids;
+    const Unit_Type previous_type = parent->type;
+
+    const auto rollback_parent = [&]()
+    {
+        clear_unit_array_children(*parent);
+        parent->has_array_spec = had_array_spec;
+        parent->array_specs = previous_array_specs;
+        parent->array_spec = previous_array_spec;
+        parent->has_fill_spec = had_fill_spec;
+        parent->fill_spec = previous_fill_spec;
+        parent->fill_source_uuids = previous_fill_sources;
+        parent->type = previous_type;
+        if (had_array_spec)
+        {
+            rebuild_unit_array_layers(parent->inj.uuid);
+        }
+        else if (had_fill_spec)
+        {
+            rebuild_unit_fill(parent->inj.uuid);
+        }
+        rollback_promotions();
+    };
     UnitFillSpec normalized_spec = spec;
     if (parent != nullptr && parent->has_fill_spec &&
         !spec.fill_uuid.isNull() &&
@@ -3817,6 +3892,10 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         {
             record_structure_edit(before, capture_persistent_units());
         }
+        if (displayed_count <= 0)
+        {
+            rollback_parent();
+        }
         return displayed_count;
     }
 
@@ -3878,6 +3957,10 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         {
             record_structure_edit(before, capture_persistent_units());
         }
+    }
+    else
+    {
+        rollback_parent();
     }
     return displayed_count;
 }
