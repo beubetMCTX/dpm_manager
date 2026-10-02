@@ -544,6 +544,33 @@ QJsonObject unit_tree_to_json(const Unit &unit,
                               QSet<QUuid> *visited)
 {
     QJsonObject result = unit_to_json(unit);
+    QList<QUuid> child_ids;
+
+    for (auto it = unit_index.constBegin(); it != unit_index.constEnd(); ++it)
+    {
+        const Unit *candidate = it.value();
+        if (candidate == nullptr || candidate->inj.uuid.isNull() ||
+            (candidate->is_array_child && candidate->follows_array))
+        {
+            continue;
+        }
+
+        const bool assembly_child =
+            candidate->assembly_parent_uuid == unit.inj.uuid;
+        const bool array_child =
+            candidate->array_parent_uuid == unit.inj.uuid;
+        if (assembly_child || array_child)
+        {
+            child_ids.append(candidate->inj.uuid);
+        }
+    }
+    std::sort(child_ids.begin(), child_ids.end(),
+              [](const QUuid &left, const QUuid &right)
+              {
+                  return left.toString(QUuid::WithoutBraces) <
+                         right.toString(QUuid::WithoutBraces);
+              });
+
     QJsonArray children;
 
     if (visited != nullptr)
@@ -551,7 +578,7 @@ QJsonObject unit_tree_to_json(const Unit &unit,
         visited->insert(unit.inj.uuid);
     }
 
-    for (const QUuid &child_uuid : unit.assembly_child_uuids)
+    for (const QUuid &child_uuid : child_ids)
     {
         const Unit *child = unit_index.value(child_uuid, nullptr);
         if (child == nullptr || child->inj.uuid.isNull() ||
@@ -561,7 +588,13 @@ QJsonObject unit_tree_to_json(const Unit &unit,
             continue;
         }
 
-        children.append(unit_tree_to_json(*child, unit_index, visited));
+        QJsonObject child_json = unit_tree_to_json(*child, unit_index, visited);
+        child_json.insert("tree_parent_uuid",
+                          unit.inj.uuid.toString(QUuid::WithoutBraces));
+        child_json.insert(
+            "tree_relation",
+            child->assembly_parent_uuid == unit.inj.uuid ? "assembly" : "array");
+        children.append(child_json);
     }
 
     if (!children.isEmpty())
@@ -617,9 +650,18 @@ bool parse_unit_tree(const QJsonValue &json_value,
 
         const QJsonObject child_object = child_value.toObject();
         const QUuid child_uuid(child_object.value("uuid").toString());
+        const QUuid tree_parent_uuid(
+            child_object.value("tree_parent_uuid").toString());
+        const QString tree_relation =
+            child_object.value("tree_relation").toString();
+        const bool valid_legacy_parent =
+            child_object.value("tree_parent_uuid").isUndefined() &&
+            QUuid(child_object.value("assembly_parent_uuid").toString()) ==
+                unit.inj.uuid;
         if (child_uuid.isNull() ||
-            QUuid(child_object.value("assembly_parent_uuid").toString()) !=
-                unit.inj.uuid)
+            (!valid_legacy_parent && tree_parent_uuid != unit.inj.uuid) ||
+            (!valid_legacy_parent && tree_relation != "assembly" &&
+             tree_relation != "array"))
         {
             set_error(error_message,
                       "Project session contains an inconsistent unit tree parent reference.");
@@ -932,6 +974,7 @@ QJsonObject data_to_json(const project_session::Data &data,
     for (const Unit &unit : data.units)
     {
         if (!unit.assembly_parent_uuid.isNull() ||
+            !unit.array_parent_uuid.isNull() ||
             (unit.is_array_child && unit.follows_array) ||
             visited_tree_units.contains(unit.inj.uuid))
         {

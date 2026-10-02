@@ -785,6 +785,47 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data nested_array_data = source;
+    Unit nested_array_root = source.units.first();
+    nested_array_root.type = array;
+    nested_array_root.assembly_parent_uuid = QUuid();
+    nested_array_root.array_parent_uuid = QUuid();
+    nested_array_root.is_array_child = false;
+    nested_array_root.follows_array = true;
+    Unit nested_array_source = unit;
+    nested_array_source.inj.uuid = QUuid::createUuid();
+    nested_array_source.inj.injector_data.name = "nested-array-source";
+    nested_array_source.type = array;
+    nested_array_source.is_array_child = true;
+    nested_array_source.follows_array = false;
+    nested_array_source.array_parent_uuid = nested_array_root.inj.uuid;
+    nested_array_source.assembly_parent_uuid = QUuid();
+    nested_array_source.has_fill_spec = false;
+    nested_array_source.fill_source_uuids.clear();
+    nested_array_source.has_array_spec = true;
+    nested_array_source.array_specs = {nested_array_source.array_spec};
+    nested_array_data.units = {nested_array_root, nested_array_source};
+    const QString nested_array_path =
+        temporary_directory.filePath("nested-array-tree.dpmproj");
+    if (!check(project_session::save(nested_array_path, nested_array_data,
+                                     &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_nested_array;
+    if (!check(project_session::load(nested_array_path, &restored_nested_array,
+                                     &error_message),
+               error_message) ||
+        !check(restored_nested_array.units.size() == 2 &&
+                   restored_nested_array.units.at(1).array_parent_uuid ==
+                       nested_array_root.inj.uuid &&
+                   !restored_nested_array.units.at(1).follows_array,
+               "Persistent nested Array source did not round-trip"))
+    {
+        return 1;
+    }
+
     project_session::Data invalid_combined = assembly_data;
     invalid_combined.units.first().has_fill_spec = true;
     if (!check(!project_session::validate(invalid_combined, &validation_error) &&
@@ -931,6 +972,7 @@ int main(int argc, char *argv[])
     QFile::remove(session_path);
     QFile::remove(assembly_path);
     QFile::remove(nested_tree_path);
+    QFile::remove(nested_array_path);
     QFile::remove(datum_path);
     QFile::remove(section_path);
     QFile::remove(origin_path);
