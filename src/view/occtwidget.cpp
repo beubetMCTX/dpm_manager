@@ -429,7 +429,10 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         {
             clear_edit_history();
         }
-        clear_delete_history();
+        if (!m_replaying_delete_history)
+        {
+            clear_delete_history();
+        }
         m_copied_unit.reset();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
         {
@@ -2086,6 +2089,7 @@ bool OCCTWidget::paste_copied_unit_to_selected_face()
         return false;
     }
     Q_UNUSED(face_x);
+    const QList<Unit> before = capture_persistent_units();
 
     Unit pasted;
     pasted.type = m_copied_unit->type;
@@ -2129,6 +2133,7 @@ bool OCCTWidget::paste_copied_unit_to_selected_face()
     }
 
     emit unit_added(pasted_unit.get());
+    record_structure_edit(before, capture_persistent_units());
     return true;
 }
 
@@ -2147,6 +2152,7 @@ bool OCCTWidget::create_injector_on_selected_face()
     {
         return false;
     }
+    const QList<Unit> before = capture_persistent_units();
 
     Unit created;
     created.type = injector;
@@ -2173,6 +2179,7 @@ bool OCCTWidget::create_injector_on_selected_face()
     }
 
     emit unit_added(created_unit.get());
+    record_structure_edit(before, capture_persistent_units());
     m_view->Redraw();
     return true;
 }
@@ -2313,6 +2320,7 @@ bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
     {
         return false;
     }
+    const QList<Unit> before = capture_persistent_units();
 
     QHash<QUuid, QUuid> uuid_map;
     const std::shared_ptr<Unit> clone = clone_unit_tree(*source, uuid_map);
@@ -2364,6 +2372,7 @@ bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
     m_view->FitAll();
     m_view->Redraw();
     emit unit_display_list_changed();
+    record_structure_edit(before, capture_persistent_units());
     return true;
 }
 
@@ -3528,7 +3537,10 @@ bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
 
     const QUuid parent_uuid = unit->array_parent_uuid;
     unit->follows_array = true;
-    if (!remove_unit_by_uuid(uuid))
+    m_replaying_delete_history = true;
+    const bool removed = remove_unit_by_uuid(uuid);
+    m_replaying_delete_history = false;
+    if (!removed)
     {
         return false;
     }
@@ -3547,6 +3559,25 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     if (unit == nullptr)
     {
         return false;
+    }
+
+    const bool capture_delete_history = !m_replaying_delete_history &&
+                                        !m_replaying_edit_history;
+    const QList<Unit> before_units = capture_delete_history
+        ? capture_persistent_units() : QList<Unit>();
+    UnitDeleteHistoryEntry delete_entry;
+    if (capture_delete_history)
+    {
+        delete_entry.uuid = uuid;
+        delete_entry.type = unit->type;
+        delete_entry.injector_data = unit->inj.injector_data;
+        delete_entry.visible = unit_visible(uuid);
+        delete_entry.locked = unit_locked(uuid);
+        if (!unit->ais_display.IsNull())
+        {
+            unit->ais_display->Color(delete_entry.color);
+            delete_entry.has_color = true;
+        }
     }
 
     // Derived array/fill children belong to their parent at runtime. Remove
@@ -3585,22 +3616,6 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
         }
     }
 
-    if (!m_replaying_delete_history)
-    {
-        UnitDeleteHistoryEntry entry;
-        entry.uuid = uuid;
-        entry.type = unit->type;
-        entry.injector_data = unit->inj.injector_data;
-        entry.visible = unit_visible(uuid);
-        entry.locked = unit_locked(uuid);
-        if (!unit->ais_display.IsNull())
-        {
-            unit->ais_display->Color(entry.color);
-            entry.has_color = true;
-        }
-        record_delete(entry);
-    }
-
     const quintptr target_unit_ptr = reinterpret_cast<quintptr>(unit.get());
     const QList<QPointer<unit_edit_dialog>> dialogs = m_open_edit_dialogs;
     for (const QPointer<unit_edit_dialog> &dialog : dialogs)
@@ -3635,6 +3650,13 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     m_unit_locks.remove(uuid);
     m_edit_transactions.remove(uuid);
     unit_hash.remove(uuid);
+    if (capture_delete_history)
+    {
+        delete_entry.has_structure_snapshot = true;
+        delete_entry.before_units = before_units;
+        delete_entry.after_units = capture_persistent_units();
+        record_delete(delete_entry);
+    }
     for (int index = m_move_history.size() - 1; index >= 0; --index)
     {
         if (m_move_history[index].uuid == uuid)
@@ -3762,7 +3784,18 @@ bool OCCTWidget::undo_last_delete()
     }
 
     const UnitDeleteHistoryEntry &entry = m_delete_history[m_delete_history_index - 1];
-    if (!restore_deleted_unit(entry))
+    bool restored = false;
+    if (entry.has_structure_snapshot)
+    {
+        m_replaying_delete_history = true;
+        restored = restore_structure_snapshot(entry.before_units);
+        m_replaying_delete_history = false;
+    }
+    else
+    {
+        restored = restore_deleted_unit(entry);
+    }
+    if (!restored)
     {
         return false;
     }
@@ -3780,9 +3813,19 @@ bool OCCTWidget::redo_delete()
     }
 
     const UnitDeleteHistoryEntry &entry = m_delete_history[m_delete_history_index];
-    m_replaying_delete_history = true;
-    const bool removed = remove_unit_by_uuid(entry.uuid);
-    m_replaying_delete_history = false;
+    bool removed = false;
+    if (entry.has_structure_snapshot)
+    {
+        m_replaying_delete_history = true;
+        removed = restore_structure_snapshot(entry.after_units);
+        m_replaying_delete_history = false;
+    }
+    else
+    {
+        m_replaying_delete_history = true;
+        removed = remove_unit_by_uuid(entry.uuid);
+        m_replaying_delete_history = false;
+    }
     if (!removed)
     {
         return false;

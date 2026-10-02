@@ -547,5 +547,51 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+
+    // Structural additions and deletes must preserve the same persistent
+    // hierarchy that was visible before the operation.
+    widget.display_units({source}, true);
+    application.processEvents();
+    if (!check(widget.clone_unit_tree_by_uuid(uuid),
+               "Cloning a Unit should create a structural history entry") ||
+        !check(widget.unit_hash.size() == 2,
+               "Clone should add one persistent Unit") ||
+        !check(widget.undo_last_edit() && widget.unit_hash.size() == 1,
+               "Undo should remove a cloned Unit") ||
+        !check(widget.redo_edit() && widget.unit_hash.size() == 2,
+               "Redo should restore a cloned Unit"))
+    {
+        return 1;
+    }
+
+    widget.display_units({source}, true);
+    Unit delete_member = make_valid_unit();
+    delete_member.inj.injector_data.name = "delete-member";
+    delete_member.inj.injector_data.pos = QVector3D(5.0f, 2.0f, 3.0f);
+    if (!check(delete_member.inj.create_injector(),
+               "Delete hierarchy member geometry should be valid"))
+    {
+        return 1;
+    }
+    const QUuid delete_member_uuid = delete_member.inj.uuid;
+    widget.display_units({delete_member}, false);
+    if (!check(widget.create_assembly({uuid, delete_member_uuid}),
+               "Delete hierarchy Assembly should be created") ||
+        !check(widget.remove_unit_by_uuid(uuid),
+               "Assembly delete should succeed"))
+    {
+        return 1;
+    }
+    if (!check(widget.undo_last_delete(),
+               "Undo delete should restore the full Assembly hierarchy") ||
+        !check(widget.unit_hash.contains(uuid) &&
+                   widget.unit_hash.value(uuid)->type == Assebly &&
+                   widget.unit_hash.value(delete_member_uuid)->assembly_parent_uuid == uuid,
+               "Undo delete should restore parent and child relationships") ||
+        !check(widget.redo_delete() && !widget.unit_hash.contains(uuid),
+               "Redo delete should remove the complete hierarchy again"))
+    {
+        return 1;
+    }
     return 0;
 }

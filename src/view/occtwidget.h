@@ -393,6 +393,9 @@ private:
         bool locked = false;
         bool has_color = false;
         Quantity_Color color;
+        bool has_structure_snapshot = false;
+        QList<Unit> before_units;
+        QList<Unit> after_units;
     };
     UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
     bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,
