@@ -143,6 +143,17 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    project_session::Data invalid_array_identity = source;
+    invalid_array_identity.units.first().array_specs[0].placement_uuids[1] =
+        invalid_array_identity.units.first().array_specs[0].placement_uuids[0];
+    reference_error.clear();
+    if (!check(!project_session::validate(invalid_array_identity,
+                                          &reference_error) &&
+                   reference_error.contains("placement UUID"),
+               "duplicate array placement UUIDs should be rejected"))
+    {
+        return 1;
+    }
     Unit fill_only_unit = unit;
     fill_only_unit.has_array_spec = false;
     fill_only_unit.has_fill_spec = true;

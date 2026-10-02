@@ -1002,6 +1002,30 @@ bool is_finite_vector(const QVector3D &value)
            std::isfinite(static_cast<double>(value.z()));
 }
 
+bool is_valid_uuid_sequence(const QVector<QUuid> &values,
+                            int expected_size)
+{
+    if (values.isEmpty())
+    {
+        return true;
+    }
+    if (expected_size >= 0 && values.size() != expected_size)
+    {
+        return false;
+    }
+
+    QSet<QUuid> unique_values;
+    for (const QUuid &value : values)
+    {
+        if (value.isNull() || unique_values.contains(value))
+        {
+            return false;
+        }
+        unique_values.insert(value);
+    }
+    return true;
+}
+
 bool is_usable_reference_frame(const QVector3D &x_axis,
                                const QVector3D &z_axis)
 {
@@ -1349,6 +1373,14 @@ bool validate(const Data &data, QString *error_message)
                       "Project contains a non-array unit with an array parent reference.");
             return false;
         }
+        if (!unit.array_instance_key.isEmpty() &&
+            !is_valid_uuid_sequence(unit.array_instance_key,
+                                    unit.array_instance_path.size()))
+        {
+            set_error(error_message,
+                      "Project contains an invalid array instance UUID path.");
+            return false;
+        }
         QSet<QString> override_paths;
         for (const UnitArrayOverride &array_override : unit.array_overrides)
         {
@@ -1370,6 +1402,14 @@ bool validate(const Data &data, QString *error_message)
                     return false;
                 }
                 path_parts.append(QString::number(path_index));
+            }
+            if (!array_override.instance_key.isEmpty() &&
+                !is_valid_uuid_sequence(array_override.instance_key,
+                                        array_override.instance_path.size()))
+            {
+                set_error(error_message,
+                          "Project contains an invalid array override UUID key.");
+                return false;
             }
             const QString path_key = path_parts.join(',');
             if (override_paths.contains(path_key))
@@ -1397,6 +1437,16 @@ bool validate(const Data &data, QString *error_message)
                 set_error(error_message,
                           "Project contains invalid array specification values.");
                 return false;
+            }
+            for (const UnitArraySpec &spec : specs)
+            {
+                if (!is_valid_uuid_sequence(spec.placement_uuids,
+                                            qBound(1, spec.count, 100000)))
+                {
+                    set_error(error_message,
+                              "Project contains invalid array placement UUIDs.");
+                    return false;
+                }
             }
         }
 
@@ -1435,6 +1485,14 @@ bool validate(const Data &data, QString *error_message)
             {
                 set_error(error_message,
                           "Project contains invalid fill specification values.");
+                return false;
+            }
+            if (!is_valid_uuid_sequence(
+                    spec.placement_uuids,
+                    qBound(1, spec.rows, 1000) * qBound(1, spec.columns, 1000)))
+            {
+                set_error(error_message,
+                          "Project contains invalid fill placement UUIDs.");
                 return false;
             }
             for (const QUuid &source_uuid : unit.fill_source_uuids)
