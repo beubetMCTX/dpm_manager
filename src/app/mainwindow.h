@@ -16,6 +16,7 @@
 #include <QPushButton>
 #include <QTreeWidget>
 #include <QByteArray>
+#include <QHash>
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -213,6 +214,6 @@ private:
     QGroupBox *m_unit_direction_group = nullptr;
     QComboBox *m_unit_direction_mode = nullptr;
     QStackedWidget *m_unit_direction_stack = nullptr;
-    QSet<QUuid> m_collapsed_assemblies;
+    QHash<QString, bool> m_tree_expansion_state;
 };
 #endif // MAINWINDOW_H

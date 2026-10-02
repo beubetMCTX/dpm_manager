@@ -2894,7 +2894,8 @@ void MainWindow::create_object_list_panel()
             return;
         }
         QTreeWidgetItem *item = m_object_list->currentItem();
-        if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
+        if (item == nullptr ||
+            item->data(0, Qt::UserRole + 1).toString() != QStringLiteral("unit"))
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
             return;
@@ -2919,7 +2920,7 @@ void MainWindow::create_object_list_panel()
         }
         QTreeWidgetItem *item = m_object_list->currentItem();
         if (item == nullptr ||
-            item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
+            item->data(0, Qt::UserRole + 1).toString() != QStringLiteral("unit"))
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
             return;
@@ -3948,9 +3949,14 @@ void MainWindow::create_object_list_panel()
         }
 
         const QString object_id = item->data(0, Qt::UserRole).toString();
+        const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
         if (object_id == QStringLiteral("reference"))
         {
             m_3d_widget->select_reference_geometry();
+            return;
+        }
+        if (item_kind != QStringLiteral("unit"))
+        {
             return;
         }
 
@@ -3965,6 +3971,19 @@ void MainWindow::create_object_list_panel()
     {
         if (item == nullptr || m_3d_widget == nullptr)
         {
+            return;
+        }
+
+        const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
+        if (item_kind != QStringLiteral("unit"))
+        {
+            if (item_kind == QStringLiteral("reference") &&
+                m_3d_widget->select_reference_geometry() &&
+                m_reference_geometry_dock != nullptr)
+            {
+                m_reference_geometry_dock->show();
+                m_reference_geometry_dock->raise();
+            }
             return;
         }
 
@@ -3993,6 +4012,12 @@ void MainWindow::create_object_list_panel()
 
         const bool visible = item->checkState(0) == Qt::Checked;
         const QString object_id = item->data(0, Qt::UserRole).toString();
+        const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
+        if (item_kind != QStringLiteral("unit") &&
+            item_kind != QStringLiteral("reference"))
+        {
+            return;
+        }
         if (object_id == QStringLiteral("reference"))
         {
             m_3d_widget->set_reference_geometry_visible(visible);
@@ -4071,7 +4096,7 @@ void MainWindow::create_object_list_panel()
                 }
                 QTreeWidgetItem *source_item = m_object_list->currentItem();
                 if (source_item == nullptr ||
-                    source_item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
+                    source_item->data(0, Qt::UserRole + 1).toString() != QStringLiteral("unit"))
                 {
                     statusBar()->showMessage(
                         "Select a mother injector or Assembly first", 4000);
@@ -4188,11 +4213,10 @@ void MainWindow::create_object_list_panel()
         QAction *array_action = menu.addAction("Create Array...");
         QAction *fill_action = menu.addAction("Create Fill...");
         QAction *collapse_action = nullptr;
-        if (selected_unit != nullptr && selected_unit->type == Assebly)
+        if (item->childCount() > 0)
         {
             collapse_action = menu.addAction(
-                m_collapsed_assemblies.contains(uuid) ? "Expand Children"
-                                                       : "Collapse Children");
+                item->isExpanded() ? "Collapse Children" : "Expand Children");
         }
         QList<QUuid> selected_unit_ids;
         for (QTreeWidgetItem *selected_item : m_object_list->selectedItems())
@@ -4511,11 +4535,7 @@ void MainWindow::create_object_list_panel()
         }
         else if (chosen_action == collapse_action)
         {
-            if (m_collapsed_assemblies.contains(uuid))
-                m_collapsed_assemblies.remove(uuid);
-            else
-                m_collapsed_assemblies.insert(uuid);
-            update_object_list_panel();
+            item->setExpanded(!item->isExpanded());
         }
         else if (chosen_action == follow_array_action)
         {
@@ -4560,6 +4580,49 @@ void MainWindow::update_object_list_panel()
         return;
     }
 
+    const auto tree_item_key = [](QTreeWidgetItem *item)
+    {
+        if (item == nullptr)
+        {
+            return QString();
+        }
+        const QString explicit_key =
+            item->data(0, Qt::UserRole + 4).toString();
+        if (!explicit_key.isEmpty())
+        {
+            return explicit_key;
+        }
+
+        const QString kind = item->data(0, Qt::UserRole + 1).toString();
+        const QString object_id = item->data(0, Qt::UserRole).toString();
+        if (kind == QStringLiteral("unit") ||
+            kind == QStringLiteral("reference"))
+        {
+            return object_id;
+        }
+        if (kind == QStringLiteral("array_layer"))
+        {
+            return QStringLiteral("array_layer:%1:%2")
+                .arg(item->data(0, Qt::UserRole + 2).toString())
+                .arg(item->data(0, Qt::UserRole + 3).toInt());
+        }
+        if (kind == QStringLiteral("fill"))
+        {
+            return QStringLiteral("fill:%1")
+                .arg(item->data(0, Qt::UserRole + 2).toString());
+        }
+        return QString();
+    };
+
+    for (QTreeWidgetItem *item : m_object_list->all_items())
+    {
+        const QString key = tree_item_key(item);
+        if (!key.isEmpty())
+        {
+            m_tree_expansion_state.insert(key, item->isExpanded());
+        }
+    }
+
     QSet<QString> selected_object_ids;
     for (QTreeWidgetItem *item : m_object_list->selectedItems())
     {
@@ -4587,6 +4650,8 @@ void MainWindow::update_object_list_panel()
                                                    QStringList{reference_name});
         reference_item->setData(0, Qt::UserRole, QStringLiteral("reference"));
         reference_item->setData(0, Qt::UserRole + 1, QStringLiteral("reference"));
+        reference_item->setData(0, Qt::UserRole + 4,
+                                QStringLiteral("reference"));
         reference_item->setToolTip(0,
             QString("File: %1\nVisible: %2\nLocked: %3")
                 .arg(m_3d_widget->geometry.file_path(),
@@ -4668,6 +4733,8 @@ void MainWindow::update_object_list_panel()
         const QUuid uuid = value.inj.uuid;
         item->setData(0, Qt::UserRole, uuid.toString(QUuid::WithoutBraces));
         item->setData(0, Qt::UserRole + 1, QStringLiteral("unit"));
+        item->setData(0, Qt::UserRole + 4,
+                      uuid.toString(QUuid::WithoutBraces));
         item->setToolTip(0,
             QString("Injection: %1\nParticle: %2\nMaterial: %3\nAssembly parent: %4\nUUID: %5")
                 .arg(injection_type_name(value.inj.injector_data.injection_type),
@@ -4745,6 +4812,11 @@ void MainWindow::update_object_list_panel()
             layer_item->setData(0, Qt::UserRole + 2,
                                 unit->inj.uuid.toString(QUuid::WithoutBraces));
             layer_item->setData(0, Qt::UserRole + 3, layer_it.key());
+            layer_item->setData(
+                0, Qt::UserRole + 4,
+                QStringLiteral("array_layer:%1:%2")
+                    .arg(unit->inj.uuid.toString(QUuid::WithoutBraces))
+                    .arg(layer_it.key()));
             layer_item->setFlags(Qt::ItemIsEnabled);
             layer_item->setExpanded(true);
             for (const std::shared_ptr<Unit> &child : layer_it.value())
@@ -4761,6 +4833,12 @@ void MainWindow::update_object_list_panel()
                                 .arg(fill_children.size())});
             fill_item->setData(0, Qt::UserRole, QString());
             fill_item->setData(0, Qt::UserRole + 1, QStringLiteral("fill"));
+            fill_item->setData(0, Qt::UserRole + 2,
+                               unit->inj.uuid.toString(QUuid::WithoutBraces));
+            fill_item->setData(
+                0, Qt::UserRole + 4,
+                QStringLiteral("fill:%1")
+                    .arg(unit->inj.uuid.toString(QUuid::WithoutBraces)));
             fill_item->setFlags(Qt::ItemIsEnabled);
             fill_item->setExpanded(true);
             for (const std::shared_ptr<Unit> &child : fill_children)
@@ -4800,6 +4878,21 @@ void MainWindow::update_object_list_panel()
     for (const std::shared_ptr<Unit> &root : roots)
     {
         append_unit(root, nullptr, true);
+    }
+
+    for (QTreeWidgetItem *item : m_object_list->all_items())
+    {
+        const QString key = tree_item_key(item);
+        const QString kind = item->data(0, Qt::UserRole + 1).toString();
+        if (m_tree_expansion_state.contains(key))
+        {
+            item->setExpanded(m_tree_expansion_state.value(key));
+        }
+        else if (kind == QStringLiteral("array_layer") ||
+                 kind == QStringLiteral("fill"))
+        {
+            item->setExpanded(true);
+        }
     }
 
     const QString filter = m_object_filter == nullptr
