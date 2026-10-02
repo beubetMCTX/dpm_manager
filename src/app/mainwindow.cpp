@@ -43,6 +43,7 @@
 #include <QSettings>
 #include <QMap>
 #include <QBrush>
+#include <QFont>
 #include <algorithm>
 #include <functional>
 
@@ -5305,6 +5306,20 @@ void MainWindow::update_object_list_panel()
         {
             name += QStringLiteral(" [Assembly]");
         }
+        if (unit->is_array_child)
+        {
+            name += unit->follows_array
+                ? QStringLiteral(" [Generated]")
+                : QStringLiteral(" [Independent]");
+        }
+        if (unit->has_array_spec)
+        {
+            name += QStringLiteral(" [Array Source]");
+        }
+        else if (unit->has_fill_spec)
+        {
+            name += QStringLiteral(" [Fill Source]");
+        }
         return name;
     };
 
@@ -5321,8 +5336,28 @@ void MainWindow::update_object_list_panel()
         item->setData(0, Qt::UserRole + 1, QStringLiteral("unit"));
         item->setData(0, Qt::UserRole + 4,
                       uuid.toString(QUuid::WithoutBraces));
+        QColor state_color;
+        if (value.is_array_child && !value.follows_array)
+        {
+            state_color = QColor(QStringLiteral("#9ED6A8"));
+        }
+        else if (value.is_array_child)
+        {
+            state_color = QColor(QStringLiteral("#8DB7E8"));
+        }
+        else if (value.has_array_spec || value.has_fill_spec)
+        {
+            state_color = QColor(QStringLiteral("#F0C674"));
+        }
+        if (state_color.isValid())
+        {
+            item->setData(0, Qt::UserRole + 6, state_color.name());
+        }
+        QFont item_font = item->font(0);
+        item_font.setItalic(value.is_array_child && value.follows_array);
+        item->setFont(0, item_font);
         item->setToolTip(0,
-            QString("Injection: %1\nParticle: %2\nMaterial: %3\nAssembly parent: %4\nUUID: %5")
+            QString("Injection: %1\nParticle: %2\nMaterial: %3\nAssembly parent: %4\nState: %5\nUUID: %6")
                 .arg(injection_type_name(value.inj.injector_data.injection_type),
                      particle_type_name(value.inj.injector_data.type),
                      value.inj.injector_data.material.trimmed().isEmpty()
@@ -5331,6 +5366,15 @@ void MainWindow::update_object_list_panel()
                      value.assembly_parent_uuid.isNull()
                          ? QStringLiteral("<none>")
                          : value.assembly_parent_uuid.toString(QUuid::WithoutBraces),
+                     value.is_array_child
+                         ? (value.follows_array
+                                ? QStringLiteral("generated array instance")
+                                : QStringLiteral("independent array instance"))
+                         : (value.has_array_spec
+                                ? QStringLiteral("array source")
+                                : value.has_fill_spec
+                                      ? QStringLiteral("fill source")
+                                      : QStringLiteral("prototype")),
                      uuid.toString(QUuid::WithoutBraces)));
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         item->setCheckState(0, m_3d_widget->unit_visible(uuid)
@@ -5358,7 +5402,7 @@ void MainWindow::update_object_list_panel()
         {
             for (const std::shared_ptr<Unit> &child : unit->child_units)
             {
-                append_unit(child, item, false);
+                append_unit(child, item, true);
             }
             return;
         }
@@ -5423,10 +5467,15 @@ void MainWindow::update_object_list_panel()
                              layer_uuid));
             }
             layer_item->setFlags(Qt::ItemIsEnabled);
+            layer_item->setData(0, Qt::UserRole + 6,
+                                QStringLiteral("#F0C674"));
+            QFont layer_font = layer_item->font(0);
+            layer_font.setBold(true);
+            layer_item->setFont(0, layer_font);
             layer_item->setExpanded(true);
             for (const std::shared_ptr<Unit> &child : layer_it.value())
             {
-                append_unit(child, layer_item, false);
+                append_unit(child, layer_item, true);
             }
         }
 
@@ -5456,10 +5505,15 @@ void MainWindow::update_object_list_panel()
                              fill_uuid));
             }
             fill_item->setFlags(Qt::ItemIsEnabled);
+            fill_item->setData(0, Qt::UserRole + 6,
+                               QStringLiteral("#F0C674"));
+            QFont fill_font = fill_item->font(0);
+            fill_font.setBold(true);
+            fill_item->setFont(0, fill_font);
             fill_item->setExpanded(true);
             for (const std::shared_ptr<Unit> &child : fill_children)
             {
-                append_unit(child, fill_item, false);
+                append_unit(child, fill_item, true);
             }
         }
     };
@@ -5559,9 +5613,13 @@ void MainWindow::update_object_list_panel()
     const QPalette palette = m_object_list->palette();
     for (QTreeWidgetItem *item : m_object_list->all_items())
     {
+        const QColor state_color(
+            item->data(0, Qt::UserRole + 6).toString());
         item->setForeground(0, item->isSelected()
                                 ? QBrush(QColor("#5AA9FF"))
-                                : palette.brush(QPalette::Text));
+                                : state_color.isValid()
+                                      ? QBrush(state_color)
+                                      : palette.brush(QPalette::Text));
     }
 }
 
@@ -5612,9 +5670,13 @@ void MainWindow::refresh_object_list_selection_colors()
         {
             continue;
         }
+        const QColor state_color(
+            item->data(0, Qt::UserRole + 6).toString());
         item->setForeground(0, item->isSelected()
                                 ? QBrush(QColor("#5AA9FF"))
-                                : palette.brush(QPalette::Text));
+                                : state_color.isValid()
+                                      ? QBrush(state_color)
+                                      : palette.brush(QPalette::Text));
     }
 }
 
