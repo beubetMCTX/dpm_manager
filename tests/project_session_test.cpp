@@ -360,6 +360,9 @@ int main(int argc, char *argv[])
                    migrated_legacy.units.first().array_specs.size() == 1 &&
                    migrated_legacy.units.first().array_specs.first().type ==
                        UnitArrayType::Elliptical &&
+                   !migrated_legacy.units.first().array_specs.first().layer_uuid.isNull() &&
+                   migrated_legacy.units.first().array_specs.first().placement_uuids.size() ==
+                       migrated_legacy.units.first().array_specs.first().count &&
                    migrated_legacy.units.first().assembly_local_position ==
                        migrated_legacy.units.first().inj.injector_data.pos,
                "Schema v1 fields should migrate and default local position to world position"))

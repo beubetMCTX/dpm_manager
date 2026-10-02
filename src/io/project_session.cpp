@@ -1,4 +1,5 @@
 #include "project_session.h"
+#include "unit_array.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -134,6 +135,28 @@ QJsonObject array_spec_to_json(const UnitArraySpec &spec);
 bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec);
 bool unit_from_json(const QJsonValue &json_value, Unit *unit);
 void set_error(QString *error_message, const QString &message);
+
+void normalize_loaded_unit_identity(Unit &unit)
+{
+    if (unit.has_array_spec)
+    {
+        QList<UnitArraySpec> specs = unit.array_specs;
+        if (specs.isEmpty())
+        {
+            specs.append(unit.array_spec);
+        }
+        for (UnitArraySpec &spec : specs)
+        {
+            ensure_array_spec_identity(spec);
+        }
+        unit.array_specs = specs;
+        unit.array_spec = specs.last();
+    }
+    if (unit.has_fill_spec)
+    {
+        ensure_fill_spec_identity(unit.fill_spec);
+    }
+}
 
 void injector_to_json(const Injector &value, QJsonObject *object)
 {
@@ -1916,6 +1939,13 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     else
     {
         parsed.units = std::move(flat_units);
+    }
+
+    // Migrate legacy projects that identified array placements only by index.
+    // UUIDs are generated once during load and then persisted by the next save.
+    for (Unit &unit : parsed.units)
+    {
+        normalize_loaded_unit_identity(unit);
     }
 
     for (const QJsonValue &material_value : root.value("materials").toArray())

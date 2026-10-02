@@ -197,6 +197,7 @@ if(DPM_BUILD_TESTS)
         tests/project_session_test.cpp
         ${IO_DIR}/project_session.h ${IO_DIR}/project_session.cpp
         ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
+        ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
