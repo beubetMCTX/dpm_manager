@@ -1,0 +1,313 @@
+{
+    "chemkin_file_path": "",
+    "created_at": "2026-10-02T13:13:24Z",
+    "materials": [
+    ],
+    "reference_geometry": {
+        "construction_direction": [
+            0,
+            0,
+            1
+        ],
+        "construction_radius": 5e-05,
+        "construction_size": 0.01,
+        "construction_thickness": 1e-05,
+        "file_path": "",
+        "kind": "file",
+        "locked": false,
+        "position": [
+            0,
+            0,
+            0
+        ],
+        "rotation": [
+            0,
+            0,
+            0
+        ],
+        "section_clipping": false,
+        "visible": true
+    },
+    "schema_version": 1,
+    "species_colors": {
+    },
+    "units": [
+        {
+            "array_parent_uuid": "00000000-0000-0000-0000-000000000000",
+            "array_spec": {
+                "angle_degrees": 360,
+                "conform_to_reference_normal": false,
+                "count": 3,
+                "direction": [
+                    1,
+                    0,
+                    0
+                ],
+                "major_radius": 0.009999999776482582,
+                "minor_radius": 0.004999999888241291,
+                "origin": [
+                    1,
+                    2,
+                    3
+                ],
+                "plane_normal": [
+                    1,
+                    0,
+                    0
+                ],
+                "spacing": 0.009999999776482582,
+                "type": 0,
+                "use_reference_geometry": false
+            },
+            "assembly_child_uuids": [
+            ],
+            "assembly_local_position": [
+                0,
+                0,
+                0
+            ],
+            "assembly_local_rotation": [
+                0,
+                0,
+                0
+            ],
+            "assembly_parent_uuid": "00000000-0000-0000-0000-000000000000",
+            "follows_array": true,
+            "has_array_spec": true,
+            "has_fill_spec": false,
+            "injector": {
+                "airbl_rel_vel": 0,
+                "ang_vel": [
+                    100,
+                    0,
+                    0
+                ],
+                "ang_vel2": [
+                    100,
+                    0,
+                    0
+                ],
+                "ang_vel_mag": 0,
+                "atomizer_axis": [
+                    1,
+                    0,
+                    0
+                ],
+                "atomizer_disp_angle": 0,
+                "axis": [
+                    1,
+                    0,
+                    0
+                ],
+                "boundary": [
+                    -1
+                ],
+                "brownian_motion": false,
+                "cloud": false,
+                "cloud_max_dia": 100000,
+                "cloud_min_dia": 0,
+                "collision_partner": "dem-unknow",
+                "cone_angle": 37,
+                "cone_type": 0,
+                "cphace_domain": "none",
+                "cunningham_correction": 1,
+                "devolatilizing_species": "",
+                "diameter": 0.01,
+                "diameter2": 0.005,
+                "dpm_domain": "none",
+                "dpm_fname": "\" \"",
+                "drag_fcn": "none",
+                "drag_law": 0,
+                "effer_const": 0,
+                "effer_half_angle_max": 0,
+                "effer_quality": 0,
+                "effer_t_sat": 0,
+                "evaporating_liquid": false,
+                "evaporating_material": "",
+                "evaporating_species": "",
+                "ff_center": [
+                    0,
+                    1,
+                    0
+                ],
+                "ff_normal": [
+                    1,
+                    0,
+                    0
+                ],
+                "ff_oriface_width": 0,
+                "ff_sheet_const": 0,
+                "ff_virtual_origin": [
+                    1,
+                    0,
+                    0
+                ],
+                "flow_rate": 0,
+                "flow_rate2": 0,
+                "half_angle": 0,
+                "injection_type": 0,
+                "inner_diameter": 0,
+                "inner_radius": 0.005,
+                "interval_to_repeat_in_unsteady_inj_file": 0,
+                "lig_const": 0,
+                "liquid_fraction": -1,
+                "local_reference_frame": "global",
+                "mass_input_on": false,
+                "material": "",
+                "name": "session-test",
+                "ntries": 1,
+                "number_tab_diameters": 0,
+                "numpts": 10,
+                "outer_diameter": 0,
+                "oxidizing_species": "",
+                "parcel_diameter": 1e-05,
+                "parcel_mass": 1e-09,
+                "parcel_model": 0,
+                "parcel_number": 500,
+                "phi_start": 0,
+                "phi_stop": 0,
+                "plain_const_a": 0,
+                "plain_corner_size": 0,
+                "plain_length": 0,
+                "pos": [
+                    1,
+                    2,
+                    3
+                ],
+                "pos2": [
+                    0,
+                    0,
+                    0
+                ],
+                "posr": [
+                    1,
+                    0,
+                    0
+                ],
+                "posu": [
+                    1,
+                    0,
+                    0
+                ],
+                "product_species": "",
+                "pswirl_inj_press": 0,
+                "radius": 0.01,
+                "random_eddy": false,
+                "random_surface": false,
+                "rot_drag_law": 1,
+                "rot_lift_law": 3,
+                "rotation_on": false,
+                "rough_wall_on": false,
+                "rr_disturb": true,
+                "rr_max": 0,
+                "rr_mean": 0.00042,
+                "rr_min": 0,
+                "rr_numdia": 0,
+                "rr_spread": 0,
+                "rr_uniform_ln_d": true,
+                "scale_by_area": false,
+                "seco_break_up_khrt": false,
+                "seco_breakup_khrt_cl": 0,
+                "seco_breakup_khrt_crt": 0,
+                "seco_breakup_khrt_ctau": 0,
+                "seco_breakup_madabushi_c0": 0,
+                "seco_breakup_madabushi_column_drag_cd": 0,
+                "seco_breakup_madabushi_jet_diameter": 0,
+                "seco_breakup_madabushi_ligament_factor": 0,
+                "seco_breakup_madahushi": false,
+                "seco_breakup_on": false,
+                "seco_breakup_schmehl": false,
+                "seco_breakup_schmehl_np": 0,
+                "seco_breakup_ssd": false,
+                "seco_breakup_ssd_core_bu": 0,
+                "seco_breakup_ssd_np_target": 0,
+                "seco_breakup_ssd_we_cr": 0,
+                "seco_breakup_ssd_x_si": 0,
+                "seco_breakup_tab": false,
+                "seco_breakup_tab_y0": 0,
+                "seco_breakup_wave": false,
+                "seco_breakup_wave_b0": 0,
+                "seco_breakup_wave_b1": 0,
+                "shape_factor": 1,
+                "sheet_const": 0,
+                "single_direction_mode": 0,
+                "single_pitch_degrees": 0,
+                "single_target_hitpoint": [
+                    0,
+                    0,
+                    1
+                ],
+                "single_target_scope": 1,
+                "single_yaw_degrees": 0,
+                "spatial_staggering_atomizer_on": true,
+                "spatial_staggering_std_inj_on": false,
+                "stagger_radius": 0,
+                "start_at_flow_time_in_unsteady_inj_file": 0,
+                "stochastic": false,
+                "surfaces": [
+                    -1
+                ],
+                "swirl_frac": 0,
+                "tabulated_diam_dist": false,
+                "tabulated_diam_mas_frac_accum": false,
+                "tabulated_diam_mas_frac_col": -1,
+                "tabulated_diam_num_frac_accum": false,
+                "tabulated_diam_num_frac_col": -1,
+                "tabulated_diam_ref_diam_col": -1,
+                "tabulated_diam_table_name": "",
+                "temperature": 0,
+                "temperature2": 0,
+                "time_scale_constant": 0.15,
+                "total_flow_rate": 0.25,
+                "total_mass": 0,
+                "type": 2,
+                "uniform_mass_dist_on": false,
+                "unsteady_ca_start": 0,
+                "unsteady_ca_stop": 0,
+                "unsteady_start": 0,
+                "unsteady_stop": 0,
+                "use_face_normal": false,
+                "vapor_pressure": 0,
+                "vel": [
+                    4,
+                    5,
+                    6
+                ],
+                "vel2": [
+                    100,
+                    0,
+                    0
+                ],
+                "vel_mag": 0,
+                "volfrac_input_on": false,
+                "volume_bgeom_max": [
+                    0,
+                    0,
+                    0
+                ],
+                "volume_bgeom_min": [
+                    0,
+                    0,
+                    0
+                ],
+                "volume_bgeom_radius": 0,
+                "volume_bgeom_shapes": 0,
+                "volume_bgeom_viconeangle": 0,
+                "volume_fraction": 0,
+                "volume_packing_limit_per_cell": 0,
+                "volume_specification": 0,
+                "volume_streams_per_cell": 0,
+                "volume_streams_spec": 0,
+                "volume_streams_total": 0,
+                "volume_zones": [
+                    3,
+                    7,
+                    11
+                ]
+            },
+            "is_array_child": false,
+            "unit_type": 4,
+            "uuid": "7cef6ace-f9a8-417c-90b9-82f96038ccf4"
+        }
+    ]
+}

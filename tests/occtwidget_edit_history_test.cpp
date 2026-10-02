@@ -1,6 +1,8 @@
 #include "occtwidget.h"
 
 #include <algorithm>
+#include <BRepBndLib.hxx>
+#include <Bnd_Box.hxx>
 #include <QApplication>
 #include <cmath>
 
@@ -25,6 +27,20 @@ Unit make_valid_unit()
     unit.inj.injector_data.atomizer_axis = QVector3D(1.0f, 0.0f, 0.0f);
     unit.inj.injector_data.total_flow_rate = 1.0;
     return unit;
+}
+
+double shape_center_x(const TopoDS_Shape &shape)
+{
+    Bnd_Box bounds;
+    BRepBndLib::Add(shape, bounds);
+    Standard_Real xmin = 0.0;
+    Standard_Real ymin = 0.0;
+    Standard_Real zmin = 0.0;
+    Standard_Real xmax = 0.0;
+    Standard_Real ymax = 0.0;
+    Standard_Real zmax = 0.0;
+    bounds.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+    return 0.5 * (xmin + xmax);
 }
 }
 
@@ -52,9 +68,47 @@ int main(int argc, char *argv[])
     }
 
     const QUuid uuid = widget.unit_hash.constBegin().key();
-    const std::shared_ptr<Unit> stored_unit = widget.unit_hash.value(uuid);
+    std::shared_ptr<Unit> stored_unit = widget.unit_hash.value(uuid);
     if (!check(stored_unit != nullptr,
                "Stored injector should be available"))
+    {
+        return 1;
+    }
+
+    UnitArraySpec leaf_array;
+    leaf_array.type = UnitArrayType::Linear;
+    leaf_array.count = 2;
+    leaf_array.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    leaf_array.origin = source.inj.injector_data.pos;
+    leaf_array.spacing = 10.0f;
+    if (!check(widget.create_unit_array(uuid, leaf_array) == 2,
+               "Leaf array should create two children") ||
+        !check(widget.unit_hash.value(uuid)->child_units.size() == 2,
+               "Leaf array source should own two children"))
+    {
+        return 1;
+    }
+    const QVector<std::shared_ptr<Unit>> leaf_children =
+        widget.unit_hash.value(uuid)->child_units;
+    if (!check(leaf_children.at(0) != nullptr && leaf_children.at(1) != nullptr,
+               "Leaf array children should be available") ||
+        !check(std::abs(shape_center_x(leaf_children.at(1)->inj.shape) -
+                        shape_center_x(leaf_children.at(0)->inj.shape)) > 9.0,
+               "Leaf array child shapes must move with their data") ||
+        !check(std::abs(leaf_children.at(1)->inj.injector_data.pos.x() -
+                        leaf_children.at(0)->inj.injector_data.pos.x() - 10.0f) <
+                   1.0e-4f,
+               "Leaf array child data positions must preserve spacing"))
+    {
+        return 1;
+    }
+
+    // Reset to the original single injector before testing Assembly paths.
+    widget.display_units({source}, true);
+    application.processEvents();
+    stored_unit = widget.unit_hash.value(uuid);
+    if (!check(widget.unit_hash.size() == 1,
+               "Leaf array reset should restore the single source"))
     {
         return 1;
     }

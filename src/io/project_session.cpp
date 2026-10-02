@@ -798,7 +798,7 @@ bool validate(const Data &data, QString *error_message)
         }
         unit_ids.insert(unit.inj.uuid);
 
-        if (unit.type == injector)
+        if (unit.type == injector || unit.type == array)
         {
             const QString name = unit.inj.injector_data.name.trimmed();
             if (!name.isEmpty() && injector_names.contains(name, Qt::CaseInsensitive))
@@ -813,7 +813,7 @@ bool validate(const Data &data, QString *error_message)
             }
         }
 
-        if (unit.type < injector || unit.type > Assebly)
+        if (unit.type < injector || unit.type > array)
         {
             set_error(error_message, "Project contains an invalid unit type.");
             return false;

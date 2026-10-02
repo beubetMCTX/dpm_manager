@@ -255,6 +255,10 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
             conform_injector_to_normal(child.inj.injector_data,
                                        spec.plane_normal);
         }
+        if (!child.inj.create_injector())
+        {
+            continue;
+        }
         child.ais_display->Set(child.inj.shape);
         result.append(std::move(child));
     }
@@ -365,7 +369,11 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             {
                 conform_injector_to_normal(child.inj.injector_data, fill_z);
             }
-        child.ais_display->Set(child.inj.shape);
+            if (!child.inj.create_injector())
+            {
+                continue;
+            }
+            child.ais_display->Set(child.inj.shape);
             result.append(std::move(child));
             ++placement_index;
         }
@@ -494,6 +502,23 @@ void conform_unit_tree_to_normal(Unit &root, const QVector3D &normal)
     }
 }
 
+bool rebuild_unit_tree_geometry(Unit &root)
+{
+    if (!root.inj.create_injector())
+    {
+        return false;
+    }
+
+    for (const std::shared_ptr<Unit> &child : root.child_units)
+    {
+        if (child != nullptr && !rebuild_unit_tree_geometry(*child))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
                                                     const UnitArraySpec &spec)
 {
@@ -563,6 +588,10 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
                 mirror_unit_tree(*instance, spec.origin, spec.plane_normal);
             }
         }
+        if (!rebuild_unit_tree_geometry(*instance))
+        {
+            continue;
+        }
         result.append(instance);
     }
     return result;
@@ -625,6 +654,10 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
         if (spec.use_reference_geometry && spec.conform_to_reference_normal)
         {
             conform_unit_tree_to_normal(*instance, spec.plane_normal);
+        }
+        if (!rebuild_unit_tree_geometry(*instance))
+        {
+            continue;
         }
         result.append(instance);
     }

@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
 
     project_session::Data source;
     source.units.append(unit);
+    source.units.first().type = array;
     source.chemkin_file_path = temporary_directory.filePath("inputs/example.inp");
     source.species_colors.insert("O2", QColor("#123456"));
     source.materials.append({"water", 998.2});
@@ -85,6 +86,7 @@ int main(int argc, char *argv[])
 
     source.units.first().inj.injector_data.material = "water";
     source.units.first().inj.injector_data.product_species = "O2";
+
     QString reference_error;
     project_session::Data invalid_array_spec = source;
     invalid_array_spec.units.first().has_array_spec = true;
@@ -279,6 +281,8 @@ int main(int argc, char *argv[])
         !check(restored.chemkin_file_path == QFileInfo(source.chemkin_file_path).absoluteFilePath(),
                "Relative Chemkin path did not resolve during load") ||
         !check(restored.units.first().inj.uuid == unit.inj.uuid, "Unit UUID did not round-trip") ||
+        !check(restored.units.first().type == array,
+               "Array source unit type did not round-trip") ||
         !check(restored.units.first().inj.injector_data.name == "session-test",
                "Unit name did not round-trip") ||
         !check(restored.units.first().inj.injector_data.pos == QVector3D(1.0f, 2.0f, 3.0f),
