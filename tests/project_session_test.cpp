@@ -708,8 +708,8 @@ int main(int argc, char *argv[])
         return 1;
     }
     project_session::Data restored_assembly;
-    if (!check(project_session::load(assembly_path, &restored_assembly, &error_message),
-               error_message) ||
+    if (!check(project_session::load(assembly_path, &restored_assembly,
+                                     &error_message), error_message) ||
         !check(restored_assembly.units.size() == 2 &&
                    restored_assembly.units.first().type == Assebly &&
                    restored_assembly.units.first().assembly_child_uuids ==
@@ -756,6 +756,10 @@ int main(int argc, char *argv[])
     nested_leaf.inj.uuid = QUuid::createUuid();
     nested_leaf.inj.injector_data.name = "nested-leaf";
     nested_leaf.type = injector;
+    nested_leaf.has_array_spec = false;
+    nested_leaf.array_specs.clear();
+    nested_leaf.has_fill_spec = false;
+    nested_leaf.fill_source_uuids.clear();
     nested_leaf.assembly_parent_uuid = nested_parent.inj.uuid;
     nested_leaf.assembly_child_uuids.clear();
     nested_root.assembly_child_uuids = {nested_parent.inj.uuid};
@@ -828,7 +832,9 @@ int main(int argc, char *argv[])
 
     project_session::Data invalid_combined = assembly_data;
     invalid_combined.units.first().has_fill_spec = true;
-    if (!check(!project_session::validate(invalid_combined, &validation_error) &&
+    const bool invalid_combined_valid =
+        project_session::validate(invalid_combined, &validation_error);
+    if (!check(!invalid_combined_valid &&
                    validation_error.contains("both Array and Fill"),
                "Array and Fill specifications should be mutually exclusive"))
     {
@@ -890,7 +896,9 @@ int main(int argc, char *argv[])
 
     project_session::Data invalid_datum = datum_source;
     invalid_datum.reference_geometry.construction_direction = QVector3D();
-    if (!check(!project_session::validate(invalid_datum, &validation_error) &&
+    const bool invalid_datum_valid =
+        project_session::validate(invalid_datum, &validation_error);
+    if (!check(!invalid_datum_valid &&
                    validation_error.contains("constructed reference geometry"),
                "zero constructed reference direction should fail validation"))
     {
@@ -920,7 +928,9 @@ int main(int argc, char *argv[])
 
     project_session::Data invalid_frame = frame_source;
     invalid_frame.reference_geometry.construction_radius = 0.0;
-    if (!check(!project_session::validate(invalid_frame, &validation_error) &&
+    const bool invalid_frame_valid =
+        project_session::validate(invalid_frame, &validation_error);
+    if (!check(!invalid_frame_valid &&
                    validation_error.contains("constructed reference geometry"),
                "invalid alignment frame radius should fail validation"))
     {

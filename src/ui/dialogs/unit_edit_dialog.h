@@ -68,7 +68,7 @@ public:
     bool has_unsaved_changes() const { return m_data_modified; }
 
 signals:
-    void injector_data_changed(Unit *unit);
+    void injector_data_changed(Unit *unit, bool geometry_changed);
     void injector_geometry_changed(Unit *unit);
     void dialog_cancelled(Unit *unit);
     void dialog_closed(Unit *unit);

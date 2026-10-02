@@ -227,6 +227,13 @@ public:
     void rebuild_unit_outputs(const QUuid &source_uuid,
                               QSet<QUuid> &visited);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);
+    bool set_unit_array_override_scope(const QUuid &uuid,
+                                       bool override_physical,
+                                       bool override_geometry);
+    bool unit_array_override_scope(const QUuid &uuid,
+                                   bool *override_physical,
+                                   bool *override_geometry) const;
+    void capture_unit_array_override(Unit *unit);
     bool restore_unit_array_inheritance(const QUuid &uuid);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
     void fit_all_view();
@@ -326,6 +333,16 @@ private:
     Unit* get_unit(Handle(AIS_Shape) shape);
     void schedule_unit_visual_refresh(Unit *unit);
     void refresh_unit_visual(Unit *unit);
+    std::shared_ptr<Unit> resolve_effective_edit_unit_for_scope(
+        const QUuid &uuid, bool geometry_scope) const;
+    UnitArrayOverride *find_array_override(Unit &source,
+                                           const QVector<int> &instance_path);
+    const UnitArrayOverride *find_array_override(
+        const Unit &source, const QVector<int> &instance_path) const;
+    UnitArrayOverride *ensure_array_override(Unit &unit);
+    void remove_array_override(Unit &unit);
+    void capture_array_override_snapshot(Unit &unit);
+    bool apply_array_overrides_to_tree(Unit &root, const Unit &source);
     bool promote_derived_unit_to_persistent(
         const std::shared_ptr<Unit> &unit);
     void clear_unit_array_children(Unit &source);
@@ -372,6 +389,8 @@ private:
         Injector before_data;
         QVector3D before_local_position;
         QVector3D before_local_rotation;
+        bool structure_sensitive = false;
+        QList<Unit> before_units;
     };
     struct UnitEditHistoryEntry
     {

@@ -640,6 +640,8 @@ void MainWindow::sync_persistent_units_from_occt()
         target.follows_array = source.follows_array;
         target.prototype_uuid = source.prototype_uuid;
         target.prototype_chain = source.prototype_chain;
+        target.array_instance_path = source.array_instance_path;
+        target.array_overrides = source.array_overrides;
         target.has_array_spec = source.has_array_spec;
         target.array_spec = source.array_spec;
         target.array_specs = source.array_specs;
@@ -699,6 +701,10 @@ void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dir
         return;
     }
 
+    // OCCT-side edits (gizmo, drag, or dialog) may change a generated child
+    // before the persistent list is synchronized. Keep an existing property
+    // override snapshot aligned with the live child data.
+    m_3d_widget->capture_unit_array_override(changed_unit);
     sync_persistent_units_from_occt();
     update_object_list_item(changed_unit->inj.uuid,
                             changed_unit->inj.injector_data.name);
@@ -4651,15 +4657,37 @@ void MainWindow::create_object_list_panel()
         QAction *restore_inheritance_action = menu.addAction(
             "Restore Array Inheritance");
         const std::shared_ptr<Unit> selected_unit = m_3d_widget->unit_hash.value(uuid);
+        bool override_physical = false;
+        bool override_geometry = false;
+        if (selected_unit != nullptr)
+        {
+            m_3d_widget->unit_array_override_scope(
+                uuid, &override_physical, &override_geometry);
+        }
+        QAction *override_physical_action = menu.addAction(
+            "Override Physical Properties");
+        QAction *override_geometry_action = menu.addAction(
+            "Override Geometry");
         follow_array_action->setCheckable(true);
         follow_array_action->setChecked(selected_unit != nullptr &&
                                          selected_unit->is_array_child &&
                                          selected_unit->follows_array);
         follow_array_action->setEnabled(selected_unit != nullptr &&
                                         selected_unit->is_array_child);
+        override_physical_action->setCheckable(true);
+        override_physical_action->setChecked(override_physical);
+        override_physical_action->setEnabled(
+            selected_unit != nullptr && selected_unit->is_array_child &&
+            selected_unit->follows_array);
+        override_geometry_action->setCheckable(true);
+        override_geometry_action->setChecked(override_geometry);
+        override_geometry_action->setEnabled(
+            selected_unit != nullptr && selected_unit->is_array_child &&
+            selected_unit->follows_array);
         restore_inheritance_action->setEnabled(
             selected_unit != nullptr && selected_unit->is_array_child &&
-            !selected_unit->follows_array);
+            (!selected_unit->follows_array || override_physical ||
+             override_geometry));
         QAction *array_action = menu.addAction("Create Array...");
         QAction *fill_action = menu.addAction("Create Fill...");
         // Following children can be promoted to stable sources by the OCCT
@@ -5052,6 +5080,38 @@ void MainWindow::create_object_list_panel()
                     ? "Selected array child will follow its parent"
                     : "Selected array child is now independent",
                 5000);
+        }
+        else if (chosen_action == override_physical_action)
+        {
+            bool current_geometry = false;
+            m_3d_widget->unit_array_override_scope(
+                uuid, &override_physical, &current_geometry);
+            if (m_3d_widget->set_unit_array_override_scope(
+                    uuid, override_physical_action->isChecked(),
+                    current_geometry))
+            {
+                statusBar()->showMessage(
+                    override_physical_action->isChecked()
+                        ? "Selected child now overrides physical properties"
+                        : "Selected child now follows physical properties",
+                    5000);
+            }
+        }
+        else if (chosen_action == override_geometry_action)
+        {
+            bool current_physical = false;
+            m_3d_widget->unit_array_override_scope(
+                uuid, &current_physical, &override_geometry);
+            if (m_3d_widget->set_unit_array_override_scope(
+                    uuid, current_physical,
+                    override_geometry_action->isChecked()))
+            {
+                statusBar()->showMessage(
+                    override_geometry_action->isChecked()
+                        ? "Selected child now overrides geometry"
+                        : "Selected child now follows geometry",
+                    5000);
+            }
         }
         else if (chosen_action == restore_inheritance_action)
         {

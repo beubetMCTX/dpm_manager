@@ -58,6 +58,14 @@ private:
 
 };
 
+struct UnitArrayOverride
+{
+    QVector<int> instance_path;
+    bool override_physical = false;
+    bool override_geometry = false;
+    Injector snapshot;
+};
+
 class Unit
 {
 public:
@@ -79,6 +87,10 @@ public:
     bool follows_array = true;
     QUuid prototype_uuid;
     QList<QUuid> prototype_chain;
+    // Stable placement path within the owning Array/Fill source. Runtime
+    // UUIDs are regenerated during rebuilds, so overrides use this path.
+    QVector<int> array_instance_path;
+    QList<UnitArrayOverride> array_overrides;
     bool has_array_spec = false;
     UnitArraySpec array_spec;
     // Ordered array layers. array_spec remains the latest layer for
@@ -112,6 +124,8 @@ public:
         , follows_array(other.follows_array)
         , prototype_uuid(other.prototype_uuid)
         , prototype_chain(other.prototype_chain)
+        , array_instance_path(other.array_instance_path)
+        , array_overrides(other.array_overrides)
         , has_array_spec(other.has_array_spec)
         , array_spec(other.array_spec)
         , array_specs(other.array_specs)
@@ -142,6 +156,8 @@ public:
         follows_array = other.follows_array;
         prototype_uuid = other.prototype_uuid;
         prototype_chain = other.prototype_chain;
+        array_instance_path = other.array_instance_path;
+        array_overrides = other.array_overrides;
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
         array_specs = other.array_specs;
@@ -165,6 +181,8 @@ public:
         , follows_array(other.follows_array)
         , prototype_uuid(other.prototype_uuid)
         , prototype_chain(other.prototype_chain)
+        , array_instance_path(std::move(other.array_instance_path))
+        , array_overrides(std::move(other.array_overrides))
         , has_array_spec(other.has_array_spec)
         , array_spec(std::move(other.array_spec))
         , array_specs(std::move(other.array_specs))
@@ -195,6 +213,8 @@ public:
         follows_array = other.follows_array;
         prototype_uuid = other.prototype_uuid;
         prototype_chain = other.prototype_chain;
+        array_instance_path = std::move(other.array_instance_path);
+        array_overrides = std::move(other.array_overrides);
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
         array_specs = std::move(other.array_specs);

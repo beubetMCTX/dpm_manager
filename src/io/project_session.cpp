@@ -470,6 +470,28 @@ QJsonObject unit_to_json(const Unit &unit)
                   unit.array_parent_uuid.toString(QUuid::WithoutBraces));
     result.insert("is_array_child", unit.is_array_child);
     result.insert("follows_array", unit.follows_array);
+    if (!unit.array_instance_path.isEmpty())
+    {
+        result.insert("array_instance_path",
+                      int_list_to_json(unit.array_instance_path));
+    }
+    if (!unit.array_overrides.isEmpty())
+    {
+        QJsonArray overrides;
+        for (const UnitArrayOverride &array_override : unit.array_overrides)
+        {
+            QJsonObject item;
+            item.insert("instance_path",
+                        int_list_to_json(array_override.instance_path));
+            item.insert("override_physical", array_override.override_physical);
+            item.insert("override_geometry", array_override.override_geometry);
+            QJsonObject snapshot;
+            injector_to_json(array_override.snapshot, &snapshot);
+            item.insert("snapshot", snapshot);
+            overrides.append(item);
+        }
+        result.insert("array_overrides", overrides);
+    }
     if (unit.is_array_child)
     {
         // Following children are rebuilt from the parent specification. An
@@ -701,6 +723,58 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
     unit->is_array_child = object.value("is_array_child").toBool(false);
     unit->follows_array = object.value("follows_array").toBool(true);
+    unit->array_instance_path.clear();
+    const QJsonValue instance_path_value = object.value("array_instance_path");
+    if (instance_path_value.isArray())
+    {
+        for (const QJsonValue &value : instance_path_value.toArray())
+        {
+            if (!value.isDouble() || value.toInt() < 0)
+            {
+                return false;
+            }
+            unit->array_instance_path.append(value.toInt());
+        }
+    }
+    unit->array_overrides.clear();
+    const QJsonValue overrides_value = object.value("array_overrides");
+    if (!overrides_value.isUndefined() && !overrides_value.isArray())
+    {
+        return false;
+    }
+    for (const QJsonValue &override_value : overrides_value.toArray())
+    {
+        if (!override_value.isObject())
+        {
+            return false;
+        }
+        const QJsonObject override_object = override_value.toObject();
+        UnitArrayOverride array_override;
+        const QJsonValue path_value = override_object.value("instance_path");
+        if (!path_value.isArray())
+        {
+            return false;
+        }
+        for (const QJsonValue &value : path_value.toArray())
+        {
+            if (!value.isDouble() || value.toInt() < 0)
+            {
+                return false;
+            }
+            array_override.instance_path.append(value.toInt());
+        }
+        array_override.override_physical =
+            override_object.value("override_physical").toBool(false);
+        array_override.override_geometry =
+            override_object.value("override_geometry").toBool(false);
+        if (!override_object.value("snapshot").isObject() ||
+            !injector_from_json(override_object.value("snapshot").toObject(),
+                                &array_override.snapshot))
+        {
+            return false;
+        }
+        unit->array_overrides.append(std::move(array_override));
+    }
     unit->array_layer = qMax(0, object.value("array_layer").toInt(0));
     unit->assembly_parent_uuid = QUuid(
         object.value("assembly_parent_uuid").toString());
@@ -1075,6 +1149,10 @@ bool migrate_schema_v1_to_v2(QJsonObject *root, QString *error_message)
     }
 
     root->insert("units", units);
+    // Schema v1 had no authoritative recursive tree. If a file was edited or
+    // produced by a transitional writer that left a stale unit_tree behind,
+    // rebuild from migrated flat units instead of accepting contradictory data.
+    root->remove("unit_tree");
     root->insert("schema_version", kSessionSchemaVersion);
     return true;
 }
@@ -1143,6 +1221,37 @@ bool validate(const Data &data, QString *error_message)
             set_error(error_message,
                       "Project contains a non-array unit with an array parent reference.");
             return false;
+        }
+        QSet<QString> override_paths;
+        for (const UnitArrayOverride &array_override : unit.array_overrides)
+        {
+            if (array_override.instance_path.isEmpty() ||
+                (!array_override.override_physical &&
+                 !array_override.override_geometry))
+            {
+                set_error(error_message,
+                          "Project contains an invalid array override scope.");
+                return false;
+            }
+            QStringList path_parts;
+            for (const int path_index : array_override.instance_path)
+            {
+                if (path_index < 0)
+                {
+                    set_error(error_message,
+                              "Project contains a negative array override path index.");
+                    return false;
+                }
+                path_parts.append(QString::number(path_index));
+            }
+            const QString path_key = path_parts.join(',');
+            if (override_paths.contains(path_key))
+            {
+                set_error(error_message,
+                          "Project contains duplicate array override paths.");
+                return false;
+            }
+            override_paths.insert(path_key);
         }
         if (unit.has_array_spec)
         {

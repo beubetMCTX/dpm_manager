@@ -81,3 +81,6 @@ CMakeLists.txt.user*
 .uic/
 /build*/
 /release/
+/Testing/
+occt_test_output.txt
+project_test_output.txt

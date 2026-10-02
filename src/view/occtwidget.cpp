@@ -58,6 +58,68 @@ Standard_Real configured_injector_transparency(const Injector &injector)
     return injector.injection_type == volume ? std::max(0.82, configured) : configured;
 }
 
+void copy_injector_geometry_fields(Injector &target, const Injector &source)
+{
+    target.injection_type = source.injection_type;
+    target.single_direction_mode = source.single_direction_mode;
+    target.single_pitch_degrees = source.single_pitch_degrees;
+    target.single_yaw_degrees = source.single_yaw_degrees;
+    target.single_target_hitpoint = source.single_target_hitpoint;
+    target.single_target_scope = source.single_target_scope;
+    target.pos = source.pos;
+    target.pos2 = source.pos2;
+    target.ff_center = source.ff_center;
+    target.ff_virtual_origin = source.ff_virtual_origin;
+    target.ff_normal = source.ff_normal;
+    target.vel = source.vel;
+    target.vel2 = source.vel2;
+    target.ang_vel = source.ang_vel;
+    target.ang_vel2 = source.ang_vel2;
+    target.atomizer_axis = source.atomizer_axis;
+    target.axis = source.axis;
+    target.vel_mag = source.vel_mag;
+    target.ang_vel_mag = source.ang_vel_mag;
+    target.diameter = source.diameter;
+    target.diameter2 = source.diameter2;
+    target.inner_diameter = source.inner_diameter;
+    target.outer_diameter = source.outer_diameter;
+    target.half_angle = source.half_angle;
+    target.plain_length = source.plain_length;
+    target.plain_corner_size = source.plain_corner_size;
+    target.plain_const_a = source.plain_const_a;
+    target.ff_oriface_width = source.ff_oriface_width;
+    target.phi_start = source.phi_start;
+    target.phi_stop = source.phi_stop;
+    target.atomizer_disp_angle = source.atomizer_disp_angle;
+    target.cone_angle = source.cone_angle;
+    target.inner_radius = source.inner_radius;
+    target.radius = source.radius;
+    target.volume_bgeom_min = source.volume_bgeom_min;
+    target.volume_bgeom_max = source.volume_bgeom_max;
+    target.volume_bgeom_radius = source.volume_bgeom_radius;
+    target.volume_bgeom_viconeangle = source.volume_bgeom_viconeangle;
+    target.stagger_radius = source.stagger_radius;
+    target.posr = source.posr;
+    target.posu = source.posu;
+}
+
+void apply_physical_injector_snapshot(Injector &target,
+                                      const Injector &snapshot)
+{
+    // Physical overrides must not copy the placement and shape-driving values
+    // captured from one generated instance. Preserve current geometry, then
+    // replace the remaining Injector data with the override snapshot.
+    const Injector current_geometry = target;
+    target = snapshot;
+    copy_injector_geometry_fields(target, current_geometry);
+}
+
+void apply_geometry_injector_snapshot(Injector &target,
+                                      const Injector &snapshot)
+{
+    copy_injector_geometry_fields(target, snapshot);
+}
+
 QVector3D to_qvector3d(const gp_Pnt &point)
 {
     return QVector3D(static_cast<float>(point.X()),
@@ -488,40 +550,57 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
         }
     }
 
-    const QList<QUuid> array_sources = [&]()
+    QList<QUuid> composition_sources;
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
     {
-        QList<QUuid> ids;
-        for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit == nullptr ||
+            (unit->is_array_child && unit->follows_array) ||
+            (!unit->has_array_spec && !unit->has_fill_spec))
         {
-            if (it.value() != nullptr && it.value()->has_array_spec &&
-                !it.value()->is_array_child)
-            {
-                ids.append(it.key());
-            }
+            continue;
         }
-        return ids;
-    }();
-    for (const QUuid &source_uuid : array_sources)
-    {
-        rebuild_unit_array(source_uuid);
+        composition_sources.append(it.key());
     }
 
-    const QList<QUuid> fill_sources = [&]()
+    const auto dependency_depth = [this](const QUuid &uuid)
     {
-        QList<QUuid> ids;
-        for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+        int depth = 0;
+        QSet<QUuid> visited;
+        QUuid current = uuid;
+        while (!current.isNull() && !visited.contains(current))
         {
-            if (it.value() != nullptr && it.value()->has_fill_spec &&
-                !it.value()->is_array_child)
+            visited.insert(current);
+            const std::shared_ptr<Unit> unit = unit_hash.value(current);
+            if (unit == nullptr || unit->array_parent_uuid.isNull())
             {
-                ids.append(it.key());
+                break;
             }
+            ++depth;
+            current = unit->array_parent_uuid;
         }
-        return ids;
-    }();
-    for (const QUuid &source_uuid : fill_sources)
+        return depth;
+    };
+    std::sort(composition_sources.begin(), composition_sources.end(),
+              [&](const QUuid &left, const QUuid &right)
+              {
+                  return dependency_depth(left) > dependency_depth(right);
+              });
+    for (const QUuid &source_uuid : composition_sources)
     {
-        rebuild_unit_fill(source_uuid);
+        const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+        if (source == nullptr)
+        {
+            continue;
+        }
+        if (source->has_array_spec)
+        {
+            rebuild_unit_array(source_uuid);
+        }
+        else if (source->has_fill_spec)
+        {
+            rebuild_unit_fill(source_uuid);
+        }
     }
 
     rebuild_unit_local_coordinate_frames();
@@ -1263,6 +1342,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
                 configured_injector_transparency(unit->inj.injector_data));
             m_context->Redisplay(unit->ais_display, Standard_False);
             update_unit_local_coordinate_frame(uuid);
+            capture_array_override_snapshot(*unit);
 
             if (m_transform_gizmo_preview_changed)
             {
@@ -1388,6 +1468,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
         m_context->Redisplay(unit->ais_display, Standard_False);
+        capture_array_override_snapshot(*unit);
         const UnitMoveSnapshot after = make_move_snapshot(*unit);
         record_move(uuid, before, after);
         emit unit_data_updated(unit.get());
@@ -1450,15 +1531,202 @@ std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit(
     return current;
 }
 
+const UnitArrayOverride *OCCTWidget::find_array_override(
+    const Unit &source, const QVector<int> &instance_path) const
+{
+    for (const UnitArrayOverride &array_override : source.array_overrides)
+    {
+        if (array_override.instance_path == instance_path)
+        {
+            return &array_override;
+        }
+    }
+    return nullptr;
+}
+
+UnitArrayOverride *OCCTWidget::find_array_override(
+    Unit &source, const QVector<int> &instance_path)
+{
+    for (UnitArrayOverride &array_override : source.array_overrides)
+    {
+        if (array_override.instance_path == instance_path)
+        {
+            return &array_override;
+        }
+    }
+    return nullptr;
+}
+
+UnitArrayOverride *OCCTWidget::ensure_array_override(Unit &unit)
+{
+    if (!unit.is_array_child || !unit.follows_array ||
+        unit.array_parent_uuid.isNull())
+    {
+        return nullptr;
+    }
+
+    const std::shared_ptr<Unit> parent = unit_hash.value(unit.array_parent_uuid);
+    if (parent == nullptr)
+    {
+        return nullptr;
+    }
+
+    UnitArrayOverride *array_override =
+        find_array_override(*parent, unit.array_instance_path);
+    if (array_override == nullptr)
+    {
+        UnitArrayOverride new_override;
+        new_override.instance_path = unit.array_instance_path;
+        new_override.snapshot = unit.inj.injector_data;
+        parent->array_overrides.append(std::move(new_override));
+        array_override = &parent->array_overrides.last();
+    }
+    return array_override;
+}
+
+void OCCTWidget::remove_array_override(Unit &unit)
+{
+    if (unit.array_parent_uuid.isNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> parent = unit_hash.value(unit.array_parent_uuid);
+    if (parent == nullptr)
+    {
+        return;
+    }
+
+    for (int index = parent->array_overrides.size() - 1; index >= 0; --index)
+    {
+        if (parent->array_overrides.at(index).instance_path ==
+            unit.array_instance_path)
+        {
+            parent->array_overrides.removeAt(index);
+        }
+    }
+}
+
+std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit_for_scope(
+    const QUuid &uuid, bool geometry_scope) const
+{
+    std::shared_ptr<Unit> current = unit_hash.value(uuid);
+    QSet<QUuid> visited;
+    while (current != nullptr && current->is_array_child &&
+           current->follows_array && !current->prototype_uuid.isNull() &&
+           !visited.contains(current->inj.uuid))
+    {
+        visited.insert(current->inj.uuid);
+        const std::shared_ptr<Unit> parent =
+            unit_hash.value(current->array_parent_uuid);
+        const UnitArrayOverride *array_override =
+            parent == nullptr
+                ? nullptr
+                : find_array_override(*parent, current->array_instance_path);
+        const bool is_overridden = array_override != nullptr &&
+            (geometry_scope ? array_override->override_geometry
+                            : array_override->override_physical);
+        if (is_overridden)
+        {
+            return current;
+        }
+
+        const std::shared_ptr<Unit> prototype =
+            unit_hash.value(current->prototype_uuid);
+        if (prototype == nullptr)
+        {
+            break;
+        }
+        current = prototype;
+    }
+    return current;
+}
+
+void OCCTWidget::capture_array_override_snapshot(Unit &unit)
+{
+    if (!unit.is_array_child || !unit.follows_array ||
+        unit.array_parent_uuid.isNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> parent = unit_hash.value(unit.array_parent_uuid);
+    if (parent == nullptr)
+    {
+        return;
+    }
+    UnitArrayOverride *array_override =
+        find_array_override(*parent, unit.array_instance_path);
+    if (array_override != nullptr)
+    {
+        array_override->snapshot = unit.inj.injector_data;
+    }
+}
+
+void OCCTWidget::capture_unit_array_override(Unit *unit)
+{
+    if (unit != nullptr)
+    {
+        capture_array_override_snapshot(*unit);
+    }
+}
+
+bool OCCTWidget::apply_array_overrides_to_tree(Unit &root,
+                                               const Unit &source)
+{
+    const Unit *override_source = &source;
+    if (!root.array_parent_uuid.isNull())
+    {
+        const std::shared_ptr<Unit> parent =
+            unit_hash.value(root.array_parent_uuid);
+        if (parent != nullptr)
+        {
+            override_source = parent.get();
+        }
+    }
+    const UnitArrayOverride *array_override =
+        find_array_override(*override_source, root.array_instance_path);
+    if (array_override != nullptr &&
+        (array_override->override_physical ||
+         array_override->override_geometry))
+    {
+        if (array_override->override_physical)
+        {
+            apply_physical_injector_snapshot(
+                root.inj.injector_data, array_override->snapshot);
+        }
+        if (array_override->override_geometry)
+        {
+            apply_geometry_injector_snapshot(
+                root.inj.injector_data, array_override->snapshot);
+        }
+        if (!root.inj.create_injector())
+        {
+            return false;
+        }
+    }
+
+    for (const std::shared_ptr<Unit> &child : root.child_units)
+    {
+        if (child != nullptr && !apply_array_overrides_to_tree(*child, source))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 QVector3D OCCTWidget::unit_position_by_uuid(const QUuid &uuid) const
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     return unit != nullptr ? unit->inj.injector_data.pos : QVector3D();
 }
 
 QVector3D OCCTWidget::unit_direction_by_uuid(const QUuid &uuid) const
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     return unit != nullptr ? injector_frame_direction(unit->inj.injector_data)
                            : QVector3D();
 }
@@ -1466,7 +1734,8 @@ QVector3D OCCTWidget::unit_direction_by_uuid(const QUuid &uuid) const
 bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
                                              const QVector3D &direction)
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         !std::isfinite(direction.x()) || !std::isfinite(direction.y()) ||
@@ -1530,7 +1799,8 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
 bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
     const QUuid &uuid, Single_Direction_Mode mode)
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         unit->inj.injector_data.injection_type != single)
@@ -1573,7 +1843,8 @@ bool OCCTWidget::unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                                double *pitch_degrees,
                                                double *yaw_degrees) const
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || pitch_degrees == nullptr || yaw_degrees == nullptr ||
         unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Pitch_Yaw)
@@ -1589,7 +1860,8 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                                    double pitch_degrees,
                                                    double yaw_degrees)
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         !std::isfinite(pitch_degrees) || !std::isfinite(yaw_degrees) ||
@@ -1632,7 +1904,8 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
 
 QVector3D OCCTWidget::unit_single_target_by_uuid(const QUuid &uuid) const
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint)
     {
@@ -1644,7 +1917,8 @@ QVector3D OCCTWidget::unit_single_target_by_uuid(const QUuid &uuid) const
 bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
                                                 const QVector3D &target)
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         !std::isfinite(target.x()) || !std::isfinite(target.y()) ||
@@ -1686,7 +1960,8 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
 
 Single_Target_Scope OCCTWidget::unit_single_target_scope_by_uuid(const QUuid &uuid) const
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint)
     {
@@ -1698,7 +1973,8 @@ Single_Target_Scope OCCTWidget::unit_single_target_scope_by_uuid(const QUuid &uu
 bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
                                                       Single_Target_Scope scope)
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         unit->inj.injector_data.injection_type != single ||
@@ -1740,7 +2016,8 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
 bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
                                            const QVector3D &position)
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, true);
     if (unit == nullptr || unit->type == Assebly || !std::isfinite(position.x()) ||
         !std::isfinite(position.y()) || !std::isfinite(position.z()))
     {
@@ -1890,6 +2167,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetColor(color_for_injector(injector));
         m_context->Redisplay(unit->ais_display, Standard_False);
+        capture_array_override_snapshot(*unit);
         update_unit_local_coordinate_frame(uuid);
         record_edit(transaction, *unit);
         emit unit_data_updated(unit.get());
@@ -1946,7 +2224,8 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
     QSet<QUuid> changed_sources;
     for (const QUuid &uuid : uuids)
     {
-        const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+        const std::shared_ptr<Unit> unit =
+            resolve_effective_edit_unit_for_scope(uuid, false);
         if (unit == nullptr || unit->type == Assebly ||
             edited_units.contains(unit->inj.uuid) ||
             unit->inj.injector_data.material.compare(
@@ -2001,7 +2280,8 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
     QSet<QUuid> changed_sources;
     for (const QUuid &uuid : uuids)
     {
-        const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+        const std::shared_ptr<Unit> unit =
+            resolve_effective_edit_unit_for_scope(uuid, false);
         if (unit == nullptr || unit->type == Assebly ||
             edited_units.contains(unit->inj.uuid))
         {
@@ -2049,7 +2329,8 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
 
 bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
 {
-    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    const std::shared_ptr<Unit> unit =
+        resolve_effective_edit_unit_for_scope(uuid, false);
     if (unit == nullptr)
     {
         return false;
@@ -2102,6 +2383,14 @@ bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
     if (unit->is_array_child && unit->follows_array &&
         !unit->prototype_uuid.isNull())
     {
+        bool override_physical = false;
+        bool override_geometry = false;
+        unit_array_override_scope(uuid, &override_physical, &override_geometry);
+        if (override_physical || override_geometry)
+        {
+            open_edit_widget(unit->ais_display);
+            return true;
+        }
         const std::shared_ptr<Unit> prototype =
             unit_hash.value(unit->prototype_uuid);
         if (prototype != nullptr && prototype->type != Assebly &&
@@ -2759,16 +3048,44 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
     const UnitArraySpec &first_spec = specs.first();
     const bool source_is_assembly = source->type == Assebly ||
                                     !source->assembly_child_uuids.isEmpty();
+    const bool source_has_persistent_children = std::any_of(
+        source->child_units.cbegin(), source->child_units.cend(),
+        [](const std::shared_ptr<Unit> &child)
+        {
+            return child != nullptr &&
+                   !(child->is_array_child && child->follows_array);
+        });
+    const bool source_is_composite = source_is_assembly ||
+                                     source_has_persistent_children;
     int displayed_count = 0;
     std::shared_ptr<Unit> pattern;
+    const auto has_preserved_instance = [&](const QVector<int> &path)
+    {
+        return std::any_of(
+            source->child_units.cbegin(), source->child_units.cend(),
+            [&](const std::shared_ptr<Unit> &child)
+            {
+                return child != nullptr && !child->follows_array &&
+                       child->array_instance_path == path;
+            });
+    };
 
-    if (source_is_assembly)
+    if (source_is_composite)
     {
         const QList<std::shared_ptr<Unit>> instances =
             expand_unit_tree_array(*source, first_spec);
         for (const std::shared_ptr<Unit> &instance : instances)
         {
+            if (instance != nullptr &&
+                has_preserved_instance(instance->array_instance_path))
+            {
+                continue;
+            }
             mark_tree(instance, 1, mark_tree);
+            if (!apply_array_overrides_to_tree(*instance, *source))
+            {
+                continue;
+            }
             register_tree(instance, register_tree);
             source->child_units.append(instance);
             ++displayed_count;
@@ -2783,11 +3100,19 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         const QList<Unit> children = expand_unit_array(*source, first_spec);
         for (const Unit &child : children)
         {
+            if (has_preserved_instance(child.array_instance_path))
+            {
+                continue;
+            }
             const std::shared_ptr<Unit> stored_child =
                 std::make_shared<Unit>(child);
             mark_tree(stored_child, 1, mark_tree);
             stored_child->type = array;
             stored_child->assembly_parent_uuid = QUuid();
+            if (!apply_array_overrides_to_tree(*stored_child, *source))
+            {
+                continue;
+            }
             register_tree(stored_child, register_tree);
             source->child_units.append(stored_child);
             ++displayed_count;
@@ -2823,7 +3148,16 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         for (int index = 1; index < instances.size(); ++index)
         {
             const std::shared_ptr<Unit> &instance = instances.at(index);
+            if (instance != nullptr &&
+                has_preserved_instance(instance->array_instance_path))
+            {
+                continue;
+            }
             mark_tree(instance, layer + 1, mark_tree);
+            if (!apply_array_overrides_to_tree(*instance, *source))
+            {
+                continue;
+            }
             register_tree(instance, register_tree);
             source->child_units.append(instance);
             ++displayed_count;
@@ -2835,6 +3169,12 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
     }
 
     source->type = source_is_assembly ? Assebly : array;
+    displayed_count = static_cast<int>(std::count_if(
+        source->child_units.cbegin(), source->child_units.cend(),
+        [](const std::shared_ptr<Unit> &child)
+        {
+            return child != nullptr && child->is_array_child;
+        }));
     rebuild_unit_local_coordinate_frames();
     m_view->Redraw();
     emit unit_display_list_changed();
@@ -3135,7 +3475,16 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
     };
 
     const bool source_is_assembly = source->type == Assebly ||
-                                    !source->assembly_child_uuids.isEmpty();
+                                    !source->assembly_child_uuids.isEmpty() ||
+                                    std::any_of(
+                                        source->child_units.cbegin(),
+                                        source->child_units.cend(),
+                                        [](const std::shared_ptr<Unit> &child)
+                                        {
+                                            return child != nullptr &&
+                                                   !(child->is_array_child &&
+                                                     child->follows_array);
+                                        });
     std::shared_ptr<Unit> pattern;
     const UnitArraySpec &first_spec = specs.first();
     if (source_is_assembly)
@@ -3335,6 +3684,11 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
             child->array_parent_uuid = source_uuids.first();
             child->has_fill_spec = false;
             child->has_array_spec = false;
+            if (parent != nullptr &&
+                !apply_array_overrides_to_tree(*child, *parent))
+            {
+                continue;
+            }
             register_tree(child);
             if (parent != nullptr)
             {
@@ -3376,6 +3730,11 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
             displayed_count % source_uuids.size());
         stored_child->assembly_parent_uuid = QUuid();
         stored_child->assembly_child_uuids.clear();
+        if (parent != nullptr &&
+            !apply_array_overrides_to_tree(*stored_child, *parent))
+        {
+            continue;
+        }
         stored_child->child_units.clear();
         stored_child->ais_display->Set(stored_child->inj.shape);
         stored_child->u_owner->set_unit(stored_child.get());
@@ -3467,6 +3826,10 @@ void OCCTWidget::clear_unit_array_children(Unit &source)
         if (node == nullptr)
         {
             return;
+        }
+        if (node->is_array_child && node->follows_array)
+        {
+            capture_array_override_snapshot(*node);
         }
         const QVector<std::shared_ptr<Unit>> descendants = node->child_units;
         for (const std::shared_ptr<Unit> &descendant : descendants)
@@ -3695,6 +4058,97 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
     return true;
 }
 
+bool OCCTWidget::set_unit_array_override_scope(const QUuid &uuid,
+                                               bool override_physical,
+                                               bool override_geometry)
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || !unit->is_array_child || !unit->follows_array ||
+        unit->array_parent_uuid.isNull())
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> parent = unit_hash.value(unit->array_parent_uuid);
+    if (parent == nullptr)
+    {
+        return false;
+    }
+
+    const QList<Unit> before = capture_persistent_units();
+    bool restore_physical = false;
+    bool restore_geometry = false;
+    const UnitArrayOverride *existing_override =
+        find_array_override(*parent, unit->array_instance_path);
+    if (existing_override != nullptr)
+    {
+        restore_physical = existing_override->override_physical &&
+                           !override_physical;
+        restore_geometry = existing_override->override_geometry &&
+                           !override_geometry;
+    }
+    if (!override_physical && !override_geometry)
+    {
+        remove_array_override(*unit);
+    }
+    else
+    {
+        UnitArrayOverride *array_override = ensure_array_override(*unit);
+        if (array_override == nullptr)
+        {
+            return false;
+        }
+        array_override->override_physical = override_physical;
+        array_override->override_geometry = override_geometry;
+        array_override->snapshot = unit->inj.injector_data;
+    }
+
+    if (restore_physical || restore_geometry)
+    {
+        QSet<QUuid> visited;
+        rebuild_unit_outputs(parent->inj.uuid, visited);
+        emit unit_display_list_changed();
+        record_structure_edit(before, capture_persistent_units());
+        return true;
+    }
+    emit unit_data_updated(unit.get());
+    emit unit_display_list_changed();
+    record_structure_edit(before, capture_persistent_units());
+    return true;
+}
+
+bool OCCTWidget::unit_array_override_scope(const QUuid &uuid,
+                                           bool *override_physical,
+                                           bool *override_geometry) const
+{
+    if (override_physical == nullptr || override_geometry == nullptr)
+    {
+        return false;
+    }
+    *override_physical = false;
+    *override_geometry = false;
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || !unit->is_array_child ||
+        unit->array_parent_uuid.isNull())
+    {
+        return false;
+    }
+    const std::shared_ptr<Unit> parent = unit_hash.value(unit->array_parent_uuid);
+    if (parent == nullptr)
+    {
+        return false;
+    }
+    const UnitArrayOverride *array_override =
+        find_array_override(*parent, unit->array_instance_path);
+    if (array_override == nullptr)
+    {
+        return true;
+    }
+    *override_physical = array_override->override_physical;
+    *override_geometry = array_override->override_geometry;
+    return true;
+}
+
 bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
@@ -3706,6 +4160,7 @@ bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
     const QList<Unit> before = capture_persistent_units();
 
     const QUuid parent_uuid = unit->array_parent_uuid;
+    remove_array_override(*unit);
     unit->follows_array = true;
     m_replaying_delete_history = true;
     const bool removed = remove_unit_by_uuid(uuid);
@@ -4276,6 +4731,11 @@ void OCCTWidget::begin_unit_edit_transaction(Unit *unit)
     transaction.uuid = unit->inj.uuid;
     transaction.before_type = unit->type;
     transaction.before_data = unit->inj.injector_data;
+    if (unit->is_array_child && unit->follows_array)
+    {
+        transaction.structure_sensitive = true;
+        transaction.before_units = capture_persistent_units();
+    }
     m_edit_transactions.insert(transaction.uuid, std::move(transaction));
 }
 
@@ -4296,7 +4756,15 @@ void OCCTWidget::finish_unit_edit_transaction(Unit *unit, bool changed)
     m_edit_transactions.erase(transaction_it);
     if (changed && unit_hash.contains(unit->inj.uuid))
     {
-        record_edit(transaction, *unit);
+        if (transaction.structure_sensitive)
+        {
+            record_structure_edit(transaction.before_units,
+                                  capture_persistent_units());
+        }
+        else
+        {
+            record_edit(transaction, *unit);
+        }
     }
 }
 
@@ -4314,6 +4782,11 @@ bool OCCTWidget::cancel_unit_edit_transaction(Unit *unit)
     }
 
     const UnitEditTransaction transaction = transaction_it.value();
+    if (transaction.structure_sensitive)
+    {
+        m_edit_transactions.erase(transaction_it);
+        return restore_structure_snapshot(transaction.before_units);
+    }
     UnitEditHistoryEntry before_entry;
     before_entry.uuid = transaction.uuid;
     before_entry.before_type = transaction.before_type;
@@ -6063,6 +6536,7 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
                         after.volume_bgeom_max != m_drag_move_before.volume_bgeom_max)
                     {
                         record_move(m_drag_unit_uuid, m_drag_move_before, after);
+                        capture_array_override_snapshot(*unit);
                         emit unit_data_updated(unit.get());
                     }
                 }
@@ -6308,8 +6782,39 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
     {
         cancel_unit_edit_transaction(cancelled_unit);
     });
-    connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this, [this](Unit *changed_unit)
+    connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this,
+            [this](Unit *changed_unit, bool geometry_changed)
     {
+        if (changed_unit != nullptr && changed_unit->is_array_child &&
+            changed_unit->follows_array)
+        {
+            // A dialog edit is intentionally local to the selected generated
+            // instance. Mark only the scope that requested the edit; the other
+            // scope continues inheriting from the prototype.
+            UnitArrayOverride *array_override =
+                ensure_array_override(*changed_unit);
+            if (array_override != nullptr)
+            {
+                if (geometry_changed)
+                {
+                    array_override->override_geometry = true;
+                }
+                else
+                {
+                    array_override->override_physical = true;
+                }
+                array_override->snapshot = changed_unit->inj.injector_data;
+            }
+        }
+        if (changed_unit != nullptr && !changed_unit->ais_display.IsNull())
+        {
+            changed_unit->ais_display->SetColor(
+                color_for_injector(changed_unit->inj.injector_data));
+            if (!m_context.IsNull())
+            {
+                m_context->Redisplay(changed_unit->ais_display, Standard_False);
+            }
+        }
         emit unit_data_updated(changed_unit);
     });
     connect(inj_edit_dialog, &unit_edit_dialog::injector_geometry_changed, this, [this](Unit *changed_unit)

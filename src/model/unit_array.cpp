@@ -145,6 +145,19 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_direction(injector.ff_normal);
     mirror_direction(injector.axis);
 }
+
+void append_array_instance_path(Unit &root, int placement_index)
+{
+    root.array_instance_path.append(placement_index);
+    root.array_overrides.clear();
+    for (const std::shared_ptr<Unit> &child : root.child_units)
+    {
+        if (child != nullptr)
+        {
+            append_array_instance_path(*child, placement_index);
+        }
+    }
+}
 }
 
 QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
@@ -162,6 +175,8 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
         child.prototype_uuid = source.inj.uuid;
         child.prototype_chain = source.prototype_chain;
         child.prototype_chain.append(source.inj.uuid);
+        child.array_instance_path = {index};
+        child.array_overrides.clear();
         child.inj.injector_data.name = QString("%1[%2]")
                                            .arg(source.inj.injector_data.name)
                                            .arg(index + 1);
@@ -322,6 +337,8 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             child.prototype_uuid = source.inj.uuid;
             child.prototype_chain = source.prototype_chain;
             child.prototype_chain.append(source.inj.uuid);
+            child.array_instance_path = {placement_index};
+            child.array_overrides.clear();
             child.inj.injector_data.name = QString("%1[%2]")
                                                .arg(source.inj.injector_data.name)
                                                .arg(placement_index + 1);
@@ -381,9 +398,23 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
     return result;
 }
 
-std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
-                                      QHash<QUuid, QUuid> &uuid_map,
-                                      bool mark_as_derived)
+bool has_persistent_children(const Unit &unit)
+{
+    for (const std::shared_ptr<Unit> &child : unit.child_units)
+    {
+        if (child != nullptr &&
+            !(child->is_array_child && child->follows_array))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+std::shared_ptr<Unit> clone_unit_tree_impl(const Unit &source,
+                                           QHash<QUuid, QUuid> &uuid_map,
+                                           bool mark_as_derived,
+                                           bool include_generated_children)
 {
     const std::shared_ptr<Unit> clone = std::make_shared<Unit>(source);
     const QUuid source_uuid = source.inj.uuid;
@@ -411,17 +442,30 @@ std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
 
     for (const std::shared_ptr<Unit> &source_child : source.child_units)
     {
-        if (source_child == nullptr || source_child->is_array_child)
+        if (source_child == nullptr ||
+            (source_child->is_array_child && source_child->follows_array &&
+             !include_generated_children))
         {
             continue;
         }
-        const std::shared_ptr<Unit> child =
-            clone_unit_tree(*source_child, uuid_map, mark_as_derived);
+        const bool child_is_persistent_array_source =
+            source_child->is_array_child && !source_child->follows_array &&
+            (source_child->has_array_spec || source_child->has_fill_spec);
+        const std::shared_ptr<Unit> child = clone_unit_tree_impl(
+            *source_child, uuid_map, mark_as_derived,
+            include_generated_children || child_is_persistent_array_source);
         child->assembly_parent_uuid = clone_uuid;
         clone->assembly_child_uuids.append(child->inj.uuid);
         clone->child_units.append(child);
     }
     return clone;
+}
+
+std::shared_ptr<Unit> clone_unit_tree(const Unit &source,
+                                      QHash<QUuid, QUuid> &uuid_map,
+                                      bool mark_as_derived)
+{
+    return clone_unit_tree_impl(source, uuid_map, mark_as_derived, false);
 }
 
 void transform_unit_tree(Unit &root, const QVector3D &pivot,
@@ -549,6 +593,7 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
         {
             continue;
         }
+        append_array_instance_path(*instance, index);
         instance->inj.injector_data.name =
             QStringLiteral("%1[%2]").arg(source.inj.injector_data.name)
                                      .arg(index + 1);
@@ -646,6 +691,10 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
         {
             continue;
         }
+        const int placement_index = placement.array_instance_path.isEmpty()
+            ? result.size()
+            : placement.array_instance_path.last();
+        append_array_instance_path(*instance, placement_index);
         instance->inj.injector_data.name = placement.inj.injector_data.name;
         const QVector3D offset = placement.inj.injector_data.pos -
                                   sources.at(source_index)->inj.injector_data.pos;

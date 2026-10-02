@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
     }
     const QVector<std::shared_ptr<Unit>> leaf_children =
         widget.unit_hash.value(uuid)->child_units;
-    const QUuid leaf_child_uuid = leaf_children.first()->inj.uuid;
+    QUuid leaf_child_uuid = leaf_children.first()->inj.uuid;
     if (!check(leaf_children.at(0) != nullptr && leaf_children.at(1) != nullptr,
                "Leaf array children should be available") ||
         !check(std::abs(shape_center_x(leaf_children.at(1)->inj.shape) -
@@ -181,8 +181,17 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    if (!check(widget.unit_hash.value(uuid) != nullptr &&
+                   !widget.unit_hash.value(uuid)->child_units.isEmpty(),
+               "Rebuilt leaf array should expose a current child instance"))
+    {
+        return 1;
+    }
+    // Array rebuilds intentionally regenerate runtime UUIDs. Continue nested
+    // editing through the current instance rather than a stale UUID.
+    leaf_child_uuid = widget.unit_hash.value(uuid)->child_units.first()->inj.uuid;
     const int nested_array_count =
-        widget.create_unit_array(leaf_children.first()->inj.uuid, leaf_array);
+        widget.create_unit_array(leaf_child_uuid, leaf_array);
     if (!check(nested_array_count == 2,
                "A following array child should be promoted for nested arrays") ||
         !check(widget.unit_hash.value(leaf_child_uuid) != nullptr &&
@@ -768,6 +777,107 @@ int main(int argc, char *argv[])
                "Undo delete should restore parent and child relationships") ||
         !check(widget.redo_delete() && !widget.unit_hash.contains(uuid),
                "Redo delete should remove the complete hierarchy again"))
+    {
+        return 1;
+    }
+
+    // Property-level array overrides must survive parent edits without
+    // turning the generated child into an unrelated persistent Unit.
+    Unit override_source = make_valid_unit();
+    override_source.inj.injector_data.name = "override-source";
+    override_source.inj.injector_data.type = Inert;
+    override_source.inj.injector_data.material = "O2";
+    override_source.inj.injector_data.pos = QVector3D(20.0f, 0.0f, 0.0f);
+    if (!check(override_source.inj.create_injector(),
+               "Override source geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({override_source}, true);
+    widget.set_chemkin_species_names({"O2", "N2"});
+    const QUuid override_source_uuid = widget.unit_hash.constBegin().key();
+    UnitArraySpec override_array;
+    override_array.type = UnitArrayType::Linear;
+    override_array.count = 2;
+    override_array.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    override_array.origin = override_source.inj.injector_data.pos;
+    override_array.spacing = 3.0f;
+    if (!check(widget.create_unit_array(override_source_uuid, override_array) == 2,
+               "Override regression array should create two children"))
+    {
+        return 1;
+    }
+
+    const auto find_override_child = [&]() -> std::shared_ptr<Unit>
+    {
+        const std::shared_ptr<Unit> source_unit =
+            widget.unit_hash.value(override_source_uuid);
+        if (source_unit == nullptr)
+        {
+            return nullptr;
+        }
+        for (const std::shared_ptr<Unit> &child : source_unit->child_units)
+        {
+            if (child != nullptr && child->array_instance_path == QVector<int>{0})
+            {
+                return child;
+            }
+        }
+        return nullptr;
+    };
+
+    std::shared_ptr<Unit> physical_child = find_override_child();
+    if (!check(physical_child != nullptr,
+               "Override regression child should be available") ||
+        !check(widget.set_unit_array_override_scope(
+                    physical_child->inj.uuid, true, false),
+                "Physical override should be enabled"))
+    {
+        return 1;
+    }
+    physical_child->inj.injector_data.material = "O2";
+    if (!check(widget.set_species_for_units_by_uuid(
+                    {override_source_uuid}, "N2") == 1,
+                "Parent material edit should succeed") ||
+        !check(find_override_child() != nullptr &&
+                   find_override_child()->inj.injector_data.material == "O2",
+               "Physical override should survive parent material edit"))
+    {
+        return 1;
+    }
+
+    std::shared_ptr<Unit> geometry_child = find_override_child();
+    const QVector3D local_override_position(77.0f, 4.0f, 0.0f);
+    if (!check(geometry_child != nullptr &&
+                   widget.set_unit_array_override_scope(
+                       geometry_child->inj.uuid, true, true),
+               "Geometry override should be enabled") ||
+        !check(widget.set_unit_position_by_uuid(
+                    geometry_child->inj.uuid, local_override_position),
+                "Geometry override position edit should succeed"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_position_by_uuid(
+                    override_source_uuid, QVector3D(120.0f, 0.0f, 0.0f)),
+                "Parent position edit should succeed with child override"))
+    {
+        return 1;
+    }
+    geometry_child = find_override_child();
+    if (!check(geometry_child != nullptr &&
+                   geometry_child->inj.injector_data.pos ==
+                       local_override_position,
+               "Geometry override should survive parent position edit"))
+    {
+        return 1;
+    }
+
+    if (!check(widget.restore_unit_array_inheritance(geometry_child->inj.uuid),
+               "Restoring array inheritance should rebuild the child") ||
+        !check(find_override_child() != nullptr &&
+                   find_override_child()->inj.injector_data.material == "N2",
+               "Restored child should follow parent physical properties"))
     {
         return 1;
     }

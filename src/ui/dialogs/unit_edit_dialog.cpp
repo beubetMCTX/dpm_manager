@@ -4598,7 +4598,7 @@ void unit_edit_dialog::notify_injector_data_changed(bool geometry_changed)
     sync_case_context_constraints();
 
     m_data_modified = true;
-    emit injector_data_changed(control_unit);
+    emit injector_data_changed(control_unit, geometry_changed);
     if (geometry_changed)
     {
         emit injector_geometry_changed(control_unit);
