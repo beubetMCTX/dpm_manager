@@ -52,6 +52,13 @@ int main(int argc, char *argv[])
     widget.show();
     application.processEvents();
 
+    QList<QUuid> last_selected_units;
+    QObject::connect(&widget, &OCCTWidget::unit_selection_changed,
+                     [&last_selected_units](const QList<QUuid> &uuids)
+    {
+        last_selected_units = uuids;
+    });
+
     Unit source = make_valid_unit();
     if (!check(source.inj.create_injector(),
                "Initial injector geometry should be valid"))
@@ -90,6 +97,7 @@ int main(int argc, char *argv[])
     }
     const QVector<std::shared_ptr<Unit>> leaf_children =
         widget.unit_hash.value(uuid)->child_units;
+    const QUuid leaf_child_uuid = leaf_children.first()->inj.uuid;
     if (!check(leaf_children.at(0) != nullptr && leaf_children.at(1) != nullptr,
                "Leaf array children should be available") ||
         !check(std::abs(shape_center_x(leaf_children.at(1)->inj.shape) -
@@ -99,6 +107,24 @@ int main(int argc, char *argv[])
                         leaf_children.at(0)->inj.injector_data.pos.x() - 10.0f) <
                    1.0e-4f,
                "Leaf array child data positions must preserve spacing"))
+    {
+        return 1;
+    }
+    widget.set_chemkin_species_names({"O2", "N2"});
+    const int species_edit_count =
+        widget.set_species_for_units_by_uuid({leaf_child_uuid}, "O2");
+    if (!check(species_edit_count == 1,
+               "Editing a following child species should edit its prototype") ||
+        !check(widget.unit_hash.value(uuid)->inj.injector_data.evaporating_species == "O2",
+               "Prototype evaporating species should receive a following-child edit") ||
+        !check(std::all_of(widget.unit_hash.value(uuid)->child_units.cbegin(),
+                           widget.unit_hash.value(uuid)->child_units.cend(),
+                           [](const std::shared_ptr<Unit> &child)
+                           {
+                               return child != nullptr &&
+                                      child->inj.injector_data.evaporating_species == "O2";
+                           }),
+               "Following children should rebuild from the edited prototype"))
     {
         return 1;
     }
@@ -215,6 +241,15 @@ int main(int argc, char *argv[])
     widget.display_units({second_source}, false);
     application.processEvents();
     const QUuid member_uuid = second_source.inj.uuid;
+    if (!check(widget.select_units_by_uuid({uuid, member_uuid}, member_uuid),
+               "Selecting multiple tree units should succeed") ||
+        !check(last_selected_units.size() == 2 &&
+                   last_selected_units.contains(uuid) &&
+                   last_selected_units.contains(member_uuid),
+               "Multiple unit selection should remain synchronized with OCCT"))
+    {
+        return 1;
+    }
     if (!check(widget.create_assembly({uuid, member_uuid}),
                "Assembly creation should succeed"))
     {

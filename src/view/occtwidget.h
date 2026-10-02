@@ -143,6 +143,8 @@ public:
 
     void display_units(const QList<Unit> &units, bool clear_existing = true);
     bool select_unit_by_uuid(const QUuid &uuid);
+    bool select_units_by_uuid(const QList<QUuid> &uuids,
+                              const QUuid &primary_uuid = QUuid());
     bool select_reference_geometry();
     bool set_unit_visible(const QUuid &uuid, bool visible);
     void set_all_units_visible(bool visible);

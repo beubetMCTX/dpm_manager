@@ -553,31 +553,90 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
 
 bool OCCTWidget::select_unit_by_uuid(const QUuid &uuid)
 {
-    if (uuid.isNull() || m_context.IsNull() || m_view.IsNull())
+    return select_units_by_uuid({uuid}, uuid);
+}
+
+bool OCCTWidget::select_units_by_uuid(const QList<QUuid> &uuids,
+                                      const QUuid &primary_uuid)
+{
+    if (m_context.IsNull() || m_view.IsNull())
     {
         return false;
     }
 
-    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit->ais_display.IsNull() || !unit_visible(uuid))
+    QList<QUuid> valid_uuids;
+    for (const QUuid &uuid : uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (uuid.isNull() || unit == nullptr || unit->ais_display.IsNull() ||
+            !unit_visible(uuid) || valid_uuids.contains(uuid))
+        {
+            continue;
+        }
+        valid_uuids.append(uuid);
+    }
+    if (valid_uuids.isEmpty())
     {
         return false;
+    }
+
+    QUuid selected_primary = primary_uuid;
+    if (!valid_uuids.contains(selected_primary))
+    {
+        selected_primary = valid_uuids.first();
     }
 
     clear_face_reference();
+    clear_transform_gizmo();
     m_context->ClearSelected(Standard_False);
-    selected_shape = unit->ais_display;
-    m_context->SetSelected(selected_shape, Standard_True);
-    m_view->Redraw();
-    emit selection_changed(uuid, false);
+    selected_shape.Nullify();
 
-    if (m_interaction_mode != Interaction_Mode::Selection)
+    bool first = true;
+    for (const QUuid &uuid : valid_uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit == nullptr || unit->ais_display.IsNull())
+        {
+            continue;
+        }
+
+        if (first)
+        {
+            m_context->SetSelected(unit->ais_display, Standard_False);
+            first = false;
+        }
+        else
+        {
+            m_context->AddOrRemoveSelected(unit->ais_display, Standard_False);
+        }
+
+        if (uuid == selected_primary)
+        {
+            selected_shape = unit->ais_display;
+        }
+    }
+
+    if (first || selected_shape.IsNull())
+    {
+        selected_shape.Nullify();
+        return false;
+    }
+
+    if (m_interaction_mode != Interaction_Mode::Selection &&
+        valid_uuids.size() == 1)
     {
         attach_transform_gizmo(
-            uuid,
+            selected_primary,
             m_interaction_mode == Interaction_Mode::Translation
                 ? AIS_MM_Translation
                 : AIS_MM_Rotation);
+    }
+
+    m_view->Redraw();
+    emit unit_selection_changed(valid_uuids);
+    if (valid_uuids.size() == 1)
+    {
+        emit selection_changed(selected_primary, false);
     }
     return true;
 }
@@ -1401,7 +1460,8 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
                                              const QVector3D &direction)
 {
     const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
-    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly ||
+        unit_locked(unit->inj.uuid) ||
         !std::isfinite(direction.x()) || !std::isfinite(direction.y()) ||
         !std::isfinite(direction.z()) || direction.lengthSquared() <= 1.0e-12f)
     {
@@ -1438,7 +1498,7 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     if (!unit->inj.create_injector())
     {
         injector = before;
-        m_edit_transactions.remove(uuid);
+        m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
@@ -1446,7 +1506,7 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
         configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
-    update_unit_local_coordinate_frame(uuid);
+    update_unit_local_coordinate_frame(unit->inj.uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
@@ -1464,7 +1524,8 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
     const QUuid &uuid, Single_Direction_Mode mode)
 {
     const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
-    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly ||
+        unit_locked(unit->inj.uuid) ||
         unit->inj.injector_data.injection_type != single)
     {
         return false;
@@ -1480,14 +1541,14 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
     if (!unit->inj.create_injector())
     {
         injector.single_direction_mode = before;
-        m_edit_transactions.remove(uuid);
+        m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetTransparency(configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
-    update_unit_local_coordinate_frame(uuid);
+    update_unit_local_coordinate_frame(unit->inj.uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
@@ -1522,7 +1583,8 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                                    double yaw_degrees)
 {
     const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
-    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly ||
+        unit_locked(unit->inj.uuid) ||
         !std::isfinite(pitch_degrees) || !std::isfinite(yaw_degrees) ||
         unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Pitch_Yaw)
@@ -1539,7 +1601,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     {
         injector.single_pitch_degrees = old_pitch;
         injector.single_yaw_degrees = old_yaw;
-        m_edit_transactions.remove(uuid);
+        m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
@@ -1547,7 +1609,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
         configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
-    update_unit_local_coordinate_frame(uuid);
+    update_unit_local_coordinate_frame(unit->inj.uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
@@ -1576,7 +1638,8 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
                                                 const QVector3D &target)
 {
     const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
-    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
+    if (unit == nullptr || unit->type == Assebly ||
+        unit_locked(unit->inj.uuid) ||
         !std::isfinite(target.x()) || !std::isfinite(target.y()) ||
         !std::isfinite(target.z()) ||
         unit->inj.injector_data.injection_type != single ||
@@ -1592,7 +1655,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     if (!unit->inj.create_injector())
     {
         injector.single_target_hitpoint = old_target;
-        m_edit_transactions.remove(uuid);
+        m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
@@ -1600,7 +1663,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
         configured_injector_transparency(injector));
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
-    update_unit_local_coordinate_frame(uuid);
+    update_unit_local_coordinate_frame(unit->inj.uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
@@ -1628,8 +1691,9 @@ Single_Target_Scope OCCTWidget::unit_single_target_scope_by_uuid(const QUuid &uu
 bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
                                                       Single_Target_Scope scope)
 {
-    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-    if (unit == nullptr || unit->type == Assebly || unit_locked(uuid) ||
+    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+    if (unit == nullptr || unit->type == Assebly ||
+        unit_locked(unit->inj.uuid) ||
         unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint ||
         scope < Single_Target_Scope::World || scope > Single_Target_Scope::Reference_Local)
@@ -1644,7 +1708,7 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
     unit->inj.injector_data.single_target_scope = scope;
     if (!unit->inj.create_injector())
     {
-        m_edit_transactions.remove(uuid);
+        m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
     unit->ais_display->Set(unit->inj.shape);
@@ -1652,9 +1716,13 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
         configured_injector_transparency(unit->inj.injector_data));
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
-    update_unit_local_coordinate_frame(uuid);
+    update_unit_local_coordinate_frame(unit->inj.uuid);
     emit unit_data_updated(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
+    {
+        QSet<QUuid> visited;
+        rebuild_unit_outputs(unit->inj.uuid, visited);
+    }
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -1675,7 +1743,7 @@ bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
     const QVector3D snapped_position = snap_position(
         position, UnitSystem::active_preferences().translation_snap);
     const QVector3D delta = snapped_position - unit->inj.injector_data.pos;
-    return !delta.isNull() && translate_units_by_uuid({uuid}, delta) > 0;
+    return !delta.isNull() && translate_units_by_uuid({unit->inj.uuid}, delta) > 0;
 }
 
 int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
@@ -1746,8 +1814,8 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
 
         Injector &injector = unit->inj.injector_data;
         const Injector before = injector;
-        UnitEditTransaction transaction;
-        transaction.uuid = uuid;
+    UnitEditTransaction transaction;
+    transaction.uuid = unit->inj.uuid;
         transaction.before_type = unit->type;
         transaction.before_data = before;
         const QVector3D pivot = use_shared_pivot ? shared_pivot : injector.pos;
@@ -1867,18 +1935,22 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
     }
 
     int changed_count = 0;
+    QSet<QUuid> edited_units;
+    QSet<QUuid> changed_sources;
     for (const QUuid &uuid : uuids)
     {
-        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-        if (unit == nullptr ||
+        const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+        if (unit == nullptr || unit->type == Assebly ||
+            edited_units.contains(unit->inj.uuid) ||
             unit->inj.injector_data.material.compare(
                 normalized_material, Qt::CaseSensitive) == 0)
         {
             continue;
         }
+        edited_units.insert(unit->inj.uuid);
 
-        UnitEditTransaction transaction;
-        transaction.uuid = uuid;
+    UnitEditTransaction transaction;
+    transaction.uuid = unit->inj.uuid;
         transaction.before_type = unit->type;
         transaction.before_data = unit->inj.injector_data;
         unit->inj.injector_data.material = normalized_material;
@@ -1888,7 +1960,13 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
         }
         record_edit(transaction, *unit);
         emit unit_data_updated(unit.get());
+        changed_sources.insert(unit->inj.uuid);
         ++changed_count;
+    }
+    for (const QUuid &source_uuid : changed_sources)
+    {
+        QSet<QUuid> visited;
+        rebuild_unit_outputs(source_uuid, visited);
     }
     if (changed_count > 0 && !m_context.IsNull())
     {
@@ -1912,13 +1990,17 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
     }
 
     int changed_count = 0;
+    QSet<QUuid> edited_units;
+    QSet<QUuid> changed_sources;
     for (const QUuid &uuid : uuids)
     {
-        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-        if (unit == nullptr || unit->type == Assebly)
+        const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
+        if (unit == nullptr || unit->type == Assebly ||
+            edited_units.contains(unit->inj.uuid))
         {
             continue;
         }
+        edited_units.insert(unit->inj.uuid);
 
         QString *species_field = unit->inj.injector_data.type == Droplet
             ? &unit->inj.injector_data.evaporating_species
@@ -1929,7 +2011,7 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
         }
 
         UnitEditTransaction transaction;
-        transaction.uuid = uuid;
+        transaction.uuid = unit->inj.uuid;
         transaction.before_type = unit->type;
         transaction.before_data = unit->inj.injector_data;
         *species_field = normalized_species;
@@ -1939,7 +2021,13 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
         }
         record_edit(transaction, *unit);
         emit unit_data_updated(unit.get());
+        changed_sources.insert(unit->inj.uuid);
         ++changed_count;
+    }
+    for (const QUuid &source_uuid : changed_sources)
+    {
+        QSet<QUuid> visited;
+        rebuild_unit_outputs(source_uuid, visited);
     }
     if (changed_count > 0 && !m_context.IsNull())
     {
@@ -1954,7 +2042,7 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
 
 bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
 {
-    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    const std::shared_ptr<Unit> unit = resolve_effective_edit_unit(uuid);
     if (unit == nullptr)
     {
         return false;
@@ -1969,7 +2057,7 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
 
     for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
     {
-        if (it.key() == uuid || it.value() == nullptr)
+        if (it.key() == unit->inj.uuid || it.value() == nullptr)
         {
             continue;
         }
@@ -1981,7 +2069,7 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
     }
 
     UnitEditTransaction transaction;
-    transaction.uuid = uuid;
+    transaction.uuid = unit->inj.uuid;
     transaction.before_type = unit->type;
     transaction.before_data = unit->inj.injector_data;
     transaction.before_local_position = unit->assembly_local_position;
@@ -1989,6 +2077,10 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
     unit->inj.injector_data.name = normalized_name;
     record_edit(transaction, *unit);
     emit unit_data_updated(unit.get());
+    {
+        QSet<QUuid> visited;
+        rebuild_unit_outputs(unit->inj.uuid, visited);
+    }
     return true;
 }
 
@@ -2046,7 +2138,7 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
     }
 
     UnitEditTransaction transaction;
-    transaction.uuid = uuid;
+    transaction.uuid = unit->inj.uuid;
     transaction.before_type = unit->type;
     transaction.before_data = unit->inj.injector_data;
 

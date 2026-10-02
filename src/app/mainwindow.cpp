@@ -386,6 +386,7 @@ MainWindow::MainWindow(QWidget *parent)
             m_object_list->setCurrentItem(current, QItemSelectionModel::NoUpdate);
             m_object_list->scrollToItem(current);
         }
+        refresh_object_list_selection_colors();
         update_unit_position_controls();
     });
     connect(ui->actionUndo_Move, &QAction::triggered, m_3d_widget,
@@ -4235,10 +4236,34 @@ void MainWindow::create_object_list_panel()
         }
 
         const QUuid uuid(object_id);
-        if (uuid.isNull() || !m_3d_widget->select_unit_by_uuid(uuid))
+        QList<QUuid> selected_uuids;
+        for (QTreeWidgetItem *selected_item : m_object_list->selectedItems())
+        {
+            if (selected_item == nullptr ||
+                selected_item->data(0, Qt::UserRole + 1).toString() !=
+                    QStringLiteral("unit"))
+            {
+                continue;
+            }
+            const QUuid selected_uuid(
+                selected_item->data(0, Qt::UserRole).toString());
+            if (!selected_uuid.isNull() &&
+                m_3d_widget->unit_hash.contains(selected_uuid))
+            {
+                selected_uuids.append(selected_uuid);
+            }
+        }
+        if (uuid.isNull() || selected_uuids.isEmpty() ||
+            !m_3d_widget->select_units_by_uuid(selected_uuids, uuid))
         {
             update_object_list_panel();
         }
+    });
+    connect(m_object_list, &QTreeWidget::itemSelectionChanged, this,
+            [this]()
+    {
+        refresh_object_list_selection_colors();
+        update_unit_position_controls();
     });
     connect(m_object_list, &QTreeWidget::itemDoubleClicked, this,
             [this](QTreeWidgetItem *item, int)
@@ -5254,6 +5279,26 @@ void MainWindow::update_object_list_selection(const QUuid &uuid,
         }
     }
     update_unit_position_controls();
+}
+
+void MainWindow::refresh_object_list_selection_colors()
+{
+    if (m_object_list == nullptr)
+    {
+        return;
+    }
+
+    const QPalette palette = m_object_list->palette();
+    for (QTreeWidgetItem *item : m_object_list->all_items())
+    {
+        if (item == nullptr)
+        {
+            continue;
+        }
+        item->setForeground(0, item->isSelected()
+                                ? QBrush(QColor("#5AA9FF"))
+                                : palette.brush(QPalette::Text));
+    }
 }
 
 void MainWindow::update_unit_position_controls()
