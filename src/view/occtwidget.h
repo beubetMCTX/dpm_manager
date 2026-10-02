@@ -220,6 +220,8 @@ public:
     void rebuild_dependent_arrays(const QUuid &prototype_uuid,
                                   QSet<QUuid> &visited);
     int rebuild_unit_fill(const QUuid &source_uuid);
+    void rebuild_unit_outputs(const QUuid &source_uuid,
+                              QSet<QUuid> &visited);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);
     bool restore_unit_array_inheritance(const QUuid &uuid);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }

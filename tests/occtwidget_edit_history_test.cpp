@@ -102,6 +102,17 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    if (!check(widget.set_unit_direction_by_uuid(
+                   uuid, QVector3D(0.0f, 1.0f, 0.0f)),
+               "Editing an array source direction should succeed") ||
+        !check(widget.unit_hash.value(uuid)->child_units.size() == 2 &&
+                   widget.unit_hash.value(uuid)->child_units.first()
+                           ->inj.injector_data.vel ==
+                       QVector3D(0.0f, 1.0f, 0.0f),
+               "Editing an array source should rebuild its own children"))
+    {
+        return 1;
+    }
     if (!check(widget.create_unit_array(leaf_children.first()->inj.uuid,
                                         leaf_array) == 0,
                "Following array children must not become unstable array sources"))

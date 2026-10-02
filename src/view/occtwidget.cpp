@@ -1238,7 +1238,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     if (committed && unit != nullptr)
     {
         QSet<QUuid> visited;
-        rebuild_dependent_arrays(uuid, visited);
+        rebuild_unit_outputs(uuid, visited);
     }
 }
 
@@ -1353,7 +1353,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         QSet<QUuid> visited;
         for (const QUuid &uuid : operation_uuids)
         {
-            rebuild_dependent_arrays(uuid, visited);
+            rebuild_unit_outputs(uuid, visited);
         }
     }
     if (translated_count > 0 && !m_view.IsNull())
@@ -1451,7 +1451,7 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
-        rebuild_dependent_arrays(unit->inj.uuid, visited);
+        rebuild_unit_outputs(unit->inj.uuid, visited);
     }
     if (!m_view.IsNull())
     {
@@ -1492,7 +1492,7 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
-        rebuild_dependent_arrays(unit->inj.uuid, visited);
+        rebuild_unit_outputs(unit->inj.uuid, visited);
     }
     if (!m_view.IsNull())
     {
@@ -1552,7 +1552,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
-        rebuild_dependent_arrays(unit->inj.uuid, visited);
+        rebuild_unit_outputs(unit->inj.uuid, visited);
     }
     if (!m_view.IsNull())
     {
@@ -1605,7 +1605,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
-        rebuild_dependent_arrays(unit->inj.uuid, visited);
+        rebuild_unit_outputs(unit->inj.uuid, visited);
     }
     if (!m_view.IsNull())
     {
@@ -1843,7 +1843,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         QSet<QUuid> visited;
         for (const QUuid &uuid : operation_uuids)
         {
-            rebuild_dependent_arrays(uuid, visited);
+            rebuild_unit_outputs(uuid, visited);
         }
     }
     if (rotated_count > 0 && !m_view.IsNull())
@@ -2307,7 +2307,7 @@ node->ais_display->SetLocalTransformation(gp_Trsf());
     }
     m_active_edit_batch_id = QUuid();
     QSet<QUuid> visited;
-    rebuild_dependent_arrays(uuid, visited);
+    rebuild_unit_outputs(uuid, visited);
     emit unit_data_updated(unit.get());
     m_view->Redraw();
     return true;
@@ -3508,6 +3508,31 @@ void OCCTWidget::rebuild_dependent_arrays(const QUuid &prototype_uuid,
             rebuild_unit_fill(root_uuid);
         }
     }
+}
+
+void OCCTWidget::rebuild_unit_outputs(const QUuid &source_uuid,
+                                      QSet<QUuid> &visited)
+{
+    if (source_uuid.isNull() || visited.contains(source_uuid))
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr)
+    {
+        return;
+    }
+
+    if (source->has_array_spec)
+    {
+        rebuild_unit_array(source_uuid);
+    }
+    else if (source->has_fill_spec)
+    {
+        rebuild_unit_fill(source_uuid);
+    }
+    rebuild_dependent_arrays(source_uuid, visited);
 }
 
 bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
@@ -6036,12 +6061,8 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         configured_injector_transparency(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
-    if (unit->has_array_spec && !unit->is_array_child)
-    {
-        rebuild_unit_array(unit->inj.uuid);
-    }
     QSet<QUuid> visited;
-    rebuild_dependent_arrays(unit->inj.uuid, visited);
+    rebuild_unit_outputs(unit->inj.uuid, visited);
     m_view->Redraw();
 }
 
