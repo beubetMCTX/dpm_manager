@@ -133,6 +133,7 @@ private:
                                 bool show_status_feedback);
     void update_chemkin_status();
     void create_reference_geometry_panel();
+    void apply_reference_geometry_display_units();
     void update_reference_geometry_panel();
     void update_reference_geometry_controls();
     void create_array_editor_panel();

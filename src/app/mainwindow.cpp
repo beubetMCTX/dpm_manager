@@ -349,9 +349,9 @@ MainWindow::MainWindow(QWidget *parent)
         const auto format_vector = [](const QVector3D &value)
         {
             return QString("(%1, %2, %3)")
-                .arg(value.x(), 0, 'f', 3)
-                .arg(value.y(), 0, 'f', 3)
-                .arg(value.z(), 0, 'f', 3);
+                .arg(storage_length_to_display(value.x()), 0, 'f', 3)
+                .arg(storage_length_to_display(value.y()), 0, 'f', 3)
+                .arg(storage_length_to_display(value.z()), 0, 'f', 3);
         };
         m_reference_face_origin->setText(format_vector(origin));
         m_reference_face_normal->setText(format_vector(normal));
@@ -554,6 +554,12 @@ void MainWindow::open_unit_preferences_dialog()
         load_array_editor_layer(m_array_editor_layers == nullptr
                                     ? -1
                                     : m_array_editor_layers->currentRow());
+    }
+    if (m_reference_geometry_dock != nullptr &&
+        m_reference_geometry_dock->isVisible())
+    {
+        apply_reference_geometry_display_units();
+        update_reference_geometry_panel();
     }
     statusBar()->showMessage("Display units updated", 3000);
 }
@@ -2094,6 +2100,7 @@ void MainWindow::create_reference_geometry_panel()
     m_create_alignment_frame = new QPushButton("Create Alignment Frame", panel);
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
+    apply_reference_geometry_display_units();
 
     auto *source_group = new QGroupBox("Source", panel);
     auto *source_layout = new QFormLayout(source_group);
@@ -2298,6 +2305,37 @@ void MainWindow::update_reference_geometry_controls()
     m_reference_geometry_lock->setEnabled(available);
 }
 
+void MainWindow::apply_reference_geometry_display_units()
+{
+    if (m_reference_position_x == nullptr)
+    {
+        return;
+    }
+
+    const QString length_suffix = QStringLiteral(" ") +
+        UnitSystem::preferred_display_unit("m");
+    const QString angle_suffix = QStringLiteral(" ") +
+        UnitSystem::preferred_display_unit("deg");
+    for (QDoubleSpinBox *spin : {m_reference_position_x,
+                                 m_reference_position_y,
+                                 m_reference_position_z})
+    {
+        if (spin != nullptr)
+        {
+            spin->setSuffix(length_suffix);
+        }
+    }
+    for (QDoubleSpinBox *spin : {m_reference_rotation_x,
+                                 m_reference_rotation_y,
+                                 m_reference_rotation_z})
+    {
+        if (spin != nullptr)
+        {
+            spin->setSuffix(angle_suffix);
+        }
+    }
+}
+
 void MainWindow::update_reference_geometry_panel()
 {
     if (m_3d_widget == nullptr || m_reference_position_x == nullptr)
@@ -2319,12 +2357,13 @@ void MainWindow::update_reference_geometry_panel()
     const QSignalBlocker rotation_x_blocker(m_reference_rotation_x);
     const QSignalBlocker rotation_y_blocker(m_reference_rotation_y);
     const QSignalBlocker rotation_z_blocker(m_reference_rotation_z);
-    m_reference_position_x->setValue(position.x());
-    m_reference_position_y->setValue(position.y());
-    m_reference_position_z->setValue(position.z());
-    m_reference_rotation_x->setValue(rotation.x());
-    m_reference_rotation_y->setValue(rotation.y());
-    m_reference_rotation_z->setValue(rotation.z());
+    apply_reference_geometry_display_units();
+    m_reference_position_x->setValue(storage_length_to_display(position.x()));
+    m_reference_position_y->setValue(storage_length_to_display(position.y()));
+    m_reference_position_z->setValue(storage_length_to_display(position.z()));
+    m_reference_rotation_x->setValue(storage_angle_to_display(rotation.x()));
+    m_reference_rotation_y->setValue(storage_angle_to_display(rotation.y()));
+    m_reference_rotation_z->setValue(storage_angle_to_display(rotation.z()));
     update_reference_geometry_controls();
 }
 
@@ -4758,24 +4797,37 @@ void MainWindow::create_object_list_panel()
             if (array_type == "Linear")
             {
                 spec.type = UnitArrayType::Linear;
-                spec.spacing = static_cast<float>(QInputDialog::getDouble(
-                    this, "Linear Array", "Spacing:", 5.0, -1.0e6, 1.0e6,
-                    3, &accepted));
+                const double spacing = QInputDialog::getDouble(
+                    this, "Linear Array",
+                    QString("Spacing (%1):").arg(
+                        UnitSystem::preferred_display_unit("m")),
+                    storage_length_to_display(0.005), -1.0e12, 1.0e12,
+                    3, &accepted);
+                spec.spacing = static_cast<float>(display_length_to_storage(spacing));
             }
             else if (array_type == "Rotational")
             {
                 spec.type = UnitArrayType::Rotational;
                 spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
                 spec.angle_degrees = QInputDialog::getDouble(
-                    this, "Rotational Array", "Total angle (degrees):",
-                    360.0, -360000.0, 360000.0, 3, &accepted);
+                    this, "Rotational Array",
+                    QString("Total angle (%1):").arg(
+                        UnitSystem::preferred_display_unit("deg")),
+                    storage_angle_to_display(360.0), -360000.0, 360000.0,
+                    3, &accepted);
+                spec.angle_degrees = static_cast<float>(
+                    display_angle_to_storage(spec.angle_degrees));
                 if (!accepted)
                 {
                     return;
                 }
-                spec.spacing = static_cast<float>(QInputDialog::getDouble(
-                    this, "Rotational Array", "Axial spacing per child:",
-                    0.0, -1.0e6, 1.0e6, 3, &accepted));
+                const double spacing = QInputDialog::getDouble(
+                    this, "Rotational Array",
+                    QString("Axial spacing per child (%1):").arg(
+                        UnitSystem::preferred_display_unit("m")),
+                    storage_length_to_display(0.0), -1.0e12, 1.0e12,
+                    3, &accepted);
+                spec.spacing = static_cast<float>(display_length_to_storage(spacing));
                 if (!accepted)
                 {
                     return;
@@ -4790,23 +4842,38 @@ void MainWindow::create_object_list_panel()
             else
             {
                 spec.type = UnitArrayType::Elliptical;
-                spec.major_radius = static_cast<float>(QInputDialog::getDouble(
-                    this, "Elliptical Array", "Major radius:", 10.0,
-                    0.0, 1.0e6, 3, &accepted));
+                const double major_radius = QInputDialog::getDouble(
+                    this, "Elliptical Array",
+                    QString("Major radius (%1):").arg(
+                        UnitSystem::preferred_display_unit("m")),
+                    storage_length_to_display(0.010), 0.0, 1.0e12, 3,
+                    &accepted);
+                spec.major_radius = static_cast<float>(
+                    display_length_to_storage(major_radius));
                 if (!accepted)
                 {
                     return;
                 }
-                spec.minor_radius = static_cast<float>(QInputDialog::getDouble(
-                    this, "Elliptical Array", "Minor radius:", 5.0,
-                    0.0, 1.0e6, 3, &accepted));
+                const double minor_radius = QInputDialog::getDouble(
+                    this, "Elliptical Array",
+                    QString("Minor radius (%1):").arg(
+                        UnitSystem::preferred_display_unit("m")),
+                    storage_length_to_display(0.005), 0.0, 1.0e12, 3,
+                    &accepted);
+                spec.minor_radius = static_cast<float>(
+                    display_length_to_storage(minor_radius));
                 if (!accepted)
                 {
                     return;
                 }
                 spec.angle_degrees = QInputDialog::getDouble(
-                    this, "Elliptical Array", "Total angle (degrees):",
-                    360.0, -360000.0, 360000.0, 3, &accepted);
+                    this, "Elliptical Array",
+                    QString("Total angle (%1):").arg(
+                        UnitSystem::preferred_display_unit("deg")),
+                    storage_angle_to_display(360.0), -360000.0, 360000.0,
+                    3, &accepted);
+                spec.angle_degrees = static_cast<float>(
+                    display_angle_to_storage(spec.angle_degrees));
                 if (!accepted)
                 {
                     return;
@@ -4916,16 +4983,26 @@ void MainWindow::create_object_list_panel()
                     spec.source_weights.append(weight);
                 }
             }
-            spec.spacing_x = static_cast<float>(QInputDialog::getDouble(
-                this, "Create Fill", "X spacing:", 5.0, -1.0e6, 1.0e6,
-                3, &accepted));
+            const double spacing_x = QInputDialog::getDouble(
+                this, "Create Fill",
+                QString("X spacing (%1):").arg(
+                    UnitSystem::preferred_display_unit("m")),
+                storage_length_to_display(0.005), -1.0e12, 1.0e12,
+                3, &accepted);
+            spec.spacing_x = static_cast<float>(
+                display_length_to_storage(spacing_x));
             if (!accepted)
             {
                 return;
             }
-            spec.spacing_y = static_cast<float>(QInputDialog::getDouble(
-                this, "Create Fill", "Y spacing:", 5.0, -1.0e6, 1.0e6,
-                3, &accepted));
+            const double spacing_y = QInputDialog::getDouble(
+                this, "Create Fill",
+                QString("Y spacing (%1):").arg(
+                    UnitSystem::preferred_display_unit("m")),
+                storage_length_to_display(0.005), -1.0e12, 1.0e12,
+                3, &accepted);
+            spec.spacing_y = static_cast<float>(
+                display_length_to_storage(spacing_y));
             if (!accepted)
             {
                 return;
@@ -4936,9 +5013,14 @@ void MainWindow::create_object_list_panel()
                                      QMessageBox::Yes;
             if (spec.circular_boundary)
             {
-                spec.boundary_radius = static_cast<float>(QInputDialog::getDouble(
-                    this, "Create Fill", "Boundary radius:", 20.0,
-                    0.0, 1.0e6, 3, &accepted));
+                const double boundary_radius = QInputDialog::getDouble(
+                    this, "Create Fill",
+                    QString("Boundary radius (%1):").arg(
+                        UnitSystem::preferred_display_unit("m")),
+                    storage_length_to_display(0.020), 0.0, 1.0e12, 3,
+                    &accepted);
+                spec.boundary_radius = static_cast<float>(
+                    display_length_to_storage(boundary_radius));
                 if (!accepted)
                 {
                     return;
@@ -5614,12 +5696,18 @@ void MainWindow::apply_reference_geometry_transform()
 
     m_3d_widget->begin_reference_transform_transaction();
     m_3d_widget->set_reference_transform(
-        QVector3D(static_cast<float>(m_reference_position_x->value()),
-                  static_cast<float>(m_reference_position_y->value()),
-                  static_cast<float>(m_reference_position_z->value())),
-        QVector3D(static_cast<float>(m_reference_rotation_x->value()),
-                  static_cast<float>(m_reference_rotation_y->value()),
-                  static_cast<float>(m_reference_rotation_z->value())));
+        QVector3D(static_cast<float>(display_length_to_storage(
+                      m_reference_position_x->value())),
+                  static_cast<float>(display_length_to_storage(
+                      m_reference_position_y->value())),
+                  static_cast<float>(display_length_to_storage(
+                      m_reference_position_z->value()))),
+        QVector3D(static_cast<float>(display_angle_to_storage(
+                      m_reference_rotation_x->value())),
+                  static_cast<float>(display_angle_to_storage(
+                      m_reference_rotation_y->value())),
+                  static_cast<float>(display_angle_to_storage(
+                      m_reference_rotation_z->value()))));
     m_3d_widget->finish_reference_transform_transaction();
     mark_project_dirty();
     save_reference_geometry_state();
