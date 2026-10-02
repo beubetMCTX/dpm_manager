@@ -119,6 +119,7 @@ private:
     void create_reference_geometry_panel();
     void update_reference_geometry_panel();
     void update_reference_geometry_controls();
+    void create_array_editor_panel();
     void position_viewport_interaction_toolbar();
     void apply_reference_geometry_transform();
     void create_object_list_panel();
@@ -179,6 +180,9 @@ private:
     QLabel *m_reference_face_normal = nullptr;
     QDockWidget *m_object_list_dock = nullptr;
     QListWidget *m_object_list = nullptr;
+    QDockWidget *m_array_editor_dock = nullptr;
+    QLabel *m_array_editor_source_label = nullptr;
+    QUuid m_array_editor_source_uuid;
     QLineEdit *m_object_filter = nullptr;
     QDoubleSpinBox *m_unit_position_x = nullptr;
     QDoubleSpinBox *m_unit_position_y = nullptr;

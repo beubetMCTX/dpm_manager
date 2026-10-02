@@ -31,7 +31,9 @@
 #include <QInputDialog>
 #include <QMenu>
 #include <QComboBox>
+#include <QSpinBox>
 #include <QSignalBlocker>
+#include <QScrollArea>
 #include <QStackedWidget>
 #include <QWidget>
 #include <QVBoxLayout>
@@ -45,15 +47,6 @@
 
 namespace
 {
-// Keep preview construction in sync with Injector's opt-in geometry switch.
-// The stable preview is shown in both Debug and Release builds; advanced
-// atomizer previews remain opt-in because their geometry is experimental.
-#ifdef DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW
-constexpr bool kEnableAdvancedAtomizerPreview = true;
-#else
-constexpr bool kEnableAdvancedAtomizerPreview = false;
-#endif
-
 bool material_entries_equal(const QList<MaterialConfigEntry> &lhs,
                             const QList<MaterialConfigEntry> &rhs)
 {
@@ -196,6 +189,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     create_reference_geometry_panel();
     create_object_list_panel();
+    create_array_editor_panel();
     connect(ui->actionObjects, &QAction::toggled, this, [this](bool visible)
     {
         if (m_object_list_dock != nullptr)
@@ -462,10 +456,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     restore_material_table();
     runtime_debug::trace("MainWindow material table restored");
-    m_loading_project_session = true;
-    restore_reference_geometry();
-    m_loading_project_session = false;
-    runtime_debug::trace("MainWindow reference geometry restore finished");
+    // Keep the default preview scene clean. Reference geometry is restored
+    // only when an explicit project session is opened.
+    runtime_debug::trace("MainWindow skipped global reference geometry restore");
     restore_last_chemkin_file();
     runtime_debug::trace("MainWindow chemkin file restore finished");
     restore_window_layout();
@@ -2258,6 +2251,352 @@ void MainWindow::save_window_layout()
     }
 }
 
+void MainWindow::create_array_editor_panel()
+{
+    m_array_editor_dock = new QDockWidget(tr("Array Editor"), this);
+    m_array_editor_dock->setObjectName(QStringLiteral("arrayEditorDock"));
+    m_array_editor_dock->setAllowedAreas(Qt::RightDockWidgetArea);
+    m_array_editor_dock->setMinimumWidth(330);
+
+    auto *scroll_area = new QScrollArea(m_array_editor_dock);
+    scroll_area->setWidgetResizable(true);
+    scroll_area->setFrameShape(QFrame::NoFrame);
+
+    auto *panel = new QWidget(scroll_area);
+    auto *layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setSpacing(8);
+
+    auto *source_group = new QGroupBox(tr("Array Source"), panel);
+    auto *source_layout = new QVBoxLayout(source_group);
+    m_array_editor_source_label = new QLabel(tr("Source: <none>"), source_group);
+    m_array_editor_source_label->setWordWrap(true);
+    source_layout->addWidget(m_array_editor_source_label);
+    layout->addWidget(source_group);
+
+    auto *pattern_group = new QGroupBox(tr("Pattern"), panel);
+    auto *pattern_layout = new QFormLayout(pattern_group);
+    auto *type = new QComboBox(pattern_group);
+    type->addItems({tr("Linear"), tr("Rotational"), tr("Mirror"), tr("Elliptical")});
+    auto *count = new QSpinBox(pattern_group);
+    count->setRange(1, 100000);
+    count->setValue(4);
+    pattern_layout->addRow(tr("Array type"), type);
+    pattern_layout->addRow(tr("Children"), count);
+    layout->addWidget(pattern_group);
+
+    auto make_double_spin = [panel](double value, int decimals = 4)
+    {
+        auto *spin = new QDoubleSpinBox(panel);
+        spin->setRange(-1.0e6, 1.0e6);
+        spin->setDecimals(decimals);
+        spin->setValue(value);
+        return spin;
+    };
+
+    auto *parameter_stack = new QStackedWidget(panel);
+    auto *linear_page = new QWidget(parameter_stack);
+    auto *linear_form = new QFormLayout(linear_page);
+    auto *linear_spacing = make_double_spin(0.004, 6);
+    linear_form->addRow(tr("Spacing"), linear_spacing);
+
+    auto *rotational_page = new QWidget(parameter_stack);
+    auto *rotational_form = new QFormLayout(rotational_page);
+    auto *rotational_angle = make_double_spin(360.0, 3);
+    auto *rotational_spacing = make_double_spin(0.0, 6);
+    rotational_form->addRow(tr("Total angle"), rotational_angle);
+    rotational_form->addRow(tr("Axial spacing"), rotational_spacing);
+
+    auto *mirror_page = new QWidget(parameter_stack);
+    auto *mirror_form = new QFormLayout(mirror_page);
+    mirror_form->addRow(new QLabel(
+        tr("Mirror uses the plane normal defined below."), mirror_page));
+
+    auto *elliptical_page = new QWidget(parameter_stack);
+    auto *elliptical_form = new QFormLayout(elliptical_page);
+    auto *major_radius = make_double_spin(0.010, 6);
+    auto *minor_radius = make_double_spin(0.005, 6);
+    auto *elliptical_angle = make_double_spin(360.0, 3);
+    elliptical_form->addRow(tr("Major radius"), major_radius);
+    elliptical_form->addRow(tr("Minor radius"), minor_radius);
+    elliptical_form->addRow(tr("Total angle"), elliptical_angle);
+
+    parameter_stack->addWidget(linear_page);
+    parameter_stack->addWidget(rotational_page);
+    parameter_stack->addWidget(mirror_page);
+    parameter_stack->addWidget(elliptical_page);
+
+    auto *parameters_group = new QGroupBox(tr("Pattern Parameters"), panel);
+    auto *parameters_layout = new QVBoxLayout(parameters_group);
+    parameters_layout->addWidget(parameter_stack);
+    layout->addWidget(parameters_group);
+
+    auto *frame_group = new QGroupBox(tr("Coordinate Frame"), panel);
+    auto *frame_layout = new QFormLayout(frame_group);
+    auto *frame_mode = new QComboBox(frame_group);
+    frame_mode->addItems({tr("World / custom vectors"),
+                          tr("Selected face / reference geometry")});
+    frame_layout->addRow(tr("Reference"), frame_mode);
+
+    auto *origin_x = make_double_spin(0.0);
+    auto *origin_y = make_double_spin(0.0);
+    auto *origin_z = make_double_spin(0.0);
+    // Start linear previews on a visible transverse axis instead of stacking
+    // every child along the injector's usual X direction.
+    auto *direction_x = make_double_spin(0.0);
+    auto *direction_y = make_double_spin(1.0);
+    auto *direction_z = make_double_spin(0.0);
+    auto *normal_x = make_double_spin(1.0);
+    auto *normal_y = make_double_spin(0.0);
+    auto *normal_z = make_double_spin(0.0);
+    frame_layout->addRow(tr("Origin X"), origin_x);
+    frame_layout->addRow(tr("Origin Y"), origin_y);
+    frame_layout->addRow(tr("Origin Z"), origin_z);
+    frame_layout->addRow(tr("Direction X"), direction_x);
+    frame_layout->addRow(tr("Direction Y"), direction_y);
+    frame_layout->addRow(tr("Direction Z"), direction_z);
+    frame_layout->addRow(tr("Plane normal X"), normal_x);
+    frame_layout->addRow(tr("Plane normal Y"), normal_y);
+    frame_layout->addRow(tr("Plane normal Z"), normal_z);
+    layout->addWidget(frame_group);
+
+    auto *hint = new QLabel(
+        tr("This is the first dockable layout. The array geometry is rebuilt\n"
+           "only after Apply is pressed."), panel);
+    hint->setWordWrap(true);
+    layout->addWidget(hint);
+
+    auto *buttons = new QDialogButtonBox(
+        QDialogButtonBox::Apply | QDialogButtonBox::Close, panel);
+    layout->addWidget(buttons);
+    layout->addStretch();
+
+    connect(type, qOverload<int>(&QComboBox::currentIndexChanged),
+            parameter_stack, &QStackedWidget::setCurrentIndex);
+    connect(type, qOverload<int>(&QComboBox::currentIndexChanged),
+            count, [count](int index)
+    {
+        const bool mirror = index == 2;
+        count->setEnabled(!mirror);
+        if (mirror)
+        {
+            count->setValue(2);
+        }
+    });
+    connect(frame_mode, qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this, origin_x, origin_y, origin_z, direction_x,
+                   direction_y, direction_z, normal_x, normal_y,
+                   normal_z](int index)
+    {
+        const bool custom = index == 0;
+        for (QDoubleSpinBox *spin : {origin_x, origin_y, origin_z,
+                                     direction_x, direction_y, direction_z,
+                                     normal_x, normal_y, normal_z})
+        {
+            spin->setEnabled(custom);
+        }
+        if (!custom && m_3d_widget != nullptr)
+        {
+            QVector3D origin;
+            QVector3D reference_x;
+            QVector3D reference_z;
+            if (m_3d_widget->reference_frame(&origin, &reference_x, &reference_z))
+            {
+                origin_x->setValue(origin.x());
+                origin_y->setValue(origin.y());
+                origin_z->setValue(origin.z());
+                direction_x->setValue(reference_x.x());
+                direction_y->setValue(reference_x.y());
+                direction_z->setValue(reference_x.z());
+                normal_x->setValue(reference_z.x());
+                normal_y->setValue(reference_z.y());
+                normal_z->setValue(reference_z.z());
+            }
+        }
+    });
+
+    auto build_array_spec = [this, type, count, linear_spacing,
+                             rotational_angle, rotational_spacing,
+                             major_radius, minor_radius, elliptical_angle,
+                             frame_mode, origin_x, origin_y, origin_z,
+                             direction_x, direction_y, direction_z,
+                             normal_x, normal_y, normal_z](UnitArraySpec *output,
+                                                            bool show_warning)
+    {
+        if (output == nullptr || m_3d_widget == nullptr ||
+            m_array_editor_source_uuid.isNull())
+        {
+            return false;
+        }
+
+        const auto source = m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
+        if (source == nullptr)
+        {
+            return false;
+        }
+
+        UnitArraySpec spec;
+        spec.count = count->value();
+        switch (type->currentIndex())
+        {
+        case 0:
+            spec.type = UnitArrayType::Linear;
+            spec.spacing = static_cast<float>(linear_spacing->value());
+            break;
+        case 1:
+            spec.type = UnitArrayType::Rotational;
+            spec.angle_degrees = static_cast<float>(rotational_angle->value());
+            spec.spacing = static_cast<float>(rotational_spacing->value());
+            break;
+        case 2:
+            spec.type = UnitArrayType::Mirror;
+            spec.count = 2;
+            break;
+        default:
+            spec.type = UnitArrayType::Elliptical;
+            spec.major_radius = static_cast<float>(major_radius->value());
+            spec.minor_radius = static_cast<float>(minor_radius->value());
+            spec.angle_degrees = static_cast<float>(elliptical_angle->value());
+            break;
+        }
+
+        if (frame_mode->currentIndex() == 1)
+        {
+            QVector3D origin;
+            QVector3D reference_x;
+            QVector3D reference_z;
+            if (!m_3d_widget->reference_frame(&origin, &reference_x, &reference_z))
+            {
+                if (show_warning)
+                {
+                    QMessageBox::warning(
+                        this, tr("Array Editor"),
+                        tr("No usable reference coordinate frame is available."));
+                }
+                return false;
+            }
+            spec.use_reference_geometry = true;
+            spec.origin = origin;
+            spec.direction = reference_x;
+            spec.plane_normal = reference_z;
+        }
+        else
+        {
+            spec.origin = QVector3D(
+                static_cast<float>(origin_x->value()),
+                static_cast<float>(origin_y->value()),
+                static_cast<float>(origin_z->value()));
+            if (spec.type == UnitArrayType::Linear)
+            {
+                spec.origin = source->inj.injector_data.pos;
+            }
+            spec.direction = QVector3D(
+                static_cast<float>(direction_x->value()),
+                static_cast<float>(direction_y->value()),
+                static_cast<float>(direction_z->value()));
+            spec.plane_normal = QVector3D(
+                static_cast<float>(normal_x->value()),
+                static_cast<float>(normal_y->value()),
+                static_cast<float>(normal_z->value()));
+        }
+
+        *output = spec;
+        return true;
+    };
+
+    auto refresh_array_preview = [this, build_array_spec]()
+    {
+        UnitArraySpec spec;
+        if (build_array_spec(&spec, false))
+        {
+            m_3d_widget->update_array_preview(
+                m_array_editor_source_uuid, spec);
+        }
+        else if (m_3d_widget != nullptr)
+        {
+            m_3d_widget->clear_array_preview();
+        }
+    };
+
+    connect(type, qOverload<int>(&QComboBox::currentIndexChanged),
+            panel, [refresh_array_preview](int)
+    {
+        refresh_array_preview();
+    });
+    connect(frame_mode, qOverload<int>(&QComboBox::currentIndexChanged),
+            panel, [refresh_array_preview](int)
+    {
+        refresh_array_preview();
+    });
+    connect(count, qOverload<int>(&QSpinBox::valueChanged),
+            panel, [refresh_array_preview](int)
+    {
+        refresh_array_preview();
+    });
+    for (QDoubleSpinBox *spin : {linear_spacing, rotational_angle,
+                                 rotational_spacing, major_radius,
+                                 minor_radius, elliptical_angle, origin_x,
+                                 origin_y, origin_z, direction_x, direction_y,
+                                 direction_z, normal_x, normal_y, normal_z})
+    {
+        connect(spin, qOverload<double>(&QDoubleSpinBox::valueChanged),
+                panel, [refresh_array_preview](double)
+        {
+            refresh_array_preview();
+        });
+    }
+
+    connect(buttons->button(QDialogButtonBox::Close), &QPushButton::clicked,
+            this, [this]()
+    {
+        if (m_3d_widget != nullptr)
+        {
+            m_3d_widget->clear_array_preview();
+        }
+        if (m_array_editor_dock != nullptr)
+        {
+            m_array_editor_dock->hide();
+        }
+    });
+    connect(buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked,
+            this, [this, build_array_spec]()
+    {
+        UnitArraySpec spec;
+        if (!build_array_spec(&spec, true))
+        {
+            return;
+        }
+
+        m_3d_widget->clear_array_preview();
+        const int created = m_3d_widget->create_unit_array(
+            m_array_editor_source_uuid, spec);
+        if (created <= 0)
+        {
+            QMessageBox::warning(this, tr("Array Editor"),
+                                 tr("The array could not be created."));
+            return;
+        }
+        mark_project_dirty();
+        update_object_list_panel();
+        statusBar()->showMessage(
+            tr("Created %1 array child units").arg(created), 5000);
+    });
+
+    connect(m_array_editor_dock, &QDockWidget::visibilityChanged,
+            this, [this](bool visible)
+    {
+        if (!visible && m_3d_widget != nullptr)
+        {
+            m_3d_widget->clear_array_preview();
+        }
+    });
+
+    scroll_area->setWidget(panel);
+    m_array_editor_dock->setWidget(scroll_area);
+    addDockWidget(Qt::RightDockWidgetArea, m_array_editor_dock);
+    m_array_editor_dock->hide();
+}
+
 void MainWindow::reset_window_layout()
 {
     resize(1280, 720);
@@ -2517,7 +2856,8 @@ void MainWindow::create_object_list_panel()
     });
     connect(array_tools_action, &QAction::triggered, this, [this]()
     {
-        if (m_object_list == nullptr || m_3d_widget == nullptr)
+        if (m_object_list == nullptr || m_3d_widget == nullptr ||
+            m_array_editor_dock == nullptr)
         {
             return;
         }
@@ -2528,163 +2868,16 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        const QUuid source_uuid(item->data(Qt::UserRole).toString());
-        auto *dialog = new QDialog(this);
-        dialog->setAttribute(Qt::WA_DeleteOnClose);
-        dialog->setWindowTitle(tr("Array Tools"));
-        dialog->setModal(false);
-        dialog->resize(430, 360);
-
-        auto *layout = new QVBoxLayout(dialog);
-        auto *form = new QFormLayout();
-        auto *type = new QComboBox(dialog);
-        type->addItems({tr("Linear"), tr("Rotational"), tr("Mirror"), tr("Elliptical")});
-        auto *count = new QSpinBox(dialog);
-        count->setRange(1, 100000);
-        count->setValue(4);
-        auto *spacing = new QDoubleSpinBox(dialog);
-        spacing->setRange(-1.0e6, 1.0e6);
-        spacing->setDecimals(3);
-        spacing->setValue(5.0);
-        auto *angle = new QDoubleSpinBox(dialog);
-        angle->setRange(-360000.0, 360000.0);
-        angle->setDecimals(3);
-        angle->setValue(360.0);
-        auto *major_radius = new QDoubleSpinBox(dialog);
-        major_radius->setRange(0.0, 1.0e6);
-        major_radius->setDecimals(3);
-        major_radius->setValue(10.0);
-        auto *minor_radius = new QDoubleSpinBox(dialog);
-        minor_radius->setRange(0.0, 1.0e6);
-        minor_radius->setDecimals(3);
-        minor_radius->setValue(5.0);
-        auto make_vector_component = [dialog](double value)
+        m_3d_widget->clear_array_preview();
+        m_array_editor_source_uuid = QUuid(item->data(Qt::UserRole).toString());
+        const auto source = m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
+        if (m_array_editor_source_label != nullptr && source != nullptr)
         {
-            auto *spin = new QDoubleSpinBox(dialog);
-            spin->setRange(-1.0e6, 1.0e6);
-            spin->setDecimals(4);
-            spin->setValue(value);
-            return spin;
-        };
-        auto *direction_x = make_vector_component(1.0);
-        auto *direction_y = make_vector_component(0.0);
-        auto *direction_z = make_vector_component(0.0);
-        auto *normal_x = make_vector_component(1.0);
-        auto *normal_y = make_vector_component(0.0);
-        auto *normal_z = make_vector_component(0.0);
-        auto *use_reference = new QCheckBox(
-            tr("Use selected/visible reference coordinate frame"), dialog);
-        use_reference->setChecked(m_3d_widget->has_selected_face() ||
-                                  m_3d_widget->reference_geometry_visible());
-        form->addRow(tr("Array type"), type);
-        form->addRow(tr("Children"), count);
-        form->addRow(tr("Spacing"), spacing);
-        form->addRow(tr("Total angle"), angle);
-        form->addRow(tr("Major radius"), major_radius);
-        form->addRow(tr("Minor radius"), minor_radius);
-        form->addRow(tr("Array vector X"), direction_x);
-        form->addRow(tr("Array vector Y"), direction_y);
-        form->addRow(tr("Array vector Z"), direction_z);
-        form->addRow(tr("Plane normal X"), normal_x);
-        form->addRow(tr("Plane normal Y"), normal_y);
-        form->addRow(tr("Plane normal Z"), normal_z);
-        layout->addLayout(form);
-        layout->addWidget(use_reference);
-
-        auto *hint = new QLabel(
-            tr("The fields are shared by the supported array types.\n"
-               "Unused fields are ignored when applying."), dialog);
-        hint->setWordWrap(true);
-        layout->addWidget(hint);
-        auto *buttons = new QDialogButtonBox(
-            QDialogButtonBox::Apply | QDialogButtonBox::Close, dialog);
-        layout->addWidget(buttons);
-
-        connect(buttons->button(QDialogButtonBox::Close), &QPushButton::clicked,
-                dialog, &QDialog::close);
-        connect(buttons->button(QDialogButtonBox::Apply), &QPushButton::clicked,
-                this, [this, dialog, source_uuid, type, count, spacing, angle,
-                       major_radius, minor_radius, direction_x, direction_y,
-                       direction_z, normal_x, normal_y, normal_z, use_reference]()
-        {
-            UnitArraySpec spec;
-            spec.count = count->value();
-            const int index = type->currentIndex();
-            if (index == 0)
-            {
-                spec.type = UnitArrayType::Linear;
-                spec.spacing = static_cast<float>(spacing->value());
-            }
-            else if (index == 1)
-            {
-                spec.type = UnitArrayType::Rotational;
-                spec.angle_degrees = angle->value();
-                spec.spacing = static_cast<float>(spacing->value());
-                spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
-            }
-            else if (index == 2)
-            {
-                spec.type = UnitArrayType::Mirror;
-                spec.count = 2;
-                spec.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
-            }
-            else
-            {
-                spec.type = UnitArrayType::Elliptical;
-                spec.major_radius = static_cast<float>(major_radius->value());
-                spec.minor_radius = static_cast<float>(minor_radius->value());
-                spec.angle_degrees = angle->value();
-            }
-
-            if (use_reference->isChecked())
-            {
-                QVector3D origin;
-                QVector3D reference_x;
-                QVector3D reference_z;
-                if (!m_3d_widget->reference_frame(&origin, &reference_x,
-                                                  &reference_z))
-                {
-                    QMessageBox::warning(this, tr("Array Tools"),
-                                         tr("No usable reference coordinate frame is available."));
-                    return;
-                }
-                spec.use_reference_geometry = true;
-                spec.origin = origin;
-                spec.direction = reference_x;
-                spec.plane_normal = reference_z;
-            }
-            else
-            {
-                const auto source = m_3d_widget->unit_hash.value(source_uuid);
-                if (source != nullptr)
-                {
-                    spec.origin = source->inj.injector_data.pos;
-                }
-                spec.direction = QVector3D(
-                    static_cast<float>(direction_x->value()),
-                    static_cast<float>(direction_y->value()),
-                    static_cast<float>(direction_z->value()));
-                spec.plane_normal = QVector3D(
-                    static_cast<float>(normal_x->value()),
-                    static_cast<float>(normal_y->value()),
-                    static_cast<float>(normal_z->value()));
-            }
-
-            const int created = m_3d_widget->create_unit_array(source_uuid, spec);
-            if (created <= 0)
-            {
-                QMessageBox::warning(this, tr("Array Tools"),
-                                     tr("The array could not be created."));
-                return;
-            }
-            mark_project_dirty();
-            update_object_list_panel();
-            statusBar()->showMessage(
-                tr("Created %1 array child units").arg(created), 5000);
-        });
-        dialog->show();
-        dialog->raise();
-        dialog->activateWindow();
+            m_array_editor_source_label->setText(
+                tr("Source: %1").arg(source->inj.injector_data.name));
+        }
+        m_array_editor_dock->show();
+        m_array_editor_dock->raise();
     });
     connect(fill_tools_action, &QAction::triggered, this, [this]()
     {
@@ -4802,6 +4995,20 @@ QList<Unit> MainWindow::build_test_injector_units() const
         scale_vector(injector.ff_virtual_origin);
         scale_vector(injector.volume_bgeom_min);
         scale_vector(injector.volume_bgeom_max);
+        if (unit.has_array_spec)
+        {
+            scale_vector(unit.array_spec.origin);
+            unit.array_spec.spacing *= kPreviewGeometryScale;
+            unit.array_spec.major_radius *= kPreviewGeometryScale;
+            unit.array_spec.minor_radius *= kPreviewGeometryScale;
+        }
+        if (unit.has_fill_spec)
+        {
+            scale_vector(unit.fill_spec.origin);
+            unit.fill_spec.spacing_x *= kPreviewGeometryScale;
+            unit.fill_spec.spacing_y *= kPreviewGeometryScale;
+            unit.fill_spec.boundary_radius *= kPreviewGeometryScale;
+        }
         injector.diameter *= kPreviewGeometryScale;
         injector.diameter2 *= kPreviewGeometryScale;
         injector.inner_diameter *= kPreviewGeometryScale;
@@ -4829,165 +5036,28 @@ QList<Unit> MainWindow::build_test_injector_units() const
         result.append(unit);
     };
 
+    // Keep the startup scene intentionally small: one array source and one
+    // independent injector are enough to exercise selection and array edits.
     {
-        Unit unit = make_test_unit("single_demo", single, QVector3D(0.0f, 0.0f, 0.0f));
+        Unit unit = make_test_unit("linear_array_source", single,
+                                   QVector3D(18.0f, -12.0f, 0.0f));
+        unit.type = array;
+        unit.has_array_spec = true;
+        unit.array_spec.type = UnitArrayType::Linear;
+        unit.array_spec.count = 4;
+        unit.array_spec.spacing = 4.0f;
+        unit.array_spec.direction = QVector3D(0.0f, 1.0f, 0.0f);
+        unit.array_spec.origin = unit.inj.injector_data.pos;
+        unit.array_spec.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
         finalize_unit(unit);
     }
 
     {
-        Unit unit = make_test_unit("single_pitch_yaw_demo", single,
-                                   QVector3D(20.0f, 0.0f, 0.0f));
+        Unit unit = make_test_unit("single_demo", single,
+                                   QVector3D(-18.0f, 0.0f, 0.0f));
         unit.inj.injector_data.single_direction_mode = Single_Direction_Mode::Pitch_Yaw;
-        unit.inj.injector_data.single_pitch_degrees = 12.0;
-        unit.inj.injector_data.single_yaw_degrees = 18.0;
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("single_target_demo", single,
-                                   QVector3D(40.0f, 0.0f, 0.0f));
-        unit.inj.injector_data.single_direction_mode = Single_Direction_Mode::Target_Hitpoint;
-        unit.inj.injector_data.single_target_hitpoint =
-            unit.inj.injector_data.pos + QVector3D(12.0f, 5.0f, 4.0f);
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("group_demo", group, QVector3D(60.0f, 0.0f, 0.0f));
-        unit.inj.injector_data.pos2 = unit.inj.injector_data.pos + QVector3D(10.0f, 0.0f, 0.0f);
-        unit.inj.injector_data.vel = QVector3D(90.0f, 0.0f, 0.0f);
-        unit.inj.injector_data.vel2 = QVector3D(80.0f, 0.0f, 0.0f);
-        unit.inj.injector_data.numpts = 7;
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("volume_box_demo", volume, QVector3D(80.0f, 0.0f, 0.0f));
-        unit.inj.injector_data.volume_specification = bouning_geometry;
-        unit.inj.injector_data.volume_bgeom_shapes = hexahedron;
-        unit.inj.injector_data.volume_bgeom_min = unit.inj.injector_data.pos + QVector3D(-3.0f, -2.0f, -2.0f);
-        unit.inj.injector_data.volume_bgeom_max = unit.inj.injector_data.pos + QVector3D(3.0f, 2.0f, 4.0f);
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("volume_cyl_demo", volume, QVector3D(100.0f, 0.0f, 0.0f));
-        unit.inj.injector_data.volume_specification = bouning_geometry;
-        unit.inj.injector_data.volume_bgeom_shapes = cylinder;
-        unit.inj.injector_data.volume_bgeom_min = unit.inj.injector_data.pos + QVector3D(-4.0f, 0.0f, 0.0f);
-        unit.inj.injector_data.volume_bgeom_max = unit.inj.injector_data.pos + QVector3D(4.0f, 0.0f, 0.0f);
-        unit.inj.injector_data.volume_bgeom_radius = 2.2;
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("volume_sphere_demo", volume, QVector3D(120.0f, 0.0f, 0.0f));
-        unit.inj.injector_data.volume_specification = bouning_geometry;
-        unit.inj.injector_data.volume_bgeom_shapes = sphere;
-        unit.inj.injector_data.volume_bgeom_radius = 2.8;
-        unit.inj.injector_data.volume_bgeom_min = unit.inj.injector_data.pos + QVector3D(-2.8f, -2.8f, -2.8f);
-        unit.inj.injector_data.volume_bgeom_max = unit.inj.injector_data.pos + QVector3D(2.8f, 2.8f, 2.8f);
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("volume_cone_demo", volume, QVector3D(140.0f, 0.0f, 0.0f));
-        unit.inj.injector_data.volume_specification = bouning_geometry;
-        unit.inj.injector_data.volume_bgeom_shapes = cone_;
-        unit.inj.injector_data.volume_bgeom_min = unit.inj.injector_data.pos + QVector3D(-4.5f, 0.0f, 0.0f);
-        unit.inj.injector_data.volume_bgeom_max = unit.inj.injector_data.pos + QVector3D(4.5f, 0.0f, 0.0f);
-        unit.inj.injector_data.volume_bgeom_radius = 2.5;
-        unit.inj.injector_data.volume_bgeom_viconeangle = qDegreesToRadians(18.0);
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("cone_point_demo", cone, QVector3D(0.0f, 22.0f, 0.0f));
-        unit.inj.injector_data.cone_type = point;
-        unit.inj.injector_data.cone_angle = 26.0;
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("cone_hollow_demo", cone, QVector3D(20.0f, 22.0f, 0.0f));
-        unit.inj.injector_data.cone_type = hollow;
-        unit.inj.injector_data.cone_angle = 34.0;
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("cone_ring_demo", cone, QVector3D(40.0f, 22.0f, 0.0f));
-        unit.inj.injector_data.cone_type = ring;
-        unit.inj.injector_data.radius = 2.8;
-        unit.inj.injector_data.inner_radius = 1.4;
-        unit.inj.injector_data.cone_angle = 30.0;
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("cone_solid_demo", cone, QVector3D(60.0f, 22.0f, 0.0f));
-        unit.inj.injector_data.cone_type = solid;
-        unit.inj.injector_data.radius = 2.5;
-        unit.inj.injector_data.cone_angle = 22.0;
-        finalize_unit(unit);
-    }
-
-    if (kEnableAdvancedAtomizerPreview)
-    {
-        Unit unit = make_test_unit("plain_orifice_demo", plain_oriface_atomizer, QVector3D(0.0f, 44.0f, 0.0f));
-        unit.inj.injector_data.plain_length = 5.5;
-        unit.inj.injector_data.diameter = 1.1;
-        unit.inj.injector_data.outer_diameter = 3.0;
-        unit.inj.injector_data.half_angle = qDegreesToRadians(10.0);
-        finalize_unit(unit);
-    }
-
-    if (kEnableAdvancedAtomizerPreview)
-    {
-        Unit unit = make_test_unit("pressure_swirl_demo", pressure_swirl_atomizer, QVector3D(20.0f, 44.0f, 0.0f));
-        unit.inj.injector_data.inner_diameter = 1.2;
-        unit.inj.injector_data.outer_diameter = 3.6;
-        unit.inj.injector_data.sheet_const = 12.0;
-        unit.inj.injector_data.lig_const = 0.5;
-        unit.inj.injector_data.half_angle = qDegreesToRadians(18.0);
-        finalize_unit(unit);
-    }
-
-    if (kEnableAdvancedAtomizerPreview)
-    {
-        Unit unit = make_test_unit("air_blast_demo", air_blast_atomizer, QVector3D(40.0f, 44.0f, 0.0f));
-        unit.inj.injector_data.inner_diameter = 1.6;
-        unit.inj.injector_data.outer_diameter = 4.0;
-        unit.inj.injector_data.airbl_rel_vel = 120.0;
-        unit.inj.injector_data.half_angle = qDegreesToRadians(14.0);
-        finalize_unit(unit);
-    }
-
-    if (kEnableAdvancedAtomizerPreview)
-    {
-        Unit unit = make_test_unit("flat_fan_demo", flat_fan_atomizer, QVector3D(60.0f, 44.0f, 0.0f));
-        unit.inj.injector_data.ff_oriface_width = 3.6;
-        unit.inj.injector_data.ff_sheet_const = 3.5;
-        unit.inj.injector_data.ff_normal = QVector3D(0.0f, 0.0f, 1.0f);
-        unit.inj.injector_data.phi_start = -qDegreesToRadians(28.0);
-        unit.inj.injector_data.phi_stop = qDegreesToRadians(28.0);
-        finalize_unit(unit);
-    }
-
-    if (kEnableAdvancedAtomizerPreview)
-    {
-        Unit unit = make_test_unit("effervescent_demo", effervescent_atomizer, QVector3D(20.0f, 66.0f, 0.0f));
-        unit.inj.injector_data.outer_diameter = 3.8;
-        unit.inj.injector_data.effer_const = 0.45;
-        unit.inj.injector_data.effer_quality = 0.18;
-        unit.inj.injector_data.effer_half_angle_max = qDegreesToRadians(24.0);
-        finalize_unit(unit);
-    }
-
-    {
-        Unit unit = make_test_unit("condensate_demo", condensate, QVector3D(40.0f, 66.0f, 0.0f));
-        unit.inj.injector_data.radius = 2.0;
-        unit.inj.injector_data.vel = QVector3D(60.0f, 0.0f, 0.0f);
+        unit.inj.injector_data.single_pitch_degrees = 8.0;
+        unit.inj.injector_data.single_yaw_degrees = -12.0;
         finalize_unit(unit);
     }
 

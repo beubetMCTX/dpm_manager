@@ -197,6 +197,9 @@ public:
     bool clone_unit_tree_by_uuid(const QUuid &uuid);
     int create_unit_array(const QUuid &source_uuid,
                           const UnitArraySpec &spec);
+    void update_array_preview(const QUuid &source_uuid,
+                              const UnitArraySpec &spec);
+    void clear_array_preview();
     int create_unit_fill(const QList<QUuid> &source_uuids,
                          const UnitFillSpec &spec);
     bool create_assembly(const QList<QUuid> &uuids);
@@ -465,6 +468,7 @@ private:
     Standard_Boolean myIsDragging = false;
 
     Handle(AIS_Shape) selected_shape;
+    Handle(AIS_Shape) m_array_preview_shape;
     Handle(AIS_Manipulator) m_transform_gizmo;
     QUuid m_transform_gizmo_uuid;
     QVector3D m_transform_gizmo_position;

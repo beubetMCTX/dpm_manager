@@ -331,6 +331,7 @@ OCCTWidget::~OCCTWidget()
     try
     {
         clear_transform_gizmo();
+        clear_array_preview();
         selected_shape.Nullify();
         selected_face.Nullify();
         clear_unit_local_coordinate_frames();
@@ -419,6 +420,7 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
 
     if (clear_existing)
     {
+        clear_array_preview();
         discard_auxiliary_dialogs();
         clear_unit_local_coordinate_frames();
         clear_move_history();
@@ -2650,6 +2652,80 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     }
     emit unit_data_updated(source.get());
     return displayed_count;
+}
+
+void OCCTWidget::clear_array_preview()
+{
+    if (!m_array_preview_shape.IsNull() && !m_context.IsNull())
+    {
+        m_context->Remove(m_array_preview_shape, Standard_False);
+    }
+    m_array_preview_shape.Nullify();
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+}
+
+void OCCTWidget::update_array_preview(const QUuid &source_uuid,
+                                      const UnitArraySpec &spec)
+{
+    clear_array_preview();
+    if (source_uuid.isNull() || m_context.IsNull() || m_view.IsNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || source->ais_display.IsNull())
+    {
+        return;
+    }
+
+    TopoDS_Compound preview_compound;
+    BRep_Builder preview_builder;
+    preview_builder.MakeCompound(preview_compound);
+    int preview_count = 0;
+
+    if (source->type == Assebly || !source->assembly_child_uuids.isEmpty())
+    {
+        const QList<std::shared_ptr<Unit>> instances =
+            expand_unit_tree_array(*source, spec);
+        for (int index = 1; index < instances.size(); ++index)
+        {
+            const std::shared_ptr<Unit> &instance = instances.at(index);
+            if (instance == nullptr || instance->inj.shape.IsNull())
+            {
+                continue;
+            }
+            preview_builder.Add(preview_compound, instance->inj.shape);
+            ++preview_count;
+        }
+    }
+    else
+    {
+        const QList<Unit> children = expand_unit_array(*source, spec);
+        for (int index = 1; index < children.size(); ++index)
+        {
+            if (children.at(index).inj.shape.IsNull())
+            {
+                continue;
+            }
+            preview_builder.Add(preview_compound, children.at(index).inj.shape);
+            ++preview_count;
+        }
+    }
+
+    if (preview_count <= 0 || preview_compound.IsNull())
+    {
+        return;
+    }
+
+    m_array_preview_shape = new AIS_Shape(preview_compound);
+    m_array_preview_shape->SetColor(Quantity_Color(Quantity_NOC_YELLOW));
+    m_array_preview_shape->SetTransparency(0.72);
+    m_context->Display(m_array_preview_shape, Standard_False);
+    m_view->Redraw();
 }
 
 int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
