@@ -835,13 +835,25 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    const QUuid physical_child_uuid_before_rebuild = physical_child->inj.uuid;
     physical_child->inj.injector_data.material = "O2";
     if (!check(widget.set_species_for_units_by_uuid(
                     {override_source_uuid}, "N2") == 1,
-                "Parent material edit should succeed") ||
-        !check(find_override_child() != nullptr &&
-                   find_override_child()->inj.injector_data.material == "O2",
-               "Physical override should survive parent material edit"))
+                "Parent material edit should succeed"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> physical_child_after_rebuild =
+        find_override_child();
+    if (!check(physical_child_after_rebuild != nullptr &&
+                   physical_child_after_rebuild->inj.injector_data.material == "O2",
+               "Physical override should survive parent material edit") ||
+        !check(physical_child_after_rebuild != nullptr &&
+                   physical_child_after_rebuild->inj.uuid !=
+                   physical_child_uuid_before_rebuild &&
+                   widget.unit_hash.value(physical_child_after_rebuild->inj.uuid).get() ==
+                       physical_child_after_rebuild.get(),
+               "Physical override must not overwrite regenerated child UUID"))
     {
         return 1;
     }
