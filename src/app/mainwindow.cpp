@@ -37,7 +37,6 @@
 #include <QStackedWidget>
 #include <QWidget>
 #include <QVBoxLayout>
-#include <QRandomGenerator>
 #include <QTimer>
 #include <QToolBar>
 #include <QStyle>
@@ -711,8 +710,10 @@ int MainWindow::assign_species_to_unassigned_units()
             continue;
         }
 
+        // Assignment must be reproducible. Random selection caused the same
+        // project to change material colors after every reload.
         const QString &species = m_chemkin_species_names.at(
-            QRandomGenerator::global()->bounded(m_chemkin_species_names.size()));
+            assigned_count % m_chemkin_species_names.size());
         if (m_3d_widget->set_species_for_units_by_uuid(
                 {unit.inj.uuid}, species) > 0)
         {
