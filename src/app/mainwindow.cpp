@@ -3175,13 +3175,26 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
+        const QUuid source_uuid(item->data(0, Qt::UserRole).toString());
+        const std::shared_ptr<Unit> source =
+            m_3d_widget->unit_hash.value(source_uuid);
+        if (source == nullptr ||
+            (source->is_array_child && source->follows_array))
+        {
+            statusBar()->showMessage(
+                tr("Select the array source or Assembly, not a Following child"),
+                5000);
+            return;
+        }
+
         m_3d_widget->clear_array_preview();
-        m_array_editor_source_uuid = QUuid(item->data(0, Qt::UserRole).toString());
-        const auto source = m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
-        if (m_array_editor_source_label != nullptr && source != nullptr)
+        m_array_editor_source_uuid = source_uuid;
+        const auto source_unit =
+            m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
+        if (m_array_editor_source_label != nullptr && source_unit != nullptr)
         {
             m_array_editor_source_label->setText(
-                tr("Source: %1").arg(source->inj.injector_data.name));
+                tr("Source: %1").arg(source_unit->inj.injector_data.name));
         }
         refresh_array_editor_panel();
         m_array_editor_dock->show();
@@ -4511,6 +4524,11 @@ void MainWindow::create_object_list_panel()
             !selected_unit->follows_array);
         QAction *array_action = menu.addAction("Create Array...");
         QAction *fill_action = menu.addAction("Create Fill...");
+        const bool is_following_array_child =
+            selected_unit != nullptr && selected_unit->is_array_child &&
+            selected_unit->follows_array;
+        array_action->setEnabled(!is_following_array_child);
+        fill_action->setEnabled(!is_following_array_child);
         QAction *collapse_action = nullptr;
         if (item->childCount() > 0)
         {
@@ -4521,7 +4539,10 @@ void MainWindow::create_object_list_panel()
         for (QTreeWidgetItem *selected_item : m_object_list->selectedItems())
         {
             const QUuid selected_uuid(selected_item->data(0, Qt::UserRole).toString());
-            if (!selected_uuid.isNull() && m_3d_widget->unit_hash.contains(selected_uuid))
+            const std::shared_ptr<Unit> selected_unit =
+                m_3d_widget->unit_hash.value(selected_uuid);
+            if (!selected_uuid.isNull() && selected_unit != nullptr &&
+                !(selected_unit->is_array_child && selected_unit->follows_array))
             {
                 selected_unit_ids.append(selected_uuid);
             }
@@ -4700,7 +4721,10 @@ void MainWindow::create_object_list_panel()
             }
             const int created = m_3d_widget->create_unit_array(uuid, spec);
             statusBar()->showMessage(
-                QString("Created %1 array child units").arg(created), 5000);
+                created > 0
+                    ? QString("Created %1 array child units").arg(created)
+                    : QString("Array was not created; select a source Unit or Assembly"),
+                5000);
         }
         else if (chosen_action == fill_action)
         {
@@ -4830,7 +4854,10 @@ void MainWindow::create_object_list_panel()
             const int created = m_3d_widget->create_unit_fill(
                 selected_unit_ids, spec);
             statusBar()->showMessage(
-                QString("Created %1 fill child units").arg(created), 5000);
+                created > 0
+                    ? QString("Created %1 fill child units").arg(created)
+                    : QString("Fill was not created; select source Units or Assembly"),
+                5000);
         }
         else if (chosen_action == collapse_action)
         {
