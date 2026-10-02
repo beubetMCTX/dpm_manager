@@ -5214,6 +5214,47 @@ bool OCCTWidget::clear_reference_geometry()
     clear_face_reference();
     set_reference_geometry_locked(false);
 
+    // Reference-bound Array/Fill rules cannot be evaluated after the
+    // reference object is removed. Downgrade them to world-space rules
+    // instead of leaving a stale dependency that silently changes on the
+    // next rebuild or project reload.
+    QList<QUuid> dependent_sources;
+    for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
+    {
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit == nullptr || (unit->is_array_child && unit->follows_array))
+        {
+            continue;
+        }
+
+        bool changed = false;
+        for (UnitArraySpec &spec : unit->array_specs)
+        {
+            if (spec.use_reference_geometry)
+            {
+                spec.use_reference_geometry = false;
+                spec.conform_to_reference_normal = false;
+                changed = true;
+            }
+        }
+        if (unit->has_array_spec && unit->array_spec.use_reference_geometry)
+        {
+            unit->array_spec.use_reference_geometry = false;
+            unit->array_spec.conform_to_reference_normal = false;
+            changed = true;
+        }
+        if (unit->has_fill_spec && unit->fill_spec.use_reference_geometry)
+        {
+            unit->fill_spec.use_reference_geometry = false;
+            unit->fill_spec.conform_to_reference_normal = false;
+            changed = true;
+        }
+        if (changed)
+        {
+            dependent_sources.append(unit->inj.uuid);
+        }
+    }
+
     if (!m_context.IsNull() && !base_geometry.IsNull())
     {
         m_context->Remove(base_geometry, Standard_False);
@@ -5244,6 +5285,12 @@ bool OCCTWidget::clear_reference_geometry()
     if (!m_view.IsNull())
     {
         m_view->Redraw();
+    }
+
+    for (const QUuid &source_uuid : dependent_sources)
+    {
+        QSet<QUuid> visited;
+        rebuild_unit_outputs(source_uuid, visited);
     }
 
     emit reference_geometry_available(false);

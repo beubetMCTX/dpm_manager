@@ -687,6 +687,45 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    Unit reference_bound_source = make_valid_unit();
+    reference_bound_source.inj.injector_data.name = "reference-bound-source";
+    reference_bound_source.has_array_spec = true;
+    reference_bound_source.array_spec.type = UnitArrayType::Linear;
+    reference_bound_source.array_spec.count = 2;
+    reference_bound_source.array_spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    reference_bound_source.array_spec.spacing = 2.0f;
+    reference_bound_source.array_spec.origin =
+        reference_bound_source.inj.injector_data.pos;
+    reference_bound_source.array_spec.use_reference_geometry = true;
+    reference_bound_source.array_spec.conform_to_reference_normal = true;
+    reference_bound_source.array_specs = {reference_bound_source.array_spec};
+    if (!check(reference_bound_source.inj.create_injector(),
+               "Reference-bound source geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({reference_bound_source}, true);
+    if (!check(widget.create_reference_datum_plane(10.0, 0.01,
+                                                   QVector3D(0.0f, 0.0f, 1.0f)),
+               "Reference datum plane should be available for dependency test"))
+    {
+        return 1;
+    }
+    const QUuid reference_bound_uuid = reference_bound_source.inj.uuid;
+    if (!check(widget.unit_hash.value(reference_bound_uuid)->array_spec
+                   .use_reference_geometry,
+               "Reference-bound Array should retain its dependency before clear") ||
+        !check(widget.clear_reference_geometry(),
+               "Clearing reference geometry should succeed") ||
+        !check(!widget.unit_hash.value(reference_bound_uuid)->array_spec
+                   .use_reference_geometry &&
+                   !widget.unit_hash.value(reference_bound_uuid)->array_spec
+                   .conform_to_reference_normal,
+               "Clearing reference geometry should downgrade Array dependencies"))
+    {
+        return 1;
+    }
+
     // Structural additions and deletes must preserve the same persistent
     // hierarchy that was visible before the operation.
     widget.display_units({source}, true);
