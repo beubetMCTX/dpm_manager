@@ -898,6 +898,29 @@ bool validate(const Data &data, QString *error_message)
             return false;
         }
 
+        if (unit.array_layer < 0)
+        {
+            set_error(error_message,
+                      "Project contains a negative array layer marker.");
+            return false;
+        }
+        if (unit.is_array_child)
+        {
+            if (unit.array_parent_uuid.isNull() ||
+                !unit_ids.contains(unit.array_parent_uuid))
+            {
+                set_error(error_message,
+                          "Project contains an array child with an invalid parent reference.");
+                return false;
+            }
+        }
+        else if (!unit.array_parent_uuid.isNull())
+        {
+            set_error(error_message,
+                      "Project contains a non-array unit with an array parent reference.");
+            return false;
+        }
+
         if (unit.has_array_spec)
         {
             QList<UnitArraySpec> specs = unit.array_specs;
@@ -947,6 +970,15 @@ bool validate(const Data &data, QString *error_message)
                 set_error(error_message,
                           "Project contains invalid fill specification values.");
                 return false;
+            }
+            for (const QUuid &source_uuid : unit.fill_source_uuids)
+            {
+                if (!unit_ids.contains(source_uuid))
+                {
+                    set_error(error_message,
+                              "Project contains a Fill source with an invalid UUID.");
+                    return false;
+                }
             }
         }
     }
