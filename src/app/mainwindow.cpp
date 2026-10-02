@@ -4522,11 +4522,10 @@ void MainWindow::create_object_list_panel()
             !selected_unit->follows_array);
         QAction *array_action = menu.addAction("Create Array...");
         QAction *fill_action = menu.addAction("Create Fill...");
-        const bool is_following_array_child =
-            selected_unit != nullptr && selected_unit->is_array_child &&
-            selected_unit->follows_array;
-        array_action->setEnabled(!is_following_array_child);
-        fill_action->setEnabled(!is_following_array_child);
+        // Following children can be promoted to stable sources by the OCCT
+        // layer, so nested Array/Fill actions remain available here.
+        array_action->setEnabled(selected_unit != nullptr);
+        fill_action->setEnabled(selected_unit != nullptr);
         QAction *collapse_action = nullptr;
         if (item->childCount() > 0)
         {
