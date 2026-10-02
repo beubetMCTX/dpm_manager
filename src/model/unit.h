@@ -81,6 +81,9 @@ public:
     QList<QUuid> prototype_chain;
     bool has_array_spec = false;
     UnitArraySpec array_spec;
+    // Ordered array layers. array_spec remains the latest layer for
+    // backward-compatible callers and project files.
+    QList<UnitArraySpec> array_specs;
     bool has_fill_spec = false;
     UnitFillSpec fill_spec;
     QList<QUuid> fill_source_uuids;
@@ -108,6 +111,7 @@ public:
         , prototype_chain(other.prototype_chain)
         , has_array_spec(other.has_array_spec)
         , array_spec(other.array_spec)
+        , array_specs(other.array_specs)
         , has_fill_spec(other.has_fill_spec)
         , fill_spec(other.fill_spec)
         , fill_source_uuids(other.fill_source_uuids)
@@ -136,6 +140,7 @@ public:
         prototype_chain = other.prototype_chain;
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
+        array_specs = other.array_specs;
         has_fill_spec = other.has_fill_spec;
         fill_spec = other.fill_spec;
         fill_source_uuids = other.fill_source_uuids;
@@ -157,6 +162,7 @@ public:
         , prototype_chain(other.prototype_chain)
         , has_array_spec(other.has_array_spec)
         , array_spec(std::move(other.array_spec))
+        , array_specs(std::move(other.array_specs))
         , has_fill_spec(other.has_fill_spec)
         , fill_spec(std::move(other.fill_spec))
         , fill_source_uuids(std::move(other.fill_source_uuids))
@@ -185,6 +191,7 @@ public:
         prototype_chain = other.prototype_chain;
         has_array_spec = other.has_array_spec;
         array_spec = other.array_spec;
+        array_specs = std::move(other.array_specs);
         has_fill_spec = other.has_fill_spec;
         fill_spec = other.fill_spec;
         fill_source_uuids = other.fill_source_uuids;

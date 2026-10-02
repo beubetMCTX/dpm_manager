@@ -2487,6 +2487,202 @@ bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
     return true;
 }
 
+int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || source->ais_display.IsNull() ||
+        m_context.IsNull() || !source->has_array_spec)
+    {
+        return 0;
+    }
+
+    QList<UnitArraySpec> specs = source->array_specs;
+    if (specs.isEmpty())
+    {
+        specs.append(source->array_spec);
+    }
+    if (specs.isEmpty())
+    {
+        return 0;
+    }
+
+    clear_unit_array_children(*source);
+    source->array_specs = specs;
+    source->array_spec = specs.last();
+
+    auto register_tree = [&](const std::shared_ptr<Unit> &unit,
+                             const auto &self) -> void
+    {
+        if (unit == nullptr || unit->ais_display.IsNull())
+        {
+            return;
+        }
+        unit_hash.insert(unit->inj.uuid, unit);
+        m_unit_visibility.insert(unit->inj.uuid, true);
+        m_unit_locks.insert(unit->inj.uuid, false);
+        unit->u_owner->set_unit(unit.get());
+        unit->ais_display->SetOwner(unit->u_owner);
+        unit->ais_display->Set(unit->inj.shape);
+        unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
+        unit->ais_display->SetTransparency(
+            configured_injector_transparency(unit->inj.injector_data));
+        m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
+        m_context->Display(unit->ais_display, Standard_False);
+        for (const std::shared_ptr<Unit> &child : unit->child_units)
+        {
+            self(child, self);
+        }
+    };
+
+    auto mark_tree = [&](const std::shared_ptr<Unit> &unit, int layer,
+                         const auto &self) -> void
+    {
+        if (unit == nullptr)
+        {
+            return;
+        }
+        unit->type = unit->child_units.isEmpty() ? array : Assebly;
+        unit->array_parent_uuid = source_uuid;
+        unit->is_array_child = true;
+        unit->follows_array = true;
+        unit->prototype_uuid = source_uuid;
+        unit->prototype_chain = {source_uuid};
+        unit->has_array_spec = false;
+        unit->array_specs.clear();
+        unit->has_fill_spec = false;
+        unit->fill_source_uuids.clear();
+        for (const std::shared_ptr<Unit> &child : unit->child_units)
+        {
+            if (child != nullptr)
+            {
+                child->assembly_parent_uuid = unit->inj.uuid;
+                self(child, layer, self);
+            }
+        }
+    };
+
+    std::function<std::shared_ptr<Unit>(const std::shared_ptr<Unit> &)> make_pattern;
+    make_pattern = [&](const std::shared_ptr<Unit> &source_node)
+        -> std::shared_ptr<Unit>
+    {
+        if (source_node == nullptr)
+        {
+            return nullptr;
+        }
+        const std::shared_ptr<Unit> pattern =
+            std::make_shared<Unit>(*source_node);
+        pattern->child_units.clear();
+        pattern->assembly_child_uuids.clear();
+        pattern->assembly_parent_uuid = QUuid();
+        pattern->array_parent_uuid = QUuid();
+        pattern->is_array_child = false;
+        pattern->follows_array = true;
+        pattern->prototype_uuid = QUuid();
+        pattern->prototype_chain.clear();
+        pattern->has_array_spec = false;
+        pattern->array_specs.clear();
+        pattern->has_fill_spec = false;
+        pattern->fill_source_uuids.clear();
+        for (const std::shared_ptr<Unit> &source_child : source_node->child_units)
+        {
+            const std::shared_ptr<Unit> child = make_pattern(source_child);
+            if (child == nullptr)
+            {
+                continue;
+            }
+            child->assembly_parent_uuid = pattern->inj.uuid;
+            pattern->assembly_child_uuids.append(child->inj.uuid);
+            pattern->child_units.append(child);
+        }
+        return pattern;
+    };
+
+    const UnitArraySpec &first_spec = specs.first();
+    const bool source_is_assembly = source->type == Assebly ||
+                                    !source->assembly_child_uuids.isEmpty();
+    int displayed_count = 0;
+    std::shared_ptr<Unit> pattern;
+
+    if (source_is_assembly)
+    {
+        const QList<std::shared_ptr<Unit>> instances =
+            expand_unit_tree_array(*source, first_spec);
+        for (const std::shared_ptr<Unit> &instance : instances)
+        {
+            mark_tree(instance, 1, mark_tree);
+            register_tree(instance, register_tree);
+            source->child_units.append(instance);
+            ++displayed_count;
+        }
+        if (!instances.isEmpty())
+        {
+            pattern = make_pattern(instances.first());
+        }
+    }
+    else
+    {
+        const QList<Unit> children = expand_unit_array(*source, first_spec);
+        for (const Unit &child : children)
+        {
+            const std::shared_ptr<Unit> stored_child =
+                std::make_shared<Unit>(child);
+            mark_tree(stored_child, 1, mark_tree);
+            stored_child->type = array;
+            stored_child->assembly_parent_uuid = QUuid();
+            register_tree(stored_child, register_tree);
+            source->child_units.append(stored_child);
+            ++displayed_count;
+        }
+
+        pattern = std::make_shared<Unit>(*source);
+        pattern->type = Assebly;
+        pattern->child_units.clear();
+        pattern->assembly_child_uuids.clear();
+        pattern->has_array_spec = false;
+        pattern->array_specs.clear();
+        for (const Unit &child : children)
+        {
+            const std::shared_ptr<Unit> pattern_child =
+                std::make_shared<Unit>(child);
+            pattern_child->is_array_child = false;
+            pattern_child->array_parent_uuid = QUuid();
+            pattern_child->prototype_uuid = QUuid();
+            pattern_child->prototype_chain.clear();
+            pattern_child->assembly_parent_uuid = pattern->inj.uuid;
+            pattern->assembly_child_uuids.append(pattern_child->inj.uuid);
+            pattern->child_units.append(pattern_child);
+        }
+    }
+
+    for (int layer = 1; layer < specs.size() && pattern != nullptr; ++layer)
+    {
+        const QList<std::shared_ptr<Unit>> instances =
+            expand_unit_tree_array(*pattern, specs.at(layer));
+        // The zero-th placement is the pattern already represented by the
+        // previous layer. Add only the new outer placements.
+        for (int index = 1; index < instances.size(); ++index)
+        {
+            const std::shared_ptr<Unit> &instance = instances.at(index);
+            mark_tree(instance, layer + 1, mark_tree);
+            register_tree(instance, register_tree);
+            source->child_units.append(instance);
+            ++displayed_count;
+        }
+        if (!instances.isEmpty())
+        {
+            pattern = make_pattern(instances.first());
+        }
+    }
+
+    source->type = source_is_assembly ? Assebly : array;
+    rebuild_unit_local_coordinate_frames();
+    m_view->FitAll();
+    m_view->Redraw();
+    emit unit_display_list_changed();
+    emit unit_data_updated(source.get());
+    return displayed_count;
+}
+
 int OCCTWidget::create_unit_array(const QUuid &source_uuid,
                                   const UnitArraySpec &spec)
 {
@@ -2496,162 +2692,14 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         return 0;
     }
 
-    clear_unit_array_children(*source);
+    if (source->array_specs.isEmpty() && source->has_array_spec)
+    {
+        source->array_specs.append(source->array_spec);
+    }
+    source->array_specs.append(spec);
     source->has_array_spec = true;
     source->array_spec = spec;
-    const bool source_is_assembly = source->type == Assebly ||
-                                    !source->assembly_child_uuids.isEmpty();
-    if (!source_is_assembly)
-    {
-        source->type = array;
-    }
-
-    if (source_is_assembly &&
-        (spec.type == UnitArrayType::Linear ||
-         spec.type == UnitArrayType::Rotational ||
-         spec.type == UnitArrayType::Mirror ||
-         spec.type == UnitArrayType::Elliptical))
-    {
-        const QList<std::shared_ptr<Unit>> instances =
-            expand_unit_tree_array(*source, spec);
-        int displayed_count = 0;
-        std::function<void(const std::shared_ptr<Unit> &)> register_tree;
-        register_tree = [&](const std::shared_ptr<Unit> &unit)
-        {
-            if (unit == nullptr || unit->ais_display.IsNull())
-            {
-                return;
-            }
-            unit_hash.insert(unit->inj.uuid, unit);
-            m_unit_visibility.insert(unit->inj.uuid, true);
-            m_unit_locks.insert(unit->inj.uuid, false);
-            unit->u_owner->set_unit(unit.get());
-            unit->ais_display->SetOwner(unit->u_owner);
-            unit->ais_display->Set(unit->inj.shape);
-            unit->ais_display->SetColor(
-                color_for_injector(unit->inj.injector_data));
-            unit->ais_display->SetTransparency(
-            configured_injector_transparency(unit->inj.injector_data));
-            m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
-            m_context->Display(unit->ais_display, Standard_False);
-            for (const std::shared_ptr<Unit> &child : unit->child_units)
-            {
-                register_tree(child);
-            }
-        };
-
-        for (const std::shared_ptr<Unit> &instance : instances)
-        {
-            if (instance == nullptr)
-            {
-                continue;
-            }
-            instance->type = Assebly;
-            instance->array_parent_uuid = source_uuid;
-            instance->is_array_child = true;
-            instance->follows_array = true;
-            instance->prototype_uuid = source_uuid;
-            instance->prototype_chain = {source_uuid};
-            instance->has_array_spec = false;
-            instance->has_fill_spec = false;
-            register_tree(instance);
-            source->child_units.append(instance);
-            ++displayed_count;
-        }
-
-        if (displayed_count > 0)
-        {
-            rebuild_unit_local_coordinate_frames();
-            m_view->FitAll();
-            m_view->Redraw();
-            emit unit_display_list_changed();
-        }
-        emit unit_data_updated(source.get());
-        return displayed_count;
-    }
-
-    QList<Unit> children;
-    if (source_is_assembly)
-    {
-        QList<QUuid> seed_uuids;
-        QSet<QUuid> visited;
-        std::function<void(const QUuid &)> collect_seeds;
-        collect_seeds = [&](const QUuid &uuid)
-        {
-            if (visited.contains(uuid))
-            {
-                return;
-            }
-            visited.insert(uuid);
-            const std::shared_ptr<Unit> seed = unit_hash.value(uuid);
-            if (seed == nullptr || seed->is_array_child)
-            {
-                return;
-            }
-            seed_uuids.append(uuid);
-            for (const QUuid &child_uuid : seed->assembly_child_uuids)
-            {
-                collect_seeds(child_uuid);
-            }
-        };
-        collect_seeds(source_uuid);
-        for (const QUuid &seed_uuid : seed_uuids)
-        {
-            const std::shared_ptr<Unit> seed = unit_hash.value(seed_uuid);
-            if (seed != nullptr)
-            {
-                children.append(expand_unit_array(*seed, spec));
-            }
-        }
-    }
-    else
-    {
-        children = expand_unit_array(*source, spec);
-    }
-    int displayed_count = 0;
-    for (const Unit &child : children)
-    {
-        const std::shared_ptr<Unit> stored_child = std::make_shared<Unit>(child);
-        stored_child->type = array;
-        stored_child->array_parent_uuid = source_uuid;
-        stored_child->is_array_child = true;
-        stored_child->follows_array = true;
-        if (!source_is_assembly)
-        {
-            stored_child->prototype_uuid = source_uuid;
-            stored_child->prototype_chain = {source_uuid};
-        }
-        // Assembly sources are flattened in this phase; do not copy their
-        // persistent parent/child links into a runtime array instance.
-        stored_child->assembly_parent_uuid = QUuid();
-        stored_child->assembly_child_uuids.clear();
-        stored_child->child_units.clear();
-        stored_child->ais_display->Set(stored_child->inj.shape);
-        stored_child->u_owner->set_unit(stored_child.get());
-        stored_child->ais_display->SetOwner(stored_child->u_owner);
-        stored_child->ais_display->SetColor(
-            color_for_injector(stored_child->inj.injector_data));
-        stored_child->ais_display->SetTransparency(
-            configured_injector_transparency(stored_child->inj.injector_data));
-
-        unit_hash.insert(stored_child->inj.uuid, stored_child);
-        m_unit_visibility.insert(stored_child->inj.uuid, true);
-        m_unit_locks.insert(stored_child->inj.uuid, false);
-        m_context->Activate(stored_child->ais_display, TopAbs_SHAPE, Standard_True);
-        m_context->Display(stored_child->ais_display, Standard_False);
-        source->child_units.append(stored_child);
-        ++displayed_count;
-    }
-
-    if (displayed_count > 0)
-    {
-        rebuild_unit_local_coordinate_frames();
-        m_view->FitAll();
-        m_view->Redraw();
-        emit unit_display_list_changed();
-    }
-    emit unit_data_updated(source.get());
-    return displayed_count;
+    return rebuild_unit_array_layers(source_uuid);
 }
 
 void OCCTWidget::clear_array_preview()
@@ -2687,32 +2735,134 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
     preview_builder.MakeCompound(preview_compound);
     int preview_count = 0;
 
-    if (source->type == Assebly || !source->assembly_child_uuids.isEmpty())
+    auto add_tree_shapes = [&](const std::shared_ptr<Unit> &unit,
+                               const auto &self) -> void
     {
-        const QList<std::shared_ptr<Unit>> instances =
-            expand_unit_tree_array(*source, spec);
-        for (int index = 1; index < instances.size(); ++index)
+        if (unit == nullptr || unit->inj.shape.IsNull())
         {
-            const std::shared_ptr<Unit> &instance = instances.at(index);
-            if (instance == nullptr || instance->inj.shape.IsNull())
+            return;
+        }
+        preview_builder.Add(preview_compound, unit->inj.shape);
+        ++preview_count;
+        for (const std::shared_ptr<Unit> &child : unit->child_units)
+        {
+            self(child, self);
+        }
+    };
+
+    std::function<std::shared_ptr<Unit>(const std::shared_ptr<Unit> &)> make_pattern;
+    make_pattern = [&](const std::shared_ptr<Unit> &source_node)
+        -> std::shared_ptr<Unit>
+    {
+        if (source_node == nullptr)
+        {
+            return nullptr;
+        }
+        const std::shared_ptr<Unit> pattern =
+            std::make_shared<Unit>(*source_node);
+        pattern->child_units.clear();
+        pattern->assembly_child_uuids.clear();
+        pattern->assembly_parent_uuid = QUuid();
+        pattern->array_parent_uuid = QUuid();
+        pattern->is_array_child = false;
+        pattern->follows_array = true;
+        pattern->prototype_uuid = QUuid();
+        pattern->prototype_chain.clear();
+        pattern->has_array_spec = false;
+        pattern->array_specs.clear();
+        pattern->has_fill_spec = false;
+        pattern->fill_source_uuids.clear();
+        for (const std::shared_ptr<Unit> &source_child : source_node->child_units)
+        {
+            const std::shared_ptr<Unit> child = make_pattern(source_child);
+            if (child == nullptr)
             {
                 continue;
             }
-            preview_builder.Add(preview_compound, instance->inj.shape);
-            ++preview_count;
+            child->assembly_parent_uuid = pattern->inj.uuid;
+            pattern->assembly_child_uuids.append(child->inj.uuid);
+            pattern->child_units.append(child);
+        }
+        return pattern;
+    };
+
+    QList<UnitArraySpec> specs = source->array_specs;
+    if (specs.isEmpty() && source->has_array_spec)
+    {
+        specs.append(source->array_spec);
+    }
+    specs.append(spec);
+
+    const bool source_is_assembly = source->type == Assebly ||
+                                    !source->assembly_child_uuids.isEmpty();
+    std::shared_ptr<Unit> pattern;
+    const UnitArraySpec &first_spec = specs.first();
+    if (source_is_assembly)
+    {
+        const QList<std::shared_ptr<Unit>> instances =
+            expand_unit_tree_array(*source, first_spec);
+        if (specs.size() == 1)
+        {
+            for (int index = 1; index < instances.size(); ++index)
+            {
+                add_tree_shapes(instances.at(index), add_tree_shapes);
+            }
+        }
+        if (!instances.isEmpty())
+        {
+            pattern = make_pattern(instances.first());
         }
     }
     else
     {
-        const QList<Unit> children = expand_unit_array(*source, spec);
-        for (int index = 1; index < children.size(); ++index)
+        const QList<Unit> children = expand_unit_array(*source, first_spec);
+        if (specs.size() == 1)
         {
-            if (children.at(index).inj.shape.IsNull())
+            for (int index = 1; index < children.size(); ++index)
             {
-                continue;
+                if (!children.at(index).inj.shape.IsNull())
+                {
+                    preview_builder.Add(preview_compound,
+                                        children.at(index).inj.shape);
+                    ++preview_count;
+                }
             }
-            preview_builder.Add(preview_compound, children.at(index).inj.shape);
-            ++preview_count;
+        }
+
+        pattern = std::make_shared<Unit>(*source);
+        pattern->type = Assebly;
+        pattern->child_units.clear();
+        pattern->assembly_child_uuids.clear();
+        pattern->has_array_spec = false;
+        pattern->array_specs.clear();
+        for (const Unit &child : children)
+        {
+            const std::shared_ptr<Unit> pattern_child =
+                std::make_shared<Unit>(child);
+            pattern_child->is_array_child = false;
+            pattern_child->array_parent_uuid = QUuid();
+            pattern_child->prototype_uuid = QUuid();
+            pattern_child->prototype_chain.clear();
+            pattern_child->assembly_parent_uuid = pattern->inj.uuid;
+            pattern->assembly_child_uuids.append(pattern_child->inj.uuid);
+            pattern->child_units.append(pattern_child);
+        }
+    }
+
+    for (int layer = 1; layer < specs.size() && pattern != nullptr; ++layer)
+    {
+        const QList<std::shared_ptr<Unit>> instances =
+            expand_unit_tree_array(*pattern, specs.at(layer));
+        if (layer == specs.size() - 1)
+        {
+            for (int index = 1; index < instances.size(); ++index)
+            {
+                add_tree_shapes(instances.at(index), add_tree_shapes);
+            }
+        }
+        if (!instances.isEmpty())
+        {
+            pattern = make_pattern(instances.first());
         }
     }
 
@@ -2968,8 +3118,7 @@ int OCCTWidget::rebuild_unit_array(const QUuid &source_uuid)
     {
         return 0;
     }
-    const UnitArraySpec spec = source->array_spec;
-    return create_unit_array(source_uuid, spec);
+    return rebuild_unit_array_layers(source_uuid);
 }
 
 void OCCTWidget::rebuild_dependent_arrays(const QUuid &prototype_uuid,

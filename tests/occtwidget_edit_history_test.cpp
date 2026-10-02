@@ -103,6 +103,22 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    UnitArraySpec second_leaf_array;
+    second_leaf_array.type = UnitArrayType::Rotational;
+    second_leaf_array.count = 3;
+    second_leaf_array.direction = QVector3D(0.0f, 0.0f, 1.0f);
+    second_leaf_array.origin = source.inj.injector_data.pos;
+    second_leaf_array.angle_degrees = 180.0f;
+    if (!check(widget.create_unit_array(uuid, second_leaf_array) == 4,
+               "A second array layer should expand the complete first array") ||
+        !check(widget.unit_hash.value(uuid)->array_specs.size() == 2,
+               "Array source should retain both array layers") ||
+        !check(widget.unit_hash.value(uuid)->child_units.size() == 4,
+               "Second array layer should retain first-layer instances"))
+    {
+        return 1;
+    }
+
     // Reset to the original single injector before testing Assembly paths.
     widget.display_units({source}, true);
     application.processEvents();

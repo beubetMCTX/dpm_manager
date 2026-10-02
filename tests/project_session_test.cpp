@@ -86,6 +86,14 @@ int main(int argc, char *argv[])
 
     source.units.first().inj.injector_data.material = "water";
     source.units.first().inj.injector_data.product_species = "O2";
+    UnitArraySpec second_array_layer = source.units.first().array_spec;
+    second_array_layer.type = UnitArrayType::Rotational;
+    second_array_layer.count = 4;
+    second_array_layer.angle_degrees = 180.0f;
+    second_array_layer.direction = QVector3D(0.0f, 0.0f, 1.0f);
+    source.units.first().array_specs = {
+        source.units.first().array_spec,
+        second_array_layer};
 
     QString reference_error;
     project_session::Data invalid_array_spec = source;
@@ -300,10 +308,17 @@ int main(int argc, char *argv[])
                    restored.units.first().fill_source_uuids == QVector<QUuid>({unit.inj.uuid}),
                "Fill metadata did not round-trip") ||
         !check(restored.units.first().has_array_spec &&
-                   restored.units.first().array_spec.type == UnitArrayType::Elliptical &&
-                   restored.units.first().array_spec.major_radius == 12.0f &&
-                   restored.units.first().array_spec.minor_radius == 7.0f,
-               "Elliptical array metadata did not round-trip") ||
+                    restored.units.first().array_specs.size() == 2 &&
+                    restored.units.first().array_specs.first().type ==
+                        UnitArrayType::Elliptical &&
+                    restored.units.first().array_specs.first().major_radius == 12.0f &&
+                    restored.units.first().array_specs.first().minor_radius == 7.0f &&
+                    restored.units.first().array_spec.type ==
+                        UnitArrayType::Rotational &&
+                    restored.units.first().array_specs.last().type ==
+                        UnitArrayType::Rotational &&
+                    restored.units.first().array_specs.last().count == 4,
+                "Multi-layer array metadata did not round-trip") ||
         !check(!restored.units.first().inj.shape.IsNull(),
                "Restored injector geometry was not rebuilt") ||
         !check(restored.species_colors.value("O2") == QColor("#123456"),
@@ -527,6 +542,7 @@ int main(int argc, char *argv[])
     assembly_data.units.first().type = Assebly;
     assembly_data.units.first().assembly_child_uuids = {assembly_member.inj.uuid};
     assembly_data.units.first().has_array_spec = true;
+    assembly_data.units.first().array_specs.clear();
     assembly_data.units.first().array_spec.use_reference_geometry = true;
     assembly_data.units.first().array_spec.conform_to_reference_normal = true;
     assembly_data.units.first().has_fill_spec = true;

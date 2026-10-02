@@ -83,6 +83,9 @@ QVector<int> int_list_from_json(const QJsonValue &json_value,
     return result;
 }
 
+QJsonObject array_spec_to_json(const UnitArraySpec &spec);
+bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec);
+
 void injector_to_json(const Injector &value, QJsonObject *object)
 {
     if (object == nullptr)
@@ -509,20 +512,16 @@ QJsonObject unit_to_json(const Unit &unit)
     }
     if (unit.has_array_spec)
     {
-        QJsonObject array_spec;
-        array_spec.insert("type", static_cast<int>(unit.array_spec.type));
-        array_spec.insert("count", unit.array_spec.count);
-        array_spec.insert("direction", vector_to_json(unit.array_spec.direction));
-        array_spec.insert("origin", vector_to_json(unit.array_spec.origin));
-        array_spec.insert("spacing", unit.array_spec.spacing);
-        array_spec.insert("angle_degrees", unit.array_spec.angle_degrees);
-        array_spec.insert("major_radius", unit.array_spec.major_radius);
-        array_spec.insert("minor_radius", unit.array_spec.minor_radius);
-        array_spec.insert("plane_normal", vector_to_json(unit.array_spec.plane_normal));
-        array_spec.insert("use_reference_geometry", unit.array_spec.use_reference_geometry);
-        array_spec.insert("conform_to_reference_normal",
-                          unit.array_spec.conform_to_reference_normal);
-        result.insert("array_spec", array_spec);
+        result.insert("array_spec", array_spec_to_json(unit.array_spec));
+        QJsonArray array_specs;
+        const QList<UnitArraySpec> specs = unit.array_specs.isEmpty()
+            ? QList<UnitArraySpec>{unit.array_spec}
+            : unit.array_specs;
+        for (const UnitArraySpec &spec : specs)
+        {
+            array_specs.append(array_spec_to_json(spec));
+        }
+        result.insert("array_specs", array_specs);
     }
     QJsonObject injector;
     injector_to_json(unit.inj.injector_data, &injector);
@@ -618,27 +617,35 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
                 qMax(1, unit->fill_source_uuids.size()), 1);
         }
     }
+    unit->array_specs.clear();
+    if (object.value("array_specs").isArray())
+    {
+        for (const QJsonValue &value : object.value("array_specs").toArray())
+        {
+            UnitArraySpec spec;
+            if (!array_spec_from_json(value, &spec))
+            {
+                return false;
+            }
+            unit->array_specs.append(spec);
+        }
+    }
     if (unit->has_array_spec && object.value("array_spec").isObject())
     {
-        const QJsonObject array_spec = object.value("array_spec").toObject();
-        unit->array_spec.type = static_cast<UnitArrayType>(
-            array_spec.value("type").toInt(static_cast<int>(UnitArrayType::Linear)));
-        unit->array_spec.count = array_spec.value("count").toInt(1);
-        vector_from_json(array_spec.value("direction"), &unit->array_spec.direction);
-        vector_from_json(array_spec.value("origin"), &unit->array_spec.origin);
-        unit->array_spec.spacing = static_cast<float>(
-            array_spec.value("spacing").toDouble(0.0));
-        unit->array_spec.angle_degrees = static_cast<float>(
-            array_spec.value("angle_degrees").toDouble(360.0));
-        unit->array_spec.major_radius = static_cast<float>(
-            array_spec.value("major_radius").toDouble(10.0));
-        unit->array_spec.minor_radius = static_cast<float>(
-            array_spec.value("minor_radius").toDouble(5.0));
-        vector_from_json(array_spec.value("plane_normal"), &unit->array_spec.plane_normal);
-        unit->array_spec.use_reference_geometry =
-            array_spec.value("use_reference_geometry").toBool(false);
-        unit->array_spec.conform_to_reference_normal =
-            array_spec.value("conform_to_reference_normal").toBool(false);
+        if (!array_spec_from_json(object.value("array_spec"),
+                                  &unit->array_spec))
+        {
+            return false;
+        }
+    }
+    if (unit->array_specs.isEmpty() && unit->has_array_spec)
+    {
+        unit->array_specs.append(unit->array_spec);
+    }
+    if (!unit->array_specs.isEmpty())
+    {
+        unit->has_array_spec = true;
+        unit->array_spec = unit->array_specs.last();
     }
     if (!injector_from_json(injector_object, &unit->inj.injector_data))
     {
@@ -668,6 +675,70 @@ bool is_usable_reference_frame(const QVector3D &x_axis,
     return x_axis.lengthSquared() > 1.0e-12f &&
            z_axis.lengthSquared() > 1.0e-12f &&
            QVector3D::crossProduct(x_axis, z_axis).lengthSquared() > 1.0e-12f;
+}
+
+QJsonObject array_spec_to_json(const UnitArraySpec &spec)
+{
+    QJsonObject result;
+    result.insert("type", static_cast<int>(spec.type));
+    result.insert("count", spec.count);
+    result.insert("direction", vector_to_json(spec.direction));
+    result.insert("origin", vector_to_json(spec.origin));
+    result.insert("spacing", spec.spacing);
+    result.insert("angle_degrees", spec.angle_degrees);
+    result.insert("major_radius", spec.major_radius);
+    result.insert("minor_radius", spec.minor_radius);
+    result.insert("plane_normal", vector_to_json(spec.plane_normal));
+    result.insert("use_reference_geometry", spec.use_reference_geometry);
+    result.insert("conform_to_reference_normal", spec.conform_to_reference_normal);
+    return result;
+}
+
+bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec)
+{
+    if (spec == nullptr || !json_value.isObject())
+    {
+        return false;
+    }
+
+    const QJsonObject object = json_value.toObject();
+    spec->type = static_cast<UnitArrayType>(
+        object.value("type").toInt(static_cast<int>(UnitArrayType::Linear)));
+    spec->count = object.value("count").toInt(1);
+    vector_from_json(object.value("direction"), &spec->direction);
+    vector_from_json(object.value("origin"), &spec->origin);
+    spec->spacing = static_cast<float>(object.value("spacing").toDouble(0.0));
+    spec->angle_degrees = static_cast<float>(
+        object.value("angle_degrees").toDouble(360.0));
+    spec->major_radius = static_cast<float>(
+        object.value("major_radius").toDouble(10.0));
+    spec->minor_radius = static_cast<float>(
+        object.value("minor_radius").toDouble(5.0));
+    vector_from_json(object.value("plane_normal"), &spec->plane_normal);
+    spec->use_reference_geometry =
+        object.value("use_reference_geometry").toBool(false);
+    spec->conform_to_reference_normal =
+        object.value("conform_to_reference_normal").toBool(false);
+    return true;
+}
+
+bool is_valid_array_spec(const UnitArraySpec &spec)
+{
+    const int array_type = static_cast<int>(spec.type);
+    return array_type >= static_cast<int>(UnitArrayType::Linear) &&
+           array_type <= static_cast<int>(UnitArrayType::Elliptical) &&
+           spec.count >= 1 && spec.count <= 100000 &&
+           is_finite_vector(spec.direction) &&
+           is_finite_vector(spec.origin) &&
+           is_finite_vector(spec.plane_normal) &&
+           std::isfinite(spec.spacing) &&
+           std::isfinite(spec.angle_degrees) &&
+           std::isfinite(spec.major_radius) &&
+           std::isfinite(spec.minor_radius) &&
+           (!spec.use_reference_geometry ||
+            is_usable_reference_frame(spec.direction, spec.plane_normal)) &&
+           (spec.type != UnitArrayType::Elliptical ||
+            (spec.major_radius > 0.0f && spec.minor_radius >= 0.0f));
 }
 
 QString session_path_for_storage(const QString &path, const QString &session_file_path)
@@ -821,22 +892,17 @@ bool validate(const Data &data, QString *error_message)
 
         if (unit.has_array_spec)
         {
-            const UnitArraySpec &spec = unit.array_spec;
-            const int array_type = static_cast<int>(spec.type);
-            if (array_type < static_cast<int>(UnitArrayType::Linear) ||
-                array_type > static_cast<int>(UnitArrayType::Elliptical) ||
-                spec.count < 1 || spec.count > 100000 ||
-                !is_finite_vector(spec.direction) ||
-                !is_finite_vector(spec.origin) ||
-                !is_finite_vector(spec.plane_normal) ||
-                !std::isfinite(spec.spacing) ||
-                !std::isfinite(spec.angle_degrees) ||
-                !std::isfinite(spec.major_radius) ||
-                !std::isfinite(spec.minor_radius) ||
-                (spec.use_reference_geometry &&
-                 !is_usable_reference_frame(spec.direction, spec.plane_normal)) ||
-                (spec.type == UnitArrayType::Elliptical &&
-                 (spec.major_radius <= 0.0f || spec.minor_radius < 0.0f)))
+            QList<UnitArraySpec> specs = unit.array_specs;
+            if (specs.isEmpty())
+            {
+                specs.append(unit.array_spec);
+            }
+            if (!is_valid_array_spec(unit.array_spec) ||
+                std::any_of(specs.cbegin(), specs.cend(),
+                            [](const UnitArraySpec &spec)
+                            {
+                                return !is_valid_array_spec(spec);
+                            }))
             {
                 set_error(error_message,
                           "Project contains invalid array specification values.");
