@@ -71,6 +71,8 @@ int main(int argc, char *argv[])
 
     project_session::Data source;
     source.units.append(unit);
+    source.units.first().has_fill_spec = false;
+    source.units.first().fill_source_uuids.clear();
     source.units.first().type = array;
     source.chemkin_file_path = temporary_directory.filePath("inputs/example.inp");
     source.species_colors.insert("O2", QColor("#123456"));
@@ -157,6 +159,35 @@ int main(int argc, char *argv[])
     if (!check(!project_session::validate(invalid_fill_spec, &reference_error) &&
                    reference_error.contains("invalid fill specification"),
                "fill source weight count should match source count"))
+    {
+        return 1;
+    }
+    invalid_fill_spec.units.first().fill_source_uuids =
+        {QUuid::createUuid()};
+    invalid_fill_spec.units.first().fill_spec.source_weights = {1};
+    reference_error.clear();
+    if (!check(!project_session::validate(invalid_fill_spec, &reference_error) &&
+                   reference_error.contains("Fill source") &&
+                   reference_error.contains("invalid UUID"),
+               "invalid Fill source UUID should be rejected"))
+    {
+        return 1;
+    }
+    Unit invalid_array_child = unit;
+    invalid_array_child.inj.uuid = QUuid::createUuid();
+    invalid_array_child.inj.injector_data.name = "invalid-array-child";
+    invalid_array_child.is_array_child = true;
+    invalid_array_child.follows_array = true;
+    invalid_array_child.array_parent_uuid = QUuid::createUuid();
+    invalid_array_child.has_array_spec = false;
+    invalid_array_child.has_fill_spec = false;
+    project_session::Data invalid_array_parent = source;
+    invalid_array_parent.units.append(invalid_array_child);
+    reference_error.clear();
+    if (!check(!project_session::validate(invalid_array_parent, &reference_error) &&
+                   reference_error.contains("array child") &&
+                   reference_error.contains("parent reference"),
+               "invalid array parent UUID should be rejected"))
     {
         return 1;
     }
@@ -301,12 +332,6 @@ int main(int argc, char *argv[])
                "RR logarithmic flag did not round-trip") ||
         !check(restored.units.first().inj.injector_data.volume_zones == QVector<int>({3, 7, 11}),
                "Volume zones did not round-trip") ||
-        !check(restored.units.first().has_fill_spec &&
-                   restored.units.first().fill_spec.pattern == UnitFillPattern::Hexagonal &&
-                   restored.units.first().fill_spec.rows == 3 &&
-                   restored.units.first().fill_spec.source_weights == QVector<int>({1}) &&
-                   restored.units.first().fill_source_uuids == QVector<QUuid>({unit.inj.uuid}),
-               "Fill metadata did not round-trip") ||
         !check(restored.units.first().has_array_spec &&
                     restored.units.first().array_specs.size() == 2 &&
                     restored.units.first().array_specs.first().type ==
@@ -340,12 +365,48 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data fill_source_data = source;
+    fill_source_data.units.first().has_array_spec = false;
+    fill_source_data.units.first().array_specs.clear();
+    fill_source_data.units.first().type = injector;
+    fill_source_data.units.first().has_fill_spec = true;
+    fill_source_data.units.first().fill_source_uuids = {unit.inj.uuid};
+    const QString fill_session_path =
+        temporary_directory.filePath("fill-round-trip.dpmproj");
+    if (!check(project_session::save(fill_session_path,
+                                     fill_source_data,
+                                     &error_message),
+               error_message))
+    {
+        return 1;
+    }
+    project_session::Data restored_fill;
+    if (!check(project_session::load(fill_session_path,
+                                     &restored_fill,
+                                     &error_message),
+               error_message) ||
+        !check(restored_fill.units.size() == 1 &&
+                   restored_fill.units.first().has_fill_spec &&
+                   restored_fill.units.first().fill_spec.pattern ==
+                       UnitFillPattern::Hexagonal &&
+                   restored_fill.units.first().fill_spec.rows == 3 &&
+                   restored_fill.units.first().fill_spec.source_weights ==
+                       QVector<int>({1}) &&
+                   restored_fill.units.first().fill_source_uuids ==
+                       QVector<QUuid>({unit.inj.uuid}),
+               "Fill metadata did not round-trip independently"))
+    {
+        return 1;
+    }
+
     Unit independent_array_child = unit;
     independent_array_child.inj.uuid = QUuid::createUuid();
     independent_array_child.inj.injector_data.name = "independent-array-child";
     independent_array_child.type = array;
     independent_array_child.has_array_spec = false;
     independent_array_child.array_specs.clear();
+    independent_array_child.has_fill_spec = false;
+    independent_array_child.fill_source_uuids.clear();
     independent_array_child.is_array_child = true;
     independent_array_child.follows_array = false;
     independent_array_child.array_parent_uuid = unit.inj.uuid;
@@ -579,17 +640,17 @@ int main(int argc, char *argv[])
     Unit assembly_member(unit);
     assembly_member.inj.uuid = QUuid::createUuid();
     assembly_member.inj.injector_data.name = "assembly-member";
+    assembly_member.has_array_spec = false;
+    assembly_member.array_specs.clear();
+    assembly_member.has_fill_spec = false;
+    assembly_member.fill_source_uuids.clear();
     assembly_data.units.first().type = Assebly;
     assembly_data.units.first().assembly_child_uuids = {assembly_member.inj.uuid};
     assembly_data.units.first().has_array_spec = true;
     assembly_data.units.first().array_specs.clear();
     assembly_data.units.first().array_spec.use_reference_geometry = true;
     assembly_data.units.first().array_spec.conform_to_reference_normal = true;
-    assembly_data.units.first().has_fill_spec = true;
-    assembly_data.units.first().fill_spec.use_reference_geometry = true;
-    assembly_data.units.first().fill_spec.conform_to_reference_normal = true;
-    assembly_data.units.first().fill_spec.direction = QVector3D(0.0f, 1.0f, 0.0f);
-    assembly_data.units.first().fill_spec.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    assembly_data.units.first().has_fill_spec = false;
     assembly_member.assembly_parent_uuid = assembly_data.units.first().inj.uuid;
     assembly_data.units.append(assembly_member);
     if (!check(project_session::validate_references(assembly_data, {"O2", "N2"},
@@ -614,14 +675,18 @@ int main(int argc, char *argv[])
                    restored_assembly.units.first().has_array_spec &&
                    restored_assembly.units.first().array_spec.use_reference_geometry &&
                    restored_assembly.units.first().array_spec.conform_to_reference_normal &&
-                   restored_assembly.units.first().has_fill_spec &&
-                   restored_assembly.units.first().fill_spec.use_reference_geometry &&
-                   restored_assembly.units.first().fill_spec.conform_to_reference_normal &&
-                   restored_assembly.units.first().fill_spec.direction ==
-                       QVector3D(0.0f, 1.0f, 0.0f) &&
                    restored_assembly.units.at(1).assembly_parent_uuid ==
                        assembly_data.units.first().inj.uuid,
                "Assembly relationships did not round-trip"))
+    {
+        return 1;
+    }
+
+    project_session::Data invalid_combined = assembly_data;
+    invalid_combined.units.first().has_fill_spec = true;
+    if (!check(!project_session::validate(invalid_combined, &validation_error) &&
+                   validation_error.contains("both Array and Fill"),
+               "Array and Fill specifications should be mutually exclusive"))
     {
         return 1;
     }

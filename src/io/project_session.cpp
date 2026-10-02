@@ -940,6 +940,13 @@ bool validate(const Data &data, QString *error_message)
             }
         }
 
+        if (unit.has_array_spec && unit.has_fill_spec)
+        {
+            set_error(error_message,
+                      "Project unit cannot contain both Array and Fill specifications.");
+            return false;
+        }
+
         if (unit.has_fill_spec)
         {
             const UnitFillSpec &spec = unit.fill_spec;
