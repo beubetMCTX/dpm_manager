@@ -5383,6 +5383,25 @@ void MainWindow::update_object_list_panel()
                 QStringLiteral("array_layer:%1:%2")
                     .arg(unit->inj.uuid.toString(QUuid::WithoutBraces))
                     .arg(layer_it.key()));
+            QString layer_uuid;
+            for (const std::shared_ptr<Unit> &child : layer_it.value())
+            {
+                if (child != nullptr && !child->array_layer_uuid.isNull())
+                {
+                    layer_uuid = child->array_layer_uuid.toString(
+                        QUuid::WithoutBraces);
+                    break;
+                }
+            }
+            if (!layer_uuid.isEmpty())
+            {
+                layer_item->setData(0, Qt::UserRole + 5, layer_uuid);
+                layer_item->setData(
+                    0, Qt::UserRole + 4,
+                    QStringLiteral("array_layer:%1:%2")
+                        .arg(unit->inj.uuid.toString(QUuid::WithoutBraces),
+                             layer_uuid));
+            }
             layer_item->setFlags(Qt::ItemIsEnabled);
             layer_item->setExpanded(true);
             for (const std::shared_ptr<Unit> &child : layer_it.value())
@@ -5405,6 +5424,17 @@ void MainWindow::update_object_list_panel()
                 0, Qt::UserRole + 4,
                 QStringLiteral("fill:%1")
                     .arg(unit->inj.uuid.toString(QUuid::WithoutBraces)));
+            if (!unit->fill_spec.fill_uuid.isNull())
+            {
+                const QString fill_uuid = unit->fill_spec.fill_uuid.toString(
+                    QUuid::WithoutBraces);
+                fill_item->setData(0, Qt::UserRole + 5, fill_uuid);
+                fill_item->setData(
+                    0, Qt::UserRole + 4,
+                    QStringLiteral("fill:%1:%2")
+                        .arg(unit->inj.uuid.toString(QUuid::WithoutBraces),
+                             fill_uuid));
+            }
             fill_item->setFlags(Qt::ItemIsEnabled);
             fill_item->setExpanded(true);
             for (const std::shared_ptr<Unit> &child : fill_children)
