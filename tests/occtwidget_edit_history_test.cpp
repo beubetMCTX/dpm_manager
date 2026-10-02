@@ -102,6 +102,12 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    if (!check(widget.create_unit_array(leaf_children.first()->inj.uuid,
+                                        leaf_array) == 0,
+               "Following array children must not become unstable array sources"))
+    {
+        return 1;
+    }
 
     UnitArraySpec second_leaf_array;
     second_leaf_array.type = UnitArrayType::Rotational;
@@ -115,6 +121,19 @@ int main(int argc, char *argv[])
                "Array source should retain both array layers") ||
         !check(widget.unit_hash.value(uuid)->child_units.size() == 4,
                "Second array layer should retain first-layer instances"))
+    {
+        return 1;
+    }
+    if (!check(widget.undo_last_edit(),
+               "Array creation should be undoable") ||
+        !check(widget.unit_hash.value(uuid)->array_specs.size() == 1 &&
+                   widget.unit_hash.value(uuid)->child_units.size() == 2,
+               "Undo should restore the previous array layer") ||
+        !check(widget.redo_edit(),
+               "Array creation should be redoable") ||
+        !check(widget.unit_hash.value(uuid)->array_specs.size() == 2 &&
+                   widget.unit_hash.value(uuid)->child_units.size() == 4,
+               "Redo should restore the second array layer"))
     {
         return 1;
     }

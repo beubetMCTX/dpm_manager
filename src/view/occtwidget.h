@@ -347,6 +347,7 @@ private:
     };
     struct UnitEditHistoryEntry
     {
+        bool is_structure = false;
         QUuid uuid;
         QUuid batch_id;
         Unit_Type before_type = injector;
@@ -357,6 +358,8 @@ private:
         QVector3D before_local_rotation;
         QVector3D after_local_position;
         QVector3D after_local_rotation;
+        QList<Unit> before_units;
+        QList<Unit> after_units;
     };
     struct CopiedUnit
     {
@@ -394,6 +397,10 @@ private:
                              const QVector3D &local_rotation);
     void record_edit(const UnitEditTransaction &transaction,
                      const Unit &unit);
+    QList<Unit> capture_persistent_units() const;
+    void record_structure_edit(const QList<Unit> &before,
+                               const QList<Unit> &after);
+    bool restore_structure_snapshot(const QList<Unit> &snapshot);
     void clear_edit_history();
     void record_reference_transform(const QVector3D &before_position,
                                     const QVector3D &before_rotation,
@@ -526,6 +533,7 @@ private:
     QVector<UnitDeleteHistoryEntry> m_delete_history;
     int m_delete_history_index = 0;
     bool m_replaying_delete_history = false;
+    bool m_replaying_edit_history = false;
     QUuid m_drag_unit_uuid;
     UnitMoveSnapshot m_drag_move_before;
     bool m_drag_move_snapshot_valid = false;

@@ -425,7 +425,10 @@ void OCCTWidget::display_units(const QList<Unit> &units, bool clear_existing)
         discard_auxiliary_dialogs();
         clear_unit_local_coordinate_frames();
         clear_move_history();
-        clear_edit_history();
+        if (!m_replaying_edit_history)
+        {
+            clear_edit_history();
+        }
         clear_delete_history();
         m_copied_unit.reset();
         for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
@@ -2376,6 +2379,7 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
     {
         return false;
     }
+    const QList<Unit> before = capture_persistent_units();
 
     const QUuid parent_uuid = parent->inj.uuid;
     const auto contains_descendant = [&](const std::shared_ptr<Unit> &root,
@@ -2464,6 +2468,7 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
     }
     emit unit_data_updated(parent.get());
     emit unit_display_list_changed();
+    record_structure_edit(before, capture_persistent_units());
     return true;
 }
 
@@ -2474,6 +2479,7 @@ bool OCCTWidget::detach_from_assembly(const QUuid &uuid)
     {
         return false;
     }
+    const QList<Unit> before = capture_persistent_units();
 
     const std::shared_ptr<Unit> parent = unit_hash.value(child->assembly_parent_uuid);
     if (parent != nullptr)
@@ -2488,6 +2494,7 @@ bool OCCTWidget::detach_from_assembly(const QUuid &uuid)
     }
     child->assembly_parent_uuid = QUuid();
     emit unit_display_list_changed();
+    record_structure_edit(before, capture_persistent_units());
     return true;
 }
 
@@ -2498,6 +2505,7 @@ bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
     {
         return false;
     }
+    const QList<Unit> before = capture_persistent_units();
 
     clear_unit_array_children(*assembly);
 
@@ -2518,6 +2526,7 @@ bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
     assembly->type = injector;
     emit unit_data_updated(assembly.get());
     emit unit_display_list_changed();
+    record_structure_edit(before, capture_persistent_units());
     return true;
 }
 
@@ -2742,6 +2751,10 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
         return 0;
     }
 
+    const QList<Unit> before = capture_persistent_units();
+    const bool had_array_spec = source->has_array_spec;
+    const UnitArraySpec previous_array_spec = source->array_spec;
+    const QList<UnitArraySpec> previous_array_specs = source->array_specs;
     if (source->array_specs.isEmpty() && source->has_array_spec)
     {
         source->array_specs.append(source->array_spec);
@@ -2749,7 +2762,16 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     source->array_specs.append(spec);
     source->has_array_spec = true;
     source->array_spec = spec;
-    return rebuild_unit_array_layers(source_uuid);
+    const int created = rebuild_unit_array_layers(source_uuid);
+    if (created <= 0)
+    {
+        source->has_array_spec = had_array_spec;
+        source->array_spec = previous_array_spec;
+        source->array_specs = previous_array_specs;
+        return 0;
+    }
+    record_structure_edit(before, capture_persistent_units());
+    return created;
 }
 
 void OCCTWidget::clear_array_preview()
@@ -2964,6 +2986,7 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
             return 0;
         }
     }
+    const QList<Unit> before = capture_persistent_units();
 
     const std::shared_ptr<Unit> parent = unit_hash.value(source_uuids.first());
     if (parent != nullptr)
@@ -3046,6 +3069,10 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         {
             emit unit_data_updated(parent.get());
         }
+        if (displayed_count > 0)
+        {
+            record_structure_edit(before, capture_persistent_units());
+        }
         return displayed_count;
     }
 
@@ -3095,6 +3122,7 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
         m_view->FitAll();
         m_view->Redraw();
         emit unit_display_list_changed();
+        record_structure_edit(before, capture_persistent_units());
     }
     return displayed_count;
 }
@@ -3314,9 +3342,11 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
     {
         return false;
     }
+    const QList<Unit> before = capture_persistent_units();
     unit->follows_array = follow;
     emit unit_data_updated(unit.get());
     emit unit_display_list_changed();
+    record_structure_edit(before, capture_persistent_units());
     return true;
 }
 
@@ -3328,6 +3358,7 @@ bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
     {
         return false;
     }
+    const QList<Unit> before = capture_persistent_units();
 
     const QUuid parent_uuid = unit->array_parent_uuid;
     unit->follows_array = true;
@@ -3335,8 +3366,13 @@ bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
     {
         return false;
     }
-    return rebuild_unit_array(parent_uuid) > 0 ||
-           rebuild_unit_fill(parent_uuid) > 0;
+    const bool rebuilt = rebuild_unit_array(parent_uuid) > 0 ||
+                         rebuild_unit_fill(parent_uuid) > 0;
+    if (rebuilt)
+    {
+        record_structure_edit(before, capture_persistent_units());
+    }
+    return rebuilt;
 }
 
 bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
@@ -3844,6 +3880,67 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     return true;
 }
 
+QList<Unit> OCCTWidget::capture_persistent_units() const
+{
+    QList<std::shared_ptr<Unit>> runtime_units;
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit != nullptr &&
+            !(unit->is_array_child && unit->follows_array))
+        {
+            runtime_units.append(unit);
+        }
+    }
+    std::sort(runtime_units.begin(), runtime_units.end(),
+              [](const std::shared_ptr<Unit> &left,
+                 const std::shared_ptr<Unit> &right)
+              {
+                  return left->inj.uuid.toString(QUuid::WithoutBraces) <
+                         right->inj.uuid.toString(QUuid::WithoutBraces);
+              });
+
+    QList<Unit> snapshot;
+    for (const std::shared_ptr<Unit> &runtime_unit : runtime_units)
+    {
+        if (runtime_unit != nullptr)
+        {
+            snapshot.append(*runtime_unit);
+        }
+    }
+    return snapshot;
+}
+
+void OCCTWidget::record_structure_edit(const QList<Unit> &before,
+                                       const QList<Unit> &after)
+{
+    if (before.isEmpty() && after.isEmpty())
+    {
+        return;
+    }
+    if (m_edit_history_index < m_edit_history.size())
+    {
+        m_edit_history.resize(m_edit_history_index);
+    }
+
+    UnitEditHistoryEntry entry;
+    entry.is_structure = true;
+    entry.batch_id = QUuid::createUuid();
+    entry.before_units = before;
+    entry.after_units = after;
+    m_edit_history.append(std::move(entry));
+    m_edit_history_index = m_edit_history.size();
+    emit edit_history_changed(can_undo_edit(), can_redo_edit());
+}
+
+bool OCCTWidget::restore_structure_snapshot(const QList<Unit> &snapshot)
+{
+    m_replaying_edit_history = true;
+    display_units(snapshot, true);
+    m_replaying_edit_history = false;
+    return true;
+}
+
 void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
                              const Unit &unit)
 {
@@ -3908,6 +4005,19 @@ bool OCCTWidget::undo_last_edit()
         return false;
     }
 
+    if (m_edit_history[m_edit_history_index - 1].is_structure)
+    {
+        const UnitEditHistoryEntry &entry =
+            m_edit_history[m_edit_history_index - 1];
+        if (!restore_structure_snapshot(entry.before_units))
+        {
+            return false;
+        }
+        --m_edit_history_index;
+        emit edit_history_changed(can_undo_edit(), can_redo_edit());
+        return true;
+    }
+
     const QUuid batch_id = m_edit_history[m_edit_history_index - 1].batch_id;
     int batch_start = m_edit_history_index - 1;
     while (batch_start > 0 && !batch_id.isNull() &&
@@ -3936,6 +4046,19 @@ bool OCCTWidget::redo_edit()
     if (!can_redo_edit())
     {
         return false;
+    }
+
+    if (m_edit_history[m_edit_history_index].is_structure)
+    {
+        const UnitEditHistoryEntry &entry =
+            m_edit_history[m_edit_history_index];
+        if (!restore_structure_snapshot(entry.after_units))
+        {
+            return false;
+        }
+        ++m_edit_history_index;
+        emit edit_history_changed(can_undo_edit(), can_redo_edit());
+        return true;
     }
 
     const QUuid batch_id = m_edit_history[m_edit_history_index].batch_id;
