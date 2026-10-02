@@ -320,6 +320,8 @@ int main(int argc, char *argv[])
         legacy_unit.value("array_specs").toArray();
     legacy_unit.remove("array_specs");
     legacy_unit.remove("array_spec");
+    legacy_unit.remove("assembly_local_position");
+    legacy_unit.remove("assembly_local_rotation");
     legacy_unit.insert("array_specs", current_array_specs.first());
     legacy_units[0] = legacy_unit;
     legacy_root.insert("units", legacy_units);
@@ -342,8 +344,10 @@ int main(int argc, char *argv[])
         !check(migrated_legacy.units.size() == 1 &&
                    migrated_legacy.units.first().array_specs.size() == 1 &&
                    migrated_legacy.units.first().array_specs.first().type ==
-                       UnitArrayType::Elliptical,
-               "Schema v1 array_specs should migrate to the v2 list form"))
+                       UnitArrayType::Elliptical &&
+                   migrated_legacy.units.first().assembly_local_position ==
+                       migrated_legacy.units.first().inj.injector_data.pos,
+               "Schema v1 fields should migrate and default local position to world position"))
     {
         return 1;
     }

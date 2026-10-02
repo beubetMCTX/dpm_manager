@@ -554,6 +554,10 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
 
     unit->type = static_cast<Unit_Type>(object.value("unit_type").toInt(static_cast<int>(injector)));
     unit->inj.uuid = uuid;
+    if (!injector_from_json(injector_object, &unit->inj.injector_data))
+    {
+        return false;
+    }
     unit->has_array_spec = object.value("has_array_spec").toBool(false);
     unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
     unit->is_array_child = object.value("is_array_child").toBool(false);
@@ -655,10 +659,6 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     {
         unit->has_array_spec = true;
         unit->array_spec = unit->array_specs.last();
-    }
-    if (!injector_from_json(injector_object, &unit->inj.injector_data))
-    {
-        return false;
     }
     return unit->inj.create_injector();
 }
