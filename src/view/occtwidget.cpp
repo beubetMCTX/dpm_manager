@@ -2545,6 +2545,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         unit->array_parent_uuid = source_uuid;
         unit->is_array_child = true;
         unit->follows_array = true;
+        unit->array_layer = layer;
         unit->prototype_uuid = source_uuid;
         unit->prototype_chain = {source_uuid};
         unit->has_array_spec = false;
@@ -2577,6 +2578,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         pattern->array_parent_uuid = QUuid();
         pattern->is_array_child = false;
         pattern->follows_array = true;
+        pattern->array_layer = 0;
         pattern->prototype_uuid = QUuid();
         pattern->prototype_chain.clear();
         pattern->has_array_spec = false;
@@ -2645,6 +2647,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
             const std::shared_ptr<Unit> pattern_child =
                 std::make_shared<Unit>(child);
             pattern_child->is_array_child = false;
+            pattern_child->array_layer = 0;
             pattern_child->array_parent_uuid = QUuid();
             pattern_child->prototype_uuid = QUuid();
             pattern_child->prototype_chain.clear();
@@ -2770,6 +2773,7 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
         pattern->prototype_chain.clear();
         pattern->has_array_spec = false;
         pattern->array_specs.clear();
+        pattern->array_layer = 0;
         pattern->has_fill_spec = false;
         pattern->fill_source_uuids.clear();
         for (const std::shared_ptr<Unit> &source_child : source_node->child_units)
@@ -2840,6 +2844,7 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
             const std::shared_ptr<Unit> pattern_child =
                 std::make_shared<Unit>(child);
             pattern_child->is_array_child = false;
+            pattern_child->array_layer = 0;
             pattern_child->array_parent_uuid = QUuid();
             pattern_child->prototype_uuid = QUuid();
             pattern_child->prototype_chain.clear();

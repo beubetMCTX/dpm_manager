@@ -14,7 +14,7 @@
 #include <QDoubleSpinBox>
 #include <QCheckBox>
 #include <QPushButton>
-#include <QListWidget>
+#include <QTreeWidget>
 #include <QByteArray>
 
 #include <QFileDialog>
@@ -42,6 +42,19 @@ class SpeciesColorDialog;
 class SpeciesMaterialDialog;
 class UnitPreferencesDialog;
 class QMenu;
+
+class ObjectTreeWidget : public QTreeWidget
+{
+public:
+    explicit ObjectTreeWidget(QWidget *parent = nullptr)
+        : QTreeWidget(parent)
+    {
+    }
+
+    QList<QTreeWidgetItem *> all_items() const;
+    int count() const { return all_items().size(); }
+    QTreeWidgetItem *item(int index) const;
+};
 
 class MainWindow : public QMainWindow
 {
@@ -179,7 +192,7 @@ private:
     QLabel *m_reference_face_origin = nullptr;
     QLabel *m_reference_face_normal = nullptr;
     QDockWidget *m_object_list_dock = nullptr;
-    QListWidget *m_object_list = nullptr;
+    ObjectTreeWidget *m_object_list = nullptr;
     QDockWidget *m_array_editor_dock = nullptr;
     QLabel *m_array_editor_source_label = nullptr;
     QUuid m_array_editor_source_uuid;
