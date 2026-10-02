@@ -67,6 +67,41 @@ bool material_entries_equal(const QList<MaterialConfigEntry> &lhs,
     return true;
 }
 
+double convert_display_value(double value,
+                             const QString &from_unit,
+                             const QString &to_unit)
+{
+    bool ok = false;
+    const double converted = UnitSystem::convert(value, from_unit, to_unit, &ok);
+    return ok ? converted : value;
+}
+
+double storage_length_to_display(double value)
+{
+    return convert_display_value(
+        value, QStringLiteral("m"), UnitSystem::preferred_display_unit("m"));
+}
+
+double display_length_to_storage(double value)
+{
+    return convert_display_value(
+        value, UnitSystem::preferred_display_unit("m"), QStringLiteral("m"));
+}
+
+double storage_angle_to_display(double value_degrees)
+{
+    return convert_display_value(
+        value_degrees, QStringLiteral("deg"),
+        UnitSystem::preferred_display_unit("deg"));
+}
+
+double display_angle_to_storage(double value)
+{
+    return convert_display_value(
+        value, UnitSystem::preferred_display_unit("deg"),
+        QStringLiteral("deg"));
+}
+
 void configure_common_injector(Unit &unit, const QString &name, const QVector3D &pos)
 {
     const QVector3D axial_dir(1.0f, 0.0f, 0.0f);
@@ -512,6 +547,13 @@ void MainWindow::open_unit_preferences_dialog()
         m_3d_widget->apply_visual_preferences(preferences);
         m_3d_widget->refresh_open_unit_editors();
         update_unit_position_controls();
+    }
+    if (m_array_editor_dock != nullptr && m_array_editor_dock->isVisible())
+    {
+        apply_array_editor_display_units();
+        load_array_editor_layer(m_array_editor_layers == nullptr
+                                    ? -1
+                                    : m_array_editor_layers->currentRow());
     }
     statusBar()->showMessage("Display units updated", 3000);
 }
@@ -2481,6 +2523,14 @@ void MainWindow::create_array_editor_panel()
     layout->addWidget(buttons);
     layout->addStretch();
 
+    apply_array_editor_display_units();
+    m_array_editor_linear_spacing->setValue(storage_length_to_display(0.004));
+    m_array_editor_rotational_angle->setValue(storage_angle_to_display(360.0));
+    m_array_editor_rotational_spacing->setValue(storage_length_to_display(0.0));
+    m_array_editor_major_radius->setValue(storage_length_to_display(0.010));
+    m_array_editor_minor_radius->setValue(storage_length_to_display(0.005));
+    m_array_editor_elliptical_angle->setValue(storage_angle_to_display(360.0));
+
     connect(m_array_editor_type, qOverload<int>(&QComboBox::currentIndexChanged),
             m_array_editor_parameter_stack, &QStackedWidget::setCurrentIndex);
     connect(m_array_editor_type, qOverload<int>(&QComboBox::currentIndexChanged),
@@ -2520,9 +2570,12 @@ void MainWindow::create_array_editor_panel()
             QVector3D reference_z;
             if (m_3d_widget->reference_frame(&origin, &reference_x, &reference_z))
             {
-                m_array_editor_origin_x->setValue(origin.x());
-                m_array_editor_origin_y->setValue(origin.y());
-                m_array_editor_origin_z->setValue(origin.z());
+                m_array_editor_origin_x->setValue(
+                    storage_length_to_display(origin.x()));
+                m_array_editor_origin_y->setValue(
+                    storage_length_to_display(origin.y()));
+                m_array_editor_origin_z->setValue(
+                    storage_length_to_display(origin.z()));
                 m_array_editor_direction_x->setValue(reference_x.x());
                 m_array_editor_direction_y->setValue(reference_x.y());
                 m_array_editor_direction_z->setValue(reference_x.z());
@@ -2736,6 +2789,41 @@ void MainWindow::refresh_array_editor_panel()
     load_array_editor_layer(row);
 }
 
+void MainWindow::apply_array_editor_display_units()
+{
+    if (m_array_editor_linear_spacing == nullptr)
+    {
+        return;
+    }
+
+    const QString length_unit = UnitSystem::preferred_display_unit("m");
+    const QString angle_unit = UnitSystem::preferred_display_unit("deg");
+    const QString length_suffix = QStringLiteral(" ") + length_unit;
+    const QString angle_suffix = QStringLiteral(" ") + angle_unit;
+
+    for (QDoubleSpinBox *spin : {m_array_editor_linear_spacing,
+                                 m_array_editor_rotational_spacing,
+                                 m_array_editor_major_radius,
+                                 m_array_editor_minor_radius,
+                                 m_array_editor_origin_x,
+                                 m_array_editor_origin_y,
+                                 m_array_editor_origin_z})
+    {
+        if (spin != nullptr)
+        {
+            spin->setSuffix(length_suffix);
+        }
+    }
+    for (QDoubleSpinBox *spin : {m_array_editor_rotational_angle,
+                                 m_array_editor_elliptical_angle})
+    {
+        if (spin != nullptr)
+        {
+            spin->setSuffix(angle_suffix);
+        }
+    }
+}
+
 void MainWindow::load_array_editor_layer(int layer_index)
 {
     if (m_array_editor_updating || m_array_editor_type == nullptr)
@@ -2756,17 +2844,24 @@ void MainWindow::load_array_editor_layer(int layer_index)
 
     m_array_editor_type->setCurrentIndex(static_cast<int>(spec.type));
     m_array_editor_count->setValue(spec.count);
-    m_array_editor_linear_spacing->setValue(spec.spacing);
-    m_array_editor_rotational_angle->setValue(spec.angle_degrees);
-    m_array_editor_rotational_spacing->setValue(spec.spacing);
-    m_array_editor_major_radius->setValue(spec.major_radius);
-    m_array_editor_minor_radius->setValue(spec.minor_radius);
-    m_array_editor_elliptical_angle->setValue(spec.angle_degrees);
+    apply_array_editor_display_units();
+    m_array_editor_linear_spacing->setValue(
+        storage_length_to_display(spec.spacing));
+    m_array_editor_rotational_angle->setValue(
+        storage_angle_to_display(spec.angle_degrees));
+    m_array_editor_rotational_spacing->setValue(
+        storage_length_to_display(spec.spacing));
+    m_array_editor_major_radius->setValue(
+        storage_length_to_display(spec.major_radius));
+    m_array_editor_minor_radius->setValue(
+        storage_length_to_display(spec.minor_radius));
+    m_array_editor_elliptical_angle->setValue(
+        storage_angle_to_display(spec.angle_degrees));
     m_array_editor_frame_mode->setCurrentIndex(
         spec.use_reference_geometry ? 1 : 0);
-    m_array_editor_origin_x->setValue(spec.origin.x());
-    m_array_editor_origin_y->setValue(spec.origin.y());
-    m_array_editor_origin_z->setValue(spec.origin.z());
+    m_array_editor_origin_x->setValue(storage_length_to_display(spec.origin.x()));
+    m_array_editor_origin_y->setValue(storage_length_to_display(spec.origin.y()));
+    m_array_editor_origin_z->setValue(storage_length_to_display(spec.origin.z()));
     m_array_editor_direction_x->setValue(spec.direction.x());
     m_array_editor_direction_y->setValue(spec.direction.y());
     m_array_editor_direction_z->setValue(spec.direction.z());
@@ -2808,14 +2903,15 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
     {
     case 0:
         spec.type = UnitArrayType::Linear;
-        spec.spacing = static_cast<float>(m_array_editor_linear_spacing->value());
+        spec.spacing = static_cast<float>(display_length_to_storage(
+            m_array_editor_linear_spacing->value()));
         break;
     case 1:
         spec.type = UnitArrayType::Rotational;
         spec.angle_degrees = static_cast<float>(
-            m_array_editor_rotational_angle->value());
+            display_angle_to_storage(m_array_editor_rotational_angle->value()));
         spec.spacing = static_cast<float>(
-            m_array_editor_rotational_spacing->value());
+            display_length_to_storage(m_array_editor_rotational_spacing->value()));
         break;
     case 2:
         spec.type = UnitArrayType::Mirror;
@@ -2823,10 +2919,12 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
         break;
     default:
         spec.type = UnitArrayType::Elliptical;
-        spec.major_radius = static_cast<float>(m_array_editor_major_radius->value());
-        spec.minor_radius = static_cast<float>(m_array_editor_minor_radius->value());
+        spec.major_radius = static_cast<float>(display_length_to_storage(
+            m_array_editor_major_radius->value()));
+        spec.minor_radius = static_cast<float>(display_length_to_storage(
+            m_array_editor_minor_radius->value()));
         spec.angle_degrees = static_cast<float>(
-            m_array_editor_elliptical_angle->value());
+            display_angle_to_storage(m_array_editor_elliptical_angle->value()));
         break;
     }
 
@@ -2853,9 +2951,12 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
     else
     {
         spec.origin = QVector3D(
-            static_cast<float>(m_array_editor_origin_x->value()),
-            static_cast<float>(m_array_editor_origin_y->value()),
-            static_cast<float>(m_array_editor_origin_z->value()));
+            static_cast<float>(display_length_to_storage(
+                m_array_editor_origin_x->value())),
+            static_cast<float>(display_length_to_storage(
+                m_array_editor_origin_y->value())),
+            static_cast<float>(display_length_to_storage(
+                m_array_editor_origin_z->value())));
         spec.direction = QVector3D(
             static_cast<float>(m_array_editor_direction_x->value()),
             static_cast<float>(m_array_editor_direction_y->value()),

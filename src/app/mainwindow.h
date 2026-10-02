@@ -136,6 +136,7 @@ private:
     void update_reference_geometry_panel();
     void update_reference_geometry_controls();
     void create_array_editor_panel();
+    void apply_array_editor_display_units();
     void refresh_array_editor_panel();
     void load_array_editor_layer(int layer_index);
     bool build_array_editor_spec(UnitArraySpec *output,
