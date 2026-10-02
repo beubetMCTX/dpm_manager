@@ -2755,6 +2755,9 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     const bool had_array_spec = source->has_array_spec;
     const UnitArraySpec previous_array_spec = source->array_spec;
     const QList<UnitArraySpec> previous_array_specs = source->array_specs;
+    const bool had_fill_spec = source->has_fill_spec;
+    const UnitFillSpec previous_fill_spec = source->fill_spec;
+    const QList<QUuid> previous_fill_sources = source->fill_source_uuids;
     if (source->array_specs.isEmpty() && source->has_array_spec)
     {
         source->array_specs.append(source->array_spec);
@@ -2762,12 +2765,17 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     source->array_specs.append(spec);
     source->has_array_spec = true;
     source->array_spec = spec;
+    source->has_fill_spec = false;
+    source->fill_source_uuids.clear();
     const int created = rebuild_unit_array_layers(source_uuid);
     if (created <= 0)
     {
         source->has_array_spec = had_array_spec;
         source->array_spec = previous_array_spec;
         source->array_specs = previous_array_specs;
+        source->has_fill_spec = had_fill_spec;
+        source->fill_spec = previous_fill_spec;
+        source->fill_source_uuids = previous_fill_sources;
         return 0;
     }
     record_structure_edit(before, capture_persistent_units());
@@ -2992,6 +3000,8 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
     if (parent != nullptr)
     {
         clear_unit_array_children(*parent);
+        parent->has_array_spec = false;
+        parent->array_specs.clear();
         parent->has_fill_spec = true;
         parent->fill_spec = spec;
         parent->fill_source_uuids = source_uuids;
