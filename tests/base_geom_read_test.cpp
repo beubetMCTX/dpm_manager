@@ -98,6 +98,20 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const TopoDS_Shape loaded_shape = reader.getShape();
+    const QString loaded_path = reader.file_path();
+    if (!check(!reader.readFile(unsupported_path),
+               "An invalid replacement geometry should fail") ||
+        !check(!reader.getShape().IsNull() && reader.getShape().IsSame(loaded_shape),
+               "A failed geometry replacement must preserve the loaded shape") ||
+        !check(reader.file_path() == loaded_path,
+               "A failed geometry replacement must preserve the loaded path") ||
+        !check(reader.last_error_message().contains("不支持"),
+               "A failed geometry replacement should report its error"))
+    {
+        return 1;
+    }
+
     Bnd_Box bounds;
     BRepBndLib::Add(reader.getShape(), bounds);
     Standard_Real xmin = 0.0;

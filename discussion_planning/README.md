@@ -1,5 +1,14 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Make Reference Geometry Import Transactional
+
+- Reference geometry files are now loaded into a temporary reader and replace
+  the current scene only after parsing and millimetre-to-metre conversion
+  succeed.
+- Invalid, empty, or unsupported replacement files preserve the existing
+  shape and source path while reporting the new error.
+- Added regression coverage for failed replacement imports.
+
 ### 2026-10-03 Validate Nested Prototype References
 
 - Project validation now rejects missing prototype UUIDs and duplicate or

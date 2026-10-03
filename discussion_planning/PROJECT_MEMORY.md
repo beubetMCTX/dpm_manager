@@ -24,6 +24,9 @@
 - Project validation now rejects missing, duplicate, or self-referencing
   nested prototype identities before runtime reconstruction, while keeping
   prototype fields optional for legacy sessions.
+- Reference geometry import is now transactional: parse/scale failures leave
+  the current loaded shape and path intact. A regression covers unsupported
+  replacement files.
 - Field-table-driven DPM import, including multiple injectors per file.
 - Chemkin species import from the `SPECIES` section and material/config UI.
 - Species color configuration and material table dialogs with config storage.

@@ -104,8 +104,6 @@ bool Base_Geom_Read::Read_Geometry_Dialog()
 
 bool Base_Geom_Read::readFile(QString& filePath)
 {
-    clear_loaded_state();
-
     if (filePath.trimmed().isEmpty()) {
         return report_error("文件路径为空");
     }
@@ -127,20 +125,21 @@ bool Base_Geom_Read::readFile(QString& filePath)
         return report_error(QString("无法识别文件格式: %1").arg(filePath));
     }
 
+    Base_Geom_Read candidate;
     bool result = false;
 
     try {
         if (suffix == "step" || suffix == "stp") {
-            result = readSTEPFile(filePath);
+            result = candidate.readSTEPFile(filePath);
         }
         else if (suffix == "iges" || suffix == "igs") {
-            result = readIGESFile(filePath);
+            result = candidate.readIGESFile(filePath);
         }
         else if (suffix == "stl") {
-            result = readSTLFile(filePath);
+            result = candidate.readSTLFile(filePath);
         }
         else if (suffix == "brep") {
-            result = readBREPFile(filePath);
+            result = candidate.readBREPFile(filePath);
         }
         else {
             return report_error("不支持的文件格式: " + suffix);
@@ -155,7 +154,7 @@ bool Base_Geom_Read::readFile(QString& filePath)
     }
 
     if (result) {
-        if (m_shape.IsNull()) {
+        if (candidate.m_shape.IsNull()) {
             return report_error("成功读取文件但未获取到有效几何数据");
         }
 
@@ -172,15 +171,18 @@ bool Base_Geom_Read::readFile(QString& filePath)
         gp_Trsf millimetre_to_metre;
         millimetre_to_metre.SetScale(gp::Origin(), millimetre_scale);
         BRepBuilderAPI_Transform unit_transform(
-            m_shape, millimetre_to_metre, Standard_True);
+            candidate.m_shape, millimetre_to_metre, Standard_True);
         if (!unit_transform.IsDone())
         {
             return report_error("参考几何体单位转换失败");
         }
-        m_shape = unit_transform.Shape();
-        get_bounding_box();
 
-        m_file_path = fileInfo.absoluteFilePath();
+        candidate.m_shape = unit_transform.Shape();
+        candidate.get_bounding_box();
+        candidate.m_file_path = fileInfo.absoluteFilePath();
+        candidate.m_last_error_message.clear();
+        adopt_loaded_geometry(candidate);
+
         emit fileReadSuccess(fileInfo.fileName());
         return true;
     }
