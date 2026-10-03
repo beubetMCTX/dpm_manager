@@ -143,6 +143,51 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    const QVector<std::shared_ptr<Unit>> visibility_children =
+        widget.unit_hash.value(uuid)->child_units;
+    if (!check(widget.set_unit_visible(uuid, false),
+               "Hiding an array source should succeed") ||
+        !check(std::all_of(
+                   visibility_children.cbegin(), visibility_children.cend(),
+                   [&widget](const std::shared_ptr<Unit> &child)
+                   {
+                       return child != nullptr &&
+                              !widget.unit_visible(child->inj.uuid);
+                   }),
+               "Hiding an array source should hide generated children") ||
+        !check(widget.set_unit_visible(uuid, true),
+               "Showing an array source should succeed") ||
+        !check(std::all_of(
+                   visibility_children.cbegin(), visibility_children.cend(),
+                   [&widget](const std::shared_ptr<Unit> &child)
+                   {
+                       return child != nullptr &&
+                              widget.unit_visible(child->inj.uuid);
+                   }),
+               "Showing an array source should show generated children") ||
+        !check(widget.set_unit_locked(uuid, true),
+               "Locking an array source should succeed") ||
+        !check(std::all_of(
+                   visibility_children.cbegin(), visibility_children.cend(),
+                   [&widget](const std::shared_ptr<Unit> &child)
+                   {
+                       return child != nullptr &&
+                              widget.unit_locked(child->inj.uuid);
+                   }),
+               "Locking an array source should lock generated children") ||
+        !check(widget.set_unit_locked(uuid, false),
+               "Unlocking an array source should succeed") ||
+        !check(std::all_of(
+                   visibility_children.cbegin(), visibility_children.cend(),
+                   [&widget](const std::shared_ptr<Unit> &child)
+                   {
+                       return child != nullptr &&
+                              !widget.unit_locked(child->inj.uuid);
+                   }),
+               "Unlocking an array source should unlock generated children"))
+    {
+        return 1;
+    }
     const QList<Unit> exported_leaf_array = widget.dpm_export_units();
     if (!check(exported_leaf_array.size() == 2,
                "DPM export should expand a leaf array into concrete injectors") ||

@@ -1070,6 +1070,17 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
         {
             clear_context_selection_safely();
         }
+        // Array instances live in child_units, while Assembly members are
+        // tracked by assembly_child_uuids. A tree-level visibility change
+        // must cover both branches; otherwise hiding an array source leaves
+        // its generated children visible.
+        for (const std::shared_ptr<Unit> &child : current->child_units)
+        {
+            if (child != nullptr)
+            {
+                apply_visibility(child->inj.uuid);
+            }
+        }
         for (const QUuid &child_uuid : current->assembly_child_uuids)
         {
             apply_visibility(child_uuid);
@@ -1238,6 +1249,16 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
         if (changed)
         {
             emit unit_lock_changed(current_uuid, locked);
+        }
+        // Keep lock state consistent with the object tree. Array-generated
+        // units are not necessarily Assembly members, so traverse both
+        // ownership representations.
+        for (const std::shared_ptr<Unit> &child : current->child_units)
+        {
+            if (child != nullptr)
+            {
+                apply_lock(child->inj.uuid);
+            }
         }
         for (const QUuid &child_uuid : current->assembly_child_uuids)
         {
