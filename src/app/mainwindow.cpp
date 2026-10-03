@@ -5513,40 +5513,7 @@ void MainWindow::update_object_list_panel()
 
     const auto unit_display_name = [this](const std::shared_ptr<Unit> &unit)
     {
-        if (unit == nullptr)
-        {
-            return QStringLiteral("<invalid>");
-        }
-        QString name = unit->inj.injector_data.name.trimmed();
-        if (name.isEmpty())
-        {
-            name = unit->inj.uuid.toString(QUuid::WithoutBraces);
-        }
-        if (m_3d_widget->unit_locked(unit->inj.uuid))
-        {
-            name = QStringLiteral("[Locked] ") + name;
-        }
-        if (unit->type == Assebly)
-        {
-            name += QStringLiteral(" [Assembly]");
-        }
-        if (unit->is_array_child)
-        {
-            name += unit->follows_array
-                ? QStringLiteral(" [Generated]")
-                : QStringLiteral(" [Independent Source]");
-        }
-        if (unit->has_array_spec)
-        {
-            name += unit->is_array_child
-                ? QStringLiteral(" [Nested Array Source]")
-                : QStringLiteral(" [Array Source]");
-        }
-        else if (unit->has_fill_spec)
-        {
-            name += QStringLiteral(" [Fill Source]");
-        }
-        return name;
+        return object_list_unit_display_name(unit);
     };
 
     const auto configure_unit_item = [&](QTreeWidgetItem *item,
@@ -6057,6 +6024,46 @@ void MainWindow::update_unit_position_controls()
     m_unit_target_scope->setEnabled(editable_target);
 }
 
+QString MainWindow::object_list_unit_display_name(
+    const std::shared_ptr<Unit> &unit) const
+{
+    if (unit == nullptr)
+    {
+        return QStringLiteral("<invalid>");
+    }
+
+    QString name = unit->inj.injector_data.name.trimmed();
+    if (name.isEmpty())
+    {
+        name = unit->inj.uuid.toString(QUuid::WithoutBraces);
+    }
+    if (m_3d_widget != nullptr && m_3d_widget->unit_locked(unit->inj.uuid))
+    {
+        name = QStringLiteral("[Locked] ") + name;
+    }
+    if (unit->type == Assebly)
+    {
+        name += QStringLiteral(" [Assembly]");
+    }
+    if (unit->is_array_child)
+    {
+        name += unit->follows_array
+            ? QStringLiteral(" [Generated]")
+            : QStringLiteral(" [Independent Source]");
+    }
+    if (unit->has_array_spec)
+    {
+        name += unit->is_array_child
+            ? QStringLiteral(" [Nested Array Source]")
+            : QStringLiteral(" [Array Source]");
+    }
+    else if (unit->has_fill_spec)
+    {
+        name += QStringLiteral(" [Fill Source]");
+    }
+    return name;
+}
+
 void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)
 {
     if (m_object_list == nullptr || uuid.isNull())
@@ -6065,13 +6072,15 @@ void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)
     }
 
     QString display_name = name.trimmed();
-    if (display_name.isEmpty())
+    const std::shared_ptr<Unit> unit =
+        m_3d_widget == nullptr ? nullptr : m_3d_widget->unit_hash.value(uuid);
+    if (unit != nullptr)
+    {
+        display_name = object_list_unit_display_name(unit);
+    }
+    else if (display_name.isEmpty())
     {
         display_name = uuid.toString(QUuid::WithoutBraces);
-    }
-    if (m_3d_widget != nullptr && m_3d_widget->unit_locked(uuid))
-    {
-        display_name = "[Locked] " + display_name;
     }
 
     for (QTreeWidgetItem *item : m_object_list->all_items())

@@ -13,6 +13,13 @@
 - Release build and all 12 focused CTest regressions pass; isolated Release
   package startup/shutdown probe also passes with exit code 0.
 
+### 2026-10-03 Preserve Object-Tree Role Labels During Live Edits
+
+- Incremental object-name refreshes now reuse the same display-name formatter
+  as full tree rebuilds.
+- Editing or dragging a Unit no longer removes `Assembly`, `Generated`,
+  `Independent Source`, or nested array-source labels.
+
 ### 2026-10-03 Debounce Project Dirty Fingerprints
 
 - Project edits now set the dirty marker immediately but defer full fingerprint
