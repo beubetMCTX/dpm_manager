@@ -10,7 +10,8 @@
   ordinary injector sources explicitly.
 - Object-tree labels now distinguish independent sources and nested array
   sources from ordinary generated children.
-- Release build and focused CTest verification pending for this checkpoint.
+- Release build and all 12 focused CTest regressions pass; isolated Release
+  package startup/shutdown probe also passes with exit code 0.
 
 ### 2026-10-03 Debounce Project Dirty Fingerprints
 
