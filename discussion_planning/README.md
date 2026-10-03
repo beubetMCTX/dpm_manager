@@ -1,5 +1,14 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Persist Nested Array Prototype Identity
+
+- Project sessions now optionally persist `prototype_uuid` and
+  `prototype_chain` for independent nested array sources.
+- Older sessions remain readable because both fields are optional and are
+  rebuilt or left empty when absent.
+- Added round-trip coverage for persistent nested array source identity;
+  Release build and all `13/13` CTest regressions pass.
+
 ### 2026-10-03 Fix Visibility State Reset During Lock Updates
 
 - Fixed a tree-widget signal feedback loop that re-displayed a hidden Unit

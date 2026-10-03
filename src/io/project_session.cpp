@@ -652,6 +652,16 @@ QJsonObject unit_to_json(const Unit &unit)
                   unit.array_parent_uuid.toString(QUuid::WithoutBraces));
     result.insert("is_array_child", unit.is_array_child);
     result.insert("follows_array", unit.follows_array);
+    if (!unit.prototype_uuid.isNull())
+    {
+        result.insert("prototype_uuid",
+                      unit.prototype_uuid.toString(QUuid::WithoutBraces));
+    }
+    if (!unit.prototype_chain.isEmpty())
+    {
+        result.insert("prototype_chain",
+                      uuid_list_to_json_list(unit.prototype_chain));
+    }
     if (!unit.array_instance_path.isEmpty())
     {
         result.insert("array_instance_path",
@@ -939,6 +949,13 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
     unit->is_array_child = object.value("is_array_child").toBool(false);
     unit->follows_array = object.value("follows_array").toBool(true);
+    unit->prototype_uuid = QUuid(object.value("prototype_uuid").toString());
+    unit->prototype_chain.clear();
+    if (!uuid_list_from_json_list(object.value("prototype_chain"),
+                                  &unit->prototype_chain))
+    {
+        return false;
+    }
     unit->array_instance_path.clear();
     const QJsonValue instance_path_value = object.value("array_instance_path");
     if (instance_path_value.isArray())

@@ -14,6 +14,10 @@
   checkbox state back into a hidden Unit. Runtime project-session self-test
   now verifies the real setters before persistence; Release CTest remains
   `13/13`.
+- Independent nested Array sources now persist optional `prototype_uuid` and
+  `prototype_chain` identity through project sessions. Legacy files without
+  these fields remain readable, and the project-session regression covers the
+  round trip.
 - Field-table-driven DPM import, including multiple injectors per file.
 - Chemkin species import from the `SPECIES` section and material/config UI.
 - Species color configuration and material table dialogs with config storage.
