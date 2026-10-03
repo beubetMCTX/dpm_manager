@@ -7837,34 +7837,68 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
 
     if((event->buttons()&Qt::LeftButton) && myIsDragging && !selected_shape.IsNull())
     {
-        Standard_Real occt_x1,occt_y1,occt_z1;
-        Standard_Real occt_x2,occt_y2,occt_z2;
+        const gp_Pln ref_pln = m_drag_base_plane_valid
+            ? m_drag_base_plane
+            : get_moving_base_plane(selected_shape);
 
-        m_view->Convert(pos.x(),pos.y(),occt_x1,occt_y1,occt_z1);
-        m_view->Convert(m_x_max,m_y_max,occt_x2,occt_y2,occt_z2);
+        const auto cursor_point_on_plane =
+            [this, &ref_pln](int cursor_x, int cursor_y, gp_Pnt *point)
+        {
+            if (point == nullptr)
+            {
+                return false;
+            }
 
-        if (!std::isfinite(occt_x1) || !std::isfinite(occt_y1) ||
-            !std::isfinite(occt_z1) || !std::isfinite(occt_x2) ||
-            !std::isfinite(occt_y2) || !std::isfinite(occt_z2))
+            Standard_Real ray_x = 0.0;
+            Standard_Real ray_y = 0.0;
+            Standard_Real ray_z = 0.0;
+            Standard_Real direction_x = 0.0;
+            Standard_Real direction_y = 0.0;
+            Standard_Real direction_z = 0.0;
+            m_view->ConvertWithProj(cursor_x, cursor_y,
+                                    ray_x, ray_y, ray_z,
+                                    direction_x, direction_y, direction_z);
+            if (!std::isfinite(ray_x) || !std::isfinite(ray_y) ||
+                !std::isfinite(ray_z) || !std::isfinite(direction_x) ||
+                !std::isfinite(direction_y) || !std::isfinite(direction_z))
+            {
+                return false;
+            }
+
+            const gp_Vec ray_direction(direction_x, direction_y, direction_z);
+            const gp_Vec plane_normal(ref_pln.Axis().Direction());
+            const Standard_Real denominator = ray_direction.Dot(plane_normal);
+            if (!std::isfinite(denominator) ||
+                std::abs(denominator) <= Precision::Confusion())
+            {
+                return false;
+            }
+
+            const gp_Pnt ray_origin(ray_x, ray_y, ray_z);
+            const gp_Vec origin_to_plane(ray_origin, ref_pln.Location());
+            const Standard_Real distance_along_ray =
+                origin_to_plane.Dot(plane_normal) / denominator;
+            if (!std::isfinite(distance_along_ray))
+            {
+                return false;
+            }
+
+            *point = ray_origin.Translated(
+                ray_direction.Multiplied(distance_along_ray));
+            return true;
+        };
+
+        gp_Pnt current_point;
+        gp_Pnt previous_point;
+        if (!cursor_point_on_plane(pos.x(), pos.y(), &current_point) ||
+            !cursor_point_on_plane(m_x_max, m_y_max, &previous_point))
         {
             m_x_max = pos.x();
             m_y_max = pos.y();
             return;
         }
 
-        const gp_Pln ref_pln = m_drag_base_plane_valid
-            ? m_drag_base_plane
-            : get_moving_base_plane(selected_shape);
-
-        gp_Pnt2d converted_pnt_pln  = ProjLib::Project(ref_pln,gp_Pnt(occt_x1,occt_y1,occt_z1));
-        gp_Pnt2d converted_pnt_pln2 = ProjLib::Project(ref_pln,gp_Pnt(occt_x2,occt_y2,occt_z2));
-
-        const gp_Pnt delta_point = ElSLib::Value(
-            converted_pnt_pln.X() - converted_pnt_pln2.X(),
-            converted_pnt_pln.Y() - converted_pnt_pln2.Y(),
-            ref_pln);
-        const gp_Pnt plane_origin = ElSLib::Value(0.0, 0.0, ref_pln);
-        const gp_Vec delta_occt(plane_origin, delta_point);
+        const gp_Vec delta_occt(previous_point, current_point);
         gp_Trsf trsf;
         QVector3D delta_vec(
             static_cast<float>(delta_occt.X()),

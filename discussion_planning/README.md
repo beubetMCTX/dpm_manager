@@ -9,6 +9,9 @@
 - Non-finite projection results and implausibly large single-frame movement
   deltas are rejected, preventing projection singularities from sending an
   injector far outside the scene.
+- Cursor movement now uses `V3d_View::ConvertWithProj()` ray/plane
+  intersection instead of projecting points from the view plane, keeping
+  reference-face dragging stable at oblique camera angles.
 - Drag completion captures array overrides and rebuilds dependent array
   outputs so nested generated instances follow the committed position.
 - Release build and all 12 focused CTest regressions pass.
