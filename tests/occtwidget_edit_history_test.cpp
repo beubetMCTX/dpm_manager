@@ -137,6 +137,24 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    const QList<Unit> exported_leaf_array = widget.dpm_export_units();
+    if (!check(exported_leaf_array.size() == 2,
+               "DPM export should expand a leaf array into concrete injectors") ||
+        !check(std::all_of(exported_leaf_array.cbegin(), exported_leaf_array.cend(),
+                           [](const Unit &exported)
+                           {
+                               return exported.type == injector &&
+                                      !exported.inj.injector_data.name.isEmpty() &&
+                                      !exported.has_array_spec &&
+                                      exported.child_units.isEmpty();
+                           }),
+               "DPM export should omit array control metadata") ||
+        !check(exported_leaf_array.at(0).inj.injector_data.name !=
+                   exported_leaf_array.at(1).inj.injector_data.name,
+               "DPM export should assign unique concrete injector names"))
+    {
+        return 1;
+    }
     const QVector<std::shared_ptr<Unit>> leaf_children =
         widget.unit_hash.value(uuid)->child_units;
     QUuid leaf_child_uuid = leaf_children.first()->inj.uuid;

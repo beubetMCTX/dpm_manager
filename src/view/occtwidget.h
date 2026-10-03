@@ -173,6 +173,9 @@ public:
     QHash<QUuid, UnitDisplayState> persistent_unit_display_states() const;
     void restore_unit_display_states(
         const QHash<QUuid, UnitDisplayState> &states);
+    // Return concrete injector leaves for DPM export. Array/Assembly control
+    // Units are omitted; generated instances are included.
+    QList<Unit> dpm_export_units() const;
     bool activate_translation_gizmo(const QUuid &uuid);
     bool activate_rotation_gizmo(const QUuid &uuid);
     void set_interaction_mode(Interaction_Mode mode);

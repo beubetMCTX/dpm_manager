@@ -854,8 +854,13 @@ void MainWindow::on_actionRead_triggered()
 
 void MainWindow::on_actionSave_DPM_triggered()
 {
+    sync_persistent_units_from_occt();
+    const QList<Unit> export_units = m_3d_widget != nullptr
+        ? m_3d_widget->dpm_export_units()
+        : units;
+
     QString preflight_error;
-    if (!validate_dpm_units(units, &preflight_error))
+    if (!validate_dpm_units(export_units, &preflight_error))
     {
         const QString message = preflight_error.trimmed().isEmpty()
             ? "DPM export preflight failed."
@@ -877,7 +882,7 @@ void MainWindow::on_actionSave_DPM_triggered()
     }
 
     QString error_message;
-    if (!write_dpm_file(file_path, units, &error_message))
+    if (!write_dpm_file(file_path, export_units, &error_message))
     {
         const QString message = error_message.trimmed().isEmpty()
             ? "DPM export failed."

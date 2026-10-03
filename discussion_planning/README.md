@@ -1,5 +1,15 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Export Concrete Injector Leaves From Runtime Arrays
+
+- DPM save now synchronizes the live OCCT state before exporting.
+- Array and Assembly source/control Units are recursively omitted; concrete
+  injector leaves, including generated array instances, are exported.
+- Export copies normalize the Unit type to `injector`, remove runtime tree
+  metadata, and receive deterministic unique names safe for DPM identifiers.
+- Added OCCT regression coverage for leaf-array expansion and control-node
+  removal. Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Normalize Coordinate-Axis And Gizmo Scale
 
 - Injector local axes and transform handles now derive size from the selected

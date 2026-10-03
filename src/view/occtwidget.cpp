@@ -5395,6 +5395,141 @@ QList<Unit> OCCTWidget::capture_persistent_units() const
     return snapshot;
 }
 
+QList<Unit> OCCTWidget::dpm_export_units() const
+{
+    QList<std::shared_ptr<Unit>> roots;
+    QSet<QUuid> child_ids;
+
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit == nullptr)
+        {
+            continue;
+        }
+        for (const std::shared_ptr<Unit> &child : unit->child_units)
+        {
+            if (child != nullptr)
+            {
+                child_ids.insert(child->inj.uuid);
+            }
+        }
+    }
+
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit != nullptr && !child_ids.contains(unit->inj.uuid))
+        {
+            roots.append(unit);
+        }
+    }
+
+    std::sort(roots.begin(), roots.end(),
+              [](const std::shared_ptr<Unit> &left,
+                 const std::shared_ptr<Unit> &right)
+              {
+                  return left->inj.uuid.toString(QUuid::WithoutBraces) <
+                         right->inj.uuid.toString(QUuid::WithoutBraces);
+              });
+
+    QList<Unit> exported;
+    QSet<QUuid> visited;
+    std::function<void(const std::shared_ptr<Unit> &)> collect;
+    collect = [&](const std::shared_ptr<Unit> &unit)
+    {
+        if (unit == nullptr || visited.contains(unit->inj.uuid))
+        {
+            return;
+        }
+        visited.insert(unit->inj.uuid);
+
+        bool has_children = false;
+        for (const std::shared_ptr<Unit> &child : unit->child_units)
+        {
+            if (child != nullptr)
+            {
+                has_children = true;
+                collect(child);
+            }
+        }
+
+        // Array and Assembly source nodes are editor/control objects. Their
+        // concrete leaves are exported instead of the source itself.
+        if (has_children || unit->type == Assebly ||
+            unit->has_array_spec || unit->has_fill_spec)
+        {
+            return;
+        }
+
+        Unit concrete(*unit);
+        concrete.type = injector;
+        concrete.child_units.clear();
+        concrete.assembly_child_uuids.clear();
+        concrete.assembly_parent_uuid = QUuid();
+        concrete.has_array_spec = false;
+        concrete.array_specs.clear();
+        concrete.has_fill_spec = false;
+        concrete.fill_source_uuids.clear();
+
+        QString name = concrete.inj.injector_data.name.trimmed();
+        for (int index = 0; index < name.size(); ++index)
+        {
+            const QChar character = name.at(index);
+            if (character.isSpace() || character == '(' || character == ')')
+            {
+                name[index] = QChar('_');
+            }
+        }
+        if (name.isEmpty())
+        {
+            name = QStringLiteral("injector");
+        }
+
+        const QString base_name = name;
+        int suffix = 2;
+        while (std::any_of(exported.cbegin(), exported.cend(),
+                           [&name](const Unit &existing)
+                           {
+                               return existing.inj.injector_data.name == name;
+                           }))
+        {
+            name = QStringLiteral("%1_%2").arg(base_name).arg(suffix++);
+        }
+        concrete.inj.injector_data.name = name;
+        exported.append(std::move(concrete));
+    };
+
+    for (const std::shared_ptr<Unit> &root : roots)
+    {
+        collect(root);
+    }
+
+    // Recover from a malformed/incomplete parent-child link without
+    // duplicating nodes already visited through a valid tree.
+    QList<std::shared_ptr<Unit>> remaining;
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        if (it.value() != nullptr && !visited.contains(it.key()))
+        {
+            remaining.append(it.value());
+        }
+    }
+    std::sort(remaining.begin(), remaining.end(),
+              [](const std::shared_ptr<Unit> &left,
+                 const std::shared_ptr<Unit> &right)
+              {
+                  return left->inj.uuid.toString(QUuid::WithoutBraces) <
+                         right->inj.uuid.toString(QUuid::WithoutBraces);
+              });
+    for (const std::shared_ptr<Unit> &unit : remaining)
+    {
+        collect(unit);
+    }
+
+    return exported;
+}
+
 void OCCTWidget::record_structure_edit(const QList<Unit> &before,
                                        const QList<Unit> &after)
 {
