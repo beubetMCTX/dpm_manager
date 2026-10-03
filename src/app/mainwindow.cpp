@@ -4086,14 +4086,6 @@ void MainWindow::create_object_list_panel()
     });
     connect(translate_selected_button, &QPushButton::clicked, this, [this]()
     {
-        if (m_3d_widget != nullptr)
-        {
-            m_3d_widget->set_interaction_mode(
-                OCCTWidget::Interaction_Mode::Translation);
-            statusBar()->showMessage(
-                "Translation mode: select an injector and drag a world axis", 5000);
-            return;
-        }
         if (m_object_list == nullptr || m_3d_widget == nullptr)
         {
             return;
@@ -4115,7 +4107,10 @@ void MainWindow::create_object_list_panel()
 
         if (selected_units.isEmpty())
         {
-            statusBar()->showMessage("Select one or more injectors first", 4000);
+            m_3d_widget->set_interaction_mode(
+                OCCTWidget::Interaction_Mode::Translation);
+            statusBar()->showMessage(
+                "Translation mode: select an injector and drag a world axis", 5000);
             return;
         }
 
@@ -4142,6 +4137,12 @@ void MainWindow::create_object_list_panel()
         auto *x_box = create_offset_box();
         auto *y_box = create_offset_box();
         auto *z_box = create_offset_box();
+        const QString display_length_unit =
+            UnitSystem::preferred_display_unit("m");
+        for (QDoubleSpinBox *box : {x_box, y_box, z_box})
+        {
+            box->setSuffix(" " + display_length_unit);
+        }
         form->addRow("dX", x_box);
         form->addRow("dY", y_box);
         form->addRow("dZ", z_box);
@@ -4158,9 +4159,9 @@ void MainWindow::create_object_list_panel()
 
         const int translated_count = m_3d_widget->translate_units_by_uuid(
             selected_units,
-            QVector3D(static_cast<float>(x_box->value()),
-                      static_cast<float>(y_box->value()),
-                      static_cast<float>(z_box->value())));
+            QVector3D(static_cast<float>(display_length_to_storage(x_box->value())),
+                      static_cast<float>(display_length_to_storage(y_box->value())),
+                      static_cast<float>(display_length_to_storage(z_box->value()))));
         statusBar()->showMessage(
             QString("Translated %1 of %2 selected unit(s); locked units were skipped")
                 .arg(translated_count)
@@ -4169,14 +4170,6 @@ void MainWindow::create_object_list_panel()
     });
     connect(rotate_selected_button, &QPushButton::clicked, this, [this]()
     {
-        if (m_3d_widget != nullptr)
-        {
-            m_3d_widget->set_interaction_mode(
-                OCCTWidget::Interaction_Mode::Rotation);
-            statusBar()->showMessage(
-                "Rotation mode: select an injector and drag a world rotation ring", 5000);
-            return;
-        }
         if (m_object_list == nullptr || m_3d_widget == nullptr)
         {
             return;
@@ -4197,7 +4190,10 @@ void MainWindow::create_object_list_panel()
         }
         if (selected_units.isEmpty())
         {
-            statusBar()->showMessage("Select one or more injectors first", 4000);
+            m_3d_widget->set_interaction_mode(
+                OCCTWidget::Interaction_Mode::Rotation);
+            statusBar()->showMessage(
+                "Rotation mode: select an injector and drag a world rotation ring", 5000);
             return;
         }
 
@@ -4225,6 +4221,7 @@ void MainWindow::create_object_list_panel()
         auto *axis_y = create_box(0.0);
         auto *axis_z = create_box(1.0);
         auto *angle = create_box(0.0);
+        angle->setSuffix(" " + UnitSystem::preferred_display_unit("deg"));
         auto *axis_source = new QComboBox(&dialog);
         axis_source->addItem("Custom", 0);
         QVector3D reference_origin;
@@ -4310,7 +4307,7 @@ void MainWindow::create_object_list_panel()
             QVector3D(static_cast<float>(axis_x->value()),
                       static_cast<float>(axis_y->value()),
                       static_cast<float>(axis_z->value())),
-            static_cast<float>(angle->value()),
+            static_cast<float>(display_angle_to_storage(angle->value())),
             pivot_source->currentData().toInt() == 1
                 ? reference_origin
                 : assembly_parent_origin,

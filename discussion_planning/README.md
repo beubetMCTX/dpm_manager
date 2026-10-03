@@ -1,5 +1,18 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Fix Batch Transform Controls And Display Units
+
+- Object-list batch Translate/Rotate controls no longer return before opening
+  their multi-selection numeric dialogs when `OCCTWidget` exists.
+- Empty selection still enters persistent world-axis Translation/Rotation mode;
+  one selected Unit keeps the interactive gizmo path; multiple selected Units
+  use numeric batch transforms.
+- Batch translation values now use the active display length unit and convert
+  back to internal metres before applying.
+- Batch rotation angles now use the active display angle unit and convert back
+  to internal degrees before applying.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Stabilize Direct OCCT Injector Dragging
 
 - Direct left-button dragging now treats Injector data as the source of truth.
