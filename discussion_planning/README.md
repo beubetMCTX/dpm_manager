@@ -20,6 +20,13 @@
 - Editing or dragging a Unit no longer removes `Assembly`, `Generated`,
   `Independent Source`, or nested array-source labels.
 
+### 2026-10-03 Operate Arrays Through Tree Group Nodes
+
+- Clicking an `Array Layer` or `Fill Instances` group selects its owning source
+  Unit, so the existing Array Tools can add or edit another layer directly.
+- Right-clicking those group nodes opens the owning source Unit context menu
+  instead of doing nothing.
+
 ### 2026-10-03 Debounce Project Dirty Fingerprints
 
 - Project edits now set the dirty marker immediately but defer full fingerprint

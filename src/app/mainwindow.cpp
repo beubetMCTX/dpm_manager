@@ -4544,6 +4544,29 @@ void MainWindow::create_object_list_panel()
             m_3d_widget->select_reference_geometry();
             return;
         }
+        if (item_kind == QStringLiteral("array_layer") ||
+            item_kind == QStringLiteral("fill"))
+        {
+            QTreeWidgetItem *source_item = item->parent();
+            while (source_item != nullptr &&
+                   source_item->data(0, Qt::UserRole + 1).toString() !=
+                       QStringLiteral("unit"))
+            {
+                source_item = source_item->parent();
+            }
+            if (source_item != nullptr)
+            {
+                const QUuid source_uuid(
+                    source_item->data(0, Qt::UserRole).toString());
+                if (!source_uuid.isNull() &&
+                    m_3d_widget->unit_hash.contains(source_uuid))
+                {
+                    m_3d_widget->select_units_by_uuid(
+                        QList<QUuid>{source_uuid}, source_uuid);
+                }
+            }
+            return;
+        }
         if (item_kind != QStringLiteral("unit"))
         {
             return;
@@ -4663,7 +4686,27 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        const QString object_id = item->data(0, Qt::UserRole).toString();
+        QString object_id = item->data(0, Qt::UserRole).toString();
+        const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
+        if (object_id.isEmpty() &&
+            (item_kind == QStringLiteral("array_layer") ||
+             item_kind == QStringLiteral("fill")))
+        {
+            QTreeWidgetItem *source_item = item->parent();
+            while (source_item != nullptr &&
+                   source_item->data(0, Qt::UserRole + 1).toString() !=
+                       QStringLiteral("unit"))
+            {
+                source_item = source_item->parent();
+            }
+            if (source_item != nullptr)
+            {
+                item = source_item;
+                object_id = item->data(0, Qt::UserRole).toString();
+                m_object_list->setCurrentItem(
+                    item, QItemSelectionModel::ClearAndSelect);
+            }
+        }
         if (object_id == QStringLiteral("reference"))
         {
             QMenu menu(m_object_list);
@@ -5662,6 +5705,8 @@ void MainWindow::update_object_list_panel()
             layer_item->setFlags(Qt::ItemIsEnabled);
             layer_item->setData(0, Qt::UserRole + 6,
                                 QStringLiteral("#F0C674"));
+            layer_item->setToolTip(
+                0, QStringLiteral("Select this layer to operate on its array source"));
             QFont layer_font = layer_item->font(0);
             layer_font.setBold(true);
             layer_item->setFont(0, layer_font);
@@ -5700,6 +5745,8 @@ void MainWindow::update_object_list_panel()
             fill_item->setFlags(Qt::ItemIsEnabled);
             fill_item->setData(0, Qt::UserRole + 6,
                                QStringLiteral("#F0C674"));
+            fill_item->setToolTip(
+                0, QStringLiteral("Select this group to operate on its fill source"));
             QFont fill_font = fill_item->font(0);
             fill_font.setBold(true);
             fill_item->setFont(0, fill_font);
