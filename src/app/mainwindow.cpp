@@ -595,10 +595,15 @@ void MainWindow::close_auxiliary_windows_for_shutdown()
     if (m_species_color_dialog != nullptr)
     {
         m_species_color_dialog->close();
+        // Do not leave a reusable child window alive while MainWindow and its
+        // model/view members are being torn down. QPointer is cleared by the
+        // destroyed signal, so later shutdown paths remain idempotent.
+        delete m_species_color_dialog.data();
     }
     if (m_species_material_dialog != nullptr)
     {
         m_species_material_dialog->close();
+        delete m_species_material_dialog.data();
     }
 }
 

@@ -2819,3 +2819,11 @@ References:
 - Lock-state/name refreshes now update nested Assembly and array-instance rows,
   not only top-level objects.
 - Release build and all 12 focused regressions passed.
+
+### 2026-10-03 Harden Auxiliary-Window Shutdown
+
+- MainWindow now explicitly destroys reusable Species/Materials dialogs during
+  shutdown instead of only closing them.
+- OCCT unit editors were already disposed before view teardown; all auxiliary
+  windows now follow the same lifetime boundary.
+- Release build and all 12 focused regressions passed.
