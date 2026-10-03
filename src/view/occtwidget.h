@@ -77,6 +77,7 @@
 #include <AIS_TextLabel.hxx>//ShapeLabelExtension.hxx>
 
 #include "base_geom_read.h"
+#include "app_config.h"
 #include "unit.h"
 #include "unit_array.h"
 #include "unit_edit_dialog.h"
@@ -168,6 +169,15 @@ public:
     bool set_reference_geometry_visible(bool visible);
     bool unit_visible(const QUuid &uuid) const;
     bool reference_geometry_visible() const { return m_reference_geometry_visible; }
+    // Additional project reference objects are rendered independently from
+    // the legacy active-reference compatibility layer above. The active
+    // object remains controlled by the existing face/transform APIs.
+    bool add_reference_geometry_visual(const ReferenceGeometryConfig &config,
+                                       const TopoDS_Shape &shape = TopoDS_Shape());
+    void clear_reference_geometry_visuals();
+    bool set_reference_geometry_visual_visible(const QUuid &uuid, bool visible);
+    bool reference_geometry_visual_visible(const QUuid &uuid) const;
+    bool select_reference_geometry_visual(const QUuid &uuid);
     bool set_unit_locked(const QUuid &uuid, bool locked);
     bool unit_locked(const QUuid &uuid) const;
     QHash<QUuid, UnitDisplayState> persistent_unit_display_states() const;
@@ -334,6 +344,19 @@ signals:
     void reference_transform_history_changed(bool can_undo, bool can_redo);
 
 private:
+    struct ReferenceGeometryVisual
+    {
+        TopoDS_Shape shape;
+        Handle(AIS_Shape) display;
+        Handle(AIS_Trihedron) local_trihedron;
+        bool visible = true;
+        bool locked = false;
+    };
+
+    gp_Trsf reference_visual_transform(const QVector3D &position,
+                                       const QVector3D &rotation_degrees) const;
+    TopoDS_Shape make_reference_visual_shape(
+        const ReferenceGeometryConfig &config) const;
 
     //!初始化交互环境
     void m_initialize_context();
@@ -638,6 +661,7 @@ private:
     QVector3D m_reference_construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
     bool m_section_plane_clipping = false;
     Handle(AIS_Trihedron) m_reference_alignment_trihedron;
+    QHash<QUuid, ReferenceGeometryVisual> m_reference_geometry_visuals;
     bool m_is_destroying = false;
     std::optional<CopiedUnit> m_copied_unit;
     QVector<UnitMoveHistoryEntry> m_move_history;

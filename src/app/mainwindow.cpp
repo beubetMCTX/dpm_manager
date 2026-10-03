@@ -1513,6 +1513,7 @@ bool MainWindow::load_project_session(const QString &file_path)
 
     apply_material_entries(data.materials, true, false);
 
+    m_3d_widget->clear_reference_geometry_visuals();
     m_3d_widget->clear_reference_geometry();
     const auto restore_project_face = [&]()
     {
@@ -1601,6 +1602,46 @@ bool MainWindow::load_project_session(const QString &file_path)
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
         m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
+    }
+
+    // The legacy APIs above restore the active reference object and its face
+    // editing state. Render every other persisted reference object as an
+    // independent visual so loading a project no longer hides the collection.
+    for (const ReferenceGeometryConfig &config : data.reference_geometries)
+    {
+        if (config.uuid.isNull() ||
+            config.uuid == data.reference_geometry.uuid)
+        {
+            continue;
+        }
+
+        TopoDS_Shape shape;
+        Base_Geom_Read extra_geometry;
+        if (config.kind.trimmed().compare(QStringLiteral("file"),
+                                          Qt::CaseInsensitive) == 0)
+        {
+            QString extra_path = QFileInfo(config.file_path).absoluteFilePath();
+            if (!extra_geometry.readFile(extra_path))
+            {
+                const QString message = extra_geometry.last_error_message().trimmed().isEmpty()
+                    ? QString("Unable to read project reference geometry: %1")
+                          .arg(config.file_path)
+                    : extra_geometry.last_error_message();
+                QMessageBox::critical(this, "Project Session Error", message);
+                statusBar()->showMessage(message, 8000);
+                return false;
+            }
+            shape = extra_geometry.getShape();
+        }
+
+        if (!m_3d_widget->add_reference_geometry_visual(config, shape))
+        {
+            const QString message = QString("Unable to display project reference geometry: %1")
+                                        .arg(config.uuid.toString(QUuid::WithoutBraces));
+            QMessageBox::critical(this, "Project Session Error", message);
+            statusBar()->showMessage(message, 8000);
+            return false;
+        }
     }
 
     restore_project_face();
@@ -5244,27 +5285,26 @@ void MainWindow::create_object_list_panel()
         const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
         if (item_kind != QStringLiteral("unit"))
         {
-            if (item_kind == QStringLiteral("reference") &&
-                m_3d_widget->select_reference_geometry() &&
-                m_reference_geometry_dock != nullptr)
+            if (item_kind == QStringLiteral("reference"))
             {
-                m_reference_geometry_dock->show();
-                m_reference_geometry_dock->raise();
+                const QUuid reference_uuid(
+                    item->data(0, Qt::UserRole).toString());
+                const bool selected =
+                    reference_uuid == m_3d_widget->reference_geometry_uuid()
+                        ? m_3d_widget->select_reference_geometry()
+                        : m_3d_widget->select_reference_geometry_visual(
+                              reference_uuid);
+                if (selected && m_reference_geometry_dock != nullptr)
+                {
+                    m_reference_geometry_dock->show();
+                    m_reference_geometry_dock->raise();
+                }
             }
             return;
         }
 
         const QUuid uuid(item->data(0, Qt::UserRole).toString());
-        if (item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-        {
-            if (m_3d_widget->select_reference_geometry() &&
-                m_reference_geometry_dock != nullptr)
-            {
-                m_reference_geometry_dock->show();
-                m_reference_geometry_dock->raise();
-            }
-        }
-        else if (!uuid.isNull())
+        if (!uuid.isNull())
         {
             m_3d_widget->edit_unit_by_uuid(uuid);
         }
@@ -5285,9 +5325,18 @@ void MainWindow::create_object_list_panel()
         {
             return;
         }
-        if (object_id == QStringLiteral("reference"))
+        if (item_kind == QStringLiteral("reference"))
         {
-            m_3d_widget->set_reference_geometry_visible(visible);
+            const QUuid reference_uuid(object_id);
+            if (reference_uuid == m_3d_widget->reference_geometry_uuid())
+            {
+                m_3d_widget->set_reference_geometry_visible(visible);
+            }
+            else
+            {
+                m_3d_widget->set_reference_geometry_visual_visible(
+                    reference_uuid, visible);
+            }
             return;
         }
 
@@ -5338,8 +5387,11 @@ void MainWindow::create_object_list_panel()
                     item, QItemSelectionModel::ClearAndSelect);
             }
         }
-        if (object_id == QStringLiteral("reference"))
+        if (item_kind == QStringLiteral("reference"))
         {
+            const QUuid reference_uuid(object_id);
+            const bool active_reference =
+                reference_uuid == m_3d_widget->reference_geometry_uuid();
             QMenu menu(m_object_list);
             QAction *fit_all_action = menu.addAction("Fit All");
             QAction *fit_selected_action = menu.addAction("Fit Selected");
@@ -5361,7 +5413,8 @@ void MainWindow::create_object_list_panel()
                 for (QTreeWidgetItem *selected_item : m_object_list->selectedItems())
                 {
                     if (selected_item == nullptr ||
-                        selected_item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
+                        selected_item->data(0, Qt::UserRole + 1).toString() ==
+                            QStringLiteral("reference"))
                     {
                         continue;
                     }
@@ -5396,13 +5449,18 @@ void MainWindow::create_object_list_panel()
                     emit m_object_list->customContextMenuRequested(source_position);
                 }
             };
-            menu.addSeparator();
-            QAction *lock_action = menu.addAction(
-                m_3d_widget->reference_geometry_locked()
-                    ? "Unlock Reference Geometry"
-                    : "Lock Reference Geometry");
-            QAction *clear_reference_action = menu.addAction(
-                "Clear Reference Geometry");
+            QAction *lock_action = nullptr;
+            QAction *clear_reference_action = nullptr;
+            if (active_reference)
+            {
+                menu.addSeparator();
+                lock_action = menu.addAction(
+                    m_3d_widget->reference_geometry_locked()
+                        ? "Unlock Reference Geometry"
+                        : "Lock Reference Geometry");
+                clear_reference_action = menu.addAction(
+                    "Clear Reference Geometry");
+            }
             QAction *chosen_action = menu.exec(
                 m_object_list->viewport()->mapToGlobal(position));
             if (chosen_action == fit_all_action)
@@ -5411,7 +5469,15 @@ void MainWindow::create_object_list_panel()
             }
             else if (chosen_action == fit_selected_action)
             {
-                m_3d_widget->select_reference_geometry();
+                if (active_reference)
+                {
+                    m_3d_widget->select_reference_geometry();
+                }
+                else
+                {
+                    m_3d_widget->select_reference_geometry_visual(
+                        reference_uuid);
+                }
                 m_3d_widget->fit_selected_view();
             }
             else if (chosen_action == clear_face_action)
@@ -5440,12 +5506,12 @@ void MainWindow::create_object_list_panel()
                         "Created and attached Assembly to selected face", 4000);
                 }
             }
-            else if (chosen_action == lock_action)
+            else if (chosen_action == lock_action && active_reference)
             {
                 m_3d_widget->set_reference_geometry_locked(
                     !m_3d_widget->reference_geometry_locked());
             }
-            else if (chosen_action == clear_reference_action)
+            else if (chosen_action == clear_reference_action && active_reference)
             {
                 const QMessageBox::StandardButton answer = QMessageBox::question(
                     this,
@@ -6159,32 +6225,82 @@ void MainWindow::update_object_list_panel()
     const QSignalBlocker blocker(m_object_list);
     m_object_list->clear();
 
-    if (!m_3d_widget->geometry.getShape().IsNull())
+    QList<ReferenceGeometryConfig> reference_configs =
+        m_project_reference_geometries;
+    const ReferenceGeometryConfig active_reference_geometry =
+        current_reference_geometry_config();
+    if (!active_reference_geometry.uuid.isNull())
     {
-        QString reference_name = QStringLiteral("Reference Geometry");
-        if (m_3d_widget->reference_geometry_locked())
+        bool replaced = false;
+        for (ReferenceGeometryConfig &config : reference_configs)
         {
-            reference_name = QStringLiteral("[Locked] ") + reference_name;
+            if (config.uuid == active_reference_geometry.uuid)
+            {
+                config = active_reference_geometry;
+                replaced = true;
+                break;
+            }
         }
-        auto *reference_item = new QTreeWidgetItem(m_object_list,
-                                                   QStringList{reference_name});
-        reference_item->setData(0, Qt::UserRole, QStringLiteral("reference"));
-        reference_item->setData(0, Qt::UserRole + 1, QStringLiteral("reference"));
-        reference_item->setData(0, Qt::UserRole + 4,
+        if (!replaced)
+        {
+            reference_configs.append(active_reference_geometry);
+        }
+    }
+
+    for (const ReferenceGeometryConfig &config : reference_configs)
+    {
+        if (config.uuid.isNull())
+        {
+            continue;
+        }
+        const bool is_active = config.uuid == m_3d_widget->reference_geometry_uuid();
+        QString reference_name = config.kind == QStringLiteral("file")
+            ? QFileInfo(config.file_path).fileName()
+            : config.kind;
+        if (reference_name.trimmed().isEmpty())
+        {
+            reference_name = QStringLiteral("Reference Geometry");
+        }
+        if (is_active)
+        {
+            reference_name = QStringLiteral("[Active] ") + reference_name;
+            if (m_3d_widget->reference_geometry_locked())
+            {
+                reference_name = QStringLiteral("[Locked] ") + reference_name;
+            }
+        }
+        auto *reference_item = new QTreeWidgetItem(
+            m_object_list, QStringList{reference_name});
+        reference_item->setData(
+            0, Qt::UserRole, config.uuid.toString(QUuid::WithoutBraces));
+        reference_item->setData(0, Qt::UserRole + 1,
                                 QStringLiteral("reference"));
-        reference_item->setToolTip(0,
-            QString("File: %1\nVisible: %2\nLocked: %3")
-                .arg(m_3d_widget->geometry.file_path(),
-                     m_3d_widget->reference_geometry_visible()
-                         ? QStringLiteral("Yes")
-                         : QStringLiteral("No"),
-                     m_3d_widget->reference_geometry_locked()
-                         ? QStringLiteral("Yes")
-                         : QStringLiteral("No")));
-        reference_item->setFlags(reference_item->flags() | Qt::ItemIsUserCheckable);
-        reference_item->setCheckState(0, m_3d_widget->reference_geometry_visible()
-                                          ? Qt::Checked
-                                          : Qt::Unchecked);
+        reference_item->setData(
+            0, Qt::UserRole + 4,
+            QStringLiteral("reference:%1")
+                .arg(config.uuid.toString(QUuid::WithoutBraces)));
+        reference_item->setToolTip(
+            0, QString("File: %1\nVisible: %2\nLocked: %3\nUUID: %4")
+                   .arg(config.file_path.trimmed().isEmpty()
+                            ? config.kind
+                            : config.file_path,
+                        is_active
+                            ? (m_3d_widget->reference_geometry_visible()
+                                   ? QStringLiteral("Yes")
+                                   : QStringLiteral("No"))
+                            : (m_3d_widget->reference_geometry_visual_visible(
+                                   config.uuid)
+                                   ? QStringLiteral("Yes")
+                                   : QStringLiteral("No")),
+                        config.locked ? QStringLiteral("Yes")
+                                      : QStringLiteral("No"),
+                        config.uuid.toString(QUuid::WithoutBraces)));
+        reference_item->setFlags(reference_item->flags() |
+                                  Qt::ItemIsUserCheckable);
+        const bool visible = is_active
+            ? m_3d_widget->reference_geometry_visible()
+            : m_3d_widget->reference_geometry_visual_visible(config.uuid);
+        reference_item->setCheckState(0, visible ? Qt::Checked : Qt::Unchecked);
     }
 
     const auto injection_type_name = [](Injection_Type type)
@@ -6554,7 +6670,10 @@ void MainWindow::update_object_list_selection(const QUuid &uuid,
     const QSignalBlocker blocker(m_object_list);
     m_object_list->clearSelection();
     const QString object_id = reference_geometry
-                                  ? QStringLiteral("reference")
+                                  ? (uuid.isNull()
+                                         ? m_3d_widget->reference_geometry_uuid()
+                                               .toString(QUuid::WithoutBraces)
+                                         : uuid.toString(QUuid::WithoutBraces))
                                   : uuid.toString(QUuid::WithoutBraces);
     // Array instances and Assembly members live below recursive tree nodes;
     // QTreeWidget::item() only addresses top-level rows.

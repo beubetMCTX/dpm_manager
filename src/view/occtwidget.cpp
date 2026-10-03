@@ -658,6 +658,7 @@ OCCTWidget::~OCCTWidget()
         selected_face.Nullify();
         clear_unit_local_coordinate_frames();
         clear_reference_face_coordinate_frames();
+        clear_reference_geometry_visuals();
 
         if (!m_context.IsNull())
         {
@@ -1208,6 +1209,234 @@ bool OCCTWidget::set_reference_geometry_visible(bool visible)
     return true;
 }
 
+gp_Trsf OCCTWidget::reference_visual_transform(
+    const QVector3D &position,
+    const QVector3D &rotation_degrees) const
+{
+    gp_Trsf rotation_x;
+    gp_Trsf rotation_y;
+    gp_Trsf rotation_z;
+    rotation_x.SetRotation(
+        gp_Ax1(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(1.0, 0.0, 0.0)),
+        qDegreesToRadians(static_cast<double>(rotation_degrees.x())));
+    rotation_y.SetRotation(
+        gp_Ax1(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(0.0, 1.0, 0.0)),
+        qDegreesToRadians(static_cast<double>(rotation_degrees.y())));
+    rotation_z.SetRotation(
+        gp_Ax1(gp_Pnt(0.0, 0.0, 0.0), gp_Dir(0.0, 0.0, 1.0)),
+        qDegreesToRadians(static_cast<double>(rotation_degrees.z())));
+
+    gp_Trsf result = rotation_z;
+    result.Multiply(rotation_y);
+    result.Multiply(rotation_x);
+    result.SetTranslationPart(
+        gp_Vec(position.x(), position.y(), position.z()));
+    return result;
+}
+
+TopoDS_Shape OCCTWidget::make_reference_visual_shape(
+    const ReferenceGeometryConfig &config) const
+{
+    const QString kind = config.kind.trimmed().toLower();
+    const QVector3D direction = config.construction_direction.lengthSquared() >
+                                    1.0e-12f
+        ? config.construction_direction.normalized()
+        : QVector3D(0.0f, 0.0f, 1.0f);
+
+    try
+    {
+        if (kind == QStringLiteral("datum_plane") ||
+            kind == QStringLiteral("section_plane"))
+        {
+            const gp_Ax2 axis(
+                gp_Pnt(0.0, 0.0, 0.0),
+                gp_Dir(direction.x(), direction.y(), direction.z()));
+            return BRepPrimAPI_MakeBox(
+                axis, config.construction_size,
+                config.construction_size,
+                config.construction_thickness).Shape();
+        }
+        if (kind == QStringLiteral("datum_axis"))
+        {
+            const gp_Ax2 axis(
+                gp_Pnt(0.0, 0.0, 0.0),
+                gp_Dir(direction.x(), direction.y(), direction.z()));
+            return BRepPrimAPI_MakeCylinder(
+                axis, config.construction_radius,
+                config.construction_size).Shape();
+        }
+        if (kind == QStringLiteral("datum_origin"))
+        {
+            return BRepPrimAPI_MakeSphere(
+                gp_Pnt(0.0, 0.0, 0.0),
+                config.construction_radius).Shape();
+        }
+        if (kind == QStringLiteral("alignment_frame"))
+        {
+            return BRepPrimAPI_MakeSphere(
+                gp_Pnt(0.0, 0.0, 0.0),
+                std::max(0.05 * config.construction_size, 0.001)).Shape();
+        }
+    }
+    catch (...)
+    {
+        return TopoDS_Shape();
+    }
+    return TopoDS_Shape();
+}
+
+bool OCCTWidget::add_reference_geometry_visual(
+    const ReferenceGeometryConfig &config,
+    const TopoDS_Shape &shape)
+{
+    if (m_context.IsNull() || m_view.IsNull() || config.uuid.isNull())
+    {
+        return false;
+    }
+
+    TopoDS_Shape resolved_shape = shape;
+    if (resolved_shape.IsNull())
+    {
+        resolved_shape = make_reference_visual_shape(config);
+    }
+    if (resolved_shape.IsNull())
+    {
+        return false;
+    }
+
+    if (m_reference_geometry_visuals.contains(config.uuid))
+    {
+        const ReferenceGeometryVisual old =
+            m_reference_geometry_visuals.take(config.uuid);
+        if (!old.display.IsNull())
+        {
+            m_context->Remove(old.display, Standard_False);
+        }
+        if (!old.local_trihedron.IsNull())
+        {
+            m_context->Remove(old.local_trihedron, Standard_False);
+        }
+    }
+
+    ReferenceGeometryVisual visual;
+    visual.shape = resolved_shape;
+    visual.display = new AIS_Shape(resolved_shape);
+    visual.visible = config.visible;
+    visual.locked = config.locked;
+    visual.display->SetLocalTransformation(
+        reference_visual_transform(config.position, config.rotation));
+    visual.display->SetTransparency(
+        UnitSystem::active_preferences().reference_geometry_transparency);
+
+    const QVector3D direction = config.construction_direction.lengthSquared() >
+                                    1.0e-12f
+        ? config.construction_direction.normalized()
+        : QVector3D(0.0f, 0.0f, 1.0f);
+    const gp_Ax2 axis(
+        gp_Pnt(0.0, 0.0, 0.0),
+        gp_Dir(direction.x(), direction.y(), direction.z()));
+    visual.local_trihedron = make_local_trihedron(axis,
+                                                   get_trihedron_size() * 0.65);
+    visual.local_trihedron->SetLocalTransformation(
+        reference_visual_transform(config.position, config.rotation));
+
+    m_reference_geometry_visuals.insert(config.uuid, visual);
+    if (config.visible)
+    {
+        m_context->Display(visual.display, Standard_False);
+        if (UnitSystem::active_preferences().show_reference_local_axes)
+        {
+            m_context->Display(visual.local_trihedron, Standard_False);
+        }
+    }
+    m_context->Deactivate(visual.display, TopAbs_SHAPE);
+    m_context->Deactivate(visual.local_trihedron, TopAbs_SHAPE);
+    m_view->Redraw();
+    return true;
+}
+
+void OCCTWidget::clear_reference_geometry_visuals()
+{
+    if (!m_context.IsNull())
+    {
+        for (const ReferenceGeometryVisual &visual :
+             std::as_const(m_reference_geometry_visuals))
+        {
+            if (!visual.display.IsNull())
+            {
+                m_context->Remove(visual.display, Standard_False);
+            }
+            if (!visual.local_trihedron.IsNull())
+            {
+                m_context->Remove(visual.local_trihedron, Standard_False);
+            }
+        }
+    }
+    m_reference_geometry_visuals.clear();
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+}
+
+bool OCCTWidget::set_reference_geometry_visual_visible(const QUuid &uuid,
+                                                       bool visible)
+{
+    auto it = m_reference_geometry_visuals.find(uuid);
+    if (it == m_reference_geometry_visuals.end() || m_context.IsNull())
+    {
+        return false;
+    }
+
+    it->visible = visible;
+    if (visible)
+    {
+        m_context->Display(it->display, Standard_False);
+        if (UnitSystem::active_preferences().show_reference_local_axes)
+        {
+            m_context->Display(it->local_trihedron, Standard_False);
+        }
+    }
+    else
+    {
+        m_context->Erase(it->display, Standard_False);
+        m_context->Erase(it->local_trihedron, Standard_False);
+        if (selected_shape == it->display)
+        {
+            clear_context_selection_safely();
+        }
+    }
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
+bool OCCTWidget::reference_geometry_visual_visible(const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it != m_reference_geometry_visuals.constEnd() && it->visible;
+}
+
+bool OCCTWidget::select_reference_geometry_visual(const QUuid &uuid)
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    if (it == m_reference_geometry_visuals.constEnd() || !it->visible ||
+        m_context.IsNull() || m_view.IsNull())
+    {
+        return false;
+    }
+
+    clear_transform_gizmo();
+    m_context->ClearSelected(Standard_False);
+    selected_shape = it->display;
+    m_context->SetSelected(it->display, Standard_True);
+    m_view->Redraw();
+    emit selection_changed(uuid, true);
+    return true;
+}
+
 bool OCCTWidget::unit_visible(const QUuid &uuid) const
 {
     return m_unit_visibility.value(uuid, false);
@@ -1467,6 +1696,25 @@ void OCCTWidget::apply_visual_preferences(const Unit_Preferences &preferences)
     const Standard_Real reference_alpha = preferences.reference_geometry_transparency;
     if (!base_geometry.IsNull()) base_geometry->SetTransparency(reference_alpha);
     if (!reference_geometry.IsNull()) reference_geometry->SetTransparency(reference_alpha);
+    for (auto it = m_reference_geometry_visuals.begin();
+         it != m_reference_geometry_visuals.end(); ++it)
+    {
+        if (!it->display.IsNull())
+        {
+            it->display->SetTransparency(reference_alpha);
+        }
+        if (!it->local_trihedron.IsNull())
+        {
+            if (preferences.show_reference_local_axes && it->visible)
+            {
+                m_context->Display(it->local_trihedron, Standard_False);
+            }
+            else
+            {
+                m_context->Erase(it->local_trihedron, Standard_False);
+            }
+        }
+    }
     for (const Handle(AIS_Trihedron) &trihedron : m_reference_face_trihedrons)
     {
         if (trihedron.IsNull()) continue;
@@ -6763,6 +7011,7 @@ void OCCTWidget::add_readed_geometry()
 {
     // Replacing reference geometry creates a new logical reference object.
     // Project loading may restore the saved UUID immediately afterwards.
+    clear_reference_geometry_visuals();
     m_reference_geometry_uuid = QUuid::createUuid();
     clear_reference_transform_history();
     clear_face_reference();
