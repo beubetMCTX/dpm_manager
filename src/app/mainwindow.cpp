@@ -5798,9 +5798,10 @@ void MainWindow::update_object_list_selection(const QUuid &uuid,
     const QString object_id = reference_geometry
                                   ? QStringLiteral("reference")
                                   : uuid.toString(QUuid::WithoutBraces);
-    for (int row = 0; row < m_object_list->count(); ++row)
+    // Array instances and Assembly members live below recursive tree nodes;
+    // QTreeWidget::item() only addresses top-level rows.
+    for (QTreeWidgetItem *item : m_object_list->all_items())
     {
-        QTreeWidgetItem *item = m_object_list->item(row);
         if (item->data(0, Qt::UserRole).toString() == object_id)
         {
             m_object_list->setCurrentItem(item, QItemSelectionModel::ClearAndSelect);

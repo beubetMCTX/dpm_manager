@@ -2804,3 +2804,11 @@ References:
 - Volume Cone with equal top and base radii now falls back to a Cylinder,
   allowing the valid zero-angle case to rebuild instead of failing in OCCT.
 - Release build and all 12 focused regressions passed.
+
+### 2026-10-03 Synchronize Nested Object-Tree Selection
+
+- Object-list selection synchronization now searches all recursive tree items,
+  not only top-level rows.
+- Nested Assembly members and generated array instances can now be selected and
+  highlighted from OCCT without losing the corresponding inspector target.
+- Release build and all 12 focused regressions passed.
