@@ -232,6 +232,35 @@ QTreeWidgetItem *ObjectTreeWidget::item(int index) const
     return index >= 0 && index < items.size() ? items.at(index) : nullptr;
 }
 
+QList<QUuid> MainWindow::selected_object_unit_uuids() const
+{
+    QList<QUuid> result;
+    if (m_object_list == nullptr || m_3d_widget == nullptr)
+    {
+        return result;
+    }
+
+    QSet<QUuid> seen;
+    for (QTreeWidgetItem *item : m_object_list->selectedItems())
+    {
+        if (item == nullptr ||
+            item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
+        {
+            continue;
+        }
+
+        const QUuid uuid(item->data(0, Qt::UserRole).toString());
+        if (uuid.isNull() || !m_3d_widget->unit_hash.contains(uuid) ||
+            seen.contains(uuid))
+        {
+            continue;
+        }
+        seen.insert(uuid);
+        result.append(uuid);
+    }
+    return result;
+}
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -4216,20 +4245,7 @@ void MainWindow::create_object_list_panel()
         {
             return;
         }
-        QList<QUuid> selected_units;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
-        {
-            if (item == nullptr ||
-                item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
-            {
-                selected_units.append(uuid);
-            }
-        }
+        const QList<QUuid> selected_units = selected_object_unit_uuids();
         if (selected_units.size() < 2)
         {
             statusBar()->showMessage(
@@ -4635,18 +4651,9 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
+        for (const QUuid &uuid : selected_object_unit_uuids())
         {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull())
-            {
-                operation(uuid);
-            }
+            operation(uuid);
         }
         update_object_list_panel();
     };
@@ -4689,19 +4696,7 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        QList<QUuid> selected_units;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
-        {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
-            {
-                selected_units.append(uuid);
-            }
-        }
+        const QList<QUuid> selected_units = selected_object_unit_uuids();
 
         if (selected_units.isEmpty())
         {
@@ -4737,19 +4732,7 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        QList<QUuid> selected_units;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
-        {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
-            {
-                selected_units.append(uuid);
-            }
-        }
+        const QList<QUuid> selected_units = selected_object_unit_uuids();
 
         if (selected_units.isEmpty())
         {
@@ -4778,19 +4761,7 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        QList<QUuid> selected_units;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
-        {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
-            {
-                selected_units.append(uuid);
-            }
-        }
+        const QList<QUuid> selected_units = selected_object_unit_uuids();
 
         if (selected_units.isEmpty())
         {
@@ -4862,19 +4833,7 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        QList<QUuid> selected_units;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
-        {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
-            {
-                selected_units.append(uuid);
-            }
-        }
+        const QList<QUuid> selected_units = selected_object_unit_uuids();
         if (selected_units.isEmpty())
         {
             m_3d_widget->set_interaction_mode(
@@ -5021,19 +4980,7 @@ void MainWindow::create_object_list_panel()
         {
             return;
         }
-        QList<QUuid> selected_units;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
-        {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
-            {
-                selected_units.append(uuid);
-            }
-        }
+        const QList<QUuid> selected_units = selected_object_unit_uuids();
         if (!m_3d_widget->create_assembly(selected_units))
         {
             statusBar()->showMessage(
@@ -5052,14 +4999,9 @@ void MainWindow::create_object_list_panel()
             return;
         }
         int detached_count = 0;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
+        for (const QUuid &uuid : selected_object_unit_uuids())
         {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->detach_from_assembly(uuid))
+            if (m_3d_widget->detach_from_assembly(uuid))
             {
                 ++detached_count;
             }
@@ -5076,14 +5018,9 @@ void MainWindow::create_object_list_panel()
             return;
         }
         int dissolved_count = 0;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
+        for (const QUuid &uuid : selected_object_unit_uuids())
         {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->dissolve_assembly(uuid))
+            if (m_3d_widget->dissolve_assembly(uuid))
             {
                 ++dissolved_count;
             }
@@ -5099,19 +5036,7 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        QList<QUuid> selected_units;
-        for (QTreeWidgetItem *item : m_object_list->selectedItems())
-        {
-            if (item == nullptr || item->data(0, Qt::UserRole).toString() == QStringLiteral("reference"))
-            {
-                continue;
-            }
-            const QUuid uuid(item->data(0, Qt::UserRole).toString());
-            if (!uuid.isNull() && m_3d_widget->unit_hash.contains(uuid))
-            {
-                selected_units.append(uuid);
-            }
-        }
+        const QList<QUuid> selected_units = selected_object_unit_uuids();
         if (selected_units.isEmpty())
         {
             statusBar()->showMessage("Select one or more injectors first", 4000);

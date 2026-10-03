@@ -155,6 +155,7 @@ private:
     void create_object_list_panel();
     void update_object_list_panel();
     void update_object_list_item(const QUuid &uuid, const QString &name);
+    QList<QUuid> selected_object_unit_uuids() const;
     QString object_list_unit_display_name(
         const std::shared_ptr<Unit> &unit) const;
     void update_object_list_selection(const QUuid &uuid, bool reference_geometry);
