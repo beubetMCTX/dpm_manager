@@ -655,6 +655,7 @@ private:
     int m_operation_history_index = 0;
     QUuid m_drag_unit_uuid;
     UnitMoveSnapshot m_drag_move_before;
+    gp_Trsf m_drag_before_local_transformation;
     bool m_drag_move_snapshot_valid = false;
     gp_Pln m_drag_base_plane;
     bool m_drag_base_plane_valid = false;

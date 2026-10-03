@@ -6429,6 +6429,7 @@ bool OCCTWidget::cancel_active_drag_for_undo()
     {
         myIsDragging = false;
         m_drag_unit_uuid = QUuid();
+        m_drag_before_local_transformation = gp_Trsf();
         m_drag_move_snapshot_valid = false;
         return true;
     }
@@ -6454,6 +6455,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     }
     myIsDragging = false;
     m_drag_unit_uuid = QUuid();
+    m_drag_before_local_transformation = gp_Trsf();
     m_drag_move_snapshot_valid = false;
     clear_context_selection_safely(false);
     if (!m_view.IsNull()) m_view->Redraw();
@@ -7876,6 +7878,8 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
                     {
                         m_drag_unit_uuid = unit->inj.uuid;
                         m_drag_move_before = make_move_snapshot(*unit);
+                        m_drag_before_local_transformation =
+                            selected_shape->LocalTransformation();
                         m_drag_move_snapshot_valid = true;
                         // Freeze the attachment plane for the whole drag.
                         // Selection changes during MoveTo/SelectDetected must
@@ -8003,6 +8007,7 @@ void OCCTWidget::finish_direct_drag(bool record_history)
     }
 
     m_drag_unit_uuid = QUuid();
+    m_drag_before_local_transformation = gp_Trsf();
     m_drag_move_snapshot_valid = false;
     m_drag_base_plane_valid = false;
     myIsDragging = false;
@@ -8506,9 +8511,6 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             }
         }
 
-        trsf.SetTranslation(delta_occt);
-        selected_shape->SetLocalTransformation(trsf * selected_shape->LocalTransformation());
-
         if (Unit *unit = get_unit(selected_shape))
         {
             Injector &injector = unit->inj.injector_data;
@@ -8524,6 +8526,19 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             injector.volume_bgeom_max += delta_vec;
             update_unit_local_coordinate_frame(unit->inj.uuid);
             emit unit_position_updated(unit);
+
+            // Injector geometry is generated in world coordinates. During a
+            // drag, keep data and axes live, but apply one display-only
+            // transform from the original position. Accumulating this
+            // transform while also changing Injector data moves the shape
+            // twice and causes visible jumps on long drags.
+            const QVector3D total_delta =
+                injector.pos - m_drag_move_before.pos;
+            trsf = m_drag_before_local_transformation;
+            trsf.SetTranslationPart(
+                m_drag_before_local_transformation.TranslationPart() +
+                gp_XYZ(total_delta.x(), total_delta.y(), total_delta.z()));
+            selected_shape->SetLocalTransformation(trsf);
         }
 
 
