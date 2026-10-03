@@ -1,5 +1,18 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Stabilize Direct OCCT Injector Dragging
+
+- Direct left-button dragging now treats Injector data as the source of truth.
+- The temporary AIS transformation is baked into regenerated geometry when a
+  drag ends, is cancelled, or is interrupted by a context-menu/selection
+  transition; this prevents model and local-axis separation or double motion.
+- Non-finite projection results and implausibly large single-frame movement
+  deltas are rejected, preventing projection singularities from sending an
+  injector far outside the scene.
+- Drag completion captures array overrides and rebuilds dependent array
+  outputs so nested generated instances follow the committed position.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Persist Complete Visual Preferences
 
 - Project schema now stores injector/reference transparency, translation and

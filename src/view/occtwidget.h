@@ -394,6 +394,7 @@ private:
     void update_transform_gizmo_preview(const gp_Trsf &transformation);
     void restore_transform_gizmo_preview();
     void finish_transform_gizmo(bool apply);
+    void finish_direct_drag(bool record_history);
     bool cancel_active_drag_for_undo();
 
     void open_edit_widget(Handle(AIS_Shape) shape);

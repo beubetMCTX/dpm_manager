@@ -5239,27 +5239,11 @@ void OCCTWidget::clear_selection()
     clear_transform_gizmo();
     finish_reference_transform_transaction();
 
-    if (m_drag_move_snapshot_valid && !m_drag_unit_uuid.isNull())
+    if (myIsDragging)
     {
-        const std::shared_ptr<Unit> unit = unit_hash.value(m_drag_unit_uuid);
-        if (unit != nullptr)
-        {
-            const UnitMoveSnapshot after = make_move_snapshot(*unit);
-            if (after.pos != m_drag_move_before.pos ||
-                after.pos2 != m_drag_move_before.pos2 ||
-                after.ff_center != m_drag_move_before.ff_center ||
-                after.ff_virtual_origin != m_drag_move_before.ff_virtual_origin ||
-                after.volume_bgeom_min != m_drag_move_before.volume_bgeom_min ||
-                after.volume_bgeom_max != m_drag_move_before.volume_bgeom_max)
-            {
-                record_move(m_drag_unit_uuid, m_drag_move_before, after);
-            }
-        }
+        finish_direct_drag(true);
     }
-    m_drag_unit_uuid = QUuid();
-    m_drag_move_snapshot_valid = false;
     clear_face_reference();
-    myIsDragging = false;
     selected_shape.Nullify();
     clear_context_selection_safely();
 }
@@ -7406,32 +7390,60 @@ void OCCTWidget::mouseReleaseEvent(QMouseEvent *event)
         }
         if(myIsDragging)
         {
-            if (m_drag_move_snapshot_valid && !m_drag_unit_uuid.isNull())
-            {
-                const std::shared_ptr<Unit> unit = unit_hash.value(m_drag_unit_uuid);
-                if (unit != nullptr)
-                {
-                    const UnitMoveSnapshot after = make_move_snapshot(*unit);
-                    if (after.pos != m_drag_move_before.pos ||
-                        after.pos2 != m_drag_move_before.pos2 ||
-                        after.ff_center != m_drag_move_before.ff_center ||
-                        after.ff_virtual_origin != m_drag_move_before.ff_virtual_origin ||
-                        after.volume_bgeom_min != m_drag_move_before.volume_bgeom_min ||
-                        after.volume_bgeom_max != m_drag_move_before.volume_bgeom_max)
-                    {
-                        record_move(m_drag_unit_uuid, m_drag_move_before, after);
-                        capture_array_override_snapshot(*unit);
-                        emit unit_data_updated(unit.get());
-                    }
-                }
-            }
-            m_drag_unit_uuid = QUuid();
-            m_drag_move_snapshot_valid = false;
-            m_drag_base_plane_valid = false;
-            myIsDragging=false;
+            finish_direct_drag(true);
             clear_context_selection_safely(false);
         }
     }
+}
+
+void OCCTWidget::finish_direct_drag(bool record_history)
+{
+    const QUuid uuid = m_drag_unit_uuid;
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    const bool has_snapshot = m_drag_move_snapshot_valid && !uuid.isNull();
+
+    if (unit != nullptr && has_snapshot)
+    {
+        const UnitMoveSnapshot after = make_move_snapshot(*unit);
+        const bool changed =
+            after.pos != m_drag_move_before.pos ||
+            after.pos2 != m_drag_move_before.pos2 ||
+            after.ff_center != m_drag_move_before.ff_center ||
+            after.ff_virtual_origin != m_drag_move_before.ff_virtual_origin ||
+            after.volume_bgeom_min != m_drag_move_before.volume_bgeom_min ||
+            after.volume_bgeom_max != m_drag_move_before.volume_bgeom_max;
+
+        // Direct dragging uses a temporary AIS transformation while the mouse
+        // moves. Rebuild once at the end so Injector data remains the only
+        // source of truth and no transform is applied twice.
+        if (changed)
+        {
+            capture_array_override_snapshot(*unit);
+            if (record_history)
+            {
+                record_move(uuid, m_drag_move_before, after);
+            }
+        }
+
+        const bool refreshed = refresh_unit_visual(unit.get());
+        if (!refreshed && !unit->ais_display.IsNull())
+        {
+            unit->ais_display->SetLocalTransformation(gp_Trsf());
+            m_context->Redisplay(unit->ais_display, Standard_False);
+        }
+
+        if (changed)
+        {
+            emit unit_data_updated(unit.get());
+            QSet<QUuid> visited;
+            rebuild_unit_outputs(uuid, visited);
+        }
+    }
+
+    m_drag_unit_uuid = QUuid();
+    m_drag_move_snapshot_valid = false;
+    m_drag_base_plane_valid = false;
+    myIsDragging = false;
 }
 
 
@@ -7831,6 +7843,15 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
         m_view->Convert(pos.x(),pos.y(),occt_x1,occt_y1,occt_z1);
         m_view->Convert(m_x_max,m_y_max,occt_x2,occt_y2,occt_z2);
 
+        if (!std::isfinite(occt_x1) || !std::isfinite(occt_y1) ||
+            !std::isfinite(occt_z1) || !std::isfinite(occt_x2) ||
+            !std::isfinite(occt_y2) || !std::isfinite(occt_z2))
+        {
+            m_x_max = pos.x();
+            m_y_max = pos.y();
+            return;
+        }
+
         const gp_Pln ref_pln = m_drag_base_plane_valid
             ? m_drag_base_plane
             : get_moving_base_plane(selected_shape);
@@ -7850,6 +7871,14 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             static_cast<float>(delta_occt.Y()),
             static_cast<float>(delta_occt.Z()));
 
+        const double delta_magnitude = delta_occt.Magnitude();
+        if (!std::isfinite(delta_magnitude))
+        {
+            m_x_max = pos.x();
+            m_y_max = pos.y();
+            return;
+        }
+
         if (selected_shape == base_geometry)
         {
             if (!m_reference_geometry_locked)
@@ -7865,6 +7894,21 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             m_x_max = pos.x();
             m_y_max = pos.y();
             return;
+        }
+
+        if (Unit *unit = get_unit(selected_shape))
+        {
+            // A nearly parallel projection can produce a single-frame jump
+            // many orders larger than the displayed injector. Reject that
+            // frame instead of corrupting the model position.
+            const double extent = shape_extent(unit->inj.shape, 1.0e-6);
+            const double max_step = std::max(1.0e-4, extent * 100.0);
+            if (delta_magnitude > max_step)
+            {
+                m_x_max = pos.x();
+                m_y_max = pos.y();
+                return;
+            }
         }
 
         trsf.SetTranslation(delta_occt);
@@ -7989,9 +8033,10 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
     // face-then-injector attachment workflow impossible.
     clear_transform_gizmo();
     finish_reference_transform_transaction();
-    m_drag_unit_uuid = QUuid();
-    m_drag_move_snapshot_valid = false;
-    myIsDragging = false;
+    if (myIsDragging)
+    {
+        finish_direct_drag(true);
+    }
     clear_context_selection_safely();
     ensure_reference_face_selection_mode();
     m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
