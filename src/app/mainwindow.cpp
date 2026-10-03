@@ -6259,7 +6259,12 @@ void MainWindow::update_object_list_panel()
                 QStringList{QStringLiteral("Array Layer %1 (%2 instances)")
                                 .arg(layer_it.key())
                                 .arg(layer_it.value().size())});
-            layer_item->setData(0, Qt::UserRole, QString());
+            // Keep the source UUID on the grouping row itself. This makes a
+            // layer a stable, selectable tree target instead of a decorative
+            // label whose parent must be guessed by every action handler.
+            layer_item->setData(
+                0, Qt::UserRole,
+                unit->inj.uuid.toString(QUuid::WithoutBraces));
             layer_item->setData(0, Qt::UserRole + 1, QStringLiteral("array_layer"));
             layer_item->setData(0, Qt::UserRole + 2,
                                 unit->inj.uuid.toString(QUuid::WithoutBraces));
@@ -6288,7 +6293,7 @@ void MainWindow::update_object_list_panel()
                         .arg(unit->inj.uuid.toString(QUuid::WithoutBraces),
                              layer_uuid));
             }
-            layer_item->setFlags(Qt::ItemIsEnabled);
+            layer_item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
             layer_item->setData(0, Qt::UserRole + 6,
                                 QStringLiteral("#F0C674"));
             layer_item->setToolTip(
@@ -6309,7 +6314,9 @@ void MainWindow::update_object_list_panel()
                 item,
                 QStringList{QStringLiteral("Fill Instances (%1)")
                                 .arg(fill_children.size())});
-            fill_item->setData(0, Qt::UserRole, QString());
+            fill_item->setData(
+                0, Qt::UserRole,
+                unit->inj.uuid.toString(QUuid::WithoutBraces));
             fill_item->setData(0, Qt::UserRole + 1, QStringLiteral("fill"));
             fill_item->setData(0, Qt::UserRole + 2,
                                unit->inj.uuid.toString(QUuid::WithoutBraces));
@@ -6328,7 +6335,7 @@ void MainWindow::update_object_list_panel()
                         .arg(unit->inj.uuid.toString(QUuid::WithoutBraces),
                              fill_uuid));
             }
-            fill_item->setFlags(Qt::ItemIsEnabled);
+            fill_item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
             fill_item->setData(0, Qt::UserRole + 6,
                                QStringLiteral("#F0C674"));
             fill_item->setToolTip(
