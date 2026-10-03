@@ -1677,6 +1677,8 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
     m_transform_gizmo_position = origin;
     m_transform_gizmo_mode = mode;
     m_transform_gizmo_before_data = injector;
+    m_transform_gizmo_before_local_transformation =
+        unit->ais_display->LocalTransformation();
     m_transform_gizmo_before_move = make_move_snapshot(*unit);
     m_transform_gizmo_snapshot_valid = true;
     m_transform_gizmo_preview_changed = false;
@@ -1753,9 +1755,15 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
     unit->inj.injector_data = preview;
     if (!unit->ais_display.IsNull())
     {
-        unit->ais_display->SetLocalTransformation(snapped_transformation);
+        unit->ais_display->SetLocalTransformation(
+            snapped_transformation * m_transform_gizmo_before_local_transformation);
         m_context->Redisplay(unit->ais_display, Standard_False);
     }
+    const QVector3D gizmo_origin = injector_frame_origin(preview);
+    m_transform_gizmo->SetPosition(
+        gp_Ax2(gp_Pnt(gizmo_origin.x(), gizmo_origin.y(), gizmo_origin.z()),
+               gp_Dir(0.0, 0.0, 1.0),
+               gp_Dir(1.0, 0.0, 0.0)));
     m_transform_gizmo_preview_changed =
         m_transform_gizmo_preview_changed || snapped_transformation.Form() != gp_Identity;
 
@@ -1818,6 +1826,7 @@ void OCCTWidget::clear_transform_gizmo()
     m_transform_gizmo_uuid = QUuid();
     m_transform_gizmo_position = QVector3D();
     m_transform_gizmo_before_data = Injector();
+    m_transform_gizmo_before_local_transformation = gp_Trsf();
     m_transform_gizmo_mode = AIS_MM_None;
     m_transform_gizmo_snapshot_valid = false;
     m_transform_gizmo_preview_changed = false;
@@ -8385,9 +8394,12 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
 
     if (m_transform_gizmo_dragging && !m_transform_gizmo.IsNull())
     {
-        const gp_Trsf transformation =
-            m_transform_gizmo->Transform(pos.x(), pos.y(), m_view);
-        update_transform_gizmo_preview(transformation);
+        gp_Trsf transformation;
+        if (m_transform_gizmo->ObjectTransformation(
+                pos.x(), pos.y(), m_view, transformation))
+        {
+            update_transform_gizmo_preview(transformation);
+        }
         m_view->Redraw();
         return;
     }

@@ -596,6 +596,7 @@ private:
     QUuid m_transform_gizmo_uuid;
     QVector3D m_transform_gizmo_position;
     Injector m_transform_gizmo_before_data;
+    gp_Trsf m_transform_gizmo_before_local_transformation;
     UnitMoveSnapshot m_transform_gizmo_before_move;
     AIS_ManipulatorMode m_transform_gizmo_mode = AIS_MM_None;
     bool m_transform_gizmo_dragging = false;
