@@ -1190,5 +1190,97 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+
+    // Fill parents must preserve the same parent-transform-follow semantics
+    // as Array parents when a generated child becomes a nested source.
+    widget.display_units({}, true);
+    Unit fill_root = make_valid_unit();
+    fill_root.inj.injector_data.name = "fill-root";
+    fill_root.inj.injector_data.pos = QVector3D(100.0f, 0.0f, 0.0f);
+    fill_root.inj.injector_data.vel = QVector3D(0.0f, 1.0f, 0.0f);
+    if (!check(fill_root.inj.create_injector(),
+               "Fill root geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({fill_root});
+    const QUuid fill_root_uuid = widget.unit_hash.constBegin().key();
+    UnitFillSpec fill_spec;
+    fill_spec.rows = 1;
+    fill_spec.columns = 2;
+    fill_spec.spacing_x = 5.0f;
+    fill_spec.spacing_y = 5.0f;
+    fill_spec.origin = fill_root.inj.injector_data.pos;
+    fill_spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    fill_spec.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    fill_spec.source_weights = {1};
+    if (!check(widget.create_unit_fill({fill_root_uuid}, fill_spec) == 2,
+               "Fill parent should create two children"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> fill_child;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(fill_root_uuid)->child_units)
+    {
+        if (child != nullptr && child->array_instance_path == QVector<int>{0})
+        {
+            fill_child = child;
+            break;
+        }
+    }
+    if (!check(fill_child != nullptr,
+               "Fill child should be available for nested source promotion") ||
+        !check(widget.create_unit_array(
+                    fill_child->inj.uuid,
+                    UnitArraySpec{QUuid(), {}, UnitArrayType::Linear, 2,
+                                  QVector3D(1.0f, 0.0f, 0.0f),
+                                  fill_child->inj.injector_data.pos, 2.0f,
+                                  360.0f, 0.01f, 0.005f,
+                                  QVector3D(0.0f, 0.0f, 1.0f), false, false,
+                                  QUuid()}) == 2,
+               "Fill child should become a nested array source"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> fill_nested_source;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(fill_root_uuid)->child_units)
+    {
+        if (child != nullptr && !child->follows_array &&
+            child->has_array_spec)
+        {
+            fill_nested_source = child;
+            break;
+        }
+    }
+    if (!check(fill_nested_source != nullptr,
+               "Fill nested source should remain persistent"))
+    {
+        return 1;
+    }
+    const QVector3D fill_nested_direction =
+        fill_nested_source->inj.injector_data.vel;
+    const QVector3D fill_nested_position =
+        fill_nested_source->inj.injector_data.pos;
+    const bool fill_follow_enabled = widget.set_unit_parent_transform_follow(
+        fill_nested_source->inj.uuid, true);
+    const bool fill_moved = widget.set_unit_position_by_uuid(
+        fill_root_uuid, QVector3D(120.0f, 0.0f, 0.0f));
+    if (!check(fill_follow_enabled,
+               "Fill nested source should follow parent transform") ||
+        !check(fill_moved,
+               "Moving Fill parent should succeed") ||
+        !check(widget.unit_hash.value(fill_nested_source->inj.uuid) != nullptr &&
+                   widget.unit_hash.value(fill_nested_source->inj.uuid)
+                           ->inj.injector_data.pos ==
+                       fill_nested_position + QVector3D(20.0f, 0.0f, 0.0f),
+               "Fill parent movement should preserve nested source offset") ||
+        !check(widget.unit_hash.value(fill_nested_source->inj.uuid)
+                       ->inj.injector_data.vel == fill_nested_direction,
+               "Fill parent transform should preserve nested source direction"))
+    {
+        return 1;
+    }
     return 0;
 }

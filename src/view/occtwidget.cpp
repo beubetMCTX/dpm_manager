@@ -86,8 +86,18 @@ gp_Trsf parent_frame_delta(const QVector3D &old_origin,
         gp_Dir(new_z.x(), new_z.y(), new_z.z()),
         gp_Dir(new_x.x(), new_x.y(), new_x.z()));
     gp_Trsf result;
-    result.SetTransformation(new_frame, old_frame);
+    result.SetTransformation(old_frame, new_frame);
     return result;
+}
+
+void translate_unit_pattern_origins(Unit &unit, const QVector3D &delta)
+{
+    for (UnitArraySpec &spec : unit.array_specs)
+    {
+        spec.origin += delta;
+    }
+    unit.array_spec.origin += delta;
+    unit.fill_spec.origin += delta;
 }
 
 QColor placeholder_color_for_species(const QString &species_name)
@@ -1912,6 +1922,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
         injector.ff_virtual_origin += delta;
         injector.volume_bgeom_min += delta;
         injector.volume_bgeom_max += delta;
+        translate_unit_pattern_origins(*unit, delta);
 
         if (!unit->inj.create_injector())
         {
@@ -3561,6 +3572,48 @@ bool OCCTWidget::synchronize_parent_following_unit(Unit &target,
     return true;
 }
 
+int OCCTWidget::synchronize_parent_following_instance(Unit &parent,
+                                                      const Unit &instance,
+                                                      int layer)
+{
+    std::shared_ptr<Unit> follower;
+    for (const std::shared_ptr<Unit> &child : parent.child_units)
+    {
+        if (child == nullptr || !child->is_array_child ||
+            child->follows_array || !child->follows_parent_transform)
+        {
+            continue;
+        }
+        if ((!instance.array_instance_key.isEmpty() &&
+             child->array_instance_key == instance.array_instance_key) ||
+            (instance.array_instance_key.isEmpty() &&
+             child->array_instance_path == instance.array_instance_path))
+        {
+            follower = child;
+            break;
+        }
+    }
+    if (follower == nullptr)
+    {
+        return 0;
+    }
+    if (!synchronize_parent_following_unit(*follower, instance))
+    {
+        return -1;
+    }
+    follower->array_parent_uuid = parent.inj.uuid;
+    follower->is_array_child = true;
+    follower->follows_array = false;
+    follower->follows_parent_transform = true;
+    follower->array_layer = layer;
+    follower->array_layer_uuid = instance.array_layer_uuid;
+    follower->prototype_uuid = instance.prototype_uuid;
+    follower->prototype_chain = instance.prototype_chain;
+    follower->array_instance_path = instance.array_instance_path;
+    follower->array_instance_key = instance.array_instance_key;
+    return 1;
+}
+
 int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
 {
     const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
@@ -3724,76 +3777,16 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
                 return child->array_instance_path == path;
             });
     };
-    const auto find_parent_following_instance =
-        [&](const QVector<int> &path, const QVector<QUuid> &key)
-            -> std::shared_ptr<Unit>
-    {
-        for (const std::shared_ptr<Unit> &child : source->child_units)
-        {
-            if (child == nullptr || !child->is_array_child ||
-                child->follows_array || !child->follows_parent_transform)
-            {
-                continue;
-            }
-            if ((!key.isEmpty() && child->array_instance_key == key) ||
-                (key.isEmpty() && child->array_instance_path == path))
-            {
-                return child;
-            }
-        }
-        return nullptr;
-    };
-    const auto synchronize_parent_following_instance =
-        [&](const std::shared_ptr<Unit> &instance, int layer) -> int
-    {
-        if (instance == nullptr)
-        {
-            return 0;
-        }
-        const std::shared_ptr<Unit> follower = find_parent_following_instance(
-            instance->array_instance_path, instance->array_instance_key);
-        if (follower == nullptr)
-        {
-            return 0;
-        }
-        if (!synchronize_parent_following_unit(*follower, *instance))
-        {
-            return -1;
-        }
-        follower->array_parent_uuid = source_uuid;
-        follower->is_array_child = true;
-        follower->follows_array = false;
-        follower->follows_parent_transform = true;
-        follower->array_layer = layer;
-        follower->array_layer_uuid = instance->array_layer_uuid;
-        follower->prototype_uuid = instance->prototype_uuid;
-        follower->prototype_chain = instance->prototype_chain;
-        follower->array_instance_path = instance->array_instance_path;
-        follower->array_instance_key = instance->array_instance_key;
-
-        if (follower->has_array_spec)
-        {
-            if (rebuild_unit_array_layers(follower->inj.uuid) <= 0)
-            {
-                return -1;
-            }
-        }
-        else if (follower->has_fill_spec &&
-                 rebuild_unit_fill(follower->inj.uuid) <= 0)
-        {
-            return -1;
-        }
-        return 1;
-    };
-
     if (source_is_composite)
     {
         const QList<std::shared_ptr<Unit>> instances =
             expand_unit_tree_array(*source, first_spec);
         for (const std::shared_ptr<Unit> &instance : instances)
         {
-            const int synchronized = synchronize_parent_following_instance(
-                instance, 1);
+            const int synchronized = instance == nullptr
+                                         ? 0
+                                         : synchronize_parent_following_instance(
+                                               *source, *instance, 1);
             if (synchronized < 0)
             {
                 return 0;
@@ -3831,7 +3824,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
             const std::shared_ptr<Unit> instance =
                 std::make_shared<Unit>(child);
             const int synchronized = synchronize_parent_following_instance(
-                instance, 1);
+                *source, *instance, 1);
             if (synchronized < 0)
             {
                 return 0;
@@ -3892,8 +3885,10 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         for (int index = 1; index < instances.size(); ++index)
         {
             const std::shared_ptr<Unit> &instance = instances.at(index);
-            const int synchronized = synchronize_parent_following_instance(
-                instance, layer + 1);
+            const int synchronized = instance == nullptr
+                                         ? 0
+                                         : synchronize_parent_following_instance(
+                                               *source, *instance, layer + 1);
             if (synchronized < 0)
             {
                 return 0;
@@ -4524,6 +4519,21 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
             {
                 continue;
             }
+            if (parent != nullptr)
+            {
+                const int synchronized =
+                    synchronize_parent_following_instance(*parent, *child, 0);
+                if (synchronized < 0)
+                {
+                    rollback_parent();
+                    return 0;
+                }
+                if (synchronized > 0)
+                {
+                    ++displayed_count;
+                    continue;
+                }
+            }
             child->type = Assebly;
             child->is_array_child = true;
             child->follows_array = true;
@@ -4571,6 +4581,21 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
     int displayed_count = 0;
     for (const Unit &child : children)
     {
+        if (parent != nullptr)
+        {
+            const int synchronized =
+                synchronize_parent_following_instance(*parent, child, 0);
+            if (synchronized < 0)
+            {
+                rollback_parent();
+                return 0;
+            }
+            if (synchronized > 0)
+            {
+                ++displayed_count;
+                continue;
+            }
+        }
         const std::shared_ptr<Unit> stored_child = std::make_shared<Unit>(child);
         stored_child->type = array;
         stored_child->is_array_child = true;
@@ -4962,8 +4987,15 @@ bool OCCTWidget::set_unit_parent_transform_follow(const QUuid &uuid,
     unit->parent_follow_reference_valid = false;
     if (follow)
     {
-        QSet<QUuid> visited;
-        rebuild_unit_outputs(parent->inj.uuid, visited);
+        const int rebuilt = parent->has_array_spec
+                                ? rebuild_unit_array(parent->inj.uuid)
+                                : rebuild_unit_fill(parent->inj.uuid);
+        if (rebuilt <= 0)
+        {
+            unit->follows_parent_transform = false;
+            unit->parent_follow_reference_valid = false;
+            return false;
+        }
     }
     emit unit_data_updated(unit.get());
     emit unit_display_list_changed();

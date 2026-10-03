@@ -381,6 +381,9 @@ private:
     int rebuild_unit_array_layers(const QUuid &source_uuid);
     bool synchronize_parent_following_unit(Unit &target,
                                            const Unit &source);
+    int synchronize_parent_following_instance(Unit &parent,
+                                              const Unit &instance,
+                                              int layer);
     bool apply_parent_follow_transform_to_tree(Unit &root,
                                                const gp_Trsf &transformation);
     int create_unit_fill_internal(const QList<QUuid> &source_uuids,
