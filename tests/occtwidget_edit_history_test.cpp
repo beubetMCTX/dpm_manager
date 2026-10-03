@@ -295,6 +295,23 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (!check(widget.set_unit_direction_by_uuid(
+                   leaf_child_uuid, QVector3D(0.0f, 0.0f, 1.0f)),
+               "Nested array source direction edit should succeed") ||
+        !check(std::all_of(
+                   widget.unit_hash.value(leaf_child_uuid)->child_units.cbegin(),
+                   widget.unit_hash.value(leaf_child_uuid)->child_units.cend(),
+                   [](const std::shared_ptr<Unit> &child)
+                   {
+                       return child != nullptr &&
+                              child->inj.injector_data.vel ==
+                                  QVector3D(0.0f, 0.0f, 1.0f);
+                   }),
+               "Nested array source edits should reach every nested child"))
+    {
+        return 1;
+    }
+
     UnitArraySpec second_leaf_array;
     second_leaf_array.type = UnitArrayType::Rotational;
     second_leaf_array.count = 3;

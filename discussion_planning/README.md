@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Verify Nested Array Source Propagation
+
+- Added a regression covering edits to a promoted nested array source.
+- Direction changes now have explicit coverage for all nested generated
+  children, alongside the existing multi-layer rebuild and stale-output checks.
+- The focused OCCT regression and full Release suite remain green.
+
 ### 2026-10-03 Persist Nested Array Prototype Identity
 
 - Project sessions now optionally persist `prototype_uuid` and

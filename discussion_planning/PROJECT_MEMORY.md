@@ -18,6 +18,9 @@
   `prototype_chain` identity through project sessions. Legacy files without
   these fields remain readable, and the project-session regression covers the
   round trip.
+- OCCT regression coverage now edits a promoted nested Array source and checks
+  that its complete nested generated child set receives the direction update;
+  multi-layer rebuilds still remain idempotent.
 - Field-table-driven DPM import, including multiple injectors per file.
 - Chemkin species import from the `SPECIES` section and material/config UI.
 - Species color configuration and material table dialogs with config storage.
