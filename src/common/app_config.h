@@ -34,6 +34,9 @@ struct ReferenceGeometryConfig
     bool locked = false;
     bool visible = true;
     bool section_clipping = false;
+    // Stable topology order within the currently displayed reference shape.
+    // -1 means no face is persisted as the active local frame.
+    int selected_face_index = -1;
 };
 
 QString app_config_directory_path();

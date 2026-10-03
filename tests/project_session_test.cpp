@@ -82,6 +82,7 @@ int main(int argc, char *argv[])
     source.reference_geometry.rotation = QVector3D(10.0f, 20.0f, 30.0f);
     source.reference_geometry.locked = true;
     source.reference_geometry.visible = false;
+    source.reference_geometry.selected_face_index = 3;
     source.unit_preferences.length = "cm";
     source.unit_preferences.angle = "rad";
     source.has_unit_preferences = true;
@@ -333,8 +334,8 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 5,
-               "New project sessions should use schema version 5") ||
+    if (!check(saved_root.value("schema_version").toInt() == 6,
+               "New project sessions should use schema version 6") ||
         !check(!saved_root.value("reference_geometry").toObject()
                     .value("uuid").toString().isEmpty(),
                "Reference geometry should have a stable UUID") ||
@@ -459,6 +460,8 @@ int main(int argc, char *argv[])
                "Relative reference geometry path did not resolve during load") ||
         !check(restored.reference_geometry.locked && !restored.reference_geometry.visible,
                "Reference visibility/lock state did not round-trip") ||
+        !check(restored.reference_geometry.selected_face_index == 3,
+               "Reference selected face index did not round-trip") ||
         !check(restored.has_unit_preferences &&
                    restored.unit_preferences.length == "cm" &&
                    restored.unit_preferences.angle == "rad",

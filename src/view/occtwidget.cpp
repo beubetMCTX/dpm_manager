@@ -6426,6 +6426,7 @@ void OCCTWidget::clear_face_reference()
     const bool had_face_reference = !selected_face.IsNull() ||
                                     !face_trihedron.IsNull();
     selected_face.Nullify();
+    m_selected_reference_face_index = -1;
     emit selection_changed(QUuid(), false);
 
     if (!face_trihedron.IsNull() && !m_context.IsNull())
@@ -6538,12 +6539,25 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
         return;
     }
 
+    int face_index = -1;
+    int current_face_index = 0;
+    for (TopExp_Explorer explorer(ref_geom, TopAbs_FACE);
+         explorer.More(); explorer.Next(), ++current_face_index)
+    {
+        if (TopoDS::Face(explorer.Current()).IsSame(face))
+        {
+            face_index = current_face_index;
+            break;
+        }
+    }
+
     gp_Ax2 face_axis = has_x_direction
                            ? gp_Ax2(origin, normal, x_direction)
                            : gp_Ax2(origin, normal);
 
     clear_face_reference();
     selected_face = face;
+    m_selected_reference_face_index = face_index;
     selected_face_axis = face_axis;
     face_axis_placement = new Geom_Axis2Placement(face_axis);
     face_trihedron = new AIS_Trihedron(face_axis_placement);
@@ -6568,6 +6582,30 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
                                                static_cast<float>(normal.Y()),
                                                static_cast<float>(normal.Z())));
     emit selection_changed(QUuid(), true);
+}
+
+bool OCCTWidget::select_reference_face_by_index(int face_index)
+{
+    if (face_index < 0 || ref_geom.IsNull() || base_geometry.IsNull() ||
+        m_context.IsNull() || m_view.IsNull() ||
+        !m_reference_geometry_visible)
+    {
+        return false;
+    }
+
+    int current_face_index = 0;
+    for (TopExp_Explorer explorer(ref_geom, TopAbs_FACE);
+         explorer.More(); explorer.Next(), ++current_face_index)
+    {
+        if (current_face_index == face_index)
+        {
+            show_face_reference(TopoDS::Face(explorer.Current()));
+            m_view->Update();
+            return !face_trihedron.IsNull() &&
+                   m_selected_reference_face_index == face_index;
+        }
+    }
+    return false;
 }
 
 bool OCCTWidget::select_face_reference()

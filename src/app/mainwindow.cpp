@@ -1332,6 +1332,17 @@ bool MainWindow::load_project_session(const QString &file_path)
     apply_material_entries(data.materials, true, false);
 
     m_3d_widget->clear_reference_geometry();
+    const auto restore_project_face = [&]()
+    {
+        if (data.reference_geometry.visible &&
+            data.reference_geometry.selected_face_index >= 0 &&
+            !m_3d_widget->select_reference_face_by_index(
+                data.reference_geometry.selected_face_index))
+        {
+            qWarning() << "Project reference face index is no longer available:"
+                       << data.reference_geometry.selected_face_index;
+        }
+    };
     if (has_reference_geometry && data.reference_geometry.kind == QStringLiteral("file"))
     {
         m_3d_widget->geometry.adopt_loaded_geometry(loaded_geometry);
@@ -1367,6 +1378,8 @@ bool MainWindow::load_project_session(const QString &file_path)
                                               data.reference_geometry.rotation);
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
         m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
+        m_3d_widget->set_section_plane_clipping(
+            data.reference_geometry.section_clipping);
     }
     else if (has_reference_geometry &&
              data.reference_geometry.kind == QStringLiteral("datum_axis"))
@@ -1404,6 +1417,8 @@ bool MainWindow::load_project_session(const QString &file_path)
         m_3d_widget->set_reference_geometry_locked(data.reference_geometry.locked);
         m_3d_widget->set_reference_geometry_visible(data.reference_geometry.visible);
     }
+
+    restore_project_face();
 
     update_object_list_panel();
     update_reference_geometry_panel();
@@ -1585,6 +1600,8 @@ project_session::Data MainWindow::collect_project_data() const
         data.reference_geometry.visible = m_3d_widget->reference_geometry_visible();
         data.reference_geometry.section_clipping =
             m_3d_widget->section_plane_clipping_enabled();
+        data.reference_geometry.selected_face_index =
+            m_3d_widget->reference_selected_face_index();
     }
     return data;
 }
@@ -1877,6 +1894,17 @@ void MainWindow::restore_reference_geometry()
         return;
     }
 
+    const auto restore_selected_face = [&]()
+    {
+        if (config.visible && config.selected_face_index >= 0 &&
+            !m_3d_widget->select_reference_face_by_index(
+                config.selected_face_index))
+        {
+            qWarning() << "Saved reference face index is no longer available:"
+                       << config.selected_face_index;
+        }
+    };
+
     if (config.kind == QStringLiteral("datum_plane"))
     {
         m_3d_widget->create_reference_datum_plane(
@@ -1886,6 +1914,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
+        restore_selected_face();
         update_reference_geometry_panel();
         return;
     }
@@ -1899,6 +1928,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
         m_3d_widget->set_section_plane_clipping(config.section_clipping);
+        restore_selected_face();
         update_reference_geometry_panel();
         return;
     }
@@ -1911,6 +1941,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
+        restore_selected_face();
         update_reference_geometry_panel();
         return;
     }
@@ -1921,6 +1952,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
+        restore_selected_face();
         update_reference_geometry_panel();
         return;
     }
@@ -1932,6 +1964,7 @@ void MainWindow::restore_reference_geometry()
         m_3d_widget->set_reference_transform(config.position, config.rotation);
         m_3d_widget->set_reference_geometry_locked(config.locked);
         m_3d_widget->set_reference_geometry_visible(config.visible);
+        restore_selected_face();
         update_reference_geometry_panel();
         return;
     }
@@ -1973,6 +2006,7 @@ void MainWindow::restore_reference_geometry()
     m_3d_widget->set_reference_transform(config.position, config.rotation);
     m_3d_widget->set_reference_geometry_locked(config.locked);
     m_3d_widget->set_reference_geometry_visible(config.visible);
+    restore_selected_face();
     update_reference_geometry_panel();
     statusBar()->showMessage(
         QString("Restored reference geometry from %1").arg(config.file_path), 5000);
@@ -1995,6 +2029,8 @@ void MainWindow::save_reference_geometry_state()
         config.locked = m_3d_widget->reference_geometry_locked();
         config.visible = m_3d_widget->reference_geometry_visible();
         config.section_clipping = m_3d_widget->section_plane_clipping_enabled();
+        config.selected_face_index =
+            m_3d_widget->reference_selected_face_index();
     }
 
     QString error_message;

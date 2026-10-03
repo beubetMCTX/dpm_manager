@@ -21,7 +21,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 5;
+constexpr int kSessionSchemaVersion = 6;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -1365,6 +1365,8 @@ QJsonObject data_to_json(const project_session::Data &data,
     reference_geometry.insert("visible", data.reference_geometry.visible);
     reference_geometry.insert("section_clipping",
                              data.reference_geometry.section_clipping);
+    reference_geometry.insert("selected_face_index",
+                             data.reference_geometry.selected_face_index);
     reference_geometry.insert("construction_direction",
                               vector_to_json(data.reference_geometry.construction_direction));
     reference_geometry.insert("construction_size", data.reference_geometry.construction_size);
@@ -2246,7 +2248,15 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         (reference_geometry.contains("visible") &&
          !reference_geometry.value("visible").isBool()) ||
         (reference_geometry.contains("section_clipping") &&
-         !reference_geometry.value("section_clipping").isBool()))
+         !reference_geometry.value("section_clipping").isBool()) ||
+        (reference_geometry.contains("selected_face_index") &&
+         (!reference_geometry.value("selected_face_index").isDouble() ||
+          !std::isfinite(reference_geometry.value("selected_face_index").toDouble()) ||
+          reference_geometry.value("selected_face_index").toDouble() < -1.0 ||
+          reference_geometry.value("selected_face_index").toDouble() !=
+              std::floor(reference_geometry.value("selected_face_index").toDouble()) ||
+          reference_geometry.value("selected_face_index").toDouble() >
+              static_cast<double>(std::numeric_limits<int>::max()))))
     {
         set_error(error_message,
                   "Project session contains invalid reference geometry visibility flags.");
@@ -2276,6 +2286,8 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     parsed.reference_geometry.visible = reference_geometry.value("visible").toBool(true);
     parsed.reference_geometry.section_clipping =
         reference_geometry.value("section_clipping").toBool(false);
+    parsed.reference_geometry.selected_face_index =
+        reference_geometry.value("selected_face_index").toInt(-1);
     if (reference_geometry.contains("construction_size"))
     {
         parsed.reference_geometry.construction_size =

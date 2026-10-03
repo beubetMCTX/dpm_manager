@@ -131,6 +131,11 @@ public:
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }
     QVector3D reference_rotation() const { return m_reference_rotation; }
+    int reference_selected_face_index() const
+    {
+        return m_selected_reference_face_index;
+    }
+    bool select_reference_face_by_index(int face_index);
     bool reference_frame(QVector3D *origin, QVector3D *x_axis,
                          QVector3D *z_axis) const;
     void set_reference_geometry_locked(bool locked);
@@ -566,6 +571,7 @@ private:
     Interaction_Mode m_interaction_mode = Interaction_Mode::Selection;
 
     TopoDS_Face selected_face;
+    int m_selected_reference_face_index = -1;
     Handle(Geom_Axis2Placement) face_axis_placement;
     Handle(AIS_Trihedron) face_trihedron;
     gp_Ax2 selected_face_axis;

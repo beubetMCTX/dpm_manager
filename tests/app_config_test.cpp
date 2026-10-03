@@ -373,6 +373,7 @@ int main(int argc, char **argv)
     reference_geometry.rotation = QVector3D(4.0f, 5.0f, 6.0f);
     reference_geometry.locked = true;
     reference_geometry.visible = false;
+    reference_geometry.selected_face_index = 7;
     bool reference_geometry_test_ok = save_reference_geometry_config(
         reference_geometry, &config_error);
     ReferenceGeometryConfig loaded_reference_geometry;
@@ -385,7 +386,8 @@ int main(int argc, char **argv)
             loaded_reference_geometry.position == reference_geometry.position &&
             loaded_reference_geometry.rotation == reference_geometry.rotation &&
             loaded_reference_geometry.uuid == reference_geometry.uuid &&
-            loaded_reference_geometry.locked && !loaded_reference_geometry.visible;
+            loaded_reference_geometry.locked && !loaded_reference_geometry.visible &&
+            loaded_reference_geometry.selected_face_index == 7;
         if (!reference_geometry_test_ok)
         {
             std::cerr << "reference geometry round-trip error: "

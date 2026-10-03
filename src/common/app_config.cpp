@@ -13,6 +13,7 @@
 #include <QSaveFile>
 
 #include <cmath>
+#include <limits>
 
 namespace
 {
@@ -587,6 +588,25 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     }
     loaded_config.section_clipping = geometry_object.value("section_clipping").toBool(false);
 
+    const QJsonValue selected_face_value =
+        geometry_object.value("selected_face_index");
+    if (!selected_face_value.isUndefined() &&
+        (!selected_face_value.isDouble() ||
+         !std::isfinite(selected_face_value.toDouble()) ||
+         selected_face_value.toDouble() < -1.0 ||
+         selected_face_value.toDouble() >
+             static_cast<double>(std::numeric_limits<int>::max()) ||
+         selected_face_value.toDouble() !=
+             std::floor(selected_face_value.toDouble())))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry selected face index must be an integer.",
+            error_message);
+    }
+    loaded_config.selected_face_index =
+        selected_face_value.isUndefined() ? -1 : selected_face_value.toInt(-1);
+
     if (geometry_object.contains("construction_direction") &&
         !read_vector("construction_direction", &loaded_config.construction_direction))
     {
@@ -697,6 +717,7 @@ bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
         geometry_object.insert("locked", config.locked);
         geometry_object.insert("visible", config.visible);
         geometry_object.insert("section_clipping", config.section_clipping);
+        geometry_object.insert("selected_face_index", config.selected_face_index);
         root_object.insert("reference_geometry", geometry_object);
     }
 
