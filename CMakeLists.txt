@@ -14,21 +14,21 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(OpenCASCADE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/cmake" CACHE PATH
+# Dependency locations are intentionally empty by default. Configure them
+# through CMake cache entries, CMAKE_PREFIX_PATH, or a toolchain file instead
+# of binding the project to one developer machine.
+set(OpenCASCADE_DIR "" CACHE PATH
     "OpenCASCADE CMake package directory")
-set(OpenCASCADE_INCLUDE_DIR "D:/vcpkg/OPENCASCADE/INSTALL/inc" CACHE PATH
+set(OpenCASCADE_INCLUDE_DIR "" CACHE PATH
     "OpenCASCADE include directory")
-set(OpenCASCADE_LIB_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/lib" CACHE PATH
+set(OpenCASCADE_LIB_DIR "" CACHE PATH
     "OpenCASCADE library directory")
-set(OpenCASCADE_BIN_DIR "D:/vcpkg/OPENCASCADE/INSTALL/win64/vc14/bin" CACHE PATH
+set(OpenCASCADE_BIN_DIR "" CACHE PATH
     "OpenCASCADE runtime directory")
 
-set(VTK_INCLUDEDIRS "D:/vcpkg/VTK/VTK-Install/include/vtk-9.5" CACHE PATH
-    "VTK include directory")
-set(VTK_DIR "D:/vcpkg/VTK/VTK-Install/lib/cmake/vtk-9.5" CACHE PATH
-    "VTK CMake package directory")
-set(VTK_BIN_DIR "D:/vcpkg/VTK/VTK-Install/bin" CACHE PATH
-    "VTK runtime directory")
+set(VTK_INCLUDEDIRS "" CACHE PATH "VTK include directory")
+set(VTK_DIR "" CACHE PATH "VTK CMake package directory")
+set(VTK_BIN_DIR "" CACHE PATH "VTK runtime directory")
 
 option(USE_QT "Use Qt with VTK" ON)
 add_definitions(-DWNT)
@@ -70,13 +70,12 @@ set(UI_DIALOGS_DIR src/ui/dialogs)
 set(UI_RESOURCES_DIR src/ui/resources)
 set(COMMON_DIR src/common)
 
-set(DPM_QT_BIN_DIR "E:/Qt/6.7.3/msvc2019_64/bin" CACHE PATH
-    "Qt runtime directory used by regression tests")
-set(DPM_QT_PLUGIN_DIR "E:/Qt/6.7.3/msvc2019_64/plugins" CACHE PATH
-    "Qt plugin directory used by regression tests")
-set(DPM_TEST_DEPENDENCY_DIR
-    "${CMAKE_SOURCE_DIR}/build/Desktop_Qt_6_7_3_MSVC2022_64bit-Release"
-    CACHE PATH "Additional runtime DLL directory used by regression tests")
+set(DPM_QT_BIN_DIR "" CACHE PATH
+    "Optional Qt runtime directory used by regression tests")
+set(DPM_QT_PLUGIN_DIR "" CACHE PATH
+    "Optional Qt plugin directory used by regression tests")
+set(DPM_TEST_DEPENDENCY_DIR "" CACHE PATH
+    "Optional additional runtime DLL directory used by regression tests")
 
 set(PROJECT_SOURCES
         ${APP_DIR}/main.cpp
@@ -258,7 +257,7 @@ if(DPM_BUILD_TESTS)
     add_test(NAME qui_line_edit_regression COMMAND qui_line_edit_regression)
     set_tests_properties(qui_line_edit_regression
                          PROPERTIES ENVIRONMENT
-                         "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins")
+                         "QT_QPA_PLATFORM=offscreen")
 
     add_executable(chemkin_io_regression
         tests/chemkin_io_test.cpp
@@ -348,7 +347,7 @@ if(DPM_BUILD_TESTS)
              COMMAND auxiliary_dialog_lifetime_regression)
 set_tests_properties(auxiliary_dialog_lifetime_regression
                          PROPERTIES ENVIRONMENT
-                         "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins")
+                         "QT_QPA_PLATFORM=offscreen")
 
     add_executable(unit_edit_dialog_lifetime_regression
         tests/unit_edit_dialog_lifetime_test.cpp
@@ -378,7 +377,7 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
              COMMAND unit_edit_dialog_lifetime_regression)
     set_tests_properties(unit_edit_dialog_lifetime_regression
              PROPERTIES ENVIRONMENT
-                         "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins")
+                         "QT_QPA_PLATFORM=offscreen")
 
     add_executable(occtwidget_edit_history_regression
         tests/occtwidget_edit_history_test.cpp
@@ -416,7 +415,7 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
              COMMAND dpm_manager --self-test-project-session)
     set_tests_properties(project_session_runtime_regression
              PROPERTIES ENVIRONMENT
-                         "QT_QPA_PLATFORM=windows;QT_OPENGL=software;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins;DPM_MANAGER_AUTO_DISCARD_UNSAVED=1")
+                         "QT_QPA_PLATFORM=windows;QT_OPENGL=software;DPM_MANAGER_AUTO_DISCARD_UNSAVED=1")
 
     add_executable(unit_array_regression
         tests/unit_array_test.cpp
@@ -453,21 +452,47 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
         project_session_runtime_regression
         unit_array_regression)
     set(DPM_TEST_RUNTIME_PATH
-        "${CMAKE_BINARY_DIR};${DPM_TEST_DEPENDENCY_DIR};${OpenCASCADE_BIN_DIR};${DPM_QT_BIN_DIR}")
+        "${CMAKE_BINARY_DIR}")
+    if(NOT "${DPM_TEST_DEPENDENCY_DIR}" STREQUAL "")
+        list(APPEND DPM_TEST_RUNTIME_PATH "${DPM_TEST_DEPENDENCY_DIR}")
+    endif()
+    if(NOT "${OpenCASCADE_BIN_DIR}" STREQUAL "")
+        list(APPEND DPM_TEST_RUNTIME_PATH "${OpenCASCADE_BIN_DIR}")
+    endif()
+    if(NOT "${DPM_QT_BIN_DIR}" STREQUAL "")
+        list(APPEND DPM_TEST_RUNTIME_PATH "${DPM_QT_BIN_DIR}")
+    endif()
     string(REPLACE ";" "\\;" DPM_TEST_RUNTIME_PATH_ESCAPED
            "${DPM_TEST_RUNTIME_PATH}")
+    set(DPM_TEST_ENVIRONMENT
+        "QT_QPA_PLATFORM=offscreen"
+        "PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
+    if(NOT "${DPM_QT_PLUGIN_DIR}" STREQUAL "")
+        list(APPEND DPM_TEST_ENVIRONMENT
+             "QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR}")
+    endif()
     set_tests_properties(${DPM_TEST_NAMES}
                          PROPERTIES ENVIRONMENT
-                         "QT_QPA_PLATFORM=offscreen;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
+                         "${DPM_TEST_ENVIRONMENT}")
 
     # OCCTWidget creates a native WNT window and cannot be exercised with
     # Qt's offscreen platform. Keep this focused history test on Windows.
+    set(DPM_WINDOWS_TEST_ENVIRONMENT
+        "QT_QPA_PLATFORM=windows"
+        "QT_OPENGL=software"
+        "PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
+    if(NOT "${DPM_QT_PLUGIN_DIR}" STREQUAL "")
+        list(APPEND DPM_WINDOWS_TEST_ENVIRONMENT
+             "QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR}")
+    endif()
     set_tests_properties(occtwidget_edit_history_regression
                          PROPERTIES ENVIRONMENT
-                         "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
+                         "${DPM_WINDOWS_TEST_ENVIRONMENT}")
+    list(APPEND DPM_WINDOWS_TEST_ENVIRONMENT
+         "DPM_MANAGER_AUTO_DISCARD_UNSAVED=1")
     set_tests_properties(project_session_runtime_regression
                          PROPERTIES ENVIRONMENT
-                         "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED};DPM_MANAGER_AUTO_DISCARD_UNSAVED=1")
+                         "${DPM_WINDOWS_TEST_ENVIRONMENT}")
 endif()
 
 
