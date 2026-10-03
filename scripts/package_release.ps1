@@ -113,7 +113,11 @@ if (-not $SkipQtDeployment) {
         throw "windeployqt not found: $windeployQtPath"
     }
 
-    & $windeployQtPath --release --compiler-runtime --no-translations `
+    # Release DLLs and compiler runtimes are copied explicitly above. The
+    # application does not use Qt Quick/DXC, so do not let windeployqt probe
+    # for unrelated system compilers or require VCINSTALLDIR in the caller.
+    & $windeployQtPath --release --no-compiler-runtime `
+        --no-system-dxc-compiler --no-translations `
         --dir $outputPath (Join-Path $outputPath "dpm_manager.exe")
     if ($LASTEXITCODE -ne 0) {
         throw "windeployqt failed with exit code $LASTEXITCODE"

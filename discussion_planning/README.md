@@ -1,5 +1,13 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Make Release Packaging Self-Contained
+
+- `package_release.ps1` now disables `windeployqt` compiler-runtime and DXC
+  probing because the script copies the complete Release DLL set directly.
+- Qt plugin deployment remains enabled; unrelated `VCINSTALLDIR` and DXC
+  warnings no longer obscure real packaging failures.
+- Release package rebuilt and startup/shutdown probe passed with exit code 0.
+
 ### 2026-10-03 Fix Batch Transform Controls And Display Units
 
 - Object-list batch Translate/Rotate controls no longer return before opening
