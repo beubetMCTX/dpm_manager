@@ -1,5 +1,15 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Harden Release Deployment
+
+- Release packaging now defaults dependency collection to the selected Release
+  build, avoiding the stale Desktop_Qt build-directory assumption.
+- DLL and plugin copying filters common Qt/MSVC/vcpkg Debug runtime names and
+  recreates plugin directories without leaking removed files.
+- Rebuilt `release/dpm_manager`, generated the deployment manifest, and ran
+  isolated startup/shutdown verification with exit code 0.
+- All 12 focused CTest regressions pass.
+
 ### 2026-10-03 Persist Generated Array Display State
 
 - Project schema advanced to version 8 with stable display-state records for

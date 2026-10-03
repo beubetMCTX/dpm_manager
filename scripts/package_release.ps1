@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$BuildDirectory = "",
-    [string]$DependencyDirectory = "build/Desktop_Qt_6_7_3_MSVC2022_64bit-Release",
+    [string]$DependencyDirectory = "",
     [string]$OutputDirectory = "release/dpm_manager",
     [string]$WindeployQt = "E:/Qt/6.7.3/msvc2019_64/bin/windeployqt.exe",
     [switch]$SkipQtDeployment
@@ -39,7 +39,12 @@ if ([string]::IsNullOrWhiteSpace($BuildDirectory)) {
 else {
     $buildPath = Resolve-RepositoryPath $BuildDirectory
 }
-$dependencyPath = Resolve-RepositoryPath $DependencyDirectory
+if ([string]::IsNullOrWhiteSpace($DependencyDirectory)) {
+    $dependencyPath = $buildPath
+}
+else {
+    $dependencyPath = Resolve-RepositoryPath $DependencyDirectory
+}
 $outputPath = Resolve-RepositoryPath $OutputDirectory
 $executablePath = Join-Path $buildPath "dpm_manager.exe"
 
@@ -67,7 +72,11 @@ Copy-Item -LiteralPath $executablePath -Destination (Join-Path $outputPath "dpm_
 # other DLLs that windeployqt cannot discover, but Debug runtimes must not be
 # mixed into a Release package.
 Get-ChildItem -LiteralPath $dependencyPath -Filter "*.dll" -File |
-    Where-Object { $_.BaseName -notlike "*_debug" } |
+    Where-Object {
+        $_.BaseName -notmatch "(?i)(debug|cored|guid|networkd|widgetsd|svgd|pdfd|opengld)$" -and
+        $_.BaseName -notmatch "(?i)-mtd$" -and
+        $_.BaseName -notmatch "(?i)^(msvcp|vcruntime|ucrt).*d$"
+    } |
     Copy-Item -Destination $outputPath -Force
 
 $runtimeDirectories = @(
@@ -82,7 +91,19 @@ $runtimeDirectories = @(
 foreach ($directory in $runtimeDirectories) {
     $sourceDirectory = Join-Path $dependencyPath $directory
     if (Test-Path -LiteralPath $sourceDirectory -PathType Container) {
-        Copy-Item -LiteralPath $sourceDirectory -Destination $outputPath -Recurse -Force
+        $destinationDirectory = Join-Path $outputPath $directory
+        New-Item -ItemType Directory -Force -Path $destinationDirectory | Out-Null
+        Get-ChildItem -LiteralPath $sourceDirectory -File -Recurse |
+            Where-Object {
+                $_.BaseName -notmatch "(?i)(debug|cored|guid|networkd|widgetsd|svgd|pdfd|opengld)$" -and
+                $_.BaseName -notmatch "(?i)-mtd$"
+            } |
+            ForEach-Object {
+                $relative = $_.FullName.Substring($sourceDirectory.Length).TrimStart('\', '/')
+                $target = Join-Path $destinationDirectory $relative
+                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $target) | Out-Null
+                Copy-Item -LiteralPath $_.FullName -Destination $target -Force
+            }
     }
 }
 
@@ -99,7 +120,12 @@ if (-not $SkipQtDeployment) {
     }
 }
 
-$debugDlls = Get-ChildItem -LiteralPath $outputPath -Recurse -Filter "*_debug.dll" -File
+$debugDlls = Get-ChildItem -LiteralPath $outputPath -Recurse -Filter "*.dll" -File |
+    Where-Object {
+        $_.BaseName -match "(?i)(debug|cored|guid|networkd|widgetsd|svgd|pdfd|opengld)$" -or
+        $_.BaseName -match "(?i)-mtd$" -or
+        $_.BaseName -match "(?i)^(msvcp|vcruntime|ucrt).*d$"
+    }
 if ($debugDlls.Count -gt 0) {
     $names = ($debugDlls | ForEach-Object { $_.FullName }) -join ", "
     throw "Release package contains Debug runtime DLLs: $names"
