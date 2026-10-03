@@ -718,7 +718,22 @@ int main(int argc, char *argv[])
         !check(widget.set_section_plane_clipping(false),
                "Section Plane clipping should be reversible") ||
         !check(!widget.section_plane_clipping_enabled(),
-               "Section Plane clipping should be disabled after restore"))
+               "Section Plane clipping should be disabled after restore") ||
+        !check(widget.select_reference_face_by_index(0),
+               "Reference face selection should succeed") )
+    {
+        return 1;
+    }
+
+    const QVector3D saved_face_origin =
+        widget.reference_selected_face_origin();
+    const QVector3D saved_face_normal =
+        widget.reference_selected_face_normal();
+    const QVector3D saved_face_x =
+        widget.reference_selected_face_x_direction();
+    if (!check(widget.select_reference_face_by_descriptor(
+                   saved_face_origin, saved_face_normal, saved_face_x, -1),
+               "Reference face descriptor should restore the same face"))
     {
         return 1;
     }

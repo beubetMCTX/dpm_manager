@@ -6586,61 +6586,8 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
         return;
     }
 
-    GProp_GProps properties;
-    BRepGProp::SurfaceProperties(face, properties);
-    if (properties.Mass() <= Precision::Confusion())
-    {
-        return;
-    }
-
-    gp_Pnt origin = properties.CentreOfMass();
-    BRepAdaptor_Surface surface(face, Standard_True);
-    Standard_Real u_min = 0.0;
-    Standard_Real u_max = 0.0;
-    Standard_Real v_min = 0.0;
-    Standard_Real v_max = 0.0;
-    BRepTools::UVBounds(face, u_min, u_max, v_min, v_max);
-
-    gp_Dir normal;
-    gp_Dir x_direction;
-    bool has_normal = false;
-    bool has_x_direction = false;
-    const Standard_Real u = 0.5 * (u_min + u_max);
-    const Standard_Real v = 0.5 * (v_min + v_max);
-    try
-    {
-        gp_Pnt sample_point;
-        gp_Vec du;
-        gp_Vec dv;
-        surface.D1(u, v, sample_point, du, dv);
-        gp_Vec candidate_normal = du.Crossed(dv);
-        if (candidate_normal.SquareMagnitude() > Precision::Confusion())
-        {
-            normal = gp_Dir(candidate_normal);
-            has_normal = true;
-            if (face.Orientation() == TopAbs_REVERSED)
-            {
-                normal.Reverse();
-            }
-
-            if (du.SquareMagnitude() > Precision::Confusion())
-            {
-                x_direction = gp_Dir(du);
-                has_x_direction = true;
-            }
-            else if (dv.SquareMagnitude() > Precision::Confusion())
-            {
-                x_direction = gp_Dir(dv);
-                has_x_direction = true;
-            }
-        }
-    }
-    catch (...)
-    {
-        return;
-    }
-
-    if (!has_normal)
+    gp_Ax2 face_axis;
+    if (!face_local_axis(face, face_axis))
     {
         return;
     }
@@ -6656,10 +6603,6 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
             break;
         }
     }
-
-    gp_Ax2 face_axis = has_x_direction
-                           ? gp_Ax2(origin, normal, x_direction)
-                           : gp_Ax2(origin, normal);
 
     clear_face_reference();
     selected_face = face;
@@ -6683,10 +6626,11 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
     m_context->Display(face_trihedron, Standard_False);
     m_context->Deactivate(face_trihedron, TopAbs_SHAPE);
     emit face_reference_changed(true);
-    emit face_reference_info_changed(to_qvector3d(origin),
-                                     QVector3D(static_cast<float>(normal.X()),
-                                               static_cast<float>(normal.Y()),
-                                               static_cast<float>(normal.Z())));
+    emit face_reference_info_changed(
+        to_qvector3d(face_axis.Location()),
+        QVector3D(static_cast<float>(face_axis.Direction().X()),
+                  static_cast<float>(face_axis.Direction().Y()),
+                  static_cast<float>(face_axis.Direction().Z())));
     emit selection_changed(QUuid(), true);
 }
 

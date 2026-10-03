@@ -1,5 +1,14 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Unify Reference Face Frame Descriptor
+
+- Face selection and face restoration now derive origin, normal, and X axis
+  from the same UV-midpoint frame helper.
+- Removed the previous centroid-versus-UV mismatch that could force index
+  fallback or restore the wrong curved face.
+- Added OCCT regression coverage for descriptor-only face restoration.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Persist Unit Display State
 
 - Project sessions now save per-Unit visibility and movement-lock state by UUID.
