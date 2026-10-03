@@ -1,5 +1,16 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Verify Nested Array Propagation
+
+- Added a three-layer Array regression covering source-direction propagation,
+  transformed leaf directions, and rebuild idempotence.
+- Current layer semantics intentionally retain earlier placements and append
+  later outer placements; the three-layer test therefore produces eight leaves
+  rather than a Cartesian twelve.
+- Rebuilding the chain preserves leaf count and registered-unit count, proving
+  no stale derived outputs accumulate.
+- Release build and the focused OCCT history regression pass.
+
 ### 2026-10-03 Add Property-Level Array Overrides
 
 - Array children can now override Material/Species, other physical properties,

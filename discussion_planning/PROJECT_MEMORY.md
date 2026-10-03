@@ -25,6 +25,9 @@
 - Array inheritance now supports schema-v5 property-level masks for material/
   species, physical properties, position, direction, particle size/distribution,
   and complete geometry; schema-v4 boolean overrides remain compatible.
+- Three-layer Array propagation is covered: source edits reach transformed
+  leaves, and rebuilds do not accumulate stale runtime children. Layer output
+  semantics are additive placements, not Cartesian multiplication.
 
 ## Planned Injector Arrays
 

@@ -302,6 +302,93 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // A three-layer chain must propagate source edits through every derived
+    // level and rebuild to the same leaf count without accumulating outputs.
+    widget.display_units({source}, true);
+    application.processEvents();
+    UnitArraySpec third_layer_linear = leaf_array;
+    third_layer_linear.count = 2;
+    if (!check(widget.create_unit_array(uuid, leaf_array) == 2,
+               "Three-layer setup should create the first layer") ||
+        !check(widget.create_unit_array(uuid, second_leaf_array) > 0,
+               "Three-layer setup should create the second layer") ||
+        !check(widget.create_unit_array(uuid, third_layer_linear) > 0,
+               "Three-layer setup should create the third layer") ||
+        !check(widget.unit_hash.value(uuid)->array_specs.size() == 3,
+               "Three-layer array metadata should be retained"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_direction_by_uuid(
+                   uuid, QVector3D(1.0f, 0.0f, 0.0f)),
+               "Three-layer source direction edit should succeed"))
+    {
+        return 1;
+    }
+    nested_leaf_units.clear();
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(uuid)->child_units)
+    {
+        collect_leaf_units(child);
+    }
+    if (!check(nested_leaf_units.size() == 8,
+               "Three-layer array should expose eight leaf injectors") ||
+        !check(std::all_of(nested_leaf_units.cbegin(), nested_leaf_units.cend(),
+                           [](const std::shared_ptr<Unit> &leaf)
+                           {
+                               return leaf != nullptr &&
+                                      qAbs(leaf->inj.injector_data.vel.length() -
+                                           1.0f) < 1.0e-4f;
+                           }),
+               "Three-layer leaves should retain transformed direction lengths") ||
+        !check(std::count_if(
+                   nested_leaf_units.cbegin(), nested_leaf_units.cend(),
+                   [](const std::shared_ptr<Unit> &leaf)
+                   {
+                       return leaf->inj.injector_data.vel ==
+                              QVector3D(1.0f, 0.0f, 0.0f);
+                   }) == 4,
+               "Three-layer source direction should reach linear placements") ||
+        !check(std::count_if(
+                   nested_leaf_units.cbegin(), nested_leaf_units.cend(),
+                   [](const std::shared_ptr<Unit> &leaf)
+                   {
+                       const QVector3D direction = leaf->inj.injector_data.vel;
+                       return qAbs(direction.x() - 0.5f) < 1.0e-4f &&
+                              qAbs(direction.y() - 0.8660254f) < 1.0e-4f;
+                   }) == 2,
+               "Three-layer rotation should transform the first direction") ||
+        !check(std::count_if(
+                   nested_leaf_units.cbegin(), nested_leaf_units.cend(),
+                   [](const std::shared_ptr<Unit> &leaf)
+                   {
+                       const QVector3D direction = leaf->inj.injector_data.vel;
+                       return qAbs(direction.x() + 0.5f) < 1.0e-4f &&
+                              qAbs(direction.y() - 0.8660254f) < 1.0e-4f;
+                   }) == 2,
+               "Three-layer rotation should transform the second direction"))
+    {
+        return 1;
+    }
+    const int three_layer_hash_size = widget.unit_hash.size();
+    if (!check(widget.rebuild_unit_array(uuid) > 0,
+               "Three-layer array should rebuild successfully"))
+    {
+        return 1;
+    }
+    nested_leaf_units.clear();
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(uuid)->child_units)
+    {
+        collect_leaf_units(child);
+    }
+    if (!check(nested_leaf_units.size() == 8 &&
+                   widget.unit_hash.size() == three_layer_hash_size,
+               "Three-layer rebuild should not accumulate stale outputs"))
+    {
+        return 1;
+    }
+
     // Reset to the original single injector before testing Assembly paths.
     widget.display_units({source}, true);
     application.processEvents();
