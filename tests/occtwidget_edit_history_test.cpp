@@ -18,6 +18,12 @@ bool check(bool condition, const char *message)
     return true;
 }
 
+bool vectors_close(const QVector3D &left, const QVector3D &right,
+                   float tolerance = 1.0e-4f)
+{
+    return (left - right).lengthSquared() <= tolerance * tolerance;
+}
+
 Unit make_valid_unit()
 {
     Unit unit;
@@ -1279,6 +1285,44 @@ int main(int argc, char *argv[])
         !check(widget.unit_hash.value(fill_nested_source->inj.uuid)
                        ->inj.injector_data.vel == fill_nested_direction,
                "Fill parent transform should preserve nested source direction"))
+    {
+        return 1;
+    }
+
+    const QVector3D nested_array_direction_before =
+        fill_nested_source->array_spec.direction;
+    const QVector3D nested_array_origin_before =
+        fill_nested_source->array_spec.origin;
+    const QVector3D fill_root_position_before_rotation =
+        widget.unit_position_by_uuid(fill_root_uuid);
+    if (!check(widget.rotate_units_by_uuid(
+                    {fill_root_uuid}, QVector3D(0.0f, 0.0f, 1.0f), 90.0f),
+               "Rotating Fill parent should succeed") ||
+        !check(widget.unit_hash.value(fill_nested_source->inj.uuid) != nullptr,
+               "Rotated Fill nested source should remain available"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> rotated_fill_nested =
+        widget.unit_hash.value(fill_nested_source->inj.uuid);
+    const QVector3D expected_nested_direction(0.0f, 1.0f, 0.0f);
+    const QVector3D expected_nested_origin =
+        fill_root_position_before_rotation +
+        QVector3D(-(nested_array_origin_before.y() -
+                    fill_root_position_before_rotation.y()),
+                   nested_array_origin_before.x() -
+                       fill_root_position_before_rotation.x(),
+                   nested_array_origin_before.z() -
+                       fill_root_position_before_rotation.z());
+    if (!check(vectors_close(rotated_fill_nested->array_spec.direction,
+                             expected_nested_direction),
+               "Rotating Fill parent should rotate nested array direction") ||
+        !check(vectors_close(rotated_fill_nested->array_spec.origin,
+                             expected_nested_origin),
+               "Rotating Fill parent should rotate nested array origin") ||
+        !check(vectors_close(nested_array_direction_before,
+                             QVector3D(1.0f, 0.0f, 0.0f)),
+               "Nested array test should start with world X direction"))
     {
         return 1;
     }

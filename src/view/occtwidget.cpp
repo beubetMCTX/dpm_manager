@@ -8,7 +8,9 @@
 #include <QQuaternion>
 #include <QColor>
 #include <gp_Quaternion.hxx>
+#include <gp_Ax1.hxx>
 #include <gp_Ax3.hxx>
+#include <gp_Vec.hxx>
 
 #include <algorithm>
 #include <array>
@@ -77,27 +79,79 @@ gp_Trsf parent_frame_delta(const QVector3D &old_origin,
                                 : old_z;
     const QVector3D old_x = stable_frame_x_direction(old_z);
     const QVector3D new_x = stable_frame_x_direction(new_z);
-    const gp_Ax3 old_frame(
-        gp_Pnt(old_origin.x(), old_origin.y(), old_origin.z()),
-        gp_Dir(old_z.x(), old_z.y(), old_z.z()),
-        gp_Dir(old_x.x(), old_x.y(), old_x.z()));
-    const gp_Ax3 new_frame(
-        gp_Pnt(new_origin.x(), new_origin.y(), new_origin.z()),
-        gp_Dir(new_z.x(), new_z.y(), new_z.z()),
-        gp_Dir(new_x.x(), new_x.y(), new_x.z()));
+    const QVector3D old_y = QVector3D::crossProduct(old_z, old_x).normalized();
+    const QVector3D new_y = QVector3D::crossProduct(new_z, new_x).normalized();
+    // Build a world-space rotation from basis-vector outer products. The
+    // entries passed to SetValues must be world output rows/columns, not the
+    // coordinates of the old basis expressed in the new basis.
+    const auto rotate = [&](const QVector3D &value)
+    {
+        return new_x * QVector3D::dotProduct(old_x, value) +
+               new_y * QVector3D::dotProduct(old_y, value) +
+               new_z * QVector3D::dotProduct(old_z, value);
+    };
+    const auto matrix_value = [&](int row, int column)
+    {
+        const QVector3D output_basis[] = {new_x, new_y, new_z};
+        const QVector3D input_basis[] = {old_x, old_y, old_z};
+        return output_basis[0][row] * input_basis[0][column] +
+               output_basis[1][row] * input_basis[1][column] +
+               output_basis[2][row] * input_basis[2][column];
+    };
+    const QVector3D translation = new_origin - rotate(old_origin);
     gp_Trsf result;
-    result.SetTransformation(old_frame, new_frame);
+    result.SetValues(
+        matrix_value(0, 0), matrix_value(0, 1), matrix_value(0, 2),
+        translation.x(), matrix_value(1, 0), matrix_value(1, 1),
+        matrix_value(1, 2), translation.y(), matrix_value(2, 0),
+        matrix_value(2, 1), matrix_value(2, 2), translation.z());
     return result;
+}
+
+QVector3D transform_point(const gp_Trsf &transformation,
+                          const QVector3D &point);
+QVector3D transform_vector(const gp_Trsf &transformation,
+                           const QVector3D &vector);
+
+void transform_unit_pattern_frames(Unit &unit, const gp_Trsf &transformation)
+{
+    const auto transform_spec = [&transformation](UnitArraySpec &spec)
+    {
+        spec.origin = transform_point(transformation, spec.origin);
+        spec.direction = transform_vector(transformation, spec.direction);
+        spec.plane_normal = transform_vector(transformation, spec.plane_normal);
+    };
+    const auto transform_fill = [&transformation](UnitFillSpec &spec)
+    {
+        spec.origin = transform_point(transformation, spec.origin);
+        spec.direction = transform_vector(transformation, spec.direction);
+        spec.plane_normal = transform_vector(transformation, spec.plane_normal);
+    };
+
+    if (!unit.array_specs.isEmpty())
+    {
+        for (UnitArraySpec &spec : unit.array_specs)
+        {
+            transform_spec(spec);
+        }
+        // array_spec is the backward-compatible alias of the latest layer.
+        unit.array_spec = unit.array_specs.last();
+    }
+    else if (unit.has_array_spec)
+    {
+        transform_spec(unit.array_spec);
+    }
+    if (unit.has_fill_spec)
+    {
+        transform_fill(unit.fill_spec);
+    }
 }
 
 void translate_unit_pattern_origins(Unit &unit, const QVector3D &delta)
 {
-    for (UnitArraySpec &spec : unit.array_specs)
-    {
-        spec.origin += delta;
-    }
-    unit.array_spec.origin += delta;
-    unit.fill_spec.origin += delta;
+    gp_Trsf transformation;
+    transformation.SetTranslation(gp_Vec(delta.x(), delta.y(), delta.z()));
+    transform_unit_pattern_frames(unit, transformation);
 }
 
 QColor placeholder_color_for_species(const QString &species_name)
@@ -2690,6 +2744,13 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
             continue;
         }
 
+        gp_Trsf pattern_transformation;
+        pattern_transformation.SetRotation(
+            gp_Ax1(gp_Pnt(pivot.x(), pivot.y(), pivot.z()),
+                   gp_Dir(unit_axis.x(), unit_axis.y(), unit_axis.z())),
+            radians);
+        transform_unit_pattern_frames(*unit, pattern_transformation);
+
         if (!unit->assembly_parent_uuid.isNull() &&
             !operation_set.contains(unit->assembly_parent_uuid))
         {
@@ -3491,6 +3552,7 @@ bool OCCTWidget::apply_parent_follow_transform_to_tree(
     Unit &root, const gp_Trsf &transformation)
 {
     apply_transform_to_injector(root.inj.injector_data, transformation);
+    transform_unit_pattern_frames(root, transformation);
     if (!root.inj.create_injector())
     {
         return false;

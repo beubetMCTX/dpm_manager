@@ -113,6 +113,49 @@ void rotate_injector_data(Injector &injector, const QVector3D &origin,
     rotate_direction(injector.axis);
 }
 
+void transform_unit_pattern_frames(Unit &unit, const QVector3D &pivot,
+                                   const QVector3D &axis, float angle,
+                                   const QVector3D &translation)
+{
+    const auto rotate_point = [&](const QVector3D &point)
+    {
+        return pivot + rotate_vector(point - pivot, axis, angle) + translation;
+    };
+    const auto rotate_direction = [&](const QVector3D &direction)
+    {
+        return rotate_vector(direction, axis, angle);
+    };
+    const auto transform_array = [&](UnitArraySpec &spec)
+    {
+        spec.origin = rotate_point(spec.origin);
+        spec.direction = rotate_direction(spec.direction);
+        spec.plane_normal = rotate_direction(spec.plane_normal);
+    };
+    const auto transform_fill = [&](UnitFillSpec &spec)
+    {
+        spec.origin = rotate_point(spec.origin);
+        spec.direction = rotate_direction(spec.direction);
+        spec.plane_normal = rotate_direction(spec.plane_normal);
+    };
+
+    if (!unit.array_specs.isEmpty())
+    {
+        for (UnitArraySpec &spec : unit.array_specs)
+        {
+            transform_array(spec);
+        }
+        unit.array_spec = unit.array_specs.last();
+    }
+    else if (unit.has_array_spec)
+    {
+        transform_array(unit.array_spec);
+    }
+    if (unit.has_fill_spec)
+    {
+        transform_fill(unit.fill_spec);
+    }
+}
+
 void mirror_injector_data(Injector &injector, const QVector3D &point,
                           const QVector3D &normal)
 {
@@ -145,6 +188,50 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_direction(injector.atomizer_axis);
     mirror_direction(injector.ff_normal);
     mirror_direction(injector.axis);
+}
+
+void mirror_unit_pattern_frames(Unit &unit, const QVector3D &point,
+                                const QVector3D &normal)
+{
+    const QVector3D n = normalized_or(normal, QVector3D(1.0f, 0.0f, 0.0f));
+    const auto mirror_point = [&](const QVector3D &value)
+    {
+        const float distance = QVector3D::dotProduct(value - point, n);
+        return value - 2.0f * distance * n;
+    };
+    const auto mirror_direction = [&](const QVector3D &value)
+    {
+        return value - 2.0f * QVector3D::dotProduct(value, n) * n;
+    };
+    const auto mirror_array = [&](UnitArraySpec &spec)
+    {
+        spec.origin = mirror_point(spec.origin);
+        spec.direction = mirror_direction(spec.direction);
+        spec.plane_normal = mirror_direction(spec.plane_normal);
+    };
+    const auto mirror_fill = [&](UnitFillSpec &spec)
+    {
+        spec.origin = mirror_point(spec.origin);
+        spec.direction = mirror_direction(spec.direction);
+        spec.plane_normal = mirror_direction(spec.plane_normal);
+    };
+
+    if (!unit.array_specs.isEmpty())
+    {
+        for (UnitArraySpec &spec : unit.array_specs)
+        {
+            mirror_array(spec);
+        }
+        unit.array_spec = unit.array_specs.last();
+    }
+    else if (unit.has_array_spec)
+    {
+        mirror_array(unit.array_spec);
+    }
+    if (unit.has_fill_spec)
+    {
+        mirror_fill(unit.fill_spec);
+    }
 }
 
 QList<QUuid> stable_ids_for_count(int count,
@@ -585,6 +672,8 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
         axis, QVector3D(0.0f, 0.0f, 1.0f));
     rotate_injector_data(root.inj.injector_data, pivot, usable_axis,
                          angle_radians);
+    transform_unit_pattern_frames(root, pivot, usable_axis, angle_radians,
+                                  translation);
     root.inj.injector_data.pos += translation;
     root.inj.injector_data.pos2 += translation;
     root.inj.injector_data.ff_center += translation;
@@ -611,6 +700,7 @@ void mirror_unit_tree(Unit &root, const QVector3D &point,
                       const QVector3D &normal)
 {
     mirror_injector_data(root.inj.injector_data, point, normal);
+    mirror_unit_pattern_frames(root, point, normal);
     for (const std::shared_ptr<Unit> &child : root.child_units)
     {
         if (child != nullptr)
