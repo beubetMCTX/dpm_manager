@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <utility>
 
 namespace
@@ -6606,6 +6607,118 @@ bool OCCTWidget::select_reference_face_by_index(int face_index)
         }
     }
     return false;
+}
+
+QVector3D OCCTWidget::reference_selected_face_origin() const
+{
+    if (selected_face.IsNull())
+    {
+        return {};
+    }
+    const gp_Pnt point = selected_face_axis.Location();
+    return QVector3D(static_cast<float>(point.X()),
+                     static_cast<float>(point.Y()),
+                     static_cast<float>(point.Z()));
+}
+
+QVector3D OCCTWidget::reference_selected_face_normal() const
+{
+    if (selected_face.IsNull())
+    {
+        return {};
+    }
+    const gp_Dir direction = selected_face_axis.Direction();
+    return QVector3D(static_cast<float>(direction.X()),
+                     static_cast<float>(direction.Y()),
+                     static_cast<float>(direction.Z()));
+}
+
+QVector3D OCCTWidget::reference_selected_face_x_direction() const
+{
+    if (selected_face.IsNull())
+    {
+        return {};
+    }
+    const gp_Dir direction = selected_face_axis.XDirection();
+    return QVector3D(static_cast<float>(direction.X()),
+                     static_cast<float>(direction.Y()),
+                     static_cast<float>(direction.Z()));
+}
+
+bool OCCTWidget::select_reference_face_by_descriptor(
+    const QVector3D &origin,
+    const QVector3D &normal,
+    const QVector3D &x_direction,
+    int fallback_face_index)
+{
+    if (ref_geom.IsNull() || !m_reference_geometry_visible ||
+        normal.lengthSquared() <= 1.0e-12f ||
+        x_direction.lengthSquared() <= 1.0e-12f)
+    {
+        return fallback_face_index >= 0 &&
+               select_reference_face_by_index(fallback_face_index);
+    }
+
+    const QVector3D normalized_normal = normal.normalized();
+    const QVector3D normalized_x = x_direction.normalized();
+    const double tolerance = std::max(
+        1.0e-6,
+        static_cast<double>(get_trihedron_size()) * 1.0e-3);
+    int best_index = -1;
+    double best_score = std::numeric_limits<double>::max();
+    int current_index = 0;
+    for (TopExp_Explorer explorer(ref_geom, TopAbs_FACE);
+         explorer.More(); explorer.Next(), ++current_index)
+    {
+        gp_Ax2 candidate_axis;
+        if (!face_local_axis(TopoDS::Face(explorer.Current()), candidate_axis))
+        {
+            continue;
+        }
+
+        const gp_Pnt candidate_point = candidate_axis.Location();
+        const QVector3D candidate_origin(
+            static_cast<float>(candidate_point.X()),
+            static_cast<float>(candidate_point.Y()),
+            static_cast<float>(candidate_point.Z()));
+        const gp_Dir candidate_normal = candidate_axis.Direction();
+        const gp_Dir candidate_x = candidate_axis.XDirection();
+        const QVector3D candidate_normal_vector(
+            static_cast<float>(candidate_normal.X()),
+            static_cast<float>(candidate_normal.Y()),
+            static_cast<float>(candidate_normal.Z()));
+        const QVector3D candidate_x_vector(
+            static_cast<float>(candidate_x.X()),
+            static_cast<float>(candidate_x.Y()),
+            static_cast<float>(candidate_x.Z()));
+        const double normal_alignment = QVector3D::dotProduct(
+            normalized_normal, candidate_normal_vector);
+        const double x_alignment = QVector3D::dotProduct(
+            normalized_x, candidate_x_vector);
+        const double distance = static_cast<double>(
+            (candidate_origin - origin).length());
+        if (normal_alignment < 0.95 || x_alignment < 0.5 ||
+            distance > tolerance)
+        {
+            continue;
+        }
+
+        const double score = distance +
+            (1.0 - normal_alignment) * tolerance +
+            (1.0 - x_alignment) * tolerance;
+        if (score < best_score)
+        {
+            best_score = score;
+            best_index = current_index;
+        }
+    }
+
+    if (best_index >= 0 && select_reference_face_by_index(best_index))
+    {
+        return true;
+    }
+    return fallback_face_index >= 0 &&
+           select_reference_face_by_index(fallback_face_index);
 }
 
 bool OCCTWidget::select_face_reference()

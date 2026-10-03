@@ -37,6 +37,11 @@ struct ReferenceGeometryConfig
     // Stable topology order within the currently displayed reference shape.
     // -1 means no face is persisted as the active local frame.
     int selected_face_index = -1;
+    // Local reference-frame feature used to recover a face after a STEP
+    // reload changes the topological enumeration order.
+    QVector3D selected_face_origin;
+    QVector3D selected_face_normal;
+    QVector3D selected_face_x_direction;
 };
 
 QString app_config_directory_path();

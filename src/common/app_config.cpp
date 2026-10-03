@@ -607,6 +607,29 @@ bool load_reference_geometry_config(ReferenceGeometryConfig *config,
     loaded_config.selected_face_index =
         selected_face_value.isUndefined() ? -1 : selected_face_value.toInt(-1);
 
+    const bool has_face_descriptor =
+        geometry_object.contains("selected_face_origin") ||
+        geometry_object.contains("selected_face_normal") ||
+        geometry_object.contains("selected_face_x_direction");
+    if (has_face_descriptor &&
+        (!read_vector("selected_face_origin", &loaded_config.selected_face_origin) ||
+         !read_vector("selected_face_normal", &loaded_config.selected_face_normal) ||
+         !read_vector("selected_face_x_direction",
+                      &loaded_config.selected_face_x_direction)))
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry selected face descriptor must contain finite 3D vectors.",
+            error_message);
+    }
+    if (has_face_descriptor && loaded_config.selected_face_index < 0)
+    {
+        return reject_invalid_config(
+            app_settings_file_path(),
+            "Reference geometry selected face descriptor requires a face index.",
+            error_message);
+    }
+
     if (geometry_object.contains("construction_direction") &&
         !read_vector("construction_direction", &loaded_config.construction_direction))
     {
@@ -718,6 +741,17 @@ bool save_reference_geometry_config(const ReferenceGeometryConfig &config,
         geometry_object.insert("visible", config.visible);
         geometry_object.insert("section_clipping", config.section_clipping);
         geometry_object.insert("selected_face_index", config.selected_face_index);
+        if (config.selected_face_index >= 0 &&
+            config.selected_face_normal.lengthSquared() > 1.0e-12f &&
+            config.selected_face_x_direction.lengthSquared() > 1.0e-12f)
+        {
+            geometry_object.insert("selected_face_origin",
+                                  vector_to_json(config.selected_face_origin));
+            geometry_object.insert("selected_face_normal",
+                                  vector_to_json(config.selected_face_normal));
+            geometry_object.insert("selected_face_x_direction",
+                                  vector_to_json(config.selected_face_x_direction));
+        }
         root_object.insert("reference_geometry", geometry_object);
     }
 

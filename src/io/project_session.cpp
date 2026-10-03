@@ -1367,6 +1367,20 @@ QJsonObject data_to_json(const project_session::Data &data,
                              data.reference_geometry.section_clipping);
     reference_geometry.insert("selected_face_index",
                              data.reference_geometry.selected_face_index);
+    if (data.reference_geometry.selected_face_index >= 0 &&
+        data.reference_geometry.selected_face_normal.lengthSquared() > 1.0e-12f &&
+        data.reference_geometry.selected_face_x_direction.lengthSquared() > 1.0e-12f)
+    {
+        reference_geometry.insert(
+            "selected_face_origin",
+            vector_to_json(data.reference_geometry.selected_face_origin));
+        reference_geometry.insert(
+            "selected_face_normal",
+            vector_to_json(data.reference_geometry.selected_face_normal));
+        reference_geometry.insert(
+            "selected_face_x_direction",
+            vector_to_json(data.reference_geometry.selected_face_x_direction));
+    }
     reference_geometry.insert("construction_direction",
                               vector_to_json(data.reference_geometry.construction_direction));
     reference_geometry.insert("construction_size", data.reference_geometry.construction_size);
@@ -2288,6 +2302,23 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         reference_geometry.value("section_clipping").toBool(false);
     parsed.reference_geometry.selected_face_index =
         reference_geometry.value("selected_face_index").toInt(-1);
+    const bool has_face_descriptor =
+        reference_geometry.contains("selected_face_origin") ||
+        reference_geometry.contains("selected_face_normal") ||
+        reference_geometry.contains("selected_face_x_direction");
+    if (has_face_descriptor &&
+        (!vector_from_json(reference_geometry.value("selected_face_origin"),
+                           &parsed.reference_geometry.selected_face_origin) ||
+         !vector_from_json(reference_geometry.value("selected_face_normal"),
+                           &parsed.reference_geometry.selected_face_normal) ||
+         !vector_from_json(reference_geometry.value("selected_face_x_direction"),
+                           &parsed.reference_geometry.selected_face_x_direction) ||
+         parsed.reference_geometry.selected_face_index < 0))
+    {
+        set_error(error_message,
+                  "Project session contains an invalid selected reference face descriptor.");
+        return false;
+    }
     if (reference_geometry.contains("construction_size"))
     {
         parsed.reference_geometry.construction_size =

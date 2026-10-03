@@ -83,6 +83,9 @@ int main(int argc, char *argv[])
     source.reference_geometry.locked = true;
     source.reference_geometry.visible = false;
     source.reference_geometry.selected_face_index = 3;
+    source.reference_geometry.selected_face_origin = QVector3D(1.0f, 2.0f, 3.0f);
+    source.reference_geometry.selected_face_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    source.reference_geometry.selected_face_x_direction = QVector3D(1.0f, 0.0f, 0.0f);
     source.unit_preferences.length = "cm";
     source.unit_preferences.angle = "rad";
     source.has_unit_preferences = true;
@@ -462,6 +465,13 @@ int main(int argc, char *argv[])
                "Reference visibility/lock state did not round-trip") ||
         !check(restored.reference_geometry.selected_face_index == 3,
                "Reference selected face index did not round-trip") ||
+        !check(restored.reference_geometry.selected_face_origin ==
+                   source.reference_geometry.selected_face_origin &&
+                   restored.reference_geometry.selected_face_normal ==
+                       source.reference_geometry.selected_face_normal &&
+                   restored.reference_geometry.selected_face_x_direction ==
+                       source.reference_geometry.selected_face_x_direction,
+               "Reference selected face descriptor did not round-trip") ||
         !check(restored.has_unit_preferences &&
                    restored.unit_preferences.length == "cm" &&
                    restored.unit_preferences.angle == "rad",

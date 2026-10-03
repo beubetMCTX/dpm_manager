@@ -1336,7 +1336,10 @@ bool MainWindow::load_project_session(const QString &file_path)
     {
         if (data.reference_geometry.visible &&
             data.reference_geometry.selected_face_index >= 0 &&
-            !m_3d_widget->select_reference_face_by_index(
+            !m_3d_widget->select_reference_face_by_descriptor(
+                data.reference_geometry.selected_face_origin,
+                data.reference_geometry.selected_face_normal,
+                data.reference_geometry.selected_face_x_direction,
                 data.reference_geometry.selected_face_index))
         {
             qWarning() << "Project reference face index is no longer available:"
@@ -1602,6 +1605,12 @@ project_session::Data MainWindow::collect_project_data() const
             m_3d_widget->section_plane_clipping_enabled();
         data.reference_geometry.selected_face_index =
             m_3d_widget->reference_selected_face_index();
+        data.reference_geometry.selected_face_origin =
+            m_3d_widget->reference_selected_face_origin();
+        data.reference_geometry.selected_face_normal =
+            m_3d_widget->reference_selected_face_normal();
+        data.reference_geometry.selected_face_x_direction =
+            m_3d_widget->reference_selected_face_x_direction();
     }
     return data;
 }
@@ -1897,7 +1906,10 @@ void MainWindow::restore_reference_geometry()
     const auto restore_selected_face = [&]()
     {
         if (config.visible && config.selected_face_index >= 0 &&
-            !m_3d_widget->select_reference_face_by_index(
+            !m_3d_widget->select_reference_face_by_descriptor(
+                config.selected_face_origin,
+                config.selected_face_normal,
+                config.selected_face_x_direction,
                 config.selected_face_index))
         {
             qWarning() << "Saved reference face index is no longer available:"
@@ -2031,6 +2043,12 @@ void MainWindow::save_reference_geometry_state()
         config.section_clipping = m_3d_widget->section_plane_clipping_enabled();
         config.selected_face_index =
             m_3d_widget->reference_selected_face_index();
+        config.selected_face_origin =
+            m_3d_widget->reference_selected_face_origin();
+        config.selected_face_normal =
+            m_3d_widget->reference_selected_face_normal();
+        config.selected_face_x_direction =
+            m_3d_widget->reference_selected_face_x_direction();
     }
 
     QString error_message;

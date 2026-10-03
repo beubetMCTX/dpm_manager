@@ -135,6 +135,14 @@ public:
     {
         return m_selected_reference_face_index;
     }
+    QVector3D reference_selected_face_origin() const;
+    QVector3D reference_selected_face_normal() const;
+    QVector3D reference_selected_face_x_direction() const;
+    bool select_reference_face_by_descriptor(
+        const QVector3D &origin,
+        const QVector3D &normal,
+        const QVector3D &x_direction,
+        int fallback_face_index = -1);
     bool select_reference_face_by_index(int face_index);
     bool reference_frame(QVector3D *origin, QVector3D *x_axis,
                          QVector3D *z_axis) const;
