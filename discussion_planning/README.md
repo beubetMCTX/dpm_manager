@@ -27,6 +27,14 @@
 - Right-clicking those group nodes opens the owning source Unit context menu
   instead of doing nothing.
 
+### 2026-10-03 Protect Nested Sources From Accidental Re-Inheritance
+
+- An independent array child that owns a nested Array/Fill specification or
+  persistent descendants can no longer be changed back to disposable output.
+- The context menu reports the reason instead of silently making the nested
+  structure disappear from project persistence.
+- Added OCCT regression coverage for the rejected transition.
+
 ### 2026-10-03 Debounce Project Dirty Fingerprints
 
 - Project edits now set the dirty marker immediately but defer full fingerprint

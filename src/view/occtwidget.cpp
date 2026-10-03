@@ -4632,6 +4632,26 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
     {
         return false;
     }
+
+    if (follow)
+    {
+        const bool has_persistent_children = std::any_of(
+            unit->child_units.cbegin(), unit->child_units.cend(),
+            [](const std::shared_ptr<Unit> &child)
+            {
+                return child != nullptr &&
+                       !(child->is_array_child && child->follows_array);
+            });
+        if (unit->has_array_spec || unit->has_fill_spec ||
+            has_persistent_children)
+        {
+            // A nested source owns persistent structure of its own. Turning it
+            // back into disposable output would silently orphan that structure
+            // from project capture and later array rebuilds.
+            return false;
+        }
+    }
+
     const QList<Unit> before = capture_persistent_units();
     unit->follows_array = follow;
     emit unit_data_updated(unit.get());

@@ -285,6 +285,15 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    if (!check(!widget.set_unit_follow_array(leaf_child_uuid, true),
+               "A nested array source must not be discarded by re-enabling inheritance") ||
+        !check(widget.unit_hash.value(leaf_child_uuid) != nullptr &&
+                   !widget.unit_hash.value(leaf_child_uuid)->follows_array &&
+                   widget.unit_hash.value(leaf_child_uuid)->has_array_spec,
+               "Rejected inheritance change must preserve nested source state"))
+    {
+        return 1;
+    }
 
     UnitArraySpec second_leaf_array;
     second_leaf_array.type = UnitArrayType::Rotational;

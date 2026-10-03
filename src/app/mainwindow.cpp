@@ -5316,13 +5316,24 @@ void MainWindow::create_object_list_panel()
         }
         else if (chosen_action == follow_array_action)
         {
-            m_3d_widget->set_unit_follow_array(
-                uuid, follow_array_action->isChecked());
-            statusBar()->showMessage(
-                follow_array_action->isChecked()
-                    ? "Selected array child will follow its parent"
-                    : "Selected array child is now independent",
-                5000);
+            const bool follow = follow_array_action->isChecked();
+            if (!m_3d_widget->set_unit_follow_array(uuid, follow))
+            {
+                follow_array_action->setChecked(!follow);
+                statusBar()->showMessage(
+                    follow
+                        ? "Nested array sources must be dissolved before following the parent"
+                        : "Unable to detach the selected array child",
+                    6000);
+            }
+            else
+            {
+                statusBar()->showMessage(
+                    follow
+                        ? "Selected array child will follow its parent"
+                        : "Selected array child is now independent",
+                    5000);
+            }
         }
         else if (chosen_action == override_physical_action)
         {
