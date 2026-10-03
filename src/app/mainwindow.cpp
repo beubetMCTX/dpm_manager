@@ -241,6 +241,12 @@ MainWindow::MainWindow(QWidget *parent)
     runtime_debug::trace("MainWindow ui->setupUi finished");
     update_project_session_title();
 
+    m_dirty_refresh_timer = new QTimer(this);
+    m_dirty_refresh_timer->setSingleShot(true);
+    m_dirty_refresh_timer->setInterval(50);
+    connect(m_dirty_refresh_timer, &QTimer::timeout, this,
+            &MainWindow::refresh_project_dirty_state);
+
     m_recent_projects_menu = ui->menureaddile->addMenu("Recent Projects");
     restore_recent_projects();
 
@@ -957,6 +963,11 @@ void MainWindow::on_actionOpen_Project_triggered()
 bool MainWindow::confirm_project_change(const QString &action_description,
                                         bool restore_saved_project_on_discard)
 {
+    if (m_dirty_refresh_timer != nullptr)
+    {
+        m_dirty_refresh_timer->stop();
+    }
+    refresh_project_dirty_state();
     if (!m_project_dirty)
     {
         return true;
@@ -1605,7 +1616,18 @@ void MainWindow::mark_project_dirty()
         return;
     }
 
-    refresh_project_dirty_state();
+    // Mark immediately so close/open prompts remain safe, but coalesce the
+    // expensive full-project fingerprint while several fields are committed
+    // in one UI burst.
+    if (!m_project_dirty)
+    {
+        m_project_dirty = true;
+        update_project_session_title();
+    }
+    if (m_dirty_refresh_timer != nullptr)
+    {
+        m_dirty_refresh_timer->start();
+    }
 }
 
 project_session::Data MainWindow::collect_project_data() const
@@ -1671,6 +1693,10 @@ project_session::Data MainWindow::collect_project_data() const
 
 void MainWindow::refresh_project_dirty_state()
 {
+    if (m_dirty_refresh_timer != nullptr)
+    {
+        m_dirty_refresh_timer->stop();
+    }
     const bool dirty = !m_project_baseline_initialized ||
                        project_session::fingerprint(collect_project_data()) !=
                            m_saved_project_fingerprint;
@@ -3447,11 +3473,10 @@ void MainWindow::create_object_list_panel()
         const QUuid source_uuid(item->data(0, Qt::UserRole).toString());
         const std::shared_ptr<Unit> source =
             m_3d_widget->unit_hash.value(source_uuid);
-        if (source == nullptr ||
-            (source->is_array_child && source->follows_array))
+        if (source == nullptr)
         {
             statusBar()->showMessage(
-                tr("Select the array source or Assembly, not a Following child"),
+                tr("Select an injector or Assembly first"),
                 5000);
             return;
         }
@@ -3462,8 +3487,17 @@ void MainWindow::create_object_list_panel()
             m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
         if (m_array_editor_source_label != nullptr && source_unit != nullptr)
         {
+            const QString source_kind =
+                source_unit->is_array_child && source_unit->follows_array
+                    ? tr("generated child; becomes nested source on Apply")
+                    : source_unit->is_array_child
+                          ? tr("independent nested source")
+                          : source_unit->type == Assebly
+                                ? tr("Assembly source")
+                                : tr("injector source");
             m_array_editor_source_label->setText(
-                tr("Source: %1").arg(source_unit->inj.injector_data.name));
+                tr("Source: %1 (%2)")
+                    .arg(source_unit->inj.injector_data.name, source_kind));
         }
         refresh_array_editor_panel();
         m_array_editor_dock->show();
@@ -5500,11 +5534,13 @@ void MainWindow::update_object_list_panel()
         {
             name += unit->follows_array
                 ? QStringLiteral(" [Generated]")
-                : QStringLiteral(" [Independent]");
+                : QStringLiteral(" [Independent Source]");
         }
         if (unit->has_array_spec)
         {
-            name += QStringLiteral(" [Array Source]");
+            name += unit->is_array_child
+                ? QStringLiteral(" [Nested Array Source]")
+                : QStringLiteral(" [Array Source]");
         }
         else if (unit->has_fill_spec)
         {

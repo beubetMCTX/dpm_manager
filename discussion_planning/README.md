@@ -1,5 +1,25 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Enable Nested Array Creation From Object Tree
+
+- Array Tools now accepts a generated array child as the selected source.
+- The OCCT layer promotes that child to an independent persistent source on
+  Apply, preserving the outer array relationship while allowing a nested array
+  to be created from it.
+- The array editor identifies generated, independent nested, Assembly, and
+  ordinary injector sources explicitly.
+- Object-tree labels now distinguish independent sources and nested array
+  sources from ordinary generated children.
+- Release build and focused CTest verification pending for this checkpoint.
+
+### 2026-10-03 Debounce Project Dirty Fingerprints
+
+- Project edits now set the dirty marker immediately but defer full fingerprint
+  recomputation for 50 ms, coalescing rapid editor/gizmo updates.
+- Opening or closing a project flushes the pending check synchronously, so an
+  undo back to the saved baseline does not produce a false prompt.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Reduce Runtime-to-Project Sync Cost
 
 - Ordinary `unit_data_updated` and `unit_position_updated` events now copy only

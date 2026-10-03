@@ -33,6 +33,7 @@ class QGroupBox;
 class QComboBox;
 class QStackedWidget;
 class QSpinBox;
+class QTimer;
 
 
 QT_BEGIN_NAMESPACE
@@ -171,6 +172,7 @@ private:
     bool m_project_dirty = false;
     bool m_project_baseline_initialized = false;
     QByteArray m_saved_project_fingerprint;
+    QTimer *m_dirty_refresh_timer = nullptr;
     bool m_loading_project_session = false;
     QList<MaterialConfigEntry> m_material_entries;
     QToolBar *m_chemkin_toolbar = nullptr;
