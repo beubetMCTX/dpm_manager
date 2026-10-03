@@ -21,6 +21,10 @@ struct Data
     QString chemkin_file_path;
     QHash<QString, QColor> species_colors;
     QList<MaterialConfigEntry> materials;
+    // The legacy singular field remains the active reference object for
+    // existing UI code. New sessions also retain the complete independent
+    // reference-object collection here.
+    QList<ReferenceGeometryConfig> reference_geometries;
     ReferenceGeometryConfig reference_geometry;
     Unit_Preferences unit_preferences = UnitSystem::default_preferences();
     bool has_unit_preferences = false;

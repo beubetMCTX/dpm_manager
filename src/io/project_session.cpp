@@ -21,7 +21,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 9;
+constexpr int kSessionSchemaVersion = 10;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -210,6 +210,42 @@ bool has_reference_geometry(const ReferenceGeometryConfig &config)
            !config.file_path.trimmed().isEmpty();
 }
 
+bool has_reference_geometry(const project_session::Data &data)
+{
+    if (has_reference_geometry(data.reference_geometry))
+    {
+        return true;
+    }
+    return std::any_of(data.reference_geometries.cbegin(),
+                       data.reference_geometries.cend(),
+                       [](const ReferenceGeometryConfig &config)
+                       {
+                           return has_reference_geometry(config);
+                       });
+}
+
+bool contains_reference_geometry_uuid(const project_session::Data &data,
+                                      const QUuid &uuid)
+{
+    if (uuid.isNull())
+    {
+        return has_reference_geometry(data);
+    }
+    if (!data.reference_geometry.uuid.isNull() &&
+        data.reference_geometry.uuid == uuid &&
+        has_reference_geometry(data.reference_geometry))
+    {
+        return true;
+    }
+    return std::any_of(data.reference_geometries.cbegin(),
+                       data.reference_geometries.cend(),
+                       [&](const ReferenceGeometryConfig &config)
+                       {
+                           return config.uuid == uuid &&
+                                  has_reference_geometry(config);
+                       });
+}
+
 QUuid legacy_reference_geometry_uuid(const ReferenceGeometryConfig &config)
 {
     const QByteArray identity =
@@ -229,15 +265,83 @@ QUuid legacy_reference_geometry_uuid(const ReferenceGeometryConfig &config)
 // an explicit reference identity for Array/Fill dependencies.
 void normalize_reference_geometry_identity(project_session::Data *data)
 {
-    if (data == nullptr || !has_reference_geometry(data->reference_geometry))
+    if (data == nullptr)
     {
         return;
     }
 
-    if (data->reference_geometry.uuid.isNull())
+    QList<ReferenceGeometryConfig> normalized;
+    QSet<QUuid> used_uuids;
+    if (has_reference_geometry(data->reference_geometry) &&
+        data->reference_geometry.uuid.isNull())
     {
         data->reference_geometry.uuid =
             legacy_reference_geometry_uuid(data->reference_geometry);
+    }
+    const auto append_config = [&](ReferenceGeometryConfig config)
+    {
+        if (!has_reference_geometry(config))
+        {
+            return;
+        }
+        if (config.uuid.isNull() || used_uuids.contains(config.uuid))
+        {
+            config.uuid = legacy_reference_geometry_uuid(config);
+            while (config.uuid.isNull() || used_uuids.contains(config.uuid))
+            {
+                config.uuid = QUuid::createUuid();
+            }
+        }
+        used_uuids.insert(config.uuid);
+        normalized.append(config);
+    };
+
+    for (const ReferenceGeometryConfig &config : data->reference_geometries)
+    {
+        append_config(config);
+    }
+    if (has_reference_geometry(data->reference_geometry))
+    {
+        ReferenceGeometryConfig active = data->reference_geometry;
+        bool replaced = false;
+        for (ReferenceGeometryConfig &config : normalized)
+        {
+            if (config.uuid == active.uuid)
+            {
+                config = active;
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced)
+        {
+            append_config(active);
+        }
+    }
+
+    data->reference_geometries = normalized;
+    if (data->reference_geometry.uuid.isNull() ||
+        !has_reference_geometry(data->reference_geometry))
+    {
+        data->reference_geometry = normalized.isEmpty()
+            ? ReferenceGeometryConfig()
+            : normalized.first();
+    }
+    else
+    {
+        for (const ReferenceGeometryConfig &config : normalized)
+        {
+            if (config.uuid == data->reference_geometry.uuid)
+            {
+                data->reference_geometry = config;
+                break;
+            }
+        }
+    }
+
+    if (normalized.isEmpty())
+    {
+        return;
     }
 
     for (Unit &unit : data->units)
@@ -1396,6 +1500,175 @@ QString session_path_for_runtime(const QString &path, const QString &session_fil
     return QFileInfo(session_directory.absoluteFilePath(path)).absoluteFilePath();
 }
 
+QJsonObject reference_geometry_to_json(const ReferenceGeometryConfig &config,
+                                       const QString &file_path)
+{
+    QJsonObject object;
+    if (!config.uuid.isNull())
+    {
+        object.insert("uuid", config.uuid.toString(QUuid::WithoutBraces));
+    }
+    object.insert("kind", config.kind);
+    object.insert("file_path", session_path_for_storage(config.file_path,
+                                                         file_path));
+    object.insert("position", vector_to_json(config.position));
+    object.insert("rotation", vector_to_json(config.rotation));
+    object.insert("locked", config.locked);
+    object.insert("visible", config.visible);
+    object.insert("section_clipping", config.section_clipping);
+    object.insert("selected_face_index", config.selected_face_index);
+    if (config.selected_face_index >= 0 &&
+        config.selected_face_normal.lengthSquared() > 1.0e-12f &&
+        config.selected_face_x_direction.lengthSquared() > 1.0e-12f)
+    {
+        object.insert("selected_face_origin",
+                      vector_to_json(config.selected_face_origin));
+        object.insert("selected_face_normal",
+                      vector_to_json(config.selected_face_normal));
+        object.insert("selected_face_x_direction",
+                      vector_to_json(config.selected_face_x_direction));
+    }
+    object.insert("construction_direction",
+                  vector_to_json(config.construction_direction));
+    object.insert("construction_size", config.construction_size);
+    object.insert("construction_thickness", config.construction_thickness);
+    object.insert("construction_radius", config.construction_radius);
+    return object;
+}
+
+bool reference_geometry_from_json(const QJsonObject &object,
+                                  const QString &file_path,
+                                  ReferenceGeometryConfig *config,
+                                  QString *error_message)
+{
+    if (config == nullptr)
+    {
+        set_error(error_message,
+                  "Unable to parse a null reference geometry target.");
+        return false;
+    }
+
+    ReferenceGeometryConfig parsed;
+    if (object.contains("uuid"))
+    {
+        if (!object.value("uuid").isString() ||
+            (parsed.uuid = QUuid(object.value("uuid").toString())).isNull())
+        {
+            set_error(error_message,
+                      "Project session contains an invalid reference geometry UUID.");
+            return false;
+        }
+    }
+
+    parsed.kind = object.value("kind").toString("file").trimmed().toLower();
+    if (parsed.kind != "file" && parsed.kind != "datum_plane" &&
+        parsed.kind != "datum_axis" && parsed.kind != "datum_origin" &&
+        parsed.kind != "section_plane" && parsed.kind != "alignment_frame")
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference geometry kind.");
+        return false;
+    }
+    if (object.contains("file_path") &&
+        !object.value("file_path").isString())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference geometry file path.");
+        return false;
+    }
+    if ((object.contains("locked") && !object.value("locked").isBool()) ||
+        (object.contains("visible") && !object.value("visible").isBool()) ||
+        (object.contains("section_clipping") &&
+         !object.value("section_clipping").isBool()) ||
+        (object.contains("selected_face_index") &&
+         (!object.value("selected_face_index").isDouble() ||
+          !std::isfinite(object.value("selected_face_index").toDouble()) ||
+          object.value("selected_face_index").toDouble() < -1.0 ||
+          object.value("selected_face_index").toDouble() !=
+              std::floor(object.value("selected_face_index").toDouble()) ||
+          object.value("selected_face_index").toDouble() >
+              static_cast<double>(std::numeric_limits<int>::max()))))
+    {
+        set_error(error_message,
+                  "Project session contains invalid reference geometry visibility flags.");
+        return false;
+    }
+
+    parsed.file_path = session_path_for_runtime(
+        object.value("file_path").toString(), file_path);
+    if (parsed.kind != "file")
+    {
+        parsed.file_path.clear();
+    }
+    if ((object.contains("position") &&
+         !vector_from_json(object.value("position"), &parsed.position)) ||
+        (object.contains("rotation") &&
+         !vector_from_json(object.value("rotation"), &parsed.rotation)) ||
+        (object.contains("construction_direction") &&
+         !vector_from_json(object.value("construction_direction"),
+                           &parsed.construction_direction)))
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference geometry transform.");
+        return false;
+    }
+
+    parsed.locked = object.value("locked").toBool(false);
+    parsed.visible = object.value("visible").toBool(true);
+    parsed.section_clipping = object.value("section_clipping").toBool(false);
+    parsed.selected_face_index = object.value("selected_face_index").toInt(-1);
+    const bool has_face_descriptor =
+        object.contains("selected_face_origin") ||
+        object.contains("selected_face_normal") ||
+        object.contains("selected_face_x_direction");
+    if (has_face_descriptor &&
+        (!vector_from_json(object.value("selected_face_origin"),
+                           &parsed.selected_face_origin) ||
+         !vector_from_json(object.value("selected_face_normal"),
+                           &parsed.selected_face_normal) ||
+         !vector_from_json(object.value("selected_face_x_direction"),
+                           &parsed.selected_face_x_direction) ||
+         parsed.selected_face_index < 0))
+    {
+        set_error(error_message,
+                  "Project session contains an invalid selected reference face descriptor.");
+        return false;
+    }
+
+    if (object.contains("construction_size"))
+    {
+        parsed.construction_size = object.value("construction_size").toDouble(10.0);
+    }
+    if (object.contains("construction_thickness"))
+    {
+        parsed.construction_thickness =
+            object.value("construction_thickness").toDouble(0.01);
+    }
+    if (object.contains("construction_radius"))
+    {
+        parsed.construction_radius = object.value("construction_radius").toDouble(0.05);
+    }
+    if (parsed.kind != "file" &&
+        (parsed.construction_direction.lengthSquared() <= 1.0e-12f ||
+         !std::isfinite(parsed.construction_size) ||
+         parsed.construction_size <= 0.0 ||
+         ((parsed.kind == "datum_plane" || parsed.kind == "section_plane") &&
+          (!std::isfinite(parsed.construction_thickness) ||
+           parsed.construction_thickness <= 0.0)) ||
+         ((parsed.kind == "datum_axis" || parsed.kind == "datum_origin" ||
+           parsed.kind == "alignment_frame") &&
+          (!std::isfinite(parsed.construction_radius) ||
+           parsed.construction_radius <= 0.0))))
+    {
+        set_error(error_message,
+                  "Project session contains invalid constructed reference geometry parameters.");
+        return false;
+    }
+
+    *config = parsed;
+    return true;
+}
+
 QJsonObject data_to_json(const project_session::Data &data,
                          const QString &file_path,
                          bool include_timestamp)
@@ -1547,46 +1820,17 @@ QJsonObject data_to_json(const project_session::Data &data,
     }
     root.insert("materials", materials);
 
-    QJsonObject reference_geometry;
-    if (!data.reference_geometry.uuid.isNull())
+    // Keep the singular active object for older readers, while storing the
+    // complete independent reference-object collection for new readers.
+    root.insert("reference_geometry",
+                reference_geometry_to_json(data.reference_geometry, file_path));
+    QJsonArray reference_geometries;
+    for (const ReferenceGeometryConfig &config : data.reference_geometries)
     {
-        reference_geometry.insert(
-            "uuid", data.reference_geometry.uuid.toString(
-                        QUuid::WithoutBraces));
+        reference_geometries.append(reference_geometry_to_json(config,
+                                                               file_path));
     }
-    reference_geometry.insert("kind", data.reference_geometry.kind);
-    reference_geometry.insert(
-        "file_path",
-        session_path_for_storage(data.reference_geometry.file_path, file_path));
-    reference_geometry.insert("position", vector_to_json(data.reference_geometry.position));
-    reference_geometry.insert("rotation", vector_to_json(data.reference_geometry.rotation));
-    reference_geometry.insert("locked", data.reference_geometry.locked);
-    reference_geometry.insert("visible", data.reference_geometry.visible);
-    reference_geometry.insert("section_clipping",
-                             data.reference_geometry.section_clipping);
-    reference_geometry.insert("selected_face_index",
-                             data.reference_geometry.selected_face_index);
-    if (data.reference_geometry.selected_face_index >= 0 &&
-        data.reference_geometry.selected_face_normal.lengthSquared() > 1.0e-12f &&
-        data.reference_geometry.selected_face_x_direction.lengthSquared() > 1.0e-12f)
-    {
-        reference_geometry.insert(
-            "selected_face_origin",
-            vector_to_json(data.reference_geometry.selected_face_origin));
-        reference_geometry.insert(
-            "selected_face_normal",
-            vector_to_json(data.reference_geometry.selected_face_normal));
-        reference_geometry.insert(
-            "selected_face_x_direction",
-            vector_to_json(data.reference_geometry.selected_face_x_direction));
-    }
-    reference_geometry.insert("construction_direction",
-                              vector_to_json(data.reference_geometry.construction_direction));
-    reference_geometry.insert("construction_size", data.reference_geometry.construction_size);
-    reference_geometry.insert("construction_thickness",
-                             data.reference_geometry.construction_thickness);
-    reference_geometry.insert("construction_radius", data.reference_geometry.construction_radius);
-    root.insert("reference_geometry", reference_geometry);
+    root.insert("reference_geometries", reference_geometries);
     return root;
 }
 
@@ -1821,7 +2065,7 @@ bool validate(const Data &data, QString *error_message)
             for (const UnitArraySpec &spec : specs)
             {
                 if (spec.use_reference_geometry &&
-                    !has_reference_geometry(data.reference_geometry))
+                    !has_reference_geometry(data))
                 {
                     set_error(error_message,
                               "Project Array specification references missing reference geometry.");
@@ -1829,7 +2073,8 @@ bool validate(const Data &data, QString *error_message)
                 }
                 if (spec.use_reference_geometry &&
                     !spec.reference_geometry_uuid.isNull() &&
-                    spec.reference_geometry_uuid != data.reference_geometry.uuid)
+                    !contains_reference_geometry_uuid(
+                        data, spec.reference_geometry_uuid))
                 {
                     set_error(error_message,
                               "Project Array specification references a different reference geometry.");
@@ -1877,10 +2122,11 @@ bool validate(const Data &data, QString *error_message)
                 (spec.use_reference_geometry &&
                  !is_usable_reference_frame(spec.direction, spec.plane_normal)) ||
                 (spec.use_reference_geometry &&
-                 !has_reference_geometry(data.reference_geometry)) ||
+                 !has_reference_geometry(data)) ||
                 (spec.use_reference_geometry &&
                  !spec.reference_geometry_uuid.isNull() &&
-                 spec.reference_geometry_uuid != data.reference_geometry.uuid) ||
+                 !contains_reference_geometry_uuid(
+                     data, spec.reference_geometry_uuid)) ||
                 (spec.circular_boundary && spec.boundary_radius < 0.0f))
             {
                 set_error(error_message,
@@ -2026,6 +2272,65 @@ bool validate(const Data &data, QString *error_message)
     {
         set_error(error_message,
                   "Project contains invalid constructed reference geometry parameters.");
+        return false;
+    }
+
+    QSet<QUuid> reference_geometry_ids;
+    for (const ReferenceGeometryConfig &config : data.reference_geometries)
+    {
+        if (!has_reference_geometry(config))
+        {
+            continue;
+        }
+        if (config.uuid.isNull() || reference_geometry_ids.contains(config.uuid))
+        {
+            set_error(error_message,
+                      "Project contains duplicate or empty reference geometry UUIDs.");
+            return false;
+        }
+        reference_geometry_ids.insert(config.uuid);
+
+        if (!is_finite_vector(config.position) ||
+            !is_finite_vector(config.rotation))
+        {
+            set_error(error_message,
+                      "Project contains a reference geometry transform with non-finite values.");
+            return false;
+        }
+        const QString kind = config.kind.trimmed().toLower();
+        if (kind != "file" && kind != "datum_plane" &&
+            kind != "datum_axis" && kind != "datum_origin" &&
+            kind != "section_plane" && kind != "alignment_frame")
+        {
+            set_error(error_message,
+                      "Project contains an invalid reference geometry kind.");
+            return false;
+        }
+        if (kind != "file" &&
+            (!is_finite_vector(config.construction_direction) ||
+             config.construction_direction.lengthSquared() <= 1.0e-12f ||
+             !std::isfinite(config.construction_size) ||
+             config.construction_size <= 0.0 ||
+             ((kind == "datum_plane" || kind == "section_plane") &&
+              (!std::isfinite(config.construction_thickness) ||
+               config.construction_thickness <= 0.0)) ||
+             ((kind == "datum_axis" || kind == "datum_origin" ||
+               kind == "alignment_frame") &&
+              (!std::isfinite(config.construction_radius) ||
+               config.construction_radius <= 0.0))))
+        {
+            set_error(error_message,
+                      "Project contains invalid constructed reference geometry parameters.");
+            return false;
+        }
+    }
+    if (has_reference_geometry(data.reference_geometry) &&
+        !data.reference_geometry.uuid.isNull() &&
+        !reference_geometry_ids.isEmpty() &&
+        !reference_geometry_ids.contains(data.reference_geometry.uuid))
+    {
+        set_error(error_message,
+                  "Project active reference geometry is missing from the reference geometry collection.");
         return false;
     }
 
@@ -2355,6 +2660,15 @@ bool load(const QString &file_path, Data *data, QString *error_message)
                   "Project session contains an invalid reference_geometry object.");
         return false;
     }
+    const QJsonValue reference_geometries_value =
+        root.value("reference_geometries");
+    if (!reference_geometries_value.isUndefined() &&
+        !reference_geometries_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid reference_geometries array.");
+        return false;
+    }
 
     const QJsonValue chemkin_path_value = root.value("chemkin_file_path");
     if (!chemkin_path_value.isUndefined() && !chemkin_path_value.isString())
@@ -2677,140 +2991,33 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         parsed.materials.append(entry);
     }
 
-    const QJsonObject reference_geometry = reference_geometry_value.toObject();
-    if (reference_geometry.contains("uuid") &&
-        !reference_geometry.value("uuid").isString())
+    if (!reference_geometry_value.isUndefined() &&
+        !reference_geometry_from_json(reference_geometry_value.toObject(),
+                                      file_path,
+                                      &parsed.reference_geometry,
+                                      error_message))
     {
-        set_error(error_message,
-                  "Project session contains an invalid reference geometry UUID.");
         return false;
     }
-    if (reference_geometry.contains("uuid"))
+    if (!reference_geometries_value.isUndefined())
     {
-        parsed.reference_geometry.uuid = QUuid(
-            reference_geometry.value("uuid").toString());
-        if (parsed.reference_geometry.uuid.isNull())
+        const QJsonArray reference_geometries =
+            reference_geometries_value.toArray();
+        for (const QJsonValue &value : reference_geometries)
         {
-            set_error(error_message,
-                      "Project session contains an invalid reference geometry UUID.");
-            return false;
-        }
-    }
-    parsed.reference_geometry.kind = reference_geometry.value("kind").toString("file").trimmed().toLower();
-    if (parsed.reference_geometry.kind != "file" &&
-        parsed.reference_geometry.kind != "datum_plane" &&
-        parsed.reference_geometry.kind != "datum_axis" &&
-        parsed.reference_geometry.kind != "datum_origin" &&
-        parsed.reference_geometry.kind != "section_plane" &&
-        parsed.reference_geometry.kind != "alignment_frame")
-    {
-        set_error(error_message,
-                  "Project session contains an invalid reference geometry kind.");
-        return false;
-    }
-    if (reference_geometry.contains("file_path") &&
-        !reference_geometry.value("file_path").isString())
-    {
-        set_error(error_message,
-                  "Project session contains an invalid reference geometry file path.");
-        return false;
-    }
-    if ((reference_geometry.contains("locked") &&
-         !reference_geometry.value("locked").isBool()) ||
-        (reference_geometry.contains("visible") &&
-         !reference_geometry.value("visible").isBool()) ||
-        (reference_geometry.contains("section_clipping") &&
-         !reference_geometry.value("section_clipping").isBool()) ||
-        (reference_geometry.contains("selected_face_index") &&
-         (!reference_geometry.value("selected_face_index").isDouble() ||
-          !std::isfinite(reference_geometry.value("selected_face_index").toDouble()) ||
-          reference_geometry.value("selected_face_index").toDouble() < -1.0 ||
-          reference_geometry.value("selected_face_index").toDouble() !=
-              std::floor(reference_geometry.value("selected_face_index").toDouble()) ||
-          reference_geometry.value("selected_face_index").toDouble() >
-              static_cast<double>(std::numeric_limits<int>::max()))))
-    {
-        set_error(error_message,
-                  "Project session contains invalid reference geometry visibility flags.");
-        return false;
-    }
-    parsed.reference_geometry.file_path = session_path_for_runtime(
-        reference_geometry.value("file_path").toString(), file_path);
-    if (parsed.reference_geometry.kind != "file")
-    {
-        parsed.reference_geometry.file_path.clear();
-    }
-    if ((reference_geometry.contains("position") &&
-         !vector_from_json(reference_geometry.value("position"),
-                           &parsed.reference_geometry.position)) ||
-        (reference_geometry.contains("rotation") &&
-         !vector_from_json(reference_geometry.value("rotation"),
-                           &parsed.reference_geometry.rotation)) ||
-        (reference_geometry.contains("construction_direction") &&
-         !vector_from_json(reference_geometry.value("construction_direction"),
-                           &parsed.reference_geometry.construction_direction)))
-    {
-        set_error(error_message,
-                  "Project session contains an invalid reference geometry transform.");
-        return false;
-    }
-    parsed.reference_geometry.locked = reference_geometry.value("locked").toBool(false);
-    parsed.reference_geometry.visible = reference_geometry.value("visible").toBool(true);
-    parsed.reference_geometry.section_clipping =
-        reference_geometry.value("section_clipping").toBool(false);
-    parsed.reference_geometry.selected_face_index =
-        reference_geometry.value("selected_face_index").toInt(-1);
-    const bool has_face_descriptor =
-        reference_geometry.contains("selected_face_origin") ||
-        reference_geometry.contains("selected_face_normal") ||
-        reference_geometry.contains("selected_face_x_direction");
-    if (has_face_descriptor &&
-        (!vector_from_json(reference_geometry.value("selected_face_origin"),
-                           &parsed.reference_geometry.selected_face_origin) ||
-         !vector_from_json(reference_geometry.value("selected_face_normal"),
-                           &parsed.reference_geometry.selected_face_normal) ||
-         !vector_from_json(reference_geometry.value("selected_face_x_direction"),
-                           &parsed.reference_geometry.selected_face_x_direction) ||
-         parsed.reference_geometry.selected_face_index < 0))
-    {
-        set_error(error_message,
-                  "Project session contains an invalid selected reference face descriptor.");
-        return false;
-    }
-    if (reference_geometry.contains("construction_size"))
-    {
-        parsed.reference_geometry.construction_size =
-            reference_geometry.value("construction_size").toDouble(10.0);
-    }
-    if (reference_geometry.contains("construction_thickness"))
-    {
-        parsed.reference_geometry.construction_thickness =
-            reference_geometry.value("construction_thickness").toDouble(0.01);
-    }
-    if (reference_geometry.contains("construction_radius"))
-    {
-        parsed.reference_geometry.construction_radius =
-            reference_geometry.value("construction_radius").toDouble(0.05);
-    }
-    if (parsed.reference_geometry.kind != "file")
-    {
-        const QVector3D direction = parsed.reference_geometry.construction_direction;
-        if (direction.lengthSquared() <= 1.0e-12f ||
-            !std::isfinite(parsed.reference_geometry.construction_size) ||
-            parsed.reference_geometry.construction_size <= 0.0 ||
-            ((parsed.reference_geometry.kind == "datum_plane" ||
-              parsed.reference_geometry.kind == "section_plane") &&
-             (!std::isfinite(parsed.reference_geometry.construction_thickness) ||
-              parsed.reference_geometry.construction_thickness <= 0.0)) ||
-            ((parsed.reference_geometry.kind == "datum_axis" ||
-              parsed.reference_geometry.kind == "datum_origin" ||
-              parsed.reference_geometry.kind == "alignment_frame") &&
-             (!std::isfinite(parsed.reference_geometry.construction_radius) ||
-              parsed.reference_geometry.construction_radius <= 0.0)))
-        {
-            set_error(error_message,
-                      "Project session contains invalid constructed reference geometry parameters.");
-            return false;
+            if (!value.isObject())
+            {
+                set_error(error_message,
+                          "Project session contains an invalid reference geometry entry.");
+                return false;
+            }
+            ReferenceGeometryConfig config;
+            if (!reference_geometry_from_json(value.toObject(), file_path,
+                                              &config, error_message))
+            {
+                return false;
+            }
+            parsed.reference_geometries.append(config);
         }
     }
 

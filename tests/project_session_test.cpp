@@ -10,6 +10,7 @@
 #include <QTemporaryDir>
 #include <QDebug>
 
+#include <cstdio>
 #include <limits>
 
 namespace
@@ -19,6 +20,7 @@ bool check(bool condition, const QString &message)
     if (!condition)
     {
         qCritical() << message;
+        std::fprintf(stderr, "%s\n", message.toLocal8Bit().constData());
         return false;
     }
     return true;
@@ -105,6 +107,13 @@ int main(int argc, char *argv[])
     source.reference_geometry.selected_face_origin = QVector3D(1.0f, 2.0f, 3.0f);
     source.reference_geometry.selected_face_normal = QVector3D(0.0f, 0.0f, 1.0f);
     source.reference_geometry.selected_face_x_direction = QVector3D(1.0f, 0.0f, 0.0f);
+    ReferenceGeometryConfig secondary_reference;
+    secondary_reference.uuid = QUuid::createUuid();
+    secondary_reference.kind = "datum_plane";
+    secondary_reference.construction_size = 0.02;
+    secondary_reference.construction_thickness = 1.0e-5;
+    secondary_reference.construction_direction = QVector3D(0.0f, 1.0f, 0.0f);
+    source.reference_geometries.append(secondary_reference);
     source.unit_preferences.length = "cm";
     source.unit_preferences.angle = "rad";
     source.unit_preferences.injector_transparency = 0.35;
@@ -134,6 +143,9 @@ int main(int argc, char *argv[])
         QUuid::createUuid(), QUuid::createUuid(), QUuid::createUuid(),
         QUuid::createUuid()};
     source.units.first().array_spec = source.units.first().array_specs.last();
+    source.units.first().array_specs.first().use_reference_geometry = true;
+    source.units.first().array_specs.first().reference_geometry_uuid =
+        secondary_reference.uuid;
     source.units.first().fill_spec.fill_uuid = QUuid::createUuid();
     for (int index = 0; index < 15; ++index)
     {
@@ -362,8 +374,8 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 9,
-               "New project sessions should use schema version 9") ||
+    if (!check(saved_root.value("schema_version").toInt() == 10,
+               "New project sessions should use schema version 10") ||
         !check(saved_root.value("unit_display_states").toArray().size() == 1,
                "Unit display state should be serialized") ||
         !check(saved_root.value("derived_unit_display_states").toArray().size() == 1,
@@ -371,6 +383,8 @@ int main(int argc, char *argv[])
         !check(!saved_root.value("reference_geometry").toObject()
                     .value("uuid").toString().isEmpty(),
                "Reference geometry should have a stable UUID") ||
+        !check(saved_root.value("reference_geometries").toArray().size() == 2,
+               "Reference geometry collection should be serialized") ||
         !check(!QFileInfo(saved_root.value("chemkin_file_path").toString()).isAbsolute() &&
                    !QFileInfo(saved_root.value("reference_geometry")
                                   .toObject()
@@ -435,6 +449,19 @@ int main(int argc, char *argv[])
     if (!check(project_session::load(session_path, &restored, &error_message), error_message))
     {
         return 1;
+    }
+
+    bool restored_secondary_reference = false;
+    for (const ReferenceGeometryConfig &config : restored.reference_geometries)
+    {
+        if (config.uuid == secondary_reference.uuid &&
+            config.kind == secondary_reference.kind &&
+            config.construction_direction ==
+                secondary_reference.construction_direction)
+        {
+            restored_secondary_reference = true;
+            break;
+        }
     }
 
     if (!check(restored.units.size() == 1, "Unexpected restored unit count") ||
@@ -517,6 +544,9 @@ int main(int argc, char *argv[])
                    restored.reference_geometry.selected_face_x_direction ==
                        source.reference_geometry.selected_face_x_direction,
                "Reference selected face descriptor did not round-trip") ||
+        !check(restored.reference_geometries.size() == 2 &&
+                   restored_secondary_reference,
+               "Reference geometry collection did not round-trip") ||
         !check(restored.has_unit_preferences &&
                    restored.unit_preferences.length == "cm" &&
                    restored.unit_preferences.angle == "rad",
