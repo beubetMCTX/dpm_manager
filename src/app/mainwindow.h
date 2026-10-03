@@ -171,6 +171,7 @@ private:
     void sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dirty);
     void sync_persistent_units_from_occt();
     int assign_species_to_unassigned_units();
+    ReferenceGeometryConfig current_reference_geometry_config() const;
     project_session::Data collect_project_data() const;
     void refresh_project_dirty_state();
 
@@ -184,6 +185,10 @@ private:
     QTimer *m_dirty_refresh_timer = nullptr;
     bool m_loading_project_session = false;
     QList<MaterialConfigEntry> m_material_entries;
+    // Project sessions may contain several independent reference objects even
+    // though the current viewport still exposes one active object at a time.
+    QList<ReferenceGeometryConfig> m_project_reference_geometries;
+    QUuid m_project_active_reference_geometry_uuid;
     QToolBar *m_chemkin_toolbar = nullptr;
     QToolBar *m_viewport_interaction_toolbar = nullptr;
     QLabel *m_chemkin_status_label = nullptr;

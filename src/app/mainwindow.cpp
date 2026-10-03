@@ -1277,6 +1277,8 @@ bool MainWindow::save_project_session(const QString &file_path)
         return false;
     }
 
+    m_project_reference_geometries = data.reference_geometries;
+    m_project_active_reference_geometry_uuid = data.reference_geometry.uuid;
     m_project_session_file_path = QFileInfo(file_path).absoluteFilePath();
     remember_project_path(m_project_session_file_path);
     m_saved_project_fingerprint = project_session::fingerprint(data);
@@ -1381,6 +1383,40 @@ bool MainWindow::load_project_session(const QString &file_path)
         return false;
     }
 
+    // Recover every external reference asset, not only the active legacy
+    // alias. The project schema keeps the singular field for compatibility,
+    // while the collection is the source of truth for newly saved sessions.
+    for (ReferenceGeometryConfig &config : data.reference_geometries)
+    {
+        if (config.kind.trimmed().compare(QStringLiteral("file"),
+                                          Qt::CaseInsensitive) != 0 ||
+            config.file_path.trimmed().isEmpty())
+        {
+            continue;
+        }
+        if (!recover_missing_asset(
+                &config.file_path,
+                "reference geometry",
+                Base_Geom_Read::getSupportedFormatsFilter()))
+        {
+            return false;
+        }
+    }
+
+    // Keep the active compatibility alias synchronized with the recovered
+    // collection entry. This also handles projects written by older builds
+    // where only the singular field was present.
+    if (!data.reference_geometry.uuid.isNull())
+    {
+        for (const ReferenceGeometryConfig &config : data.reference_geometries)
+        {
+            if (config.uuid == data.reference_geometry.uuid)
+            {
+                data.reference_geometry = config;
+                break;
+            }
+        }
+    }
     if (!data.reference_geometry.file_path.trimmed().isEmpty())
     {
         if (!recover_missing_asset(
@@ -1389,6 +1425,15 @@ bool MainWindow::load_project_session(const QString &file_path)
                 Base_Geom_Read::getSupportedFormatsFilter()))
         {
             return false;
+        }
+        for (ReferenceGeometryConfig &config : data.reference_geometries)
+        {
+            if (!data.reference_geometry.uuid.isNull() &&
+                config.uuid == data.reference_geometry.uuid)
+            {
+                config.file_path = data.reference_geometry.file_path;
+                break;
+            }
         }
     }
 
@@ -1412,6 +1457,9 @@ bool MainWindow::load_project_session(const QString &file_path)
     }
 
     m_loading_project_session = true;
+    m_project_reference_geometries = data.reference_geometries;
+    m_project_active_reference_geometry_uuid =
+        data.reference_geometry.uuid;
     if (data.has_unit_preferences)
     {
         UnitSystem::set_active_preferences(data.unit_preferences);
@@ -1706,6 +1754,43 @@ void MainWindow::mark_project_dirty()
     }
 }
 
+ReferenceGeometryConfig MainWindow::current_reference_geometry_config() const
+{
+    ReferenceGeometryConfig config;
+    if (m_3d_widget == nullptr || m_3d_widget->geometry.getShape().IsNull())
+    {
+        return config;
+    }
+
+    config.kind = m_3d_widget->reference_geometry_kind();
+    config.file_path = m_3d_widget->geometry.file_path();
+    if (config.kind != QStringLiteral("file"))
+    {
+        config.file_path.clear();
+        config.construction_size = m_3d_widget->reference_construction_size();
+        config.construction_thickness =
+            m_3d_widget->reference_construction_thickness();
+        config.construction_radius =
+            m_3d_widget->reference_construction_radius();
+        config.construction_direction =
+            m_3d_widget->reference_construction_direction();
+    }
+    config.position = m_3d_widget->reference_position();
+    config.rotation = m_3d_widget->reference_rotation();
+    config.uuid = m_3d_widget->reference_geometry_uuid();
+    config.locked = m_3d_widget->reference_geometry_locked();
+    config.visible = m_3d_widget->reference_geometry_visible();
+    config.section_clipping = m_3d_widget->section_plane_clipping_enabled();
+    config.selected_face_index = m_3d_widget->reference_selected_face_index();
+    config.selected_face_origin =
+        m_3d_widget->reference_selected_face_origin();
+    config.selected_face_normal =
+        m_3d_widget->reference_selected_face_normal();
+    config.selected_face_x_direction =
+        m_3d_widget->reference_selected_face_x_direction();
+    return config;
+}
+
 project_session::Data MainWindow::collect_project_data() const
 {
     project_session::Data data;
@@ -1732,37 +1817,39 @@ project_session::Data MainWindow::collect_project_data() const
                                   &data.species_colors,
                                   nullptr);
     }
-    if (m_3d_widget != nullptr && !m_3d_widget->geometry.getShape().IsNull())
+    data.reference_geometries = m_project_reference_geometries;
+    const ReferenceGeometryConfig active_reference_geometry =
+        current_reference_geometry_config();
+    if (!active_reference_geometry.uuid.isNull())
     {
-        data.reference_geometry.kind = m_3d_widget->reference_geometry_kind();
-        data.reference_geometry.file_path = m_3d_widget->geometry.file_path();
-        if (data.reference_geometry.kind != QStringLiteral("file"))
+        data.reference_geometry = active_reference_geometry;
+        bool replaced = false;
+        for (ReferenceGeometryConfig &config : data.reference_geometries)
         {
-            data.reference_geometry.file_path.clear();
-            data.reference_geometry.construction_size =
-                m_3d_widget->reference_construction_size();
-            data.reference_geometry.construction_thickness =
-                m_3d_widget->reference_construction_thickness();
-            data.reference_geometry.construction_radius =
-                m_3d_widget->reference_construction_radius();
-            data.reference_geometry.construction_direction =
-                m_3d_widget->reference_construction_direction();
+            if (config.uuid == active_reference_geometry.uuid)
+            {
+                config = active_reference_geometry;
+                replaced = true;
+                break;
+            }
         }
-        data.reference_geometry.position = m_3d_widget->reference_position();
-        data.reference_geometry.rotation = m_3d_widget->reference_rotation();
-        data.reference_geometry.uuid = m_3d_widget->reference_geometry_uuid();
-        data.reference_geometry.locked = m_3d_widget->reference_geometry_locked();
-        data.reference_geometry.visible = m_3d_widget->reference_geometry_visible();
-        data.reference_geometry.section_clipping =
-            m_3d_widget->section_plane_clipping_enabled();
-        data.reference_geometry.selected_face_index =
-            m_3d_widget->reference_selected_face_index();
-        data.reference_geometry.selected_face_origin =
-            m_3d_widget->reference_selected_face_origin();
-        data.reference_geometry.selected_face_normal =
-            m_3d_widget->reference_selected_face_normal();
-        data.reference_geometry.selected_face_x_direction =
-            m_3d_widget->reference_selected_face_x_direction();
+        if (!replaced)
+        {
+            data.reference_geometries.append(active_reference_geometry);
+        }
+    }
+    else if (!m_project_active_reference_geometry_uuid.isNull())
+    {
+        // Clearing the active object should remove only that object from the
+        // persisted collection; independent reference objects remain intact.
+        for (int index = data.reference_geometries.size() - 1; index >= 0; --index)
+        {
+            if (data.reference_geometries.at(index).uuid ==
+                m_project_active_reference_geometry_uuid)
+            {
+                data.reference_geometries.removeAt(index);
+            }
+        }
     }
     return data;
 }
