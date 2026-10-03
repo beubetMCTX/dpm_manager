@@ -862,12 +862,6 @@ void MainWindow::on_actionRead_triggered()
         update_project_session_title();
         mark_project_dirty();
 
-        qDebug() << "Loaded injector count:" << units.size();
-        for (int i = 0; i < units.size(); ++i)
-        {
-            qDebug() << "Injector" << i << ":" << units[i].inj.injector_data.name;
-        }
-
         statusBar()->showMessage(
             QString("Loaded %1 injectors from DPM file").arg(units.size()), 5000);
         if (assigned_species_count > 0)
@@ -1978,7 +1972,6 @@ void MainWindow::on_actionRead_Base_Geometry_triggered()
     const bool ok = loaded_geometry.Read_Geometry_Dialog();
     if (ok)
     {
-        qDebug() << "true";
         m_3d_widget->geometry.adopt_loaded_geometry(loaded_geometry);
         m_3d_widget->add_readed_geometry();
         mark_project_dirty();
@@ -6821,10 +6814,7 @@ QList<Unit> MainWindow::build_test_injector_units() const
             unit.inj.injector_data.evaporating_species = m_chemkin_species_names.first();
         }
         scale_preview_geometry(unit);
-        if (!unit.inj.create_injector())
-        {
-            qDebug() << "Failed to build test injector:" << unit.inj.injector_data.name;
-        }
+        unit.inj.create_injector();
         result.append(unit);
     };
 

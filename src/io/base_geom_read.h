@@ -6,7 +6,6 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
-#include <QDebug>
 
 // OpenCASCADE
 #include <TopoDS_Shape.hxx>

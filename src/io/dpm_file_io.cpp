@@ -957,7 +957,6 @@ bool read_dpm_head(QFile *file,QTextStream *in,QString &name)
     QChar space,space2;
     QChar leftblanket;
     *in>>space>>leftblanket>>name>>space2;
-    qDebug()<<name;
     if(leftblanket=='(')
     {
         return true;
@@ -977,7 +976,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,int &data)
     QString temp,dot;
     QChar rightblanket;
     *in>>space>>leftblanket>>temp>>dot>>data>>rightblanket;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data<<rightblanket;
     if(leftblanket=='('&&temp==title&&dot=='.'&&rightblanket==')')  return true;
     else
     {
@@ -994,7 +992,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,double &data)
     QString temp,dot;
     QChar rightblanket;
     *in>>space>>leftblanket>>temp>>dot>>data>>rightblanket;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data<<rightblanket;
     if(leftblanket=='('&&temp==title&&dot=='.'&&rightblanket==')') return true;
     else
     {
@@ -1010,12 +1007,10 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QString &data)
     QChar leftblanket;
     QString temp,dot;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data<<"!";
     if(title=="dpm-fname")
     {
         *in>>data;
         data="\" \"";
-        qDebug()<<data;
         return true;
     }
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
@@ -1040,7 +1035,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector3D &vect,Co
     QChar rightblanket;
     float data;
     *in>>space>>leftblanket>>temp>>dot>>data>>rightblanket;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data<<rightblanket;
     if(leftblanket=='('&&temp.contains(title,Qt::CaseSensitivity::CaseInsensitive)&&dot=='.'&&rightblanket==')')
     {
         switch(coord)
@@ -1068,7 +1062,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,DPM_Type &enum_dat
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1098,7 +1091,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Injection_Type &en
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1135,7 +1127,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Cone_Type &enum_da
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1164,7 +1155,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Parcel_Model &enum
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1193,7 +1183,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Drag_Law &enum_dat
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1223,7 +1212,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Volume_Streams_Spe
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1250,7 +1238,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Volume_Specificati
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1277,7 +1264,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Volume_Bgeom_Shape
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1306,7 +1292,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Rot_Drag_Law &enum
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1333,7 +1318,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,Rot_Lift_Law &enum
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1362,7 +1346,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,bool &bool_data)
     QChar leftblanket;
     QString temp,dot,data;
     *in>>space>>leftblanket>>temp>>dot>>data;
-    qDebug()<<space<<leftblanket<<temp<<dot<<data;
     if(leftblanket=='('&&temp==title&&dot=='.'&&data.back()==')')
     {
         data.chop(1);
@@ -1396,7 +1379,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
         {
             vect.push_back(-1);
             *in>>data;
-            qDebug()<<data;
         }
         else
         {
@@ -1407,7 +1389,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
                 {
                     data.chop(1);
                     vect.push_back(data.toInt());
-                    //qDebug()<<data.toInt();
                     break;
                 }
                 else
@@ -1415,7 +1396,6 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
                     vect.push_back(data.toInt());
                     *in>>data;
                 }
-                //qDebug()<<data.toInt();
             }
         }
         return true;
@@ -1429,13 +1409,11 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
             {
                 data.chop(1);
                 vect.push_back(data.toInt());
-                //qDebug()<<data;
                 break;
             }
             else
             {
                 vect.push_back(data.toInt());
-                //qDebug()<<data;
                 *in>>data;
             }
         }
@@ -1454,13 +1432,11 @@ bool read_dpm(QFile *file,QTextStream *in,const QString title,QVector<int> vect)
                 {
                     data.chop(1);
                     vect.push_back(data.toInt());
-                    //qDebug()<<data;
                     break;
                 }
                 else
                 {
                     vect.push_back(data.toInt());
-                    //qDebug()<<data;
                     *in>>data;
                 }
             }
@@ -1481,7 +1457,6 @@ QString Read_File_Dialog()
         "选择文件",
         ".",
         "DPM Files (*.dpm);;Text Files (*.txt);;All Files (*.*)");
-    qDebug()<<file_path;
     return file_path;
 }
 
@@ -1510,12 +1485,10 @@ bool read_end(QTextStream *in,QString name)
     *in>>temp;
     if(!in->atEnd())
     {
-        qDebug()<<temp<<name<<"not end";
         return false;
     }
     else
     {
-        qDebug()<<temp<<name<<"end";
         return true;
     }
     // else
@@ -1773,23 +1746,17 @@ QList<Unit> read_single_dpm_file(bool *ok)
             if (!read_dpm(file, in, "posu", iterator.inj.injector_data.posu,y)) { Kill_Read };
             if (!read_dpm(file, in, "posu", iterator.inj.injector_data.posu,z)) { Kill_Read };
 
-            qDebug()<<"-2";
 
             unit.push_back(iterator);
 
-            qDebug()<<"-1";
 
             if(read_end(in,iterator.inj.injector_data.name)) break;
 
         }
-        qDebug()<<"0";
         //if(!read_dpm(file,in,"",)) {*ok=false;return unit;};
         *ok=true;
-        qDebug()<<"1";
         delete(in);
-        qDebug()<<"2";
         delete(file);
-        qDebug()<<"3";
         return unit;
     }
 }

@@ -6,7 +6,6 @@
 #include <QTextStream>
 #include <QFileIconProvider>
 #include <QString>
-#include <QDebug>
 #include <QMessageBox>
 #include <QMainWindow>
 #include <QList>

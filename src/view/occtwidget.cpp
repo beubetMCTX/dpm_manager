@@ -8085,7 +8085,6 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
         return false;
     }
 
-    //qDebug()<<detected_object->Type();
     selected_shape=Handle(AIS_Shape)::DownCast(detected_object);
     if (selected_shape.IsNull())
     {
@@ -8539,9 +8538,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
 
 
 
-        //qDebug()<<ResultPoint.X()<<ResultPoint.Y()<<ResultPoint.Z();
 
-        //qDebug()<<occt_x1-occt_x2<<occt_y1-occt_y2<<occt_z1-occt_z1;
     }
     // else if(event->buttons()&Qt::RightButton)
     // {
@@ -8842,7 +8839,6 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
 
 void OCCTWidget::on_menu_closed()
 {
-    qDebug() << "菜单已关闭";
     clear_context_selection_safely();
 }
 

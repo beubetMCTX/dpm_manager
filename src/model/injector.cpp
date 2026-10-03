@@ -406,10 +406,6 @@ Injector::Injector():
 
 Injector_OCCT::Injector_OCCT()
 {
-    if (runtime_debug::verbose_debug_enabled())
-    {
-        qDebug() << "Injector_OCCT created with uuid" << uuid;
-    }
     rebuild_runtime_state();
 }
 

@@ -86,8 +86,6 @@ bool Base_Geom_Read::Read_Geometry_Dialog()
         "选择文件",
         ".",
         getSupportedFormatsFilter());
-    qDebug() << file_path;
-
     if (file_path.trimmed().isEmpty())
     {
         return false;
@@ -230,8 +228,6 @@ bool Base_Geom_Read::readIGESFile(const QString& filePath)
 {
 
     IGESControl_Reader reader;
-
-    qDebug()<<"into";
 
     emit progressUpdate(10);
 

@@ -1,7 +1,6 @@
 #ifndef CHEMKIN_IO_H
 #define CHEMKIN_IO_H
 
-#include <QDebug>
 #include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>

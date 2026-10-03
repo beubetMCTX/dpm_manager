@@ -7,7 +7,6 @@
 #include <AIS_Shape.hxx>
 #include <SelectMgr_EntityOwner.hxx>
 
-#include <qdebug.h>
 #include <utility>
 #include <QHash>
 #include <QList>
@@ -335,8 +334,6 @@ public:
         initialize_runtime_handles();
         return *this;
     }
-
-    void test(){qDebug()<<inj.injector_data.name;}
 
 private:
     void initialize_runtime_handles()

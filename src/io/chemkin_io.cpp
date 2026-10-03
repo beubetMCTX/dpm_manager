@@ -32,7 +32,6 @@ QString Read_Chemkin_File_Dialog()
         "选择 Chemkin 文件",
         ".",
         "Chemkin Files (*.inp *.ck *.dat *.txt);;All Files (*.*)");
-    qDebug() << file_path;
     return file_path;
 }
 
