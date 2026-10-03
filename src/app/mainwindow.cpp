@@ -6055,19 +6055,20 @@ void MainWindow::update_object_list_panel()
         }
     }
 
-    QSet<QString> selected_object_ids;
+    // A source Unit and its Array Layer/Fill grouping rows intentionally share
+    // the source UUID. Preserve the actual tree-node selection with the
+    // stable node key instead of restoring every row that happens to expose
+    // the same object UUID.
+    QSet<QString> selected_tree_keys;
     for (QTreeWidgetItem *item : m_object_list->selectedItems())
     {
-        const QString object_id = item->data(0, Qt::UserRole).toString();
-        if (!object_id.isEmpty())
+        const QString key = tree_item_key(item);
+        if (!key.isEmpty())
         {
-            selected_object_ids.insert(object_id);
+            selected_tree_keys.insert(key);
         }
     }
-    const QString current_object_id = m_object_list->currentItem() == nullptr
-                                          ? QString()
-                                          : m_object_list->currentItem()
-                                                ->data(0, Qt::UserRole).toString();
+    const QString current_tree_key = tree_item_key(m_object_list->currentItem());
     const QSignalBlocker blocker(m_object_list);
     m_object_list->clear();
 
@@ -6423,12 +6424,12 @@ void MainWindow::update_object_list_panel()
 
     for (QTreeWidgetItem *item : m_object_list->all_items())
     {
-        const QString object_id = item->data(0, Qt::UserRole).toString();
-        if (!object_id.isEmpty() && selected_object_ids.contains(object_id))
+        const QString key = tree_item_key(item);
+        if (!key.isEmpty() && selected_tree_keys.contains(key))
         {
             item->setSelected(true);
         }
-        if (!object_id.isEmpty() && object_id == current_object_id)
+        if (!key.isEmpty() && key == current_tree_key)
         {
             m_object_list->setCurrentItem(item, QItemSelectionModel::NoUpdate);
             m_object_list->scrollToItem(item);
