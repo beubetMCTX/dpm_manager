@@ -1,5 +1,15 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Reduce Runtime-to-Project Sync Cost
+
+- Ordinary `unit_data_updated` and `unit_position_updated` events now copy only
+  the changed persistent Unit instead of scanning every runtime array child.
+- Edits to following array children synchronize their owning array source after
+  capturing the property override; structure changes still use full sync as a
+  safe fallback.
+- Persistent state copy now also preserves stable array placement UUID paths.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Make Release Packaging Self-Contained
 
 - `package_release.ps1` now disables `windeployqt` compiler-runtime and DXC

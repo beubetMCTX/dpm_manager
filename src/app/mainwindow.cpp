@@ -171,6 +171,34 @@ QString array_type_name(UnitArrayType type)
     }
     return QObject::tr("Unknown");
 }
+
+void copy_persistent_unit_state(Unit &target, const Unit &source)
+{
+    target.type = source.type;
+    target.inj.uuid = source.inj.uuid;
+    target.inj.injector_data = source.inj.injector_data;
+    target.inj.shape = source.inj.shape;
+    target.array_parent_uuid = source.array_parent_uuid;
+    target.is_array_child = source.is_array_child;
+    target.follows_array = source.follows_array;
+    target.prototype_uuid = source.prototype_uuid;
+    target.prototype_chain = source.prototype_chain;
+    target.array_instance_path = source.array_instance_path;
+    target.array_instance_key = source.array_instance_key;
+    target.array_layer_uuid = source.array_layer_uuid;
+    target.array_overrides = source.array_overrides;
+    target.has_array_spec = source.has_array_spec;
+    target.array_spec = source.array_spec;
+    target.array_specs = source.array_specs;
+    target.has_fill_spec = source.has_fill_spec;
+    target.fill_spec = source.fill_spec;
+    target.fill_source_uuids = source.fill_source_uuids;
+    target.assembly_parent_uuid = source.assembly_parent_uuid;
+    target.assembly_child_uuids = source.assembly_child_uuids;
+    target.assembly_local_position = source.assembly_local_position;
+    target.assembly_local_rotation = source.assembly_local_rotation;
+    target.child_units.clear();
+}
 }
 
 QList<QTreeWidgetItem *> ObjectTreeWidget::all_items() const
@@ -634,32 +662,6 @@ void MainWindow::sync_persistent_units_from_occt()
         return;
     }
 
-    const auto copy_persistent_state = [](Unit &target, const Unit &source)
-    {
-        target.type = source.type;
-        target.inj.uuid = source.inj.uuid;
-        target.inj.injector_data = source.inj.injector_data;
-        target.inj.shape = source.inj.shape;
-        target.array_parent_uuid = source.array_parent_uuid;
-        target.is_array_child = source.is_array_child;
-        target.follows_array = source.follows_array;
-        target.prototype_uuid = source.prototype_uuid;
-        target.prototype_chain = source.prototype_chain;
-        target.array_instance_path = source.array_instance_path;
-        target.array_overrides = source.array_overrides;
-        target.has_array_spec = source.has_array_spec;
-        target.array_spec = source.array_spec;
-        target.array_specs = source.array_specs;
-        target.has_fill_spec = source.has_fill_spec;
-        target.fill_spec = source.fill_spec;
-        target.fill_source_uuids = source.fill_source_uuids;
-        target.assembly_parent_uuid = source.assembly_parent_uuid;
-        target.assembly_child_uuids = source.assembly_child_uuids;
-        target.assembly_local_position = source.assembly_local_position;
-        target.assembly_local_rotation = source.assembly_local_rotation;
-        target.child_units.clear();
-    };
-
     QSet<QUuid> persistent_ids;
     for (auto it = m_3d_widget->unit_hash.constBegin();
          it != m_3d_widget->unit_hash.constEnd(); ++it)
@@ -681,12 +683,12 @@ void MainWindow::sync_persistent_units_from_occt()
         if (stored_it == units.end())
         {
             Unit stored_unit;
-            copy_persistent_state(stored_unit, *runtime_unit);
+            copy_persistent_unit_state(stored_unit, *runtime_unit);
             units.append(std::move(stored_unit));
         }
         else
         {
-            copy_persistent_state(*stored_it, *runtime_unit);
+            copy_persistent_unit_state(*stored_it, *runtime_unit);
         }
     }
 
@@ -710,7 +712,39 @@ void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dir
     // before the persistent list is synchronized. Keep an existing property
     // override snapshot aligned with the live child data.
     m_3d_widget->capture_unit_array_override(changed_unit);
-    sync_persistent_units_from_occt();
+
+    // Ordinary edits only need one persistent record updated. A following
+    // array child is derived, so its override is owned by the array source.
+    // Full synchronization remains the fallback for add/remove/reparent
+    // operations where the persistent list may have changed shape.
+    Unit *persistent_source = changed_unit;
+    if (changed_unit->is_array_child && changed_unit->follows_array)
+    {
+        const std::shared_ptr<Unit> parent =
+            m_3d_widget->unit_hash.value(changed_unit->array_parent_uuid);
+        persistent_source = parent != nullptr ? parent.get() : nullptr;
+    }
+
+    bool synchronized_one = false;
+    if (persistent_source != nullptr &&
+        !(persistent_source->is_array_child && persistent_source->follows_array))
+    {
+        auto stored_it = std::find_if(
+            units.begin(), units.end(),
+            [persistent_source](const Unit &stored_unit)
+            {
+                return stored_unit.inj.uuid == persistent_source->inj.uuid;
+            });
+        if (stored_it != units.end())
+        {
+            copy_persistent_unit_state(*stored_it, *persistent_source);
+            synchronized_one = true;
+        }
+    }
+    if (!synchronized_one)
+    {
+        sync_persistent_units_from_occt();
+    }
     update_object_list_item(changed_unit->inj.uuid,
                             changed_unit->inj.injector_data.name);
     if (recompute_dirty)
