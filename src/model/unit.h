@@ -158,6 +158,9 @@ public:
     QUuid array_parent_uuid;
     bool is_array_child = false;
     bool follows_array = true;
+    // Persistent nested sources can keep their own Array/Fill definition while
+    // optionally following the placement transform of their parent array.
+    bool follows_parent_transform = false;
     QUuid prototype_uuid;
     QList<QUuid> prototype_chain;
     // Stable placement path within the owning Array/Fill source. Runtime
@@ -198,6 +201,7 @@ public:
         , array_parent_uuid(other.array_parent_uuid)
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
+        , follows_parent_transform(other.follows_parent_transform)
         , prototype_uuid(other.prototype_uuid)
         , prototype_chain(other.prototype_chain)
         , array_instance_path(other.array_instance_path)
@@ -232,6 +236,7 @@ public:
         array_parent_uuid = other.array_parent_uuid;
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
+        follows_parent_transform = other.follows_parent_transform;
         prototype_uuid = other.prototype_uuid;
         prototype_chain = other.prototype_chain;
         array_instance_path = other.array_instance_path;
@@ -259,6 +264,7 @@ public:
         , array_parent_uuid(other.array_parent_uuid)
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
+        , follows_parent_transform(other.follows_parent_transform)
         , prototype_uuid(other.prototype_uuid)
         , prototype_chain(other.prototype_chain)
         , array_instance_path(std::move(other.array_instance_path))
@@ -293,6 +299,7 @@ public:
         array_parent_uuid = other.array_parent_uuid;
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
+        follows_parent_transform = other.follows_parent_transform;
         prototype_uuid = other.prototype_uuid;
         prototype_chain = other.prototype_chain;
         array_instance_path = std::move(other.array_instance_path);

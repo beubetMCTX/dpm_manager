@@ -251,6 +251,7 @@ public:
     void rebuild_unit_outputs(const QUuid &source_uuid,
                               QSet<QUuid> &visited);
     bool set_unit_follow_array(const QUuid &uuid, bool follow);
+    bool set_unit_parent_transform_follow(const QUuid &uuid, bool follow);
     bool set_unit_array_override_scope(const QUuid &uuid,
                                        bool override_physical,
                                        bool override_geometry);
@@ -378,6 +379,8 @@ private:
         const std::shared_ptr<Unit> &unit);
     void clear_unit_array_children(Unit &source);
     int rebuild_unit_array_layers(const QUuid &source_uuid);
+    bool synchronize_parent_following_unit(Unit &target,
+                                           const Unit &source);
     int create_unit_fill_internal(const QList<QUuid> &source_uuids,
                                   const UnitFillSpec &spec,
                                   bool record_history,

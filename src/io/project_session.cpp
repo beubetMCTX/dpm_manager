@@ -652,6 +652,7 @@ QJsonObject unit_to_json(const Unit &unit)
                   unit.array_parent_uuid.toString(QUuid::WithoutBraces));
     result.insert("is_array_child", unit.is_array_child);
     result.insert("follows_array", unit.follows_array);
+    result.insert("follows_parent_transform", unit.follows_parent_transform);
     if (!unit.prototype_uuid.isNull())
     {
         result.insert("prototype_uuid",
@@ -949,6 +950,13 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     unit->array_parent_uuid = QUuid(object.value("array_parent_uuid").toString());
     unit->is_array_child = object.value("is_array_child").toBool(false);
     unit->follows_array = object.value("follows_array").toBool(true);
+    if (object.contains("follows_parent_transform") &&
+        !object.value("follows_parent_transform").isBool())
+    {
+        return false;
+    }
+    unit->follows_parent_transform =
+        object.value("follows_parent_transform").toBool(false);
     unit->prototype_uuid = QUuid(object.value("prototype_uuid").toString());
     unit->prototype_chain.clear();
     if (!uuid_list_from_json_list(object.value("prototype_chain"),
@@ -1676,11 +1684,23 @@ bool validate(const Data &data, QString *error_message)
                           "Project contains an array child with an invalid parent reference.");
                 return false;
             }
+            if (unit.follows_parent_transform && unit.follows_array)
+            {
+                set_error(error_message,
+                          "Project contains an array child with conflicting follow modes.");
+                return false;
+            }
         }
         else if (!unit.array_parent_uuid.isNull())
         {
             set_error(error_message,
                       "Project contains a non-array unit with an array parent reference.");
+            return false;
+        }
+        if (!unit.is_array_child && unit.follows_parent_transform)
+        {
+            set_error(error_message,
+                      "Project contains a non-array unit with parent-transform inheritance.");
             return false;
         }
         if (!unit.array_instance_key.isEmpty() &&

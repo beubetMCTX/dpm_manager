@@ -5104,6 +5104,8 @@ void MainWindow::create_object_list_panel()
             m_3d_widget->unit_locked(uuid) ? "Unlock Movement"
                                             : "Lock Movement");
         QAction *follow_array_action = menu.addAction("Follow Array");
+        QAction *follow_parent_transform_action = menu.addAction(
+            "Follow Parent Array Transform");
         QAction *restore_inheritance_action = menu.addAction(
             "Restore Array Inheritance");
         const std::shared_ptr<Unit> selected_unit = m_3d_widget->unit_hash.value(uuid);
@@ -5139,6 +5141,15 @@ void MainWindow::create_object_list_panel()
                                          selected_unit->follows_array);
         follow_array_action->setEnabled(selected_unit != nullptr &&
                                         selected_unit->is_array_child);
+        follow_parent_transform_action->setCheckable(true);
+        follow_parent_transform_action->setChecked(
+            selected_unit != nullptr &&
+            selected_unit->follows_parent_transform);
+        follow_parent_transform_action->setEnabled(
+            selected_unit != nullptr && selected_unit->is_array_child &&
+            !selected_unit->follows_array &&
+            (selected_unit->has_array_spec || selected_unit->has_fill_spec ||
+             !selected_unit->assembly_child_uuids.isEmpty()));
         override_physical_action->setCheckable(true);
         override_physical_action->setChecked(override_physical);
         override_physical_action->setEnabled(
@@ -5253,6 +5264,18 @@ void MainWindow::create_object_list_panel()
             update_object_list_item(
                 uuid, m_3d_widget->unit_hash.value(uuid)
                            ->inj.injector_data.name);
+        }
+        else if (chosen_action == follow_parent_transform_action)
+        {
+            const std::shared_ptr<Unit> current =
+                m_3d_widget->unit_hash.value(uuid);
+            if (current != nullptr &&
+                m_3d_widget->set_unit_parent_transform_follow(
+                    uuid, !current->follows_parent_transform))
+            {
+                update_object_list_panel();
+                mark_project_dirty();
+            }
         }
         else if (chosen_action == array_action)
         {
@@ -6358,6 +6381,10 @@ QString MainWindow::object_list_unit_display_name(
         name += unit->follows_array
             ? QStringLiteral(" [Generated]")
             : QStringLiteral(" [Independent Source]");
+        if (unit->follows_parent_transform)
+        {
+            name += QStringLiteral(" [Follows Parent Transform]");
+        }
     }
     if (unit->has_array_spec)
     {

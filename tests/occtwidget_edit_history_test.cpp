@@ -312,6 +312,31 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const QVector3D nested_source_position_before =
+        widget.unit_hash.value(leaf_child_uuid)->inj.injector_data.pos;
+    if (!check(widget.set_unit_parent_transform_follow(leaf_child_uuid, true),
+               "Nested array source should be able to follow parent transform") ||
+        !check(widget.unit_hash.value(leaf_child_uuid)->follows_parent_transform,
+               "Parent-transform follow flag should be enabled"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_position_by_uuid(
+                   uuid, QVector3D(20.0f, 0.0f, 0.0f)),
+               "Moving the outer array source should succeed") ||
+        !check(widget.unit_hash.value(leaf_child_uuid) != nullptr &&
+                   widget.unit_hash.value(leaf_child_uuid)->inj.injector_data.pos !=
+                       nested_source_position_before,
+               "Following nested source should receive parent placement updates"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_parent_transform_follow(leaf_child_uuid, false),
+               "Nested array source should be detachable from parent transform"))
+    {
+        return 1;
+    }
+
     UnitArraySpec second_leaf_array;
     second_leaf_array.type = UnitArrayType::Rotational;
     second_leaf_array.count = 3;

@@ -949,6 +949,7 @@ int main(int argc, char *argv[])
     nested_array_source.type = array;
     nested_array_source.is_array_child = true;
     nested_array_source.follows_array = false;
+    nested_array_source.follows_parent_transform = true;
     nested_array_source.array_parent_uuid = nested_array_root.inj.uuid;
     nested_array_source.prototype_uuid = nested_array_root.inj.uuid;
     nested_array_source.prototype_chain = {nested_array_root.inj.uuid};
@@ -974,6 +975,7 @@ int main(int argc, char *argv[])
                    restored_nested_array.units.at(1).array_parent_uuid ==
                        nested_array_root.inj.uuid &&
                    !restored_nested_array.units.at(1).follows_array &&
+                   restored_nested_array.units.at(1).follows_parent_transform &&
                    restored_nested_array.units.at(1).prototype_uuid ==
                        nested_array_root.inj.uuid &&
                    restored_nested_array.units.at(1).prototype_chain ==
