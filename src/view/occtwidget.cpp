@@ -8,6 +8,7 @@
 #include <QQuaternion>
 #include <QColor>
 #include <gp_Quaternion.hxx>
+#include <gp_Ax3.hxx>
 
 #include <algorithm>
 #include <array>
@@ -43,6 +44,50 @@ QVector3D snap_translation_delta(const QVector3D &position,
         return delta;
     }
     return snap_position(position + delta, increment) - position;
+}
+
+QVector3D stable_frame_x_direction(const QVector3D &direction)
+{
+    const QVector3D z = direction.lengthSquared() > 1.0e-12f
+                            ? direction.normalized()
+                            : QVector3D(1.0f, 0.0f, 0.0f);
+    QVector3D reference = std::abs(QVector3D::dotProduct(
+                                       z, QVector3D(0.0f, 0.0f, 1.0f))) > 0.95f
+                              ? QVector3D(0.0f, 1.0f, 0.0f)
+                              : QVector3D(0.0f, 0.0f, 1.0f);
+    QVector3D x = QVector3D::crossProduct(reference, z);
+    if (x.lengthSquared() <= 1.0e-12f)
+    {
+        x = QVector3D::crossProduct(QVector3D(0.0f, 1.0f, 0.0f), z);
+    }
+    return x.lengthSquared() > 1.0e-12f ? x.normalized()
+                                        : QVector3D(0.0f, 1.0f, 0.0f);
+}
+
+gp_Trsf parent_frame_delta(const QVector3D &old_origin,
+                           const QVector3D &old_direction,
+                           const QVector3D &new_origin,
+                           const QVector3D &new_direction)
+{
+    const QVector3D old_z = old_direction.lengthSquared() > 1.0e-12f
+                                ? old_direction.normalized()
+                                : QVector3D(1.0f, 0.0f, 0.0f);
+    const QVector3D new_z = new_direction.lengthSquared() > 1.0e-12f
+                                ? new_direction.normalized()
+                                : old_z;
+    const QVector3D old_x = stable_frame_x_direction(old_z);
+    const QVector3D new_x = stable_frame_x_direction(new_z);
+    const gp_Ax3 old_frame(
+        gp_Pnt(old_origin.x(), old_origin.y(), old_origin.z()),
+        gp_Dir(old_z.x(), old_z.y(), old_z.z()),
+        gp_Dir(old_x.x(), old_x.y(), old_x.z()));
+    const gp_Ax3 new_frame(
+        gp_Pnt(new_origin.x(), new_origin.y(), new_origin.z()),
+        gp_Dir(new_z.x(), new_z.y(), new_z.z()),
+        gp_Dir(new_x.x(), new_x.y(), new_x.z()));
+    gp_Trsf result;
+    result.SetTransformation(new_frame, old_frame);
+    return result;
 }
 
 QColor placeholder_color_for_species(const QString &species_name)
@@ -3431,58 +3476,84 @@ bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
     return true;
 }
 
-bool OCCTWidget::synchronize_parent_following_unit(Unit &target,
-                                                   const Unit &source)
+bool OCCTWidget::apply_parent_follow_transform_to_tree(
+    Unit &root, const gp_Trsf &transformation)
 {
-    const QString preserved_name = target.inj.injector_data.name;
-    target.inj.injector_data = source.inj.injector_data;
-    if (!preserved_name.trimmed().isEmpty())
-    {
-        target.inj.injector_data.name = preserved_name;
-    }
-
-    if (!target.inj.create_injector())
+    apply_transform_to_injector(root.inj.injector_data, transformation);
+    if (!root.inj.create_injector())
     {
         return false;
     }
-    if (!target.ais_display.IsNull())
+    if (!root.ais_display.IsNull())
     {
-        target.ais_display->Set(target.inj.shape);
-        target.ais_display->SetColor(color_for_injector(target.inj.injector_data));
-        target.ais_display->SetTransparency(
-            configured_injector_transparency(target.inj.injector_data));
+        root.ais_display->SetLocalTransformation(gp_Trsf());
+        root.ais_display->Set(root.inj.shape);
+        root.ais_display->SetColor(color_for_injector(root.inj.injector_data));
+        root.ais_display->SetTransparency(
+            configured_injector_transparency(root.inj.injector_data));
         if (!m_context.IsNull())
         {
-            m_context->Redisplay(target.ais_display, Standard_False);
+            m_context->Redisplay(root.ais_display, Standard_False);
         }
+    }
+    update_unit_local_coordinate_frame(root.inj.uuid);
+    for (const std::shared_ptr<Unit> &child : root.child_units)
+    {
+        if (child != nullptr &&
+            !apply_parent_follow_transform_to_tree(*child, transformation))
+        {
+            return false;
+        }
+    }
+    if (!root.assembly_parent_uuid.isNull())
+    {
+        const std::shared_ptr<Unit> parent =
+            unit_hash.value(root.assembly_parent_uuid);
+        if (parent != nullptr)
+        {
+            root.assembly_local_position =
+                root.inj.injector_data.pos - parent->inj.injector_data.pos;
+        }
+    }
+    return true;
+}
+
+bool OCCTWidget::synchronize_parent_following_unit(Unit &target,
+                                                   const Unit &source)
+{
+    const QVector3D source_origin = injector_frame_origin(
+        source.inj.injector_data);
+    const QVector3D source_direction = injector_frame_direction(
+        source.inj.injector_data);
+    if (!target.parent_follow_reference_valid)
+    {
+        target.parent_follow_reference_origin = source_origin;
+        target.parent_follow_reference_direction = source_direction;
+        target.parent_follow_reference_valid = true;
+    }
+    else
+    {
+        const gp_Trsf transformation = parent_frame_delta(
+            target.parent_follow_reference_origin,
+            target.parent_follow_reference_direction,
+            source_origin,
+            source_direction);
+        if (!apply_parent_follow_transform_to_tree(target, transformation))
+        {
+            return false;
+        }
+        target.parent_follow_reference_origin = source_origin;
+        target.parent_follow_reference_direction = source_direction;
     }
 
-    // Composite nested sources keep their own child tree. Synchronize matching
-    // assembly members, but never copy the nested source's array outputs.
-    if (target.assembly_child_uuids.size() != source.assembly_child_uuids.size())
+    if (target.child_units.isEmpty())
     {
-        return true;
-    }
-    const auto find_child = [](const Unit &parent, const QUuid &uuid)
-        -> std::shared_ptr<Unit>
-    {
-        for (const std::shared_ptr<Unit> &child : parent.child_units)
+        if (target.has_array_spec &&
+            rebuild_unit_array_layers(target.inj.uuid) <= 0)
         {
-            if (child != nullptr && child->inj.uuid == uuid)
-            {
-                return child;
-            }
+            return false;
         }
-        return nullptr;
-    };
-    for (int index = 0; index < target.assembly_child_uuids.size(); ++index)
-    {
-        const std::shared_ptr<Unit> target_child =
-            unit_hash.value(target.assembly_child_uuids.at(index));
-        const std::shared_ptr<Unit> source_child = find_child(
-            source, source.assembly_child_uuids.at(index));
-        if (target_child == nullptr || source_child == nullptr ||
-            !synchronize_parent_following_unit(*target_child, *source_child))
+        if (target.has_fill_spec && rebuild_unit_fill(target.inj.uuid) <= 0)
         {
             return false;
         }
@@ -3554,6 +3625,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         unit->is_array_child = true;
         unit->follows_array = true;
         unit->follows_parent_transform = false;
+        unit->parent_follow_reference_valid = false;
         unit->array_layer = layer;
         const int spec_index = qBound(0, layer - 1, specs.size() - 1);
         unit->array_layer_uuid = specs.at(spec_index).layer_uuid;
@@ -3596,6 +3668,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         pattern->is_array_child = false;
         pattern->follows_array = true;
         pattern->follows_parent_transform = false;
+        pattern->parent_follow_reference_valid = false;
         pattern->array_layer = 0;
         pattern->array_layer_uuid = QUuid();
         pattern->prototype_uuid = QUuid();
@@ -3803,6 +3876,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
             pattern_child->prototype_uuid = QUuid();
             pattern_child->prototype_chain.clear();
             pattern_child->follows_parent_transform = false;
+            pattern_child->parent_follow_reference_valid = false;
             pattern_child->assembly_parent_uuid = pattern->inj.uuid;
             pattern->assembly_child_uuids.append(pattern_child->inj.uuid);
             pattern->child_units.append(pattern_child);
@@ -4589,6 +4663,7 @@ bool OCCTWidget::promote_derived_unit_to_persistent(
     // array rule.
     unit->follows_array = false;
     unit->follows_parent_transform = false;
+    unit->parent_follow_reference_valid = false;
     if (unit->prototype_uuid.isNull())
     {
         unit->prototype_uuid = unit->array_parent_uuid;
@@ -4856,6 +4931,7 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
     if (follow)
     {
         unit->follows_parent_transform = false;
+        unit->parent_follow_reference_valid = false;
     }
     emit unit_data_updated(unit.get());
     emit unit_display_list_changed();
@@ -4883,6 +4959,7 @@ bool OCCTWidget::set_unit_parent_transform_follow(const QUuid &uuid,
 
     const QList<Unit> before = capture_persistent_units();
     unit->follows_parent_transform = follow;
+    unit->parent_follow_reference_valid = false;
     if (follow)
     {
         QSet<QUuid> visited;

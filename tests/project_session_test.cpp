@@ -362,8 +362,8 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 8,
-               "New project sessions should use schema version 8") ||
+    if (!check(saved_root.value("schema_version").toInt() == 9,
+               "New project sessions should use schema version 9") ||
         !check(saved_root.value("unit_display_states").toArray().size() == 1,
                "Unit display state should be serialized") ||
         !check(saved_root.value("derived_unit_display_states").toArray().size() == 1,
@@ -950,6 +950,11 @@ int main(int argc, char *argv[])
     nested_array_source.is_array_child = true;
     nested_array_source.follows_array = false;
     nested_array_source.follows_parent_transform = true;
+    nested_array_source.parent_follow_reference_origin =
+        QVector3D(2.0f, 3.0f, 4.0f);
+    nested_array_source.parent_follow_reference_direction =
+        QVector3D(0.0f, 1.0f, 0.0f);
+    nested_array_source.parent_follow_reference_valid = true;
     nested_array_source.array_parent_uuid = nested_array_root.inj.uuid;
     nested_array_source.prototype_uuid = nested_array_root.inj.uuid;
     nested_array_source.prototype_chain = {nested_array_root.inj.uuid};
@@ -976,6 +981,11 @@ int main(int argc, char *argv[])
                        nested_array_root.inj.uuid &&
                    !restored_nested_array.units.at(1).follows_array &&
                    restored_nested_array.units.at(1).follows_parent_transform &&
+                   restored_nested_array.units.at(1).parent_follow_reference_valid &&
+                   restored_nested_array.units.at(1).parent_follow_reference_origin ==
+                       QVector3D(2.0f, 3.0f, 4.0f) &&
+                   restored_nested_array.units.at(1).parent_follow_reference_direction ==
+                       QVector3D(0.0f, 1.0f, 0.0f) &&
                    restored_nested_array.units.at(1).prototype_uuid ==
                        nested_array_root.inj.uuid &&
                    restored_nested_array.units.at(1).prototype_chain ==

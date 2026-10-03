@@ -161,6 +161,9 @@ public:
     // Persistent nested sources can keep their own Array/Fill definition while
     // optionally following the placement transform of their parent array.
     bool follows_parent_transform = false;
+    QVector3D parent_follow_reference_origin;
+    QVector3D parent_follow_reference_direction;
+    bool parent_follow_reference_valid = false;
     QUuid prototype_uuid;
     QList<QUuid> prototype_chain;
     // Stable placement path within the owning Array/Fill source. Runtime
@@ -202,6 +205,9 @@ public:
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
         , follows_parent_transform(other.follows_parent_transform)
+        , parent_follow_reference_origin(other.parent_follow_reference_origin)
+        , parent_follow_reference_direction(other.parent_follow_reference_direction)
+        , parent_follow_reference_valid(other.parent_follow_reference_valid)
         , prototype_uuid(other.prototype_uuid)
         , prototype_chain(other.prototype_chain)
         , array_instance_path(other.array_instance_path)
@@ -237,6 +243,9 @@ public:
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
         follows_parent_transform = other.follows_parent_transform;
+        parent_follow_reference_origin = other.parent_follow_reference_origin;
+        parent_follow_reference_direction = other.parent_follow_reference_direction;
+        parent_follow_reference_valid = other.parent_follow_reference_valid;
         prototype_uuid = other.prototype_uuid;
         prototype_chain = other.prototype_chain;
         array_instance_path = other.array_instance_path;
@@ -265,6 +274,9 @@ public:
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
         , follows_parent_transform(other.follows_parent_transform)
+        , parent_follow_reference_origin(other.parent_follow_reference_origin)
+        , parent_follow_reference_direction(other.parent_follow_reference_direction)
+        , parent_follow_reference_valid(other.parent_follow_reference_valid)
         , prototype_uuid(other.prototype_uuid)
         , prototype_chain(other.prototype_chain)
         , array_instance_path(std::move(other.array_instance_path))
@@ -300,6 +312,9 @@ public:
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
         follows_parent_transform = other.follows_parent_transform;
+        parent_follow_reference_origin = other.parent_follow_reference_origin;
+        parent_follow_reference_direction = other.parent_follow_reference_direction;
+        parent_follow_reference_valid = other.parent_follow_reference_valid;
         prototype_uuid = other.prototype_uuid;
         prototype_chain = other.prototype_chain;
         array_instance_path = std::move(other.array_instance_path);

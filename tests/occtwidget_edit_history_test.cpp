@@ -314,6 +314,8 @@ int main(int argc, char *argv[])
 
     const QVector3D nested_source_position_before =
         widget.unit_hash.value(leaf_child_uuid)->inj.injector_data.pos;
+    const QVector3D nested_source_direction_before =
+        widget.unit_hash.value(leaf_child_uuid)->inj.injector_data.vel;
     if (!check(widget.set_unit_parent_transform_follow(leaf_child_uuid, true),
                "Nested array source should be able to follow parent transform") ||
         !check(widget.unit_hash.value(leaf_child_uuid)->follows_parent_transform,
@@ -327,7 +329,10 @@ int main(int argc, char *argv[])
         !check(widget.unit_hash.value(leaf_child_uuid) != nullptr &&
                    widget.unit_hash.value(leaf_child_uuid)->inj.injector_data.pos !=
                        nested_source_position_before,
-               "Following nested source should receive parent placement updates"))
+               "Following nested source should receive parent placement updates") ||
+        !check(widget.unit_hash.value(leaf_child_uuid)->inj.injector_data.vel ==
+                   nested_source_direction_before,
+               "Parent transform follow should preserve nested source direction"))
     {
         return 1;
     }

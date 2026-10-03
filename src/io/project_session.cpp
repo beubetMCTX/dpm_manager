@@ -21,7 +21,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 8;
+constexpr int kSessionSchemaVersion = 9;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -653,6 +653,15 @@ QJsonObject unit_to_json(const Unit &unit)
     result.insert("is_array_child", unit.is_array_child);
     result.insert("follows_array", unit.follows_array);
     result.insert("follows_parent_transform", unit.follows_parent_transform);
+    result.insert("parent_follow_reference_valid",
+                  unit.parent_follow_reference_valid);
+    if (unit.parent_follow_reference_valid)
+    {
+        result.insert("parent_follow_reference_origin",
+                      vector_to_json(unit.parent_follow_reference_origin));
+        result.insert("parent_follow_reference_direction",
+                      vector_to_json(unit.parent_follow_reference_direction));
+    }
     if (!unit.prototype_uuid.isNull())
     {
         result.insert("prototype_uuid",
@@ -957,6 +966,28 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
     }
     unit->follows_parent_transform =
         object.value("follows_parent_transform").toBool(false);
+    if (object.contains("parent_follow_reference_valid") &&
+        !object.value("parent_follow_reference_valid").isBool())
+    {
+        return false;
+    }
+    unit->parent_follow_reference_valid =
+        object.value("parent_follow_reference_valid").toBool(false);
+    if (unit->parent_follow_reference_valid)
+    {
+        if (!vector_from_json(object.value("parent_follow_reference_origin"),
+                              &unit->parent_follow_reference_origin) ||
+            !vector_from_json(object.value("parent_follow_reference_direction"),
+                              &unit->parent_follow_reference_direction))
+        {
+            return false;
+        }
+    }
+    else
+    {
+        unit->parent_follow_reference_origin = QVector3D();
+        unit->parent_follow_reference_direction = QVector3D();
+    }
     unit->prototype_uuid = QUuid(object.value("prototype_uuid").toString());
     unit->prototype_chain.clear();
     if (!uuid_list_from_json_list(object.value("prototype_chain"),
@@ -1688,6 +1719,15 @@ bool validate(const Data &data, QString *error_message)
             {
                 set_error(error_message,
                           "Project contains an array child with conflicting follow modes.");
+                return false;
+            }
+            if (unit.parent_follow_reference_valid &&
+                (!unit.follows_parent_transform ||
+                 unit.parent_follow_reference_direction.lengthSquared() <=
+                     1.0e-12f))
+            {
+                set_error(error_message,
+                          "Project contains an invalid parent-transform reference.");
                 return false;
             }
         }
