@@ -1,5 +1,14 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Persist Complete Visual Preferences
+
+- Project schema now stores injector/reference transparency, translation and
+  rotation snap increments, and both local-axis visibility switches.
+- Loading a project reapplies these preferences to the live OCCT widget before
+  rebuilding the scene; older sessions retain default values for omitted keys.
+- Added project round-trip coverage for all visual and snap fields. Release
+  build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Harden Release Deployment
 
 - Release packaging now defaults dependency collection to the selected Release

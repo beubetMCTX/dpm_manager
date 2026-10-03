@@ -107,6 +107,12 @@ int main(int argc, char *argv[])
     source.reference_geometry.selected_face_x_direction = QVector3D(1.0f, 0.0f, 0.0f);
     source.unit_preferences.length = "cm";
     source.unit_preferences.angle = "rad";
+    source.unit_preferences.injector_transparency = 0.35;
+    source.unit_preferences.reference_geometry_transparency = 0.65;
+    source.unit_preferences.translation_snap = 0.0025;
+    source.unit_preferences.rotation_snap = 0.125;
+    source.unit_preferences.show_injector_local_axes = false;
+    source.unit_preferences.show_reference_local_axes = false;
     source.has_unit_preferences = true;
 
     source.units.first().inj.injector_data.material = "water";
@@ -448,6 +454,13 @@ int main(int argc, char *argv[])
                "Array source unit type did not round-trip") ||
         !check(restored.units.first().inj.injector_data.name == "session-test",
                "Unit name did not round-trip") ||
+        !check(std::abs(restored.unit_preferences.injector_transparency - 0.35) < 1.0e-12 &&
+                   std::abs(restored.unit_preferences.reference_geometry_transparency - 0.65) < 1.0e-12 &&
+                   std::abs(restored.unit_preferences.translation_snap - 0.0025) < 1.0e-12 &&
+                   std::abs(restored.unit_preferences.rotation_snap - 0.125) < 1.0e-12 &&
+                   !restored.unit_preferences.show_injector_local_axes &&
+                   !restored.unit_preferences.show_reference_local_axes,
+               "Visual and snap preferences did not round-trip") ||
         !check(restored.units.first().inj.injector_data.pos == QVector3D(1.0f, 2.0f, 3.0f),
                "Unit position did not round-trip") ||
         !check(restored.units.first().inj.injector_data.cone_angle == 37.0,

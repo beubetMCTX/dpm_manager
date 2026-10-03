@@ -1364,6 +1364,18 @@ QJsonObject data_to_json(const project_session::Data &data,
         unit_preferences.insert("time", data.unit_preferences.time);
         unit_preferences.insert("pressure", data.unit_preferences.pressure);
         unit_preferences.insert("temperature", data.unit_preferences.temperature);
+        unit_preferences.insert("injector_transparency",
+                                data.unit_preferences.injector_transparency);
+        unit_preferences.insert("reference_geometry_transparency",
+                                data.unit_preferences.reference_geometry_transparency);
+        unit_preferences.insert("translation_snap",
+                                data.unit_preferences.translation_snap);
+        unit_preferences.insert("rotation_snap",
+                                data.unit_preferences.rotation_snap);
+        unit_preferences.insert("show_injector_local_axes",
+                                data.unit_preferences.show_injector_local_axes);
+        unit_preferences.insert("show_reference_local_axes",
+                                data.unit_preferences.show_reference_local_axes);
         root.insert("unit_preferences", unit_preferences);
     }
 
@@ -2279,6 +2291,38 @@ bool load(const QString &file_path, Data *data, QString *error_message)
             *target = value.toString();
             return true;
         };
+        const auto read_double_preference = [&unit_preferences](const char *key,
+                                                                  double *target)
+        {
+            const QJsonValue value = unit_preferences.value(
+                QString::fromLatin1(key));
+            if (value.isUndefined())
+            {
+                return true;
+            }
+            if (!value.isDouble() || !std::isfinite(value.toDouble()))
+            {
+                return false;
+            }
+            *target = value.toDouble();
+            return true;
+        };
+        const auto read_bool_preference = [&unit_preferences](const char *key,
+                                                                bool *target)
+        {
+            const QJsonValue value = unit_preferences.value(
+                QString::fromLatin1(key));
+            if (value.isUndefined())
+            {
+                return true;
+            }
+            if (!value.isBool())
+            {
+                return false;
+            }
+            *target = value.toBool();
+            return true;
+        };
         if (!read_preference("length", &parsed.unit_preferences.length) ||
             !read_preference("angle", &parsed.unit_preferences.angle) ||
             !read_preference("velocity", &parsed.unit_preferences.velocity) ||
@@ -2286,7 +2330,19 @@ bool load(const QString &file_path, Data *data, QString *error_message)
             !read_preference("mass_flow", &parsed.unit_preferences.mass_flow) ||
             !read_preference("time", &parsed.unit_preferences.time) ||
             !read_preference("pressure", &parsed.unit_preferences.pressure) ||
-            !read_preference("temperature", &parsed.unit_preferences.temperature))
+            !read_preference("temperature", &parsed.unit_preferences.temperature) ||
+            !read_double_preference("injector_transparency",
+                                    &parsed.unit_preferences.injector_transparency) ||
+            !read_double_preference("reference_geometry_transparency",
+                                    &parsed.unit_preferences.reference_geometry_transparency) ||
+            !read_double_preference("translation_snap",
+                                    &parsed.unit_preferences.translation_snap) ||
+            !read_double_preference("rotation_snap",
+                                    &parsed.unit_preferences.rotation_snap) ||
+            !read_bool_preference("show_injector_local_axes",
+                                  &parsed.unit_preferences.show_injector_local_axes) ||
+            !read_bool_preference("show_reference_local_axes",
+                                  &parsed.unit_preferences.show_reference_local_axes))
         {
             set_error(error_message,
                       "Project session contains a unit preference with an invalid type.");

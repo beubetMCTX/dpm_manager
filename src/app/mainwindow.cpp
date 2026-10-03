@@ -1291,6 +1291,7 @@ bool MainWindow::load_project_session(const QString &file_path)
     {
         UnitSystem::set_active_preferences(data.unit_preferences);
     }
+    m_3d_widget->apply_visual_preferences(UnitSystem::active_preferences());
     m_3d_widget->discard_auxiliary_dialogs();
     units = data.units;
     m_3d_widget->display_units(units, true);
