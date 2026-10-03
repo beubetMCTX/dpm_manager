@@ -232,9 +232,12 @@ public:
     bool set_unit_array_override_scope(const QUuid &uuid,
                                        bool override_physical,
                                        bool override_geometry);
+    bool set_unit_array_override_fields(const QUuid &uuid,
+                                        quint32 override_fields);
     bool unit_array_override_scope(const QUuid &uuid,
                                    bool *override_physical,
                                    bool *override_geometry) const;
+    quint32 unit_array_override_fields(const QUuid &uuid) const;
     void capture_unit_array_override(Unit *unit);
     bool restore_unit_array_inheritance(const QUuid &uuid);
     bool has_copied_unit() const { return m_copied_unit.has_value(); }
@@ -335,6 +338,8 @@ private:
     Unit* get_unit(Handle(AIS_Shape) shape);
     void schedule_unit_visual_refresh(Unit *unit);
     bool refresh_unit_visual(Unit *unit);
+    std::shared_ptr<Unit> resolve_effective_edit_unit_for_fields(
+        const QUuid &uuid, quint32 requested_fields) const;
     std::shared_ptr<Unit> resolve_effective_edit_unit_for_scope(
         const QUuid &uuid, bool geometry_scope) const;
     UnitArrayOverride *find_array_override(Unit &source,

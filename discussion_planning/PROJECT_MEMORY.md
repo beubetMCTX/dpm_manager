@@ -22,6 +22,9 @@
   normalize state before emitting data or geometry updates.
 - Child dialogs use guarded lifetime handling to avoid shutdown crashes.
 - Release build and 12 focused CTest regressions currently pass.
+- Array inheritance now supports schema-v5 property-level masks for material/
+  species, physical properties, position, direction, particle size/distribution,
+  and complete geometry; schema-v4 boolean overrides remain compatible.
 
 ## Planned Injector Arrays
 

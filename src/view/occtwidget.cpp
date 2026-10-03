@@ -104,6 +104,90 @@ void copy_injector_geometry_fields(Injector &target, const Injector &source)
     target.posu = source.posu;
 }
 
+void copy_injector_position_fields(Injector &target, const Injector &source)
+{
+    target.pos = source.pos;
+    target.pos2 = source.pos2;
+    target.ff_center = source.ff_center;
+    target.ff_virtual_origin = source.ff_virtual_origin;
+    target.volume_bgeom_min = source.volume_bgeom_min;
+    target.volume_bgeom_max = source.volume_bgeom_max;
+    target.posr = source.posr;
+    target.posu = source.posu;
+}
+
+void copy_injector_direction_fields(Injector &target, const Injector &source)
+{
+    target.single_direction_mode = source.single_direction_mode;
+    target.single_pitch_degrees = source.single_pitch_degrees;
+    target.single_yaw_degrees = source.single_yaw_degrees;
+    target.single_target_hitpoint = source.single_target_hitpoint;
+    target.single_target_scope = source.single_target_scope;
+    target.ff_normal = source.ff_normal;
+    target.vel = source.vel;
+    target.vel2 = source.vel2;
+    target.ang_vel = source.ang_vel;
+    target.ang_vel2 = source.ang_vel2;
+    target.atomizer_axis = source.atomizer_axis;
+    target.axis = source.axis;
+    target.vel_mag = source.vel_mag;
+    target.ang_vel_mag = source.ang_vel_mag;
+    target.swirl_frac = source.swirl_frac;
+}
+
+void copy_injector_particle_size_fields(Injector &target,
+                                        const Injector &source)
+{
+    target.diameter = source.diameter;
+    target.diameter2 = source.diameter2;
+    target.inner_diameter = source.inner_diameter;
+    target.outer_diameter = source.outer_diameter;
+    target.half_angle = source.half_angle;
+    target.plain_length = source.plain_length;
+    target.plain_corner_size = source.plain_corner_size;
+    target.plain_const_a = source.plain_const_a;
+    target.ff_oriface_width = source.ff_oriface_width;
+    target.phi_start = source.phi_start;
+    target.phi_stop = source.phi_stop;
+    target.sheet_const = source.sheet_const;
+    target.lig_const = source.lig_const;
+    target.effer_const = source.effer_const;
+    target.effer_half_angle_max = source.effer_half_angle_max;
+    target.ff_sheet_const = source.ff_sheet_const;
+    target.atomizer_disp_angle = source.atomizer_disp_angle;
+    target.cone_angle = source.cone_angle;
+    target.inner_radius = source.inner_radius;
+    target.radius = source.radius;
+    target.volume_bgeom_radius = source.volume_bgeom_radius;
+    target.volume_bgeom_viconeangle = source.volume_bgeom_viconeangle;
+    target.stagger_radius = source.stagger_radius;
+    target.rr_disturb = source.rr_disturb;
+    target.rr_uniform_ln_d = source.rr_uniform_ln_d;
+    target.rr_min = source.rr_min;
+    target.rr_max = source.rr_max;
+    target.rr_mean = source.rr_mean;
+    target.rr_spread = source.rr_spread;
+    target.rr_numdia = source.rr_numdia;
+    target.tabulated_diam_dist = source.tabulated_diam_dist;
+    target.tabulated_diam_table_name = source.tabulated_diam_table_name;
+    target.tabulated_diam_ref_diam_col = source.tabulated_diam_ref_diam_col;
+    target.tabulated_diam_num_frac_col = source.tabulated_diam_num_frac_col;
+    target.tabulated_diam_mas_frac_col = source.tabulated_diam_mas_frac_col;
+    target.tabulated_diam_num_frac_accum = source.tabulated_diam_num_frac_accum;
+    target.tabulated_diam_mas_frac_accum = source.tabulated_diam_mas_frac_accum;
+}
+
+void copy_injector_material_species_fields(Injector &target,
+                                           const Injector &source)
+{
+    target.material = source.material;
+    target.devolatilizing_species = source.devolatilizing_species;
+    target.evaporating_species = source.evaporating_species;
+    target.oxidizing_species = source.oxidizing_species;
+    target.product_species = source.product_species;
+    target.evaporating_material = source.evaporating_material;
+}
+
 void apply_physical_injector_snapshot(Injector &target,
                                       const Injector &snapshot)
 {
@@ -119,6 +203,40 @@ void apply_geometry_injector_snapshot(Injector &target,
                                       const Injector &snapshot)
 {
     copy_injector_geometry_fields(target, snapshot);
+}
+
+void apply_unit_array_override_fields(Injector &target,
+                                      const Injector &snapshot,
+                                      quint32 override_fields)
+{
+    if (override_fields & UnitArrayOverridePhysical)
+    {
+        apply_physical_injector_snapshot(target, snapshot);
+    }
+    else if (override_fields & UnitArrayOverrideMaterialSpecies)
+    {
+        copy_injector_material_species_fields(target, snapshot);
+    }
+
+    if (override_fields & UnitArrayOverrideGeometry)
+    {
+        apply_geometry_injector_snapshot(target, snapshot);
+    }
+    else
+    {
+        if (override_fields & UnitArrayOverridePosition)
+        {
+            copy_injector_position_fields(target, snapshot);
+        }
+        if (override_fields & UnitArrayOverrideDirection)
+        {
+            copy_injector_direction_fields(target, snapshot);
+        }
+        if (override_fields & UnitArrayOverrideParticleSize)
+        {
+            copy_injector_particle_size_fields(target, snapshot);
+        }
+    }
 }
 
 QVector3D to_qvector3d(const gp_Pnt &point)
@@ -1677,6 +1795,14 @@ void OCCTWidget::remove_array_override(Unit &unit)
 std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit_for_scope(
     const QUuid &uuid, bool geometry_scope) const
 {
+    return resolve_effective_edit_unit_for_fields(
+        uuid, geometry_scope ? unit_array_geometry_override_fields()
+                             : unit_array_physical_override_fields());
+}
+
+std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit_for_fields(
+    const QUuid &uuid, quint32 requested_fields) const
+{
     std::shared_ptr<Unit> current = unit_hash.value(uuid);
     QSet<QUuid> visited;
     while (current != nullptr && current->is_array_child &&
@@ -1691,9 +1817,18 @@ std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit_for_scope(
                 ? nullptr
                 : find_array_override(*parent, current->array_instance_path,
                                       current->array_instance_key);
-        const bool is_overridden = array_override != nullptr &&
-            (geometry_scope ? array_override->override_geometry
-                            : array_override->override_physical);
+        quint32 effective_fields = UnitArrayOverrideNone;
+        if (array_override != nullptr)
+        {
+            effective_fields =
+                effective_unit_array_override_fields(*array_override);
+            if ((effective_fields & UnitArrayOverrideGeometry) != 0)
+            {
+                effective_fields |= unit_array_geometry_override_fields();
+            }
+        }
+        const bool is_overridden =
+            (effective_fields & requested_fields) != UnitArrayOverrideNone;
         if (is_overridden)
         {
             return current;
@@ -1756,23 +1891,19 @@ bool OCCTWidget::apply_array_overrides_to_tree(Unit &root,
     const UnitArrayOverride *array_override =
         find_array_override(*override_source, root.array_instance_path,
                             root.array_instance_key);
-    if (array_override != nullptr &&
-        (array_override->override_physical ||
-         array_override->override_geometry))
+    if (array_override != nullptr)
     {
-        if (array_override->override_physical)
+        const quint32 override_fields =
+            effective_unit_array_override_fields(*array_override);
+        if (override_fields != UnitArrayOverrideNone)
         {
-            apply_physical_injector_snapshot(
-                root.inj.injector_data, array_override->snapshot);
-        }
-        if (array_override->override_geometry)
-        {
-            apply_geometry_injector_snapshot(
-                root.inj.injector_data, array_override->snapshot);
-        }
-        if (!root.inj.create_injector())
-        {
-            return false;
+            apply_unit_array_override_fields(root.inj.injector_data,
+                                             array_override->snapshot,
+                                             override_fields);
+            if (!root.inj.create_injector())
+            {
+                return false;
+            }
         }
     }
 
@@ -1789,14 +1920,16 @@ bool OCCTWidget::apply_array_overrides_to_tree(Unit &root,
 QVector3D OCCTWidget::unit_position_by_uuid(const QUuid &uuid) const
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverridePosition);
     return unit != nullptr ? unit->inj.injector_data.pos : QVector3D();
 }
 
 QVector3D OCCTWidget::unit_direction_by_uuid(const QUuid &uuid) const
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     return unit != nullptr ? injector_frame_direction(unit->inj.injector_data)
                            : QVector3D();
 }
@@ -1805,7 +1938,8 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
                                              const QVector3D &direction)
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         !std::isfinite(direction.x()) || !std::isfinite(direction.y()) ||
@@ -1870,7 +2004,8 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
     const QUuid &uuid, Single_Direction_Mode mode)
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         unit->inj.injector_data.injection_type != single)
@@ -1914,7 +2049,8 @@ bool OCCTWidget::unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                                double *yaw_degrees) const
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || pitch_degrees == nullptr || yaw_degrees == nullptr ||
         unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Pitch_Yaw)
@@ -1931,7 +2067,8 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                                    double yaw_degrees)
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         !std::isfinite(pitch_degrees) || !std::isfinite(yaw_degrees) ||
@@ -1975,7 +2112,8 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
 QVector3D OCCTWidget::unit_single_target_by_uuid(const QUuid &uuid) const
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint)
     {
@@ -1988,7 +2126,8 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
                                                 const QVector3D &target)
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         !std::isfinite(target.x()) || !std::isfinite(target.y()) ||
@@ -2031,7 +2170,8 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
 Single_Target_Scope OCCTWidget::unit_single_target_scope_by_uuid(const QUuid &uuid) const
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint)
     {
@@ -2044,7 +2184,8 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
                                                       Single_Target_Scope scope)
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverrideDirection);
     if (unit == nullptr || unit->type == Assebly ||
         unit_locked(unit->inj.uuid) ||
         unit->inj.injector_data.injection_type != single ||
@@ -2087,7 +2228,8 @@ bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
                                            const QVector3D &position)
 {
     const std::shared_ptr<Unit> unit =
-        resolve_effective_edit_unit_for_scope(uuid, true);
+        resolve_effective_edit_unit_for_fields(uuid,
+                                               UnitArrayOverridePosition);
     if (unit == nullptr || unit->type == Assebly || !std::isfinite(position.x()) ||
         !std::isfinite(position.y()) || !std::isfinite(position.z()))
     {
@@ -2295,7 +2437,8 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
     for (const QUuid &uuid : uuids)
     {
         const std::shared_ptr<Unit> unit =
-            resolve_effective_edit_unit_for_scope(uuid, false);
+            resolve_effective_edit_unit_for_fields(
+                uuid, UnitArrayOverrideMaterialSpecies);
         if (unit == nullptr || unit->type == Assebly ||
             edited_units.contains(unit->inj.uuid) ||
             unit->inj.injector_data.material.compare(
@@ -2351,7 +2494,8 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
     for (const QUuid &uuid : uuids)
     {
         const std::shared_ptr<Unit> unit =
-            resolve_effective_edit_unit_for_scope(uuid, false);
+            resolve_effective_edit_unit_for_fields(
+                uuid, UnitArrayOverrideMaterialSpecies);
         if (unit == nullptr || unit->type == Assebly ||
             edited_units.contains(unit->inj.uuid))
         {
@@ -4249,12 +4393,32 @@ bool OCCTWidget::set_unit_array_override_scope(const QUuid &uuid,
                                                bool override_physical,
                                                bool override_geometry)
 {
+    quint32 override_fields = UnitArrayOverrideNone;
+    if (override_physical)
+    {
+        override_fields |= UnitArrayOverridePhysical;
+    }
+    if (override_geometry)
+    {
+        override_fields |= UnitArrayOverrideGeometry;
+    }
+    return set_unit_array_override_fields(uuid, override_fields);
+}
+
+bool OCCTWidget::set_unit_array_override_fields(const QUuid &uuid,
+                                                quint32 override_fields)
+{
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
     if (unit == nullptr || !unit->is_array_child || !unit->follows_array ||
         unit->array_parent_uuid.isNull())
     {
         return false;
     }
+
+    const quint32 supported_fields =
+        unit_array_physical_override_fields() |
+        unit_array_geometry_override_fields();
+    override_fields &= supported_fields;
 
     const std::shared_ptr<Unit> parent = unit_hash.value(unit->array_parent_uuid);
     if (parent == nullptr)
@@ -4263,19 +4427,20 @@ bool OCCTWidget::set_unit_array_override_scope(const QUuid &uuid,
     }
 
     const QList<Unit> before = capture_persistent_units();
-    bool restore_physical = false;
-    bool restore_geometry = false;
     const UnitArrayOverride *existing_override =
         find_array_override(*parent, unit->array_instance_path,
                             unit->array_instance_key);
-    if (existing_override != nullptr)
-    {
-        restore_physical = existing_override->override_physical &&
-                           !override_physical;
-        restore_geometry = existing_override->override_geometry &&
-                           !override_geometry;
-    }
-    if (!override_physical && !override_geometry)
+    const quint32 previous_fields =
+        existing_override == nullptr
+            ? UnitArrayOverrideNone
+            : effective_unit_array_override_fields(*existing_override);
+    // Enabling an additional scope only changes future propagation. Do not
+    // rebuild immediately, because that would replace the selected child UUID
+    // before the caller can edit its newly enabled field.
+    const bool requires_rebuild =
+        previous_fields != UnitArrayOverrideNone &&
+        (previous_fields & ~override_fields) != UnitArrayOverrideNone;
+    if (override_fields == UnitArrayOverrideNone)
     {
         remove_array_override(*unit);
     }
@@ -4286,20 +4451,19 @@ bool OCCTWidget::set_unit_array_override_scope(const QUuid &uuid,
         {
             return false;
         }
-        array_override->override_physical = override_physical;
-        array_override->override_geometry = override_geometry;
+        array_override->override_fields = override_fields;
+        array_override->override_physical =
+            (override_fields & UnitArrayOverridePhysical) != 0;
+        array_override->override_geometry =
+            (override_fields & UnitArrayOverrideGeometry) != 0;
         array_override->snapshot = unit->inj.injector_data;
     }
 
-    if (restore_physical || restore_geometry)
+    if (requires_rebuild)
     {
         QSet<QUuid> visited;
         rebuild_unit_outputs(parent->inj.uuid, visited);
-        emit unit_display_list_changed();
-        record_structure_edit(before, capture_persistent_units());
-        return true;
     }
-    emit unit_data_updated(unit.get());
     emit unit_display_list_changed();
     record_structure_edit(before, capture_persistent_units());
     return true;
@@ -4333,9 +4497,31 @@ bool OCCTWidget::unit_array_override_scope(const QUuid &uuid,
     {
         return true;
     }
-    *override_physical = array_override->override_physical;
-    *override_geometry = array_override->override_geometry;
+    const quint32 fields = effective_unit_array_override_fields(*array_override);
+    *override_physical = (fields & UnitArrayOverridePhysical) != 0;
+    *override_geometry = (fields & unit_array_geometry_override_fields()) != 0;
     return true;
+}
+
+quint32 OCCTWidget::unit_array_override_fields(const QUuid &uuid) const
+{
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    if (unit == nullptr || !unit->is_array_child ||
+        unit->array_parent_uuid.isNull())
+    {
+        return UnitArrayOverrideNone;
+    }
+    const std::shared_ptr<Unit> parent = unit_hash.value(unit->array_parent_uuid);
+    if (parent == nullptr)
+    {
+        return UnitArrayOverrideNone;
+    }
+    const UnitArrayOverride *array_override =
+        find_array_override(*parent, unit->array_instance_path,
+                            unit->array_instance_key);
+    return array_override == nullptr
+               ? UnitArrayOverrideNone
+               : effective_unit_array_override_fields(*array_override);
 }
 
 bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
@@ -7002,6 +7188,12 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
                 ensure_array_override(*changed_unit);
             if (array_override != nullptr)
             {
+                quint32 override_fields =
+                    effective_unit_array_override_fields(*array_override);
+                override_fields |= geometry_changed
+                    ? UnitArrayOverrideGeometry
+                    : UnitArrayOverridePhysical;
+                array_override->override_fields = override_fields;
                 if (geometry_changed)
                 {
                     array_override->override_geometry = true;

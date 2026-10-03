@@ -111,6 +111,14 @@ int main(int argc, char *argv[])
         source.units.first().fill_spec.placement_uuids.append(
             QUuid::createUuid());
     }
+    UnitArrayOverride persisted_override;
+    persisted_override.instance_path = {0};
+    persisted_override.instance_key = {
+        source.units.first().array_specs.first().placement_uuids.first()};
+    persisted_override.override_fields =
+        UnitArrayOverrideMaterialSpecies | UnitArrayOverridePosition;
+    persisted_override.snapshot = source.units.first().inj.injector_data;
+    source.units.first().array_overrides.append(persisted_override);
 
     QString reference_error;
     project_session::Data invalid_array_spec = source;
@@ -325,8 +333,8 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 4,
-               "New project sessions should use schema version 4") ||
+    if (!check(saved_root.value("schema_version").toInt() == 5,
+               "New project sessions should use schema version 5") ||
         !check(!saved_root.value("reference_geometry").toObject()
                     .value("uuid").toString().isEmpty(),
                "Reference geometry should have a stable UUID") ||
@@ -336,7 +344,13 @@ int main(int argc, char *argv[])
                                   .value("file_path")
                                   .toString())
                        .isAbsolute(),
-               "Project sessions should store paths relative to the session file"))
+               "Project sessions should store paths relative to the session file") ||
+        !check(saved_root.value("units").toArray().first()
+                   .toObject().value("array_overrides").toArray().first()
+                   .toObject().value("override_fields").toInt() ==
+                   static_cast<int>(UnitArrayOverrideMaterialSpecies |
+                                    UnitArrayOverridePosition),
+               "Property-level array override fields should be serialized"))
     {
         return 1;
     }
@@ -427,6 +441,11 @@ int main(int argc, char *argv[])
                    restored.units.first().array_specs.last().placement_uuids ==
                        source.units.first().array_specs.last().placement_uuids,
                "Array layer and placement UUIDs did not round-trip") ||
+        !check(restored.units.first().array_overrides.size() == 1 &&
+                   restored.units.first().array_overrides.first().override_fields ==
+                       (UnitArrayOverrideMaterialSpecies |
+                        UnitArrayOverridePosition),
+               "Property-level array override fields did not round-trip") ||
         !check(!restored.units.first().inj.shape.IsNull(),
                "Restored injector geometry was not rebuilt") ||
         !check(restored.species_colors.value("O2") == QColor("#123456"),

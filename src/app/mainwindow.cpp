@@ -4685,6 +4685,21 @@ void MainWindow::create_object_list_panel()
             "Override Physical Properties");
         QAction *override_geometry_action = menu.addAction(
             "Override Geometry");
+        QMenu *override_fields_menu = menu.addMenu("Override Array Fields");
+        QAction *override_material_species_action =
+            override_fields_menu->addAction("Material / Species");
+        QAction *override_physical_fields_action =
+            override_fields_menu->addAction("Other Physical Properties");
+        QAction *override_position_action =
+            override_fields_menu->addAction("Position");
+        QAction *override_direction_action =
+            override_fields_menu->addAction("Direction");
+        QAction *override_particle_size_action =
+            override_fields_menu->addAction("Particle Size / Distribution");
+        QAction *override_all_geometry_action =
+            override_fields_menu->addAction("All Geometry");
+        const quint32 override_fields =
+            m_3d_widget->unit_array_override_fields(uuid);
         follow_array_action->setCheckable(true);
         follow_array_action->setChecked(selected_unit != nullptr &&
                                          selected_unit->is_array_child &&
@@ -4701,10 +4716,34 @@ void MainWindow::create_object_list_panel()
         override_geometry_action->setEnabled(
             selected_unit != nullptr && selected_unit->is_array_child &&
             selected_unit->follows_array);
+        const bool override_fields_enabled =
+            selected_unit != nullptr && selected_unit->is_array_child &&
+            selected_unit->follows_array;
+        for (QAction *action : {override_material_species_action,
+                                override_physical_fields_action,
+                                override_position_action,
+                                override_direction_action,
+                                override_particle_size_action,
+                                override_all_geometry_action})
+        {
+            action->setCheckable(true);
+            action->setEnabled(override_fields_enabled);
+        }
+        override_material_species_action->setChecked(
+            (override_fields & UnitArrayOverrideMaterialSpecies) != 0);
+        override_physical_fields_action->setChecked(
+            (override_fields & UnitArrayOverridePhysical) != 0);
+        override_position_action->setChecked(
+            (override_fields & UnitArrayOverridePosition) != 0);
+        override_direction_action->setChecked(
+            (override_fields & UnitArrayOverrideDirection) != 0);
+        override_particle_size_action->setChecked(
+            (override_fields & UnitArrayOverrideParticleSize) != 0);
+        override_all_geometry_action->setChecked(
+            (override_fields & UnitArrayOverrideGeometry) != 0);
         restore_inheritance_action->setEnabled(
             selected_unit != nullptr && selected_unit->is_array_child &&
-            (!selected_unit->follows_array || override_physical ||
-             override_geometry));
+            (!selected_unit->follows_array || override_fields != 0));
         QAction *array_action = menu.addAction("Create Array...");
         QAction *fill_action = menu.addAction("Create Fill...");
         // Following children can be promoted to stable sources by the OCCT
@@ -5104,12 +5143,16 @@ void MainWindow::create_object_list_panel()
         }
         else if (chosen_action == override_physical_action)
         {
-            bool current_geometry = false;
-            m_3d_widget->unit_array_override_scope(
-                uuid, &override_physical, &current_geometry);
-            if (m_3d_widget->set_unit_array_override_scope(
-                    uuid, override_physical_action->isChecked(),
-                    current_geometry))
+            quint32 fields = m_3d_widget->unit_array_override_fields(uuid);
+            if (override_physical_action->isChecked())
+            {
+                fields |= UnitArrayOverridePhysical;
+            }
+            else
+            {
+                fields &= ~static_cast<quint32>(UnitArrayOverridePhysical);
+            }
+            if (m_3d_widget->set_unit_array_override_fields(uuid, fields))
             {
                 statusBar()->showMessage(
                     override_physical_action->isChecked()
@@ -5120,17 +5163,58 @@ void MainWindow::create_object_list_panel()
         }
         else if (chosen_action == override_geometry_action)
         {
-            bool current_physical = false;
-            m_3d_widget->unit_array_override_scope(
-                uuid, &current_physical, &override_geometry);
-            if (m_3d_widget->set_unit_array_override_scope(
-                    uuid, current_physical,
-                    override_geometry_action->isChecked()))
+            quint32 fields = m_3d_widget->unit_array_override_fields(uuid);
+            if (override_geometry_action->isChecked())
+            {
+                fields |= UnitArrayOverrideGeometry;
+            }
+            else
+            {
+                fields &= ~static_cast<quint32>(UnitArrayOverrideGeometry);
+            }
+            if (m_3d_widget->set_unit_array_override_fields(uuid, fields))
             {
                 statusBar()->showMessage(
                     override_geometry_action->isChecked()
                         ? "Selected child now overrides geometry"
                         : "Selected child now follows geometry",
+                    5000);
+            }
+        }
+        else if (chosen_action == override_material_species_action ||
+                 chosen_action == override_physical_fields_action ||
+                 chosen_action == override_position_action ||
+                 chosen_action == override_direction_action ||
+                 chosen_action == override_particle_size_action ||
+                 chosen_action == override_all_geometry_action)
+        {
+            quint32 fields = m_3d_widget->unit_array_override_fields(uuid);
+            const quint32 field =
+                chosen_action == override_material_species_action
+                    ? UnitArrayOverrideMaterialSpecies
+                    : chosen_action == override_physical_fields_action
+                          ? UnitArrayOverridePhysical
+                          : chosen_action == override_position_action
+                                ? UnitArrayOverridePosition
+                                : chosen_action == override_direction_action
+                                      ? UnitArrayOverrideDirection
+                                      : chosen_action == override_particle_size_action
+                                            ? UnitArrayOverrideParticleSize
+                                            : UnitArrayOverrideGeometry;
+            if (static_cast<QAction *>(chosen_action)->isChecked())
+            {
+                fields |= field;
+            }
+            else
+            {
+                fields &= ~field;
+            }
+            if (m_3d_widget->set_unit_array_override_fields(uuid, fields))
+            {
+                statusBar()->showMessage(
+                    static_cast<QAction *>(chosen_action)->isChecked()
+                        ? "Selected array field now overrides parent"
+                        : "Selected array field now follows parent",
                     5000);
             }
         }

@@ -60,12 +60,60 @@ private:
 
 struct UnitArrayOverride
 {
+    // New projects store property-level inheritance in this mask. The two
+    // boolean fields below remain for backward compatibility with schema v4
+    // sessions and are treated as legacy aliases when the mask is empty.
+    quint32 override_fields = 0;
     QVector<int> instance_path;
     QVector<QUuid> instance_key;
     bool override_physical = false;
     bool override_geometry = false;
     Injector snapshot;
 };
+
+// Property-level array override scopes. A child can override only the data it
+// needs instead of detaching its complete physical or geometric state.
+enum UnitArrayOverrideField : quint32
+{
+    UnitArrayOverrideNone = 0u,
+    UnitArrayOverrideMaterialSpecies = 1u << 0,
+    UnitArrayOverridePhysical = 1u << 1,
+    UnitArrayOverridePosition = 1u << 2,
+    UnitArrayOverrideDirection = 1u << 3,
+    UnitArrayOverrideParticleSize = 1u << 4,
+    UnitArrayOverrideGeometry = 1u << 5
+};
+
+constexpr quint32 unit_array_geometry_override_fields()
+{
+    return UnitArrayOverridePosition | UnitArrayOverrideDirection |
+           UnitArrayOverrideParticleSize | UnitArrayOverrideGeometry;
+}
+
+constexpr quint32 unit_array_physical_override_fields()
+{
+    return UnitArrayOverrideMaterialSpecies | UnitArrayOverridePhysical;
+}
+
+inline quint32 effective_unit_array_override_fields(
+    const UnitArrayOverride &override_state)
+{
+    if (override_state.override_fields != UnitArrayOverrideNone)
+    {
+        return override_state.override_fields;
+    }
+
+    quint32 fields = UnitArrayOverrideNone;
+    if (override_state.override_physical)
+    {
+        fields |= UnitArrayOverridePhysical;
+    }
+    if (override_state.override_geometry)
+    {
+        fields |= UnitArrayOverrideGeometry;
+    }
+    return fields;
+}
 
 class Unit
 {

@@ -21,7 +21,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 4;
+constexpr int kSessionSchemaVersion = 5;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -634,6 +634,11 @@ QJsonObject unit_to_json(const Unit &unit)
                 item.insert("instance_key",
                             uuid_list_to_json(array_override.instance_key));
             }
+            if (array_override.override_fields != UnitArrayOverrideNone)
+            {
+                item.insert("override_fields",
+                            static_cast<double>(array_override.override_fields));
+            }
             item.insert("override_physical", array_override.override_physical);
             item.insert("override_geometry", array_override.override_geometry);
             QJsonObject snapshot;
@@ -940,6 +945,23 @@ bool unit_from_json(const QJsonValue &json_value, Unit *unit)
                                  &array_override.instance_key))
         {
             return false;
+        }
+        const QJsonValue fields_value =
+            override_object.value("override_fields");
+        if (!fields_value.isUndefined())
+        {
+            if (!fields_value.isDouble() ||
+                !std::isfinite(fields_value.toDouble()) ||
+                fields_value.toDouble() < 0.0 ||
+                fields_value.toDouble() !=
+                    std::floor(fields_value.toDouble()) ||
+                fields_value.toDouble() >
+                    static_cast<double>(std::numeric_limits<quint32>::max()))
+            {
+                return false;
+            }
+            array_override.override_fields =
+                static_cast<quint32>(fields_value.toDouble());
         }
         array_override.override_physical =
             override_object.value("override_physical").toBool(false);
@@ -1496,12 +1518,22 @@ bool validate(const Data &data, QString *error_message)
         QSet<QString> override_paths;
         for (const UnitArrayOverride &array_override : unit.array_overrides)
         {
+            const quint32 override_fields =
+                effective_unit_array_override_fields(array_override);
             if (array_override.instance_path.isEmpty() ||
-                (!array_override.override_physical &&
-                 !array_override.override_geometry))
+                override_fields == UnitArrayOverrideNone)
             {
                 set_error(error_message,
                           "Project contains an invalid array override scope.");
+                return false;
+            }
+            const quint32 supported_override_fields =
+                unit_array_physical_override_fields() |
+                unit_array_geometry_override_fields();
+            if ((override_fields & ~supported_override_fields) != 0)
+            {
+                set_error(error_message,
+                          "Project contains unsupported array override fields.");
                 return false;
             }
             QStringList path_parts;

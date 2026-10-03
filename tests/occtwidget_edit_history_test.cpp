@@ -893,5 +893,61 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+
+    // Narrow override scopes must not detach unrelated properties. Material
+    // and position can diverge independently while direction/other state keeps
+    // following the parent source.
+    std::shared_ptr<Unit> material_child = find_override_child();
+    if (!check(material_child != nullptr,
+               "Material-scope child should be available") ||
+        !check(widget.set_unit_array_override_fields(
+                    material_child->inj.uuid,
+                    UnitArrayOverrideMaterialSpecies),
+                "Material/species override should be enabled") ||
+        !check((widget.unit_array_override_fields(
+                    material_child->inj.uuid) &
+                UnitArrayOverrideMaterialSpecies) != 0,
+               "Material/species override mask should persist"))
+    {
+        return 1;
+    }
+    material_child = find_override_child();
+    material_child->inj.injector_data.material = "N2";
+    widget.capture_unit_array_override(material_child.get());
+    if (!check(widget.set_species_for_units_by_uuid(
+                    {override_source_uuid}, "O2") == 1,
+                "Parent material should change after narrow override") ||
+        !check(find_override_child() != nullptr &&
+                   find_override_child()->inj.injector_data.material == "N2",
+               "Narrow material override should survive parent edit"))
+    {
+        return 1;
+    }
+
+    std::shared_ptr<Unit> position_child = find_override_child();
+    const QVector3D narrow_position(91.0f, 6.0f, 0.0f);
+    if (!check(widget.set_unit_array_override_fields(
+                    position_child->inj.uuid,
+                    UnitArrayOverrideMaterialSpecies |
+                        UnitArrayOverridePosition),
+                "Position override should be enabled") ||
+        !check(widget.set_unit_position_by_uuid(
+                    position_child->inj.uuid, narrow_position),
+                "Position override should edit only the selected child") ||
+        !check(widget.set_unit_position_by_uuid(
+                    override_source_uuid, QVector3D(150.0f, 0.0f, 0.0f)),
+                "Parent position should change with narrow child override"))
+    {
+        return 1;
+    }
+    position_child = find_override_child();
+    if (!check(position_child != nullptr &&
+                   position_child->inj.injector_data.pos == narrow_position,
+               "Narrow position override should survive parent movement") ||
+        !check(position_child->inj.injector_data.material == "N2",
+               "Position override should retain independent material scope"))
+    {
+        return 1;
+    }
     return 0;
 }

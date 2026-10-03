@@ -1,5 +1,19 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Add Property-Level Array Overrides
+
+- Array children can now override Material/Species, other physical properties,
+  position, direction, particle size/distribution, or complete geometry
+  independently.
+- Legacy `override_physical` and `override_geometry` fields remain readable;
+  new project sessions use schema version 5 and persist `override_fields`.
+- Enabling an additional override scope does not rebuild the child immediately,
+  preserving its UUID for the edit that follows; removing a scope rebuilds from
+  the parent and clears the detached state.
+- Object-tree context menus expose the six field-level scopes, while the old
+  broad actions remain compatible.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-09-05 Product Work Backlog
 
 - Add persisted injector/reference transparency controls and local-axis display
