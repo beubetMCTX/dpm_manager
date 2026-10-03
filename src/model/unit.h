@@ -9,6 +9,7 @@
 
 #include <qdebug.h>
 #include <utility>
+#include <QHash>
 
 #include "injector.h"
 #include "unit_array_spec.h"
@@ -23,6 +24,14 @@ enum Unit_Type
 };
 
 class Unit;
+
+// Display state is persisted separately from Unit geometry. Runtime-derived
+// array children are rebuilt, while persistent Units keep their UUID state.
+struct UnitDisplayState
+{
+    bool visible = true;
+    bool locked = false;
+};
 
 class Unit_Owner : public SelectMgr_EntityOwner
 {

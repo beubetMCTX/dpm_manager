@@ -71,6 +71,10 @@ int main(int argc, char *argv[])
 
     project_session::Data source;
     source.units.append(unit);
+    UnitDisplayState display_state;
+    display_state.visible = false;
+    display_state.locked = true;
+    source.unit_display_states.insert(unit.inj.uuid, display_state);
     source.units.first().has_fill_spec = false;
     source.units.first().fill_source_uuids.clear();
     source.units.first().type = array;
@@ -337,8 +341,10 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 6,
-               "New project sessions should use schema version 6") ||
+    if (!check(saved_root.value("schema_version").toInt() == 7,
+               "New project sessions should use schema version 7") ||
+        !check(saved_root.value("unit_display_states").toArray().size() == 1,
+               "Unit display state should be serialized") ||
         !check(!saved_root.value("reference_geometry").toObject()
                     .value("uuid").toString().isEmpty(),
                "Reference geometry should have a stable UUID") ||
@@ -412,6 +418,9 @@ int main(int argc, char *argv[])
         !check(restored.chemkin_file_path == QFileInfo(source.chemkin_file_path).absoluteFilePath(),
                "Relative Chemkin path did not resolve during load") ||
         !check(restored.units.first().inj.uuid == unit.inj.uuid, "Unit UUID did not round-trip") ||
+         !check(restored.unit_display_states.value(unit.inj.uuid).visible == false &&
+                    restored.unit_display_states.value(unit.inj.uuid).locked == true,
+                "Unit visibility/lock state did not round-trip") ||
         !check(restored.units.first().type == array,
                "Array source unit type did not round-trip") ||
         !check(restored.units.first().inj.injector_data.name == "session-test",
@@ -750,7 +759,14 @@ int main(int argc, char *argv[])
                                    {"file_path", "geometry.step"},
                                    {"locked", "false"}}}},
                    "visibility flags"),
-               "non-boolean reference geometry flags should be rejected"))
+               "non-boolean reference geometry flags should be rejected") ||
+        !check(check_invalid_session(
+                   "invalid_unit_display_states_type.dpmproj",
+                   QJsonObject{{"schema_version", 7},
+                               {"units", QJsonArray{}},
+                               {"unit_display_states", QJsonObject{}}},
+                   "unit_display_states array"),
+               "non-array unit display states should be rejected"))
     {
         return 1;
     }

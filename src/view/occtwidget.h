@@ -170,6 +170,9 @@ public:
     bool reference_geometry_visible() const { return m_reference_geometry_visible; }
     bool set_unit_locked(const QUuid &uuid, bool locked);
     bool unit_locked(const QUuid &uuid) const;
+    QHash<QUuid, UnitDisplayState> persistent_unit_display_states() const;
+    void restore_unit_display_states(
+        const QHash<QUuid, UnitDisplayState> &states);
     bool activate_translation_gizmo(const QUuid &uuid);
     bool activate_rotation_gizmo(const QUuid &uuid);
     void set_interaction_mode(Interaction_Mode mode);

@@ -1,5 +1,13 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Persist Unit Display State
+
+- Project sessions now save per-Unit visibility and movement-lock state by UUID.
+- Load restores ancestor state first, then reapplies explicit child state so
+  Assembly descendants can intentionally differ from their parent.
+- Legacy sessions without unit_display_states remain compatible.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Verify Nested Array Propagation
 
 - Added a three-layer Array regression covering source-direction propagation,

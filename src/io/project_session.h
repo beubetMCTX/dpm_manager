@@ -16,6 +16,7 @@ namespace project_session
 struct Data
 {
     QList<Unit> units;
+    QHash<QUuid, UnitDisplayState> unit_display_states;
     QString chemkin_file_path;
     QHash<QString, QColor> species_colors;
     QList<MaterialConfigEntry> materials;

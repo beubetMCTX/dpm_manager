@@ -21,7 +21,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 6;
+constexpr int kSessionSchemaVersion = 7;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -1319,6 +1319,29 @@ QJsonObject data_to_json(const project_session::Data &data,
     }
     root.insert("units", units);
 
+    QJsonArray unit_display_states;
+    QList<QUuid> display_state_ids = data.unit_display_states.keys();
+    std::sort(display_state_ids.begin(), display_state_ids.end(),
+              [](const QUuid &left, const QUuid &right)
+              {
+                  return left.toString(QUuid::WithoutBraces) <
+                         right.toString(QUuid::WithoutBraces);
+              });
+    for (const QUuid &uuid : display_state_ids)
+    {
+        if (uuid.isNull())
+        {
+            continue;
+        }
+        const UnitDisplayState state = data.unit_display_states.value(uuid);
+        QJsonObject state_object;
+        state_object.insert("uuid", uuid.toString(QUuid::WithoutBraces));
+        state_object.insert("visible", state.visible);
+        state_object.insert("locked", state.locked);
+        unit_display_states.append(state_object);
+    }
+    root.insert("unit_display_states", unit_display_states);
+
     // Keep a recursive representation alongside the legacy flat list. The
     // flat list remains useful for old readers and structural validation,
     // while the tree preserves the intended Assembly ownership explicitly.
@@ -1692,6 +1715,17 @@ bool validate(const Data &data, QString *error_message)
         return false;
     }
 
+    for (auto it = data.unit_display_states.constBegin();
+         it != data.unit_display_states.constEnd(); ++it)
+    {
+        if (it.key().isNull() || !unit_ids.contains(it.key()))
+        {
+            set_error(error_message,
+                      "Project contains display state for a missing Unit.");
+            return false;
+        }
+    }
+
     if (data.has_unit_preferences &&
         !UnitSystem::validate_preferences(data.unit_preferences, error_message))
     {
@@ -2045,6 +2079,14 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         return false;
     }
 
+    const QJsonValue display_states_value = root.value("unit_display_states");
+    if (!display_states_value.isUndefined() && !display_states_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid unit_display_states array.");
+        return false;
+    }
+
     const QJsonValue reference_geometry_value = root.value("reference_geometry");
     if (!reference_geometry_value.isUndefined() &&
         !reference_geometry_value.isObject())
@@ -2188,6 +2230,42 @@ bool load(const QString &file_path, Data *data, QString *error_message)
     for (Unit &unit : parsed.units)
     {
         normalize_loaded_unit_identity(unit);
+    }
+
+    QSet<QUuid> parsed_unit_ids;
+    for (const Unit &unit : parsed.units)
+    {
+        parsed_unit_ids.insert(unit.inj.uuid);
+    }
+    for (const QJsonValue &state_value : display_states_value.toArray())
+    {
+        if (!state_value.isObject())
+        {
+            set_error(error_message,
+                      "Project session contains an invalid unit display state.");
+            return false;
+        }
+        const QJsonObject state_object = state_value.toObject();
+        if (!state_object.value("uuid").isString() ||
+            !state_object.value("visible").isBool() ||
+            !state_object.value("locked").isBool())
+        {
+            set_error(error_message,
+                      "Project session contains an invalid unit display state field.");
+            return false;
+        }
+        const QUuid uuid(state_object.value("uuid").toString());
+        if (uuid.isNull() || !parsed_unit_ids.contains(uuid) ||
+            parsed.unit_display_states.contains(uuid))
+        {
+            set_error(error_message,
+                      "Project session contains an invalid unit display state UUID.");
+            return false;
+        }
+        UnitDisplayState state;
+        state.visible = state_object.value("visible").toBool();
+        state.locked = state_object.value("locked").toBool();
+        parsed.unit_display_states.insert(uuid, state);
     }
 
     for (const QJsonValue &material_value : root.value("materials").toArray())

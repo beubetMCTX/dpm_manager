@@ -1113,6 +1113,111 @@ bool OCCTWidget::unit_locked(const QUuid &uuid) const
     return m_unit_locks.value(uuid, false);
 }
 
+QHash<QUuid, UnitDisplayState> OCCTWidget::persistent_unit_display_states() const
+{
+    QHash<QUuid, UnitDisplayState> result;
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit == nullptr ||
+            (unit->is_array_child && unit->follows_array))
+        {
+            continue;
+        }
+
+        UnitDisplayState state;
+        state.visible = unit_visible(it.key());
+        state.locked = unit_locked(it.key());
+        result.insert(it.key(), state);
+    }
+    return result;
+}
+
+void OCCTWidget::restore_unit_display_states(
+    const QHash<QUuid, UnitDisplayState> &states)
+{
+    if (m_context.IsNull())
+    {
+        return;
+    }
+
+    // Apply ancestors first so parent visibility/lock operations reach their
+    // descendants. Exact child states are restored in a second pass below.
+    QList<QUuid> ids = states.keys();
+    const auto depth_for = [this](const QUuid &uuid)
+    {
+        int depth = 0;
+        QSet<QUuid> visited;
+        QUuid current = uuid;
+        while (!current.isNull() && !visited.contains(current))
+        {
+            visited.insert(current);
+            const std::shared_ptr<Unit> unit = unit_hash.value(current);
+            if (unit == nullptr || unit->assembly_parent_uuid.isNull())
+            {
+                break;
+            }
+            current = unit->assembly_parent_uuid;
+            ++depth;
+        }
+        return depth;
+    };
+    std::sort(ids.begin(), ids.end(),
+              [&depth_for](const QUuid &left, const QUuid &right)
+              {
+                  const int left_depth = depth_for(left);
+                  const int right_depth = depth_for(right);
+                  return left_depth == right_depth
+                      ? left.toString(QUuid::WithoutBraces) <
+                            right.toString(QUuid::WithoutBraces)
+                      : left_depth < right_depth;
+              });
+
+    for (const QUuid &uuid : ids)
+    {
+        const UnitDisplayState state = states.value(uuid);
+        if (unit_hash.contains(uuid))
+        {
+            set_unit_visible(uuid, state.visible);
+            set_unit_locked(uuid, state.locked);
+        }
+    }
+
+    // A child may intentionally differ from its parent, so restore exact
+    // states without recursively changing neighboring Units.
+    for (const QUuid &uuid : ids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit == nullptr || unit->ais_display.IsNull())
+        {
+            continue;
+        }
+        const UnitDisplayState state = states.value(uuid);
+        m_unit_visibility.insert(uuid, state.visible);
+        m_unit_locks.insert(uuid, state.locked);
+        if (state.visible)
+        {
+            m_context->Display(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Display(m_unit_local_trihedrons.value(uuid),
+                                  Standard_False);
+            }
+        }
+        else
+        {
+            m_context->Erase(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(uuid),
+                                Standard_False);
+            }
+        }
+    }
+    m_view->Redraw();
+    emit unit_display_list_changed();
+}
+
 void OCCTWidget::apply_visual_preferences(const Unit_Preferences &preferences)
 {
     if (m_context.IsNull())
