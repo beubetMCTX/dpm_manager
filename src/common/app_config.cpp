@@ -13,6 +13,7 @@
 #include <QSaveFile>
 
 #include <cmath>
+#include <algorithm>
 #include <limits>
 
 namespace
@@ -34,8 +35,20 @@ QString normalize_chemkin_path(const QString &file_path)
 QString color_config_file_path(const QString &chemkin_file_path,
                                const QStringList &species_names)
 {
+    QStringList normalized_species;
+    for (const QString &species_name : species_names)
+    {
+        const QString normalized = species_name.trimmed().toLower();
+        if (!normalized.isEmpty() && !normalized_species.contains(normalized))
+        {
+            normalized_species.append(normalized);
+        }
+    }
+    std::sort(normalized_species.begin(), normalized_species.end());
+
     const QString signature_source =
-        normalize_chemkin_path(chemkin_file_path) + "\n" + species_names.join('\n');
+        normalize_chemkin_path(chemkin_file_path).toLower() + "\n" +
+        normalized_species.join('\n');
     const QByteArray digest = QCryptographicHash::hash(signature_source.toUtf8(),
                                                        QCryptographicHash::Sha1);
     return QDir(app_color_config_directory_path()).filePath(QString::fromLatin1(digest.toHex()) + ".json");
@@ -1006,9 +1019,20 @@ bool load_species_color_config(const QString &chemkin_file_path,
     }
 
     const QJsonObject colors_object = colors_value.toObject();
+    QHash<QString, QColor> normalized_colors;
     for (auto it = colors_object.constBegin(); it != colors_object.constEnd(); ++it)
     {
-        if (!QColor(it.value().toString()).isValid())
+        if (!it.value().isString())
+        {
+            return reject_invalid_config(
+                file_path,
+                QString("Species color configuration contains a non-string color: %1")
+                    .arg(it.key()),
+                error_message);
+        }
+
+        const QColor color(it.value().toString());
+        if (!color.isValid())
         {
             return reject_invalid_config(
                 file_path,
@@ -1016,12 +1040,23 @@ bool load_species_color_config(const QString &chemkin_file_path,
                     .arg(it.key()),
                 error_message);
         }
+
+        const QString normalized_name = it.key().trimmed().toLower();
+        if (normalized_name.isEmpty() || normalized_colors.contains(normalized_name))
+        {
+            return reject_invalid_config(
+                file_path,
+                QString("Species color configuration contains duplicate species keys: %1")
+                    .arg(it.key()),
+                error_message);
+        }
+        normalized_colors.insert(normalized_name, color);
     }
 
     QHash<QString, QString> color_owners;
     for (const QString &species_name : species_names)
     {
-        const QColor color(colors_object.value(species_name).toString());
+        const QColor color = normalized_colors.value(species_name.trimmed().toLower());
         if (!color.isValid())
         {
             continue;
@@ -1043,7 +1078,7 @@ bool load_species_color_config(const QString &chemkin_file_path,
     QHash<QString, QColor> loaded_colors;
     for (const QString &species_name : species_names)
     {
-        const QColor color(colors_object.value(species_name).toString());
+        const QColor color = normalized_colors.value(species_name.trimmed().toLower());
         if (color.isValid())
         {
             loaded_colors.insert(species_name, color);
@@ -1077,13 +1112,54 @@ bool save_species_color_config(const QString &chemkin_file_path,
         return false;
     }
 
+    QHash<QString, QColor> normalized_colors;
+    for (auto it = species_colors.constBegin(); it != species_colors.constEnd(); ++it)
+    {
+        const QString normalized_name = it.key().trimmed().toLower();
+        if (normalized_name.isEmpty() || !it.value().isValid())
+        {
+            continue;
+        }
+        normalized_colors.insert(normalized_name, it.value());
+    }
+
+    QHash<QString, QString> color_owners;
+    for (const QString &species_name : species_names)
+    {
+        const QString normalized_name = species_name.trimmed().toLower();
+        if (normalized_name.isEmpty())
+        {
+            continue;
+        }
+        const QColor color = normalized_colors.value(normalized_name);
+        if (!color.isValid())
+        {
+            continue;
+        }
+
+        const QString normalized_color = color.name(QColor::HexRgb).toUpper();
+        const auto owner = color_owners.constFind(normalized_color);
+        if (owner != color_owners.constEnd() &&
+            owner.value().compare(species_name, Qt::CaseSensitive) != 0)
+        {
+            if (error_message != nullptr)
+            {
+                *error_message = QString(
+                    "Species color %1 is already assigned to both %2 and %3.")
+                    .arg(normalized_color, owner.value(), species_name);
+            }
+            return false;
+        }
+        color_owners.insert(normalized_color, species_name);
+    }
+
     QJsonObject colors_object;
     for (const QString &species_name : species_names)
     {
-        const auto it = species_colors.constFind(species_name);
-        if (it != species_colors.constEnd() && it.value().isValid())
+        const QColor color = normalized_colors.value(species_name.trimmed().toLower());
+        if (color.isValid())
         {
-            colors_object.insert(species_name, it.value().name(QColor::HexRgb).toUpper());
+            colors_object.insert(species_name, color.name(QColor::HexRgb).toUpper());
         }
     }
 

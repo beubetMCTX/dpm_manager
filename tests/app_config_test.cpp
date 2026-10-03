@@ -256,6 +256,40 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    QHash<QString, QColor> reordered_colors;
+    reordered_colors.insert("O2", QColor("#112233"));
+    reordered_colors.insert("N2", QColor("#445566"));
+    bool reordered_species_test_ok = save_species_color_config(
+        chemkin_path, color_species, reordered_colors, &config_error);
+    QHash<QString, QColor> loaded_reordered_colors;
+    if (reordered_species_test_ok)
+    {
+        reordered_species_test_ok = load_species_color_config(
+            chemkin_path, {"n2", "o2"}, &loaded_reordered_colors,
+            &config_error) &&
+            loaded_reordered_colors.value("n2") == QColor("#445566") &&
+            loaded_reordered_colors.value("o2") == QColor("#112233");
+    }
+    if (!check(reordered_species_test_ok,
+               "species colors should survive reordered and case-insensitive Chemkin names"))
+    {
+        return 1;
+    }
+
+    QHash<QString, QColor> duplicate_save_colors;
+    duplicate_save_colors.insert("O2", QColor("#abcdef"));
+    duplicate_save_colors.insert("N2", QColor("#abcdef"));
+    const bool duplicate_save_rejected =
+        !save_species_color_config(chemkin_path, color_species,
+                                   duplicate_save_colors, &config_error) &&
+        config_error.contains("already assigned") &&
+        !config_error.contains("backup:");
+    if (!check(duplicate_save_rejected,
+               "saving duplicate species colors should fail before writing"))
+    {
+        return 1;
+    }
+
     const QString settings_path = app_settings_file_path();
     const bool had_original_settings = QFileInfo::exists(settings_path);
     QByteArray original_settings;
