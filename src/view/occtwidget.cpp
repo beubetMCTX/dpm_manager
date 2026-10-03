@@ -1164,6 +1164,59 @@ QHash<QUuid, UnitDisplayState> OCCTWidget::persistent_unit_display_states() cons
     return result;
 }
 
+QList<DerivedUnitDisplayState> OCCTWidget::derived_unit_display_states() const
+{
+    QList<DerivedUnitDisplayState> result;
+    for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+    {
+        const std::shared_ptr<Unit> unit = it.value();
+        if (unit == nullptr || !unit->is_array_child ||
+            !unit->follows_array || unit->array_parent_uuid.isNull())
+        {
+            continue;
+        }
+
+        DerivedUnitDisplayState state;
+        state.array_parent_uuid = unit->array_parent_uuid;
+        state.prototype_chain = unit->prototype_chain;
+        state.array_instance_path = unit->array_instance_path;
+        state.array_instance_key = unit->array_instance_key;
+        state.array_layer_uuid = unit->array_layer_uuid;
+        state.state.visible = unit_visible(it.key());
+        state.state.locked = unit_locked(it.key());
+        result.append(std::move(state));
+    }
+
+    std::sort(result.begin(), result.end(),
+              [](const DerivedUnitDisplayState &left,
+                 const DerivedUnitDisplayState &right)
+              {
+                  const QString left_parent = left.array_parent_uuid.toString(
+                      QUuid::WithoutBraces);
+                  const QString right_parent = right.array_parent_uuid.toString(
+                      QUuid::WithoutBraces);
+                  if (left_parent != right_parent)
+                  {
+                      return left_parent < right_parent;
+                  }
+                  if (left.array_layer_uuid != right.array_layer_uuid)
+                  {
+                      return left.array_layer_uuid.toString(
+                                 QUuid::WithoutBraces) <
+                             right.array_layer_uuid.toString(
+                                 QUuid::WithoutBraces);
+                  }
+                  if (left.array_instance_key != right.array_instance_key)
+                  {
+                      return left.array_instance_key.size() <
+                             right.array_instance_key.size();
+                  }
+                  return left.prototype_chain.size() <
+                         right.prototype_chain.size();
+              });
+    return result;
+}
+
 void OCCTWidget::restore_unit_display_states(
     const QHash<QUuid, UnitDisplayState> &states)
 {
@@ -1345,6 +1398,65 @@ void OCCTWidget::set_interaction_mode(Interaction_Mode mode)
                 : AIS_MM_Rotation);
     }
     emit interaction_mode_changed(static_cast<int>(mode));
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+}
+
+void OCCTWidget::restore_derived_unit_display_states(
+    const QList<DerivedUnitDisplayState> &states)
+{
+    if (m_context.IsNull() || states.isEmpty())
+    {
+        return;
+    }
+
+    const auto matches = [](const Unit &unit,
+                            const DerivedUnitDisplayState &state)
+    {
+        return unit.is_array_child && unit.follows_array &&
+               unit.array_parent_uuid == state.array_parent_uuid &&
+               unit.prototype_chain == state.prototype_chain &&
+               unit.array_instance_path == state.array_instance_path &&
+               unit.array_instance_key == state.array_instance_key &&
+               unit.array_layer_uuid == state.array_layer_uuid;
+    };
+
+    for (const DerivedUnitDisplayState &saved_state : states)
+    {
+        for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
+        {
+            const std::shared_ptr<Unit> unit = it.value();
+            if (unit == nullptr || !matches(*unit, saved_state))
+            {
+                continue;
+            }
+
+            m_unit_visibility.insert(it.key(), saved_state.state.visible);
+            m_unit_locks.insert(it.key(), saved_state.state.locked);
+            if (saved_state.state.visible)
+            {
+                m_context->Display(unit->ais_display, Standard_False);
+                if (!m_unit_local_trihedrons.value(it.key()).IsNull())
+                {
+                    m_context->Display(m_unit_local_trihedrons.value(it.key()),
+                                       Standard_False);
+                }
+            }
+            else
+            {
+                m_context->Erase(unit->ais_display, Standard_False);
+                if (!m_unit_local_trihedrons.value(it.key()).IsNull())
+                {
+                    m_context->Erase(m_unit_local_trihedrons.value(it.key()),
+                                     Standard_False);
+                }
+            }
+            break;
+        }
+    }
+
     if (!m_view.IsNull())
     {
         m_view->Redraw();

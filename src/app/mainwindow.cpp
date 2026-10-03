@@ -1295,6 +1295,8 @@ bool MainWindow::load_project_session(const QString &file_path)
     units = data.units;
     m_3d_widget->display_units(units, true);
     m_3d_widget->restore_unit_display_states(data.unit_display_states);
+    m_3d_widget->restore_derived_unit_display_states(
+        data.derived_unit_display_states);
 
     if (data.chemkin_file_path.trimmed().isEmpty())
     {
@@ -1575,6 +1577,8 @@ project_session::Data MainWindow::collect_project_data() const
     {
         data.unit_display_states =
             m_3d_widget->persistent_unit_display_states();
+        data.derived_unit_display_states =
+            m_3d_widget->derived_unit_display_states();
     }
     data.chemkin_file_path = m_chemkin_file_path;
     data.materials = m_material_entries;

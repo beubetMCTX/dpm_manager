@@ -68,6 +68,11 @@ int main(int argc, char *argv[])
         return 1;
     }
     unit.has_array_spec = true;
+    unit.array_spec.layer_uuid = QUuid::createUuid();
+    for (int index = 0; index < unit.array_spec.count; ++index)
+    {
+        unit.array_spec.placement_uuids.append(QUuid::createUuid());
+    }
 
     project_session::Data source;
     source.units.append(unit);
@@ -75,6 +80,16 @@ int main(int argc, char *argv[])
     display_state.visible = false;
     display_state.locked = true;
     source.unit_display_states.insert(unit.inj.uuid, display_state);
+    DerivedUnitDisplayState derived_display_state;
+    derived_display_state.array_parent_uuid = unit.inj.uuid;
+    derived_display_state.array_layer_uuid = unit.array_spec.layer_uuid;
+    derived_display_state.prototype_chain = {unit.inj.uuid};
+    derived_display_state.array_instance_path = {0};
+    derived_display_state.array_instance_key = {
+        unit.array_spec.placement_uuids.first()};
+    derived_display_state.state.visible = false;
+    derived_display_state.state.locked = true;
+    source.derived_unit_display_states.append(derived_display_state);
     source.units.first().has_fill_spec = false;
     source.units.first().fill_source_uuids.clear();
     source.units.first().type = array;
@@ -341,10 +356,12 @@ int main(int argc, char *argv[])
     const QJsonObject saved_root =
         QJsonDocument::fromJson(saved_session.readAll()).object();
     saved_session.close();
-    if (!check(saved_root.value("schema_version").toInt() == 7,
-               "New project sessions should use schema version 7") ||
+    if (!check(saved_root.value("schema_version").toInt() == 8,
+               "New project sessions should use schema version 8") ||
         !check(saved_root.value("unit_display_states").toArray().size() == 1,
                "Unit display state should be serialized") ||
+        !check(saved_root.value("derived_unit_display_states").toArray().size() == 1,
+               "Derived Unit display state should be serialized") ||
         !check(!saved_root.value("reference_geometry").toObject()
                     .value("uuid").toString().isEmpty(),
                "Reference geometry should have a stable UUID") ||
@@ -421,6 +438,12 @@ int main(int argc, char *argv[])
          !check(restored.unit_display_states.value(unit.inj.uuid).visible == false &&
                     restored.unit_display_states.value(unit.inj.uuid).locked == true,
                 "Unit visibility/lock state did not round-trip") ||
+        !check(restored.derived_unit_display_states.size() == 1 &&
+                   restored.derived_unit_display_states.first().array_parent_uuid ==
+                       unit.inj.uuid &&
+                   !restored.derived_unit_display_states.first().state.visible &&
+                   restored.derived_unit_display_states.first().state.locked,
+               "Derived Unit visibility/lock state did not round-trip") ||
         !check(restored.units.first().type == array,
                "Array source unit type did not round-trip") ||
         !check(restored.units.first().inj.injector_data.name == "session-test",

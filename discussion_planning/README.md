@@ -1,5 +1,16 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Persist Generated Array Display State
+
+- Project schema advanced to version 8 with stable display-state records for
+  generated array children.
+- Records use array parent, layer UUID, prototype chain, placement path, and
+  placement UUIDs instead of transient runtime child UUIDs.
+- Visibility and lock state now restore after array rebuilds and nested array
+  regeneration; legacy UUID-based Unit states remain compatible.
+- Added project round-trip and OCCT rebuild regression coverage. Release build
+  and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Centralize Length-Unit Conversion
 
 - Added `UnitSystem::length_to_base()` as the guarded entry point for internal

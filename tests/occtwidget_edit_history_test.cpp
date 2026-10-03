@@ -155,6 +155,71 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+    const std::shared_ptr<Unit> state_child_before_rebuild =
+        widget.unit_hash.value(uuid)->child_units.first();
+    const QList<DerivedUnitDisplayState> saved_derived_states =
+        [&widget, &state_child_before_rebuild]()
+        {
+            widget.set_unit_visible(state_child_before_rebuild->inj.uuid, false);
+            widget.set_unit_locked(state_child_before_rebuild->inj.uuid, true);
+            return widget.derived_unit_display_states();
+        }();
+    if (!check(saved_derived_states.size() == 2,
+               "Derived array display states should include generated children") ||
+        !check(widget.set_unit_direction_by_uuid(
+                   uuid, QVector3D(0.0f, 1.0f, 0.0f)),
+               "Array source edit should rebuild before display-state restore"))
+    {
+        return 1;
+    }
+    widget.restore_derived_unit_display_states(saved_derived_states);
+    const auto same_stable_identity =
+        [&state_child_before_rebuild](const DerivedUnitDisplayState &state)
+        {
+            return state.array_parent_uuid ==
+                       state_child_before_rebuild->array_parent_uuid &&
+                   state.prototype_chain ==
+                       state_child_before_rebuild->prototype_chain &&
+                   state.array_instance_path ==
+                       state_child_before_rebuild->array_instance_path &&
+                   state.array_instance_key ==
+                       state_child_before_rebuild->array_instance_key &&
+                   state.array_layer_uuid ==
+                       state_child_before_rebuild->array_layer_uuid;
+        };
+    const auto saved_state_it = std::find_if(
+        saved_derived_states.cbegin(), saved_derived_states.cend(),
+        same_stable_identity);
+    if (!check(saved_state_it != saved_derived_states.cend(),
+               "Hidden derived child should have a stable display-state record"))
+    {
+        return 1;
+    }
+    const DerivedUnitDisplayState &saved_first_state = *saved_state_it;
+    std::shared_ptr<Unit> restored_state_child;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(uuid)->child_units)
+    {
+        if (child != nullptr &&
+            child->array_parent_uuid == saved_first_state.array_parent_uuid &&
+            child->prototype_chain == saved_first_state.prototype_chain &&
+            child->array_instance_path == saved_first_state.array_instance_path &&
+            child->array_instance_key == saved_first_state.array_instance_key &&
+            child->array_layer_uuid == saved_first_state.array_layer_uuid)
+        {
+            restored_state_child = child;
+            break;
+        }
+    }
+    if (!check(restored_state_child != nullptr &&
+                   !widget.unit_visible(restored_state_child->inj.uuid) &&
+                   widget.unit_locked(restored_state_child->inj.uuid),
+               "Derived array display state should restore after rebuild"))
+    {
+        return 1;
+    }
+    widget.set_unit_visible(restored_state_child->inj.uuid, true);
+    widget.set_unit_locked(restored_state_child->inj.uuid, false);
     const QVector<std::shared_ptr<Unit>> leaf_children =
         widget.unit_hash.value(uuid)->child_units;
     QUuid leaf_child_uuid = leaf_children.first()->inj.uuid;

@@ -171,8 +171,11 @@ public:
     bool set_unit_locked(const QUuid &uuid, bool locked);
     bool unit_locked(const QUuid &uuid) const;
     QHash<QUuid, UnitDisplayState> persistent_unit_display_states() const;
+    QList<DerivedUnitDisplayState> derived_unit_display_states() const;
     void restore_unit_display_states(
         const QHash<QUuid, UnitDisplayState> &states);
+    void restore_derived_unit_display_states(
+        const QList<DerivedUnitDisplayState> &states);
     // Return concrete injector leaves for DPM export. Array/Assembly control
     // Units are omitted; generated instances are included.
     QList<Unit> dpm_export_units() const;

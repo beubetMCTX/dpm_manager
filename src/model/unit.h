@@ -10,6 +10,8 @@
 #include <qdebug.h>
 #include <utility>
 #include <QHash>
+#include <QList>
+#include <QVector>
 
 #include "injector.h"
 #include "unit_array_spec.h"
@@ -31,6 +33,19 @@ struct UnitDisplayState
 {
     bool visible = true;
     bool locked = false;
+};
+
+// Runtime-derived array children receive fresh UUIDs after every rebuild.
+// Persist their display state through stable array/prototype identity instead
+// of the transient runtime UUID.
+struct DerivedUnitDisplayState
+{
+    QUuid array_parent_uuid;
+    QList<QUuid> prototype_chain;
+    QVector<int> array_instance_path;
+    QVector<QUuid> array_instance_key;
+    QUuid array_layer_uuid;
+    UnitDisplayState state;
 };
 
 class Unit_Owner : public SelectMgr_EntityOwner

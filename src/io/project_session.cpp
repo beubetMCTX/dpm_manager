@@ -21,7 +21,7 @@
 
 namespace
 {
-constexpr int kSessionSchemaVersion = 7;
+constexpr int kSessionSchemaVersion = 8;
 constexpr int kFirstSupportedSchemaVersion = 1;
 
 QJsonArray vector_to_json(const QVector3D &value)
@@ -98,8 +98,54 @@ QJsonArray uuid_list_to_json(const QVector<QUuid> &values)
     return result;
 }
 
+QJsonArray uuid_list_to_json_list(const QList<QUuid> &values)
+{
+    QJsonArray result;
+    for (const QUuid &value : values)
+    {
+        if (!value.isNull())
+        {
+            result.append(value.toString(QUuid::WithoutBraces));
+        }
+    }
+    return result;
+}
+
 bool uuid_list_from_json(const QJsonValue &json_value,
                          QVector<QUuid> *values)
+{
+    if (values == nullptr)
+    {
+        return false;
+    }
+    if (json_value.isUndefined())
+    {
+        return true;
+    }
+    if (!json_value.isArray())
+    {
+        return false;
+    }
+
+    values->clear();
+    for (const QJsonValue &value : json_value.toArray())
+    {
+        if (!value.isString())
+        {
+            return false;
+        }
+        const QUuid uuid(value.toString());
+        if (uuid.isNull())
+        {
+            return false;
+        }
+        values->append(uuid);
+    }
+    return true;
+}
+
+bool uuid_list_from_json_list(const QJsonValue &json_value,
+                              QList<QUuid> *values)
 {
     if (values == nullptr)
     {
@@ -1104,6 +1150,29 @@ void set_error(QString *error_message, const QString &message)
     }
 }
 
+QString derived_display_state_key(const DerivedUnitDisplayState &state)
+{
+    QStringList parts;
+    parts.append(state.array_parent_uuid.toString(QUuid::WithoutBraces));
+    parts.append(state.array_layer_uuid.toString(QUuid::WithoutBraces));
+    parts.append(QStringLiteral("path:"));
+    for (const int value : state.array_instance_path)
+    {
+        parts.append(QString::number(value));
+    }
+    parts.append(QStringLiteral("keys:"));
+    for (const QUuid &value : state.array_instance_key)
+    {
+        parts.append(value.toString(QUuid::WithoutBraces));
+    }
+    parts.append(QStringLiteral("prototype:"));
+    for (const QUuid &value : state.prototype_chain)
+    {
+        parts.append(value.toString(QUuid::WithoutBraces));
+    }
+    return parts.join('|');
+}
+
 bool is_finite_vector(const QVector3D &value)
 {
     return std::isfinite(static_cast<double>(value.x())) &&
@@ -1341,6 +1410,45 @@ QJsonObject data_to_json(const project_session::Data &data,
         unit_display_states.append(state_object);
     }
     root.insert("unit_display_states", unit_display_states);
+
+    QList<DerivedUnitDisplayState> derived_display_states =
+        data.derived_unit_display_states;
+    std::sort(derived_display_states.begin(), derived_display_states.end(),
+              [](const DerivedUnitDisplayState &left,
+                 const DerivedUnitDisplayState &right)
+              {
+                  return derived_display_state_key(left) <
+                         derived_display_state_key(right);
+              });
+    QJsonArray derived_unit_display_states;
+    for (const DerivedUnitDisplayState &state : derived_display_states)
+    {
+        if (state.array_parent_uuid.isNull() ||
+            state.array_layer_uuid.isNull() ||
+            state.array_instance_path.isEmpty() ||
+            state.array_instance_key.isEmpty() ||
+            state.prototype_chain.isEmpty())
+        {
+            continue;
+        }
+        QJsonObject state_object;
+        state_object.insert(
+            "array_parent_uuid",
+            state.array_parent_uuid.toString(QUuid::WithoutBraces));
+        state_object.insert(
+            "array_layer_uuid",
+            state.array_layer_uuid.toString(QUuid::WithoutBraces));
+        state_object.insert("prototype_chain",
+                            uuid_list_to_json_list(state.prototype_chain));
+        state_object.insert("array_instance_path",
+                            int_list_to_json(state.array_instance_path));
+        state_object.insert("array_instance_key",
+                            uuid_list_to_json(state.array_instance_key));
+        state_object.insert("visible", state.state.visible);
+        state_object.insert("locked", state.state.locked);
+        derived_unit_display_states.append(state_object);
+    }
+    root.insert("derived_unit_display_states", derived_unit_display_states);
 
     // Keep a recursive representation alongside the legacy flat list. The
     // flat list remains useful for old readers and structural validation,
@@ -1726,6 +1834,33 @@ bool validate(const Data &data, QString *error_message)
         }
     }
 
+    QSet<QString> derived_state_keys;
+    for (const DerivedUnitDisplayState &state :
+         data.derived_unit_display_states)
+    {
+        if (state.array_parent_uuid.isNull() ||
+            !unit_ids.contains(state.array_parent_uuid) ||
+            state.array_layer_uuid.isNull() ||
+            state.prototype_chain.isEmpty() ||
+            state.array_instance_path.isEmpty() ||
+            state.array_instance_key.isEmpty() ||
+            state.array_instance_path.size() !=
+                state.array_instance_key.size())
+        {
+            set_error(error_message,
+                      "Project contains an invalid derived Unit display state identity.");
+            return false;
+        }
+        const QString identity = derived_display_state_key(state);
+        if (derived_state_keys.contains(identity))
+        {
+            set_error(error_message,
+                      "Project contains duplicate derived Unit display states.");
+            return false;
+        }
+        derived_state_keys.insert(identity);
+    }
+
     if (data.has_unit_preferences &&
         !UnitSystem::validate_preferences(data.unit_preferences, error_message))
     {
@@ -2087,6 +2222,16 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         return false;
     }
 
+    const QJsonValue derived_display_states_value =
+        root.value("derived_unit_display_states");
+    if (!derived_display_states_value.isUndefined() &&
+        !derived_display_states_value.isArray())
+    {
+        set_error(error_message,
+                  "Project session contains an invalid derived_unit_display_states array.");
+        return false;
+    }
+
     const QJsonValue reference_geometry_value = root.value("reference_geometry");
     if (!reference_geometry_value.isUndefined() &&
         !reference_geometry_value.isObject())
@@ -2266,6 +2411,82 @@ bool load(const QString &file_path, Data *data, QString *error_message)
         state.visible = state_object.value("visible").toBool();
         state.locked = state_object.value("locked").toBool();
         parsed.unit_display_states.insert(uuid, state);
+    }
+
+    QSet<QString> derived_state_keys;
+    for (const QJsonValue &state_value :
+         derived_display_states_value.toArray())
+    {
+        if (!state_value.isObject())
+        {
+            set_error(error_message,
+                      "Project session contains an invalid derived unit display state.");
+            return false;
+        }
+        const QJsonObject state_object = state_value.toObject();
+        if (!state_object.value("array_parent_uuid").isString() ||
+            !state_object.value("array_layer_uuid").isString() ||
+            !state_object.value("prototype_chain").isArray() ||
+            !state_object.value("array_instance_path").isArray() ||
+            !state_object.value("array_instance_key").isArray() ||
+            !state_object.value("visible").isBool() ||
+            !state_object.value("locked").isBool())
+        {
+            set_error(error_message,
+                      "Project session contains an invalid derived unit display state field.");
+            return false;
+        }
+
+        DerivedUnitDisplayState state;
+        state.array_parent_uuid = QUuid(
+            state_object.value("array_parent_uuid").toString());
+        state.array_layer_uuid = QUuid(
+            state_object.value("array_layer_uuid").toString());
+        if (state.array_parent_uuid.isNull() ||
+            state.array_layer_uuid.isNull() ||
+            !parsed_unit_ids.contains(state.array_parent_uuid) ||
+            !uuid_list_from_json_list(state_object.value("prototype_chain"),
+                                      &state.prototype_chain) ||
+            !uuid_list_from_json(state_object.value("array_instance_key"),
+                                 &state.array_instance_key))
+        {
+            set_error(error_message,
+                      "Project session contains an invalid derived unit display state identity.");
+            return false;
+        }
+
+        for (const QJsonValue &path_value :
+             state_object.value("array_instance_path").toArray())
+        {
+            if (!path_value.isDouble() || path_value.toInt() < 0)
+            {
+                set_error(error_message,
+                          "Project session contains an invalid derived unit display state path.");
+                return false;
+            }
+            state.array_instance_path.append(path_value.toInt());
+        }
+        if (state.prototype_chain.isEmpty() ||
+            state.array_instance_path.isEmpty() ||
+            state.array_instance_key.isEmpty() ||
+            state.array_instance_path.size() != state.array_instance_key.size())
+        {
+            set_error(error_message,
+                      "Project session contains an incomplete derived unit display state identity.");
+            return false;
+        }
+
+        state.state.visible = state_object.value("visible").toBool();
+        state.state.locked = state_object.value("locked").toBool();
+        const QString identity = derived_display_state_key(state);
+        if (derived_state_keys.contains(identity))
+        {
+            set_error(error_message,
+                      "Project session contains duplicate derived unit display states.");
+            return false;
+        }
+        derived_state_keys.insert(identity);
+        parsed.derived_unit_display_states.append(std::move(state));
     }
 
     for (const QJsonValue &material_value : root.value("materials").toArray())
