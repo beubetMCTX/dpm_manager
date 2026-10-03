@@ -2812,3 +2812,10 @@ References:
 - Nested Assembly members and generated array instances can now be selected and
   highlighted from OCCT without losing the corresponding inspector target.
 - Release build and all 12 focused regressions passed.
+
+### 2026-10-03 Complete Recursive Tree Synchronization
+
+- OCCT multi-selection synchronization now includes nested tree descendants.
+- Lock-state/name refreshes now update nested Assembly and array-instance rows,
+  not only top-level objects.
+- Release build and all 12 focused regressions passed.

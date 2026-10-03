@@ -407,9 +407,8 @@ MainWindow::MainWindow(QWidget *parent)
         const QSignalBlocker blocker(m_object_list);
         m_object_list->clearSelection();
         QTreeWidgetItem *current = nullptr;
-        for (int row = 0; row < m_object_list->count(); ++row)
+        for (QTreeWidgetItem *item : m_object_list->all_items())
         {
-            QTreeWidgetItem *item = m_object_list->item(row);
             if (uuids.contains(QUuid(item->data(0, Qt::UserRole).toString())))
             {
                 item->setSelected(true);
@@ -6003,9 +6002,8 @@ void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)
         display_name = "[Locked] " + display_name;
     }
 
-    for (int row = 0; row < m_object_list->count(); ++row)
+    for (QTreeWidgetItem *item : m_object_list->all_items())
     {
-        QTreeWidgetItem *item = m_object_list->item(row);
         if (item->data(0, Qt::UserRole).toString() ==
             uuid.toString(QUuid::WithoutBraces))
         {
