@@ -60,6 +60,37 @@ Standard_Real configured_injector_transparency(const Injector &injector)
     return injector.injection_type == volume ? std::max(0.82, configured) : configured;
 }
 
+Standard_Real shape_extent(const TopoDS_Shape &shape,
+                           Standard_Real fallback)
+{
+    if (shape.IsNull())
+    {
+        return std::max(fallback, 1.0e-6);
+    }
+
+    Bnd_Box bounds;
+    BRepBndLib::Add(shape, bounds);
+    if (bounds.IsVoid())
+    {
+        return std::max(fallback, 1.0e-6);
+    }
+
+    Standard_Real x_min = 0.0;
+    Standard_Real y_min = 0.0;
+    Standard_Real z_min = 0.0;
+    Standard_Real x_max = 0.0;
+    Standard_Real y_max = 0.0;
+    Standard_Real z_max = 0.0;
+    bounds.Get(x_min, y_min, z_min, x_max, y_max, z_max);
+    const Standard_Real diagonal = std::sqrt(
+        std::pow(x_max - x_min, 2.0) +
+        std::pow(y_max - y_min, 2.0) +
+        std::pow(z_max - z_min, 2.0));
+    return std::isfinite(diagonal) && diagonal > 1.0e-9
+        ? diagonal
+        : std::max(fallback, 1.0e-6);
+}
+
 void copy_injector_geometry_fields(Injector &target, const Injector &source)
 {
     target.injection_type = source.injection_type;
@@ -1366,10 +1397,12 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
     m_transform_gizmo = new AIS_Manipulator();
     m_transform_gizmo->Attach(unit->ais_display, options);
     m_transform_gizmo->SetPosition(world_position);
-    // Keep the handle at a usable screen size even when the scene contains a
-    // large reference geometry or the injector itself is very small.
+    // Size the handle from the selected injector, not the reference geometry.
+    // This keeps interaction scale stable when a large model is loaded.
     m_transform_gizmo->SetZoomPersistence(Standard_True);
-    m_transform_gizmo->SetSize(100.0f);
+    const Standard_Real gizmo_size =
+        shape_extent(unit->inj.shape, get_trihedron_size()) * 4.0;
+    m_transform_gizmo->SetSize(std::max(gizmo_size, 1.0e-4));
     m_transform_gizmo->SetPart(AIS_MM_Translation, mode == AIS_MM_Translation);
     m_transform_gizmo->SetPart(AIS_MM_Rotation, mode == AIS_MM_Rotation);
     m_transform_gizmo->SetPart(AIS_MM_Scaling, Standard_False);
@@ -5808,7 +5841,9 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
         const gp_Ax2 axis(
             gp_Pnt(origin.x(), origin.y(), origin.z()),
             gp_Dir(direction.x(), direction.y(), direction.z()));
-        trihedron = make_local_trihedron(axis, get_trihedron_size() * 0.45);
+        const Standard_Real local_axis_size =
+            shape_extent(unit->inj.shape, get_trihedron_size()) * 2.0;
+        trihedron = make_local_trihedron(axis, local_axis_size);
         m_context->Deactivate(trihedron, TopAbs_SHAPE);
         if (unit_visible(uuid))
         {
@@ -5823,7 +5858,9 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
         gp_Pnt(origin.x(), origin.y(), origin.z()),
         gp_Dir(direction.x(), direction.y(), direction.z()));
     trihedron->SetComponent(new Geom_Axis2Placement(axis));
-    trihedron->SetSize(std::max(get_trihedron_size() * 0.45, 1.0e-3));
+    const Standard_Real local_axis_size =
+        shape_extent(unit->inj.shape, get_trihedron_size()) * 2.0;
+    trihedron->SetSize(std::max(local_axis_size, 1.0e-4));
     m_context->Redisplay(trihedron, Standard_False);
 }
 
@@ -6874,7 +6911,7 @@ void OCCTWidget::m_initialize_context()
         trihedron_main->SetTextColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);         // Y标签绿色
         trihedron_main->SetTextColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
 
-        trihedron_main->SetSize(0.01);
+        trihedron_main->SetSize(get_trihedron_size());
         trihedron_main->SetDatumDisplayMode(Prs3d_DM_Shaded);
 
 

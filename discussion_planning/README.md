@@ -1,5 +1,14 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Normalize Coordinate-Axis And Gizmo Scale
+
+- Injector local axes and transform handles now derive size from the selected
+  injector bounding box instead of reference-model extent or fixed 100-unit
+  values.
+- World and reference axes retain scene-scale sizing, preventing a large
+  reference model from visually swallowing small injectors.
+- Release build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Unify Reference Face Frame Descriptor
 
 - Face selection and face restoration now derive origin, normal, and X axis
