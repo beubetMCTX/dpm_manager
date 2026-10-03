@@ -1847,6 +1847,32 @@ bool validate(const Data &data, QString *error_message)
         }
     }
 
+    for (const Unit &unit : data.units)
+    {
+        if (!unit.prototype_uuid.isNull() &&
+            !unit_ids.contains(unit.prototype_uuid))
+        {
+            set_error(error_message,
+                      "Project contains a Unit with an invalid prototype UUID.");
+            return false;
+        }
+
+        QSet<QUuid> prototype_chain_ids;
+        for (const QUuid &prototype_uuid : unit.prototype_chain)
+        {
+            if (prototype_uuid.isNull() ||
+                !unit_ids.contains(prototype_uuid) ||
+                prototype_chain_ids.contains(prototype_uuid) ||
+                prototype_uuid == unit.inj.uuid)
+            {
+                set_error(error_message,
+                          "Project contains an invalid or cyclic prototype chain.");
+                return false;
+            }
+            prototype_chain_ids.insert(prototype_uuid);
+        }
+    }
+
     if (!validate_material_entries(data.materials, error_message))
     {
         return false;

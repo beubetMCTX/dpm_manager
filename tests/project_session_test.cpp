@@ -983,6 +983,26 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    project_session::Data invalid_prototype = nested_array_data;
+    invalid_prototype.units[1].prototype_uuid = QUuid::createUuid();
+    if (!check(!project_session::validate(invalid_prototype, &validation_error) &&
+                   validation_error.contains("invalid prototype UUID"),
+               "Invalid nested prototype UUID should fail project validation"))
+    {
+        return 1;
+    }
+
+    project_session::Data cyclic_prototype = nested_array_data;
+    cyclic_prototype.units[1].prototype_chain = {
+        nested_array_root.inj.uuid,
+        nested_array_root.inj.uuid};
+    if (!check(!project_session::validate(cyclic_prototype, &validation_error) &&
+                   validation_error.contains("cyclic prototype chain"),
+               "Cyclic nested prototype chain should fail project validation"))
+    {
+        return 1;
+    }
+
     project_session::Data invalid_combined = assembly_data;
     invalid_combined.units.first().has_fill_spec = true;
     const bool invalid_combined_valid =

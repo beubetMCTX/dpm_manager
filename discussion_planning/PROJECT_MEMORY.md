@@ -21,6 +21,9 @@
 - OCCT regression coverage now edits a promoted nested Array source and checks
   that its complete nested generated child set receives the direction update;
   multi-layer rebuilds still remain idempotent.
+- Project validation now rejects missing, duplicate, or self-referencing
+  nested prototype identities before runtime reconstruction, while keeping
+  prototype fields optional for legacy sessions.
 - Field-table-driven DPM import, including multiple injectors per file.
 - Chemkin species import from the `SPECIES` section and material/config UI.
 - Species color configuration and material table dialogs with config storage.

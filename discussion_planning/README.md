@@ -1,5 +1,13 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Validate Nested Prototype References
+
+- Project validation now rejects missing prototype UUIDs and duplicate or
+  self-referencing prototype chains before runtime rebuild.
+- Added malformed nested-array project coverage with explicit validation
+  messages; legacy files without prototype fields remain valid.
+- The project-session regression passes after the new checks.
+
 ### 2026-10-03 Verify Nested Array Source Propagation
 
 - Added a regression covering edits to a promoted nested array source.
