@@ -10,6 +10,10 @@
 
 ## Completed Areas
 
+- Visibility and lock state updates no longer feed the stale object-list
+  checkbox state back into a hidden Unit. Runtime project-session self-test
+  now verifies the real setters before persistence; Release CTest remains
+  `13/13`.
 - Field-table-driven DPM import, including multiple injectors per file.
 - Chemkin species import from the `SPECIES` section and material/config UI.
 - Species color configuration and material table dialogs with config storage.
@@ -21,7 +25,8 @@
 - Invalid legacy values are normalized before UI/model use. All editor paths
   normalize state before emitting data or geometry updates.
 - Child dialogs use guarded lifetime handling to avoid shutdown crashes.
-- Release build and 12 focused CTest regressions currently pass.
+- Release build and 13 focused CTest regressions currently pass, including a
+  native-platform runtime project-session round-trip through the formal app.
 - Array inheritance now supports schema-v5 property-level masks for material/
   species, physical properties, position, direction, particle size/distribution,
   and complete geometry; schema-v4 boolean overrides remain compatible.
@@ -225,7 +230,8 @@ Unit
 - Build directory: `D:\Git\dpm_manager\build\codex_msvc142_release`
 - Compiler: `E:\Program Files\Microsoft Visual Studio\18\Community`
 - Release build command uses `vcvars64.bat`, CMake, and CTest.
-- Last verified result: `12/12` focused tests passed.
+- Last verified result: `13/13` focused tests passed, including the formal
+  application runtime project-session test.
 
 ## Current Checkpoint
 
@@ -307,7 +313,7 @@ Unit
   geometry face. These trihedrons are display-only and follow visibility,
   editing, dragging, undo/redo, paste, delete/restore, and reference transforms.
 - The latest checkpoint is pushed to `origin/main`; the current Release build
-  passes all 12 focused regressions.
+  passes all 13 focused regressions.
 
 ## Single Direction Mode Progress
 

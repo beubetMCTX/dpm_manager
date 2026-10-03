@@ -1,5 +1,27 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Fix Visibility State Reset During Lock Updates
+
+- Fixed a tree-widget signal feedback loop that re-displayed a hidden Unit
+  when its lock state refreshed the object-list label.
+- `MainWindow::run_project_session_self_test()` now exercises the real runtime
+  visibility/lock setters before saving, instead of modifying the snapshot to
+  simulate their result.
+- Release build and all `13/13` CTest regressions pass.
+
+### 2026-10-03 Verify Runtime Project Session Round-Trip
+
+- Added a hidden `--self-test-project-session` path to the formal application
+  target instead of linking `project_session.cpp` into the OCCT history test.
+- The self-test creates a nested array from a generated child, saves the live
+  persistent Unit tree, loads it, rebuilds the runtime outputs, and verifies
+  nested source identity plus derived visibility/lock state.
+- Derived display-state restoration now falls back from the full prototype
+  chain to the stable parent/layer/placement identity when an equivalent
+  rebuild normalizes the prototype chain.
+- Added a native-platform CTest entry; the full Release suite now passes
+  `13/13` tests.
+
 ### 2026-10-03 Enable Nested Array Creation From Object Tree
 
 - Array Tools now accepts a generated array child as the selected source.

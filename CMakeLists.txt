@@ -412,6 +412,12 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
     add_test(NAME occtwidget_edit_history_regression
              COMMAND occtwidget_edit_history_regression)
 
+    add_test(NAME project_session_runtime_regression
+             COMMAND dpm_manager --self-test-project-session)
+    set_tests_properties(project_session_runtime_regression
+             PROPERTIES ENVIRONMENT
+                         "QT_QPA_PLATFORM=windows;QT_OPENGL=software;QT_PLUGIN_PATH=E:/Qt/6.7.3/msvc2019_64/plugins;DPM_MANAGER_AUTO_DISCARD_UNSAVED=1")
+
     add_executable(unit_array_regression
         tests/unit_array_test.cpp
         ${MODEL_DIR}/unit.h ${MODEL_DIR}/unit_array_spec.h
@@ -444,6 +450,7 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
         auxiliary_dialog_lifetime_regression
         unit_edit_dialog_lifetime_regression
         occtwidget_edit_history_regression
+        project_session_runtime_regression
         unit_array_regression)
     set(DPM_TEST_RUNTIME_PATH
         "${CMAKE_BINARY_DIR};${DPM_TEST_DEPENDENCY_DIR};${OpenCASCADE_BIN_DIR};${DPM_QT_BIN_DIR}")
@@ -458,6 +465,9 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
     set_tests_properties(occtwidget_edit_history_regression
                          PROPERTIES ENVIRONMENT
                          "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED}")
+    set_tests_properties(project_session_runtime_regression
+                         PROPERTIES ENVIRONMENT
+                         "QT_QPA_PLATFORM=windows;QT_PLUGIN_PATH=${DPM_QT_PLUGIN_DIR};PATH=${DPM_TEST_RUNTIME_PATH_ESCAPED};DPM_MANAGER_AUTO_DISCARD_UNSAVED=1")
 endif()
 
 

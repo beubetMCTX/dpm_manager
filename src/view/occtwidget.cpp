@@ -1412,49 +1412,88 @@ void OCCTWidget::restore_derived_unit_display_states(
         return;
     }
 
-    const auto matches = [](const Unit &unit,
-                            const DerivedUnitDisplayState &state)
+    const auto stable_identity_matches = [](const Unit &unit,
+                                            const DerivedUnitDisplayState &state)
     {
         return unit.is_array_child && unit.follows_array &&
                unit.array_parent_uuid == state.array_parent_uuid &&
-               unit.prototype_chain == state.prototype_chain &&
                unit.array_instance_path == state.array_instance_path &&
                unit.array_instance_key == state.array_instance_key &&
                unit.array_layer_uuid == state.array_layer_uuid;
     };
 
+    const auto exact_identity_matches =
+        [&stable_identity_matches](const Unit &unit,
+                                   const DerivedUnitDisplayState &state)
+    {
+        return stable_identity_matches(unit, state) &&
+               unit.prototype_chain == state.prototype_chain;
+    };
+
+    const auto apply_state = [this](const std::shared_ptr<Unit> &unit,
+                                    const UnitDisplayState &state)
+    {
+        if (unit == nullptr)
+        {
+            return;
+        }
+
+        const QUuid uuid = unit->inj.uuid;
+        m_unit_visibility.insert(uuid, state.visible);
+        m_unit_locks.insert(uuid, state.locked);
+        if (state.visible)
+        {
+            m_context->Display(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Display(m_unit_local_trihedrons.value(uuid),
+                                   Standard_False);
+            }
+        }
+        else
+        {
+            m_context->Erase(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(uuid),
+                                 Standard_False);
+            }
+        }
+    };
+
     for (const DerivedUnitDisplayState &saved_state : states)
     {
+        std::shared_ptr<Unit> matched_unit;
         for (auto it = unit_hash.constBegin(); it != unit_hash.constEnd(); ++it)
         {
             const std::shared_ptr<Unit> unit = it.value();
-            if (unit == nullptr || !matches(*unit, saved_state))
+            if (unit == nullptr || !exact_identity_matches(*unit, saved_state))
             {
                 continue;
             }
-
-            m_unit_visibility.insert(it.key(), saved_state.state.visible);
-            m_unit_locks.insert(it.key(), saved_state.state.locked);
-            if (saved_state.state.visible)
-            {
-                m_context->Display(unit->ais_display, Standard_False);
-                if (!m_unit_local_trihedrons.value(it.key()).IsNull())
-                {
-                    m_context->Display(m_unit_local_trihedrons.value(it.key()),
-                                       Standard_False);
-                }
-            }
-            else
-            {
-                m_context->Erase(unit->ais_display, Standard_False);
-                if (!m_unit_local_trihedrons.value(it.key()).IsNull())
-                {
-                    m_context->Erase(m_unit_local_trihedrons.value(it.key()),
-                                     Standard_False);
-                }
-            }
+            matched_unit = unit;
             break;
         }
+
+        // Rebuilding a nested array can normalize its prototype chain while
+        // preserving the stable placement identity. Fall back to that
+        // identity so visibility/lock state survives schema migrations and
+        // equivalent runtime rebuilds.
+        if (matched_unit == nullptr)
+        {
+            for (auto it = unit_hash.constBegin();
+                 it != unit_hash.constEnd(); ++it)
+            {
+                const std::shared_ptr<Unit> unit = it.value();
+                if (unit != nullptr && stable_identity_matches(*unit, saved_state))
+                {
+                    matched_unit = unit;
+                    break;
+                }
+            }
+        }
+
+        apply_state(matched_unit, saved_state.state);
     }
 
     if (!m_view.IsNull())

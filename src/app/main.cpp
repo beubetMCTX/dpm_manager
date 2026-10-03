@@ -46,19 +46,42 @@ int main(int argc, char *argv[])
         }
         qInfo() << "Application startup complete";
 
-        runtime_debug::checkpoint("before MainWindow make_unique");
-        auto main_window = std::make_unique<MainWindow>();
-        runtime_debug::checkpoint("after MainWindow make_unique");
-        main_window->show();
-        runtime_debug::checkpoint("after MainWindow show");
-        main_window->resize(1280,720);
-        runtime_debug::checkpoint("after MainWindow resize");
-        exit_code = a.exec();
-        qInfo() << "Application event loop exited with code" << exit_code;
+        if (a.arguments().contains(QStringLiteral("--self-test-project-session")))
+        {
+            runtime_debug::checkpoint("before project session self-test");
+            auto self_test_window = std::make_unique<MainWindow>();
+            QString self_test_error;
+            const bool self_test_ok =
+                self_test_window->run_project_session_self_test(&self_test_error);
+            if (!self_test_ok)
+            {
+                qCritical() << "Project session self-test failed:"
+                            << self_test_error;
+                exit_code = 1;
+            }
+            else
+            {
+                qInfo() << "Project session self-test passed";
+            }
+            self_test_window.reset();
+            runtime_debug::checkpoint("after project session self-test");
+        }
+        else
+        {
+            runtime_debug::checkpoint("before MainWindow make_unique");
+            auto main_window = std::make_unique<MainWindow>();
+            runtime_debug::checkpoint("after MainWindow make_unique");
+            main_window->show();
+            runtime_debug::checkpoint("after MainWindow show");
+            main_window->resize(1280,720);
+            runtime_debug::checkpoint("after MainWindow resize");
+            exit_code = a.exec();
+            qInfo() << "Application event loop exited with code" << exit_code;
 
-        runtime_debug::checkpoint("before MainWindow reset");
-        main_window.reset();
-        runtime_debug::checkpoint("after MainWindow reset");
+            runtime_debug::checkpoint("before MainWindow reset");
+            main_window.reset();
+            runtime_debug::checkpoint("after MainWindow reset");
+        }
     }
 
     runtime_debug::checkpoint("after QApplication scope");

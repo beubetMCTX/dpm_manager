@@ -75,6 +75,10 @@ public:
     // Supply solver/case capabilities to current and future unit editors.
     void set_unit_editor_case_context(const Unit_Edit_Case_Context &context);
 
+    // Headless regression hook used by the shipped application target. It
+    // exercises the same runtime Unit tree used by the project UI.
+    bool run_project_session_self_test(QString *error_message = nullptr);
+
 public:
 
 

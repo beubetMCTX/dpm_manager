@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFile>
 #include <QSaveFile>
+#include <QTemporaryDir>
 #include <QSysInfo>
 #include <QTextStream>
 #include <QDateTime>
@@ -1689,6 +1690,255 @@ project_session::Data MainWindow::collect_project_data() const
             m_3d_widget->reference_selected_face_x_direction();
     }
     return data;
+}
+
+bool MainWindow::run_project_session_self_test(QString *error_message)
+{
+    const auto fail = [error_message](const QString &message)
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = message;
+        }
+        return false;
+    };
+
+    if (m_3d_widget == nullptr)
+    {
+        return fail(QStringLiteral("OCCT widget is unavailable."));
+    }
+
+    sync_persistent_units_from_occt();
+
+    std::shared_ptr<Unit> source;
+    for (auto it = m_3d_widget->unit_hash.constBegin();
+         it != m_3d_widget->unit_hash.constEnd(); ++it)
+    {
+        if (it.value() != nullptr && !it.value()->is_array_child &&
+            it.value()->has_array_spec)
+        {
+            source = it.value();
+            break;
+        }
+    }
+    if (source == nullptr)
+    {
+        return fail(QStringLiteral("No array source is available for the self-test."));
+    }
+
+    if (source->child_units.isEmpty() &&
+        m_3d_widget->rebuild_unit_array(source->inj.uuid) <= 0)
+    {
+        return fail(QStringLiteral("Unable to build the self-test source array."));
+    }
+    if (source->child_units.isEmpty())
+    {
+        return fail(QStringLiteral("Self-test source array has no generated child."));
+    }
+
+    const std::shared_ptr<Unit> generated_child = source->child_units.first();
+    if (generated_child == nullptr)
+    {
+        return fail(QStringLiteral("Self-test generated child is invalid."));
+    }
+
+    UnitArraySpec nested_spec = source->array_spec;
+    nested_spec.count = 2;
+    nested_spec.origin = generated_child->inj.injector_data.pos;
+    nested_spec.spacing = 0.001f;
+    if (m_3d_widget->create_unit_array(generated_child->inj.uuid,
+                                       nested_spec) != 2)
+    {
+        return fail(QStringLiteral("Unable to create the nested self-test array."));
+    }
+
+    const std::shared_ptr<Unit> nested_source =
+        m_3d_widget->unit_hash.value(generated_child->inj.uuid);
+    if (nested_source == nullptr || nested_source->follows_array ||
+        !nested_source->has_array_spec || nested_source->child_units.isEmpty())
+    {
+        return fail(QStringLiteral("Nested array source was not promoted correctly."));
+    }
+
+    const std::shared_ptr<Unit> nested_child = nested_source->child_units.first();
+    if (nested_child == nullptr)
+    {
+        return fail(QStringLiteral("Nested generated child is invalid."));
+    }
+    const QVector<int> target_instance_path = nested_child->array_instance_path;
+    const QVector<QUuid> target_instance_key = nested_child->array_instance_key;
+    const QUuid target_layer_uuid = nested_child->array_layer_uuid;
+
+    if (!m_3d_widget->set_unit_visible(nested_child->inj.uuid, false) ||
+        !m_3d_widget->set_unit_locked(nested_child->inj.uuid, true) ||
+        m_3d_widget->unit_visible(nested_child->inj.uuid) ||
+        !m_3d_widget->unit_locked(nested_child->inj.uuid))
+    {
+        return fail(QStringLiteral(
+            "Runtime display setters did not preserve the requested nested "
+            "child state (visible=%1, locked=%2).")
+                        .arg(m_3d_widget->unit_visible(nested_child->inj.uuid))
+                        .arg(m_3d_widget->unit_locked(nested_child->inj.uuid)));
+    }
+
+    sync_persistent_units_from_occt();
+    project_session::Data source_data = collect_project_data();
+    source_data.chemkin_file_path.clear();
+    int saved_target_matches = 0;
+    for (const DerivedUnitDisplayState &saved_state :
+         source_data.derived_unit_display_states)
+    {
+        if (saved_state.array_parent_uuid == nested_source->inj.uuid &&
+            saved_state.array_instance_path == target_instance_path &&
+            saved_state.array_instance_key == target_instance_key &&
+            saved_state.array_layer_uuid == target_layer_uuid)
+        {
+            ++saved_target_matches;
+        }
+    }
+    if (saved_target_matches != 1)
+    {
+        return fail(QStringLiteral(
+            "Runtime snapshot did not contain the expected nested display state "
+            "(matches=%1).")
+                        .arg(saved_target_matches));
+    }
+    const auto saved_target_state = std::find_if(
+        source_data.derived_unit_display_states.cbegin(),
+        source_data.derived_unit_display_states.cend(),
+        [&](const DerivedUnitDisplayState &saved_state)
+        {
+            return saved_state.array_parent_uuid == nested_source->inj.uuid &&
+                   saved_state.array_instance_path == target_instance_path &&
+                   saved_state.array_instance_key == target_instance_key &&
+                   saved_state.array_layer_uuid == target_layer_uuid;
+        });
+    if (saved_target_state == source_data.derived_unit_display_states.cend() ||
+        saved_target_state->state.visible ||
+        !saved_target_state->state.locked)
+    {
+        return fail(QStringLiteral(
+            "Runtime display state was not captured in the project snapshot "
+            "(visible=%1, locked=%2).")
+                        .arg(saved_target_state ==
+                                     source_data.derived_unit_display_states.cend()
+                                 ? -1
+                                 : saved_target_state->state.visible)
+                        .arg(saved_target_state ==
+                                     source_data.derived_unit_display_states.cend()
+                                 ? -1
+                                 : saved_target_state->state.locked));
+    }
+
+    QTemporaryDir session_directory;
+    if (!session_directory.isValid())
+    {
+        return fail(QStringLiteral("Unable to create a temporary session directory."));
+    }
+
+    const QString session_path =
+        session_directory.filePath(QStringLiteral("runtime-roundtrip.dpmpj"));
+    QString local_error;
+    if (!project_session::save(session_path, source_data, &local_error))
+    {
+        return fail(local_error.isEmpty()
+                        ? QStringLiteral("Unable to save the runtime session.")
+                        : local_error);
+    }
+
+    project_session::Data restored_data;
+    if (!project_session::load(session_path, &restored_data, &local_error))
+    {
+        return fail(local_error.isEmpty()
+                        ? QStringLiteral("Unable to load the runtime session.")
+                        : local_error);
+    }
+
+    const auto find_unit = [&restored_data](const QUuid &uuid) -> const Unit *
+    {
+        for (const Unit &unit : restored_data.units)
+        {
+            if (unit.inj.uuid == uuid)
+            {
+                return &unit;
+            }
+        }
+        return nullptr;
+    };
+    const Unit *restored_nested = find_unit(nested_source->inj.uuid);
+    if (restored_nested == nullptr || restored_nested->follows_array ||
+        !restored_nested->has_array_spec ||
+        restored_nested->array_parent_uuid != source->inj.uuid)
+    {
+        return fail(QStringLiteral("Loaded session lost nested source identity."));
+    }
+
+    m_3d_widget->display_units(restored_data.units, true, false);
+    m_3d_widget->restore_unit_display_states(
+        restored_data.unit_display_states);
+    m_3d_widget->restore_derived_unit_display_states(
+        restored_data.derived_unit_display_states);
+
+    const std::shared_ptr<Unit> restored_runtime_nested =
+        m_3d_widget->unit_hash.value(nested_source->inj.uuid);
+    if (restored_runtime_nested == nullptr ||
+        restored_runtime_nested->follows_array ||
+        !restored_runtime_nested->has_array_spec ||
+        restored_runtime_nested->child_units.size() != 2)
+    {
+        return fail(QStringLiteral("Loaded session did not rebuild nested array output."));
+    }
+
+    std::shared_ptr<Unit> restored_runtime_child;
+    for (const std::shared_ptr<Unit> &candidate :
+         restored_runtime_nested->child_units)
+    {
+        if (candidate != nullptr &&
+            candidate->array_instance_path == target_instance_path &&
+            candidate->array_instance_key == target_instance_key &&
+            candidate->array_layer_uuid == target_layer_uuid)
+        {
+            restored_runtime_child = candidate;
+            break;
+        }
+    }
+    if (restored_runtime_child == nullptr)
+    {
+        return fail(QStringLiteral("Loaded session lost nested child identity."));
+    }
+    if (m_3d_widget->unit_visible(restored_runtime_child->inj.uuid) ||
+        !m_3d_widget->unit_locked(restored_runtime_child->inj.uuid))
+    {
+        const QList<DerivedUnitDisplayState> runtime_states =
+            m_3d_widget->derived_unit_display_states();
+        int runtime_target_matches = 0;
+        UnitDisplayState runtime_target_state;
+        for (const DerivedUnitDisplayState &runtime_state : runtime_states)
+        {
+            if (runtime_state.array_parent_uuid == nested_source->inj.uuid &&
+                runtime_state.array_instance_path == target_instance_path &&
+                runtime_state.array_instance_key == target_instance_key &&
+                runtime_state.array_layer_uuid == target_layer_uuid)
+            {
+                ++runtime_target_matches;
+                runtime_target_state = runtime_state.state;
+            }
+        }
+        return fail(QStringLiteral(
+            "Loaded session lost nested display state (saved=%1, runtime=%2, "
+            "matches=%3, visible=%4, locked=%5).")
+                        .arg(restored_data.derived_unit_display_states.size())
+                        .arg(runtime_states.size())
+                        .arg(runtime_target_matches)
+                        .arg(runtime_target_state.visible)
+                        .arg(runtime_target_state.locked));
+    }
+
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+    return true;
 }
 
 void MainWindow::refresh_project_dirty_state()
@@ -6141,6 +6391,7 @@ void MainWindow::update_object_list_item(const QUuid &uuid, const QString &name)
         display_name = uuid.toString(QUuid::WithoutBraces);
     }
 
+    const QSignalBlocker blocker(m_object_list);
     for (QTreeWidgetItem *item : m_object_list->all_items())
     {
         if (item->data(0, Qt::UserRole).toString() ==
