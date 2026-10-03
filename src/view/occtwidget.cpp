@@ -4411,6 +4411,143 @@ int OCCTWidget::create_unit_fill(const QList<QUuid> &source_uuids,
     return create_unit_fill_internal(source_uuids, spec, true, false);
 }
 
+bool OCCTWidget::update_unit_fill(const QUuid &source_uuid,
+                                  const UnitFillSpec &spec)
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || !source->has_fill_spec ||
+        source->fill_source_uuids.isEmpty())
+    {
+        return false;
+    }
+
+    UnitFillSpec edited_spec = spec;
+    if (edited_spec.fill_uuid.isNull())
+    {
+        edited_spec.fill_uuid = source->fill_spec.fill_uuid;
+    }
+    return create_unit_fill_internal(source->fill_source_uuids, edited_spec,
+                                     true, false) > 0;
+}
+
+UnitFillSpec OCCTWidget::unit_fill_spec_by_uuid(
+    const QUuid &source_uuid) const
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    return source != nullptr && source->has_fill_spec
+               ? source->fill_spec
+               : UnitFillSpec();
+}
+
+QList<QUuid> OCCTWidget::unit_fill_source_uuids_by_uuid(
+    const QUuid &source_uuid) const
+{
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    return source != nullptr && source->has_fill_spec
+               ? source->fill_source_uuids
+               : QList<QUuid>();
+}
+
+void OCCTWidget::update_fill_preview(const QUuid &source_uuid,
+                                     const UnitFillSpec &spec)
+{
+    clear_array_preview();
+    if (source_uuid.isNull() || m_context.IsNull() || m_view.IsNull())
+    {
+        return;
+    }
+
+    const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+    if (source == nullptr || source->ais_display.IsNull())
+    {
+        return;
+    }
+
+    QList<QUuid> source_uuids = source->has_fill_spec
+                                    ? source->fill_source_uuids
+                                    : QList<QUuid>();
+    if (source_uuids.isEmpty())
+    {
+        source_uuids.append(source_uuid);
+    }
+
+    QList<std::shared_ptr<Unit>> tree_sources;
+    QList<Unit> leaf_sources;
+    bool has_composite_source = false;
+    for (const QUuid &uuid : source_uuids)
+    {
+        const std::shared_ptr<Unit> candidate = unit_hash.value(uuid);
+        if (candidate == nullptr || candidate->ais_display.IsNull())
+        {
+            continue;
+        }
+        tree_sources.append(candidate);
+        leaf_sources.append(*candidate);
+        has_composite_source = has_composite_source ||
+                               candidate->type == Assebly ||
+                               !candidate->assembly_child_uuids.isEmpty();
+    }
+    if (tree_sources.isEmpty())
+    {
+        return;
+    }
+
+    TopoDS_Compound preview_compound;
+    BRep_Builder preview_builder;
+    preview_builder.MakeCompound(preview_compound);
+    int preview_count = 0;
+    const auto add_shape = [&](const TopoDS_Shape &shape)
+    {
+        if (!shape.IsNull())
+        {
+            preview_builder.Add(preview_compound, shape);
+            ++preview_count;
+        }
+    };
+    std::function<void(const std::shared_ptr<Unit> &)> add_tree_shapes;
+    add_tree_shapes = [&](const std::shared_ptr<Unit> &unit)
+    {
+        if (unit == nullptr)
+        {
+            return;
+        }
+        add_shape(unit->inj.shape);
+        for (const std::shared_ptr<Unit> &child : unit->child_units)
+        {
+            add_tree_shapes(child);
+        }
+    };
+
+    if (has_composite_source)
+    {
+        const QList<std::shared_ptr<Unit>> instances =
+            expand_unit_tree_fill(tree_sources, spec);
+        for (int index = 1; index < instances.size(); ++index)
+        {
+            add_tree_shapes(instances.at(index));
+        }
+    }
+    else
+    {
+        const QList<Unit> instances = expand_unit_fill(leaf_sources, spec);
+        for (int index = 1; index < instances.size(); ++index)
+        {
+            add_shape(instances.at(index).inj.shape);
+        }
+    }
+
+    if (preview_count <= 0 || preview_compound.IsNull())
+    {
+        return;
+    }
+
+    m_array_preview_shape = new AIS_Shape(preview_compound);
+    m_array_preview_shape->SetColor(Quantity_Color(Quantity_NOC_YELLOW));
+    m_array_preview_shape->SetTransparency(0.72);
+    m_context->Display(m_array_preview_shape, Standard_False);
+    m_view->Redraw();
+}
+
 int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
                                           const UnitFillSpec &spec,
                                           bool record_history,

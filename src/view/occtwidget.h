@@ -241,6 +241,13 @@ public:
     void clear_array_preview();
     int create_unit_fill(const QList<QUuid> &source_uuids,
                          const UnitFillSpec &spec);
+    bool update_unit_fill(const QUuid &source_uuid,
+                          const UnitFillSpec &spec);
+    UnitFillSpec unit_fill_spec_by_uuid(const QUuid &source_uuid) const;
+    QList<QUuid> unit_fill_source_uuids_by_uuid(
+        const QUuid &source_uuid) const;
+    void update_fill_preview(const QUuid &source_uuid,
+                             const UnitFillSpec &spec);
     bool create_assembly(const QList<QUuid> &uuids);
     bool detach_from_assembly(const QUuid &uuid);
     bool dissolve_assembly(const QUuid &uuid);

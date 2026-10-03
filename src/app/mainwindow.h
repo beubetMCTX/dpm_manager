@@ -147,6 +147,8 @@ private:
     void load_array_editor_layer(int layer_index);
     bool build_array_editor_spec(UnitArraySpec *output,
                                  bool show_warning = false);
+    bool build_fill_editor_spec(UnitFillSpec *output,
+                                bool show_warning = false);
     void update_array_editor_preview();
     void position_viewport_interaction_toolbar();
     void apply_reference_geometry_transform();
@@ -217,6 +219,11 @@ private:
     QLabel *m_array_editor_source_label = nullptr;
     QUuid m_array_editor_source_uuid;
     QListWidget *m_array_editor_layers = nullptr;
+    QGroupBox *m_array_editor_layers_group = nullptr;
+    QGroupBox *m_array_editor_pattern_group = nullptr;
+    QGroupBox *m_array_editor_parameters_group = nullptr;
+    QGroupBox *m_array_editor_frame_group = nullptr;
+    QGroupBox *m_array_editor_fill_group = nullptr;
     QComboBox *m_array_editor_type = nullptr;
     QSpinBox *m_array_editor_count = nullptr;
     QStackedWidget *m_array_editor_parameter_stack = nullptr;
@@ -242,6 +249,15 @@ private:
     QPushButton *m_array_editor_remove_layer = nullptr;
     QPushButton *m_array_editor_move_layer_up = nullptr;
     QPushButton *m_array_editor_move_layer_down = nullptr;
+    QComboBox *m_array_editor_fill_pattern = nullptr;
+    QSpinBox *m_array_editor_fill_rows = nullptr;
+    QSpinBox *m_array_editor_fill_columns = nullptr;
+    QDoubleSpinBox *m_array_editor_fill_spacing_x = nullptr;
+    QDoubleSpinBox *m_array_editor_fill_spacing_y = nullptr;
+    QCheckBox *m_array_editor_fill_circular = nullptr;
+    QDoubleSpinBox *m_array_editor_fill_boundary_radius = nullptr;
+    QLineEdit *m_array_editor_fill_weights = nullptr;
+    QPushButton *m_array_editor_update_fill = nullptr;
     bool m_array_editor_updating = false;
     QLineEdit *m_object_filter = nullptr;
     QDoubleSpinBox *m_unit_position_x = nullptr;

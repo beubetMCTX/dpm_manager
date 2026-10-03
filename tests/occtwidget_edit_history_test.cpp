@@ -1326,5 +1326,25 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
+
+    UnitFillSpec edited_fill = widget.unit_fill_spec_by_uuid(fill_root_uuid);
+    edited_fill.pattern = UnitFillPattern::Hexagonal;
+    edited_fill.rows = 2;
+    edited_fill.columns = 2;
+    edited_fill.spacing_x = 3.0f;
+    edited_fill.spacing_y = 4.0f;
+    edited_fill.source_weights = {1};
+    if (!check(widget.update_unit_fill(fill_root_uuid, edited_fill),
+               "Existing Fill should be editable") ||
+        !check(widget.unit_fill_spec_by_uuid(fill_root_uuid).pattern ==
+                   UnitFillPattern::Hexagonal,
+               "Fill editor should preserve the edited pattern") ||
+        !check(widget.unit_hash.value(fill_root_uuid)->child_units.size() == 4,
+               "Edited Fill should rebuild its complete placement set"))
+    {
+        return 1;
+    }
+    widget.update_fill_preview(fill_root_uuid, edited_fill);
+    widget.clear_array_preview();
     return 0;
 }

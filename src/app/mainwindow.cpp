@@ -2847,6 +2847,7 @@ void MainWindow::create_array_editor_panel()
     layout->addWidget(source_group);
 
     auto *layers_group = new QGroupBox(tr("Array Layers"), panel);
+    m_array_editor_layers_group = layers_group;
     auto *layers_layout = new QVBoxLayout(layers_group);
     m_array_editor_layers = new QListWidget(layers_group);
     m_array_editor_layers->setMinimumHeight(110);
@@ -2868,6 +2869,7 @@ void MainWindow::create_array_editor_panel()
     layout->addWidget(layers_group);
 
     auto *pattern_group = new QGroupBox(tr("Pattern"), panel);
+    m_array_editor_pattern_group = pattern_group;
     auto *pattern_layout = new QFormLayout(pattern_group);
     m_array_editor_type = new QComboBox(pattern_group);
     m_array_editor_type->addItems({tr("Linear"), tr("Rotational"),
@@ -2887,6 +2889,39 @@ void MainWindow::create_array_editor_panel()
         spin->setValue(value);
         return spin;
     };
+
+    m_array_editor_fill_group = new QGroupBox(tr("Fill Pattern"), panel);
+    auto *fill_form = new QFormLayout(m_array_editor_fill_group);
+    m_array_editor_fill_pattern = new QComboBox(m_array_editor_fill_group);
+    m_array_editor_fill_pattern->addItem(
+        tr("Square"), static_cast<int>(UnitFillPattern::Square));
+    m_array_editor_fill_pattern->addItem(
+        tr("Hexagonal"), static_cast<int>(UnitFillPattern::Hexagonal));
+    m_array_editor_fill_rows = new QSpinBox(m_array_editor_fill_group);
+    m_array_editor_fill_rows->setRange(1, 1000);
+    m_array_editor_fill_columns = new QSpinBox(m_array_editor_fill_group);
+    m_array_editor_fill_columns->setRange(1, 1000);
+    m_array_editor_fill_spacing_x = make_double_spin(0.005, 6);
+    m_array_editor_fill_spacing_y = make_double_spin(0.005, 6);
+    m_array_editor_fill_circular = new QCheckBox(
+        tr("Clip to circular boundary"), m_array_editor_fill_group);
+    m_array_editor_fill_boundary_radius = make_double_spin(0.020, 6);
+    m_array_editor_fill_weights = new QLineEdit(
+        QStringLiteral("1"), m_array_editor_fill_group);
+    m_array_editor_update_fill = new QPushButton(
+        tr("Update Fill"), m_array_editor_fill_group);
+    fill_form->addRow(tr("Pattern"), m_array_editor_fill_pattern);
+    fill_form->addRow(tr("Rows"), m_array_editor_fill_rows);
+    fill_form->addRow(tr("Columns"), m_array_editor_fill_columns);
+    fill_form->addRow(tr("X spacing"), m_array_editor_fill_spacing_x);
+    fill_form->addRow(tr("Y spacing"), m_array_editor_fill_spacing_y);
+    fill_form->addRow(m_array_editor_fill_circular);
+    fill_form->addRow(tr("Boundary radius"),
+                      m_array_editor_fill_boundary_radius);
+    fill_form->addRow(tr("Source weights"), m_array_editor_fill_weights);
+    fill_form->addRow(m_array_editor_update_fill);
+    layout->addWidget(m_array_editor_fill_group);
+    m_array_editor_fill_group->hide();
 
     m_array_editor_parameter_stack = new QStackedWidget(panel);
     auto *linear_page = new QWidget(m_array_editor_parameter_stack);
@@ -2921,11 +2956,13 @@ void MainWindow::create_array_editor_panel()
     m_array_editor_parameter_stack->addWidget(elliptical_page);
 
     auto *parameters_group = new QGroupBox(tr("Pattern Parameters"), panel);
+    m_array_editor_parameters_group = parameters_group;
     auto *parameters_layout = new QVBoxLayout(parameters_group);
     parameters_layout->addWidget(m_array_editor_parameter_stack);
     layout->addWidget(parameters_group);
 
     auto *frame_group = new QGroupBox(tr("Coordinate Frame"), panel);
+    m_array_editor_frame_group = frame_group;
     auto *frame_layout = new QFormLayout(frame_group);
     m_array_editor_frame_mode = new QComboBox(frame_group);
     m_array_editor_frame_mode->addItems({tr("World / custom vectors"),
@@ -3053,6 +3090,32 @@ void MainWindow::create_array_editor_panel()
     }
     connect(m_array_editor_conform_normal, &QCheckBox::toggled,
             this, [this](bool) { update_array_editor_preview(); });
+    connect(m_array_editor_fill_pattern,
+            qOverload<int>(&QComboBox::currentIndexChanged), this,
+            [this](int) { update_array_editor_preview(); });
+    connect(m_array_editor_fill_rows, qOverload<int>(&QSpinBox::valueChanged),
+            this, [this](int) { update_array_editor_preview(); });
+    connect(m_array_editor_fill_columns,
+            qOverload<int>(&QSpinBox::valueChanged), this,
+            [this](int) { update_array_editor_preview(); });
+    for (QDoubleSpinBox *spin : {m_array_editor_fill_spacing_x,
+                                 m_array_editor_fill_spacing_y,
+                                 m_array_editor_fill_boundary_radius})
+    {
+        connect(spin, qOverload<double>(&QDoubleSpinBox::valueChanged),
+                this, [this](double) { update_array_editor_preview(); });
+    }
+    connect(m_array_editor_fill_circular, &QCheckBox::toggled, this,
+            [this](bool enabled)
+    {
+        if (m_array_editor_fill_boundary_radius != nullptr)
+        {
+            m_array_editor_fill_boundary_radius->setEnabled(enabled);
+        }
+        update_array_editor_preview();
+    });
+    connect(m_array_editor_fill_weights, &QLineEdit::textChanged, this,
+            [this](const QString &) { update_array_editor_preview(); });
     connect(m_array_editor_layers, &QListWidget::currentRowChanged,
             this, [this](int row) { load_array_editor_layer(row); });
 
@@ -3081,6 +3144,25 @@ void MainWindow::create_array_editor_panel()
         }
         statusBar()->showMessage(
             tr("Created array layer with %1 instances").arg(created), 5000);
+    });
+
+    connect(m_array_editor_update_fill, &QPushButton::clicked, this, [this]()
+    {
+        UnitFillSpec spec;
+        if (!build_fill_editor_spec(&spec, true))
+        {
+            return;
+        }
+        if (!m_3d_widget->update_unit_fill(m_array_editor_source_uuid, spec))
+        {
+            QMessageBox::warning(this, tr("Array Editor"),
+                                 tr("The fill pattern could not be updated."));
+            return;
+        }
+        mark_project_dirty();
+        update_object_list_panel();
+        refresh_array_editor_panel();
+        statusBar()->showMessage(tr("Fill pattern updated"), 4000);
     });
 
     connect(m_array_editor_update_layer, &QPushButton::clicked, this, [this]()
@@ -3197,6 +3279,22 @@ void MainWindow::refresh_array_editor_panel()
         {
             m_array_editor_source_label->setText(tr("Source: <none>"));
         }
+        if (m_array_editor_layers_group != nullptr)
+        {
+            m_array_editor_layers_group->hide();
+        }
+        if (m_array_editor_pattern_group != nullptr)
+        {
+            m_array_editor_pattern_group->hide();
+        }
+        if (m_array_editor_parameters_group != nullptr)
+        {
+            m_array_editor_parameters_group->hide();
+        }
+        if (m_array_editor_fill_group != nullptr)
+        {
+            m_array_editor_fill_group->hide();
+        }
         m_array_editor_updating = false;
         load_array_editor_layer(-1);
         return;
@@ -3206,6 +3304,29 @@ void MainWindow::refresh_array_editor_panel()
     {
         m_array_editor_source_label->setText(
             tr("Source: %1").arg(source->inj.injector_data.name));
+    }
+
+    const bool has_fill = source->has_fill_spec;
+    if (m_array_editor_layers_group != nullptr)
+    {
+        m_array_editor_layers_group->setVisible(!has_fill);
+    }
+    if (m_array_editor_pattern_group != nullptr)
+    {
+        m_array_editor_pattern_group->setVisible(!has_fill);
+    }
+    if (m_array_editor_parameters_group != nullptr)
+    {
+        m_array_editor_parameters_group->setVisible(!has_fill);
+    }
+    if (m_array_editor_fill_group != nullptr)
+    {
+        m_array_editor_fill_group->setVisible(has_fill);
+    }
+    if (m_array_editor_frame_group != nullptr)
+    {
+        m_array_editor_frame_group->setVisible(
+            has_fill || source->has_array_spec);
     }
 
     const QList<UnitArraySpec> specs =
@@ -3249,6 +3370,9 @@ void MainWindow::apply_array_editor_display_units()
                                  m_array_editor_rotational_spacing,
                                  m_array_editor_major_radius,
                                  m_array_editor_minor_radius,
+                                 m_array_editor_fill_spacing_x,
+                                 m_array_editor_fill_spacing_y,
+                                 m_array_editor_fill_boundary_radius,
                                  m_array_editor_origin_x,
                                  m_array_editor_origin_y,
                                  m_array_editor_origin_z})
@@ -3276,6 +3400,62 @@ void MainWindow::load_array_editor_layer(int layer_index)
     }
 
     m_array_editor_updating = true;
+    const std::shared_ptr<Unit> source = m_3d_widget == nullptr
+        ? nullptr : m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
+    if (source != nullptr && source->has_fill_spec)
+    {
+        const UnitFillSpec spec = source->fill_spec;
+        const QSignalBlocker pattern_blocker(m_array_editor_fill_pattern);
+        const QSignalBlocker rows_blocker(m_array_editor_fill_rows);
+        const QSignalBlocker columns_blocker(m_array_editor_fill_columns);
+        const QSignalBlocker circular_blocker(m_array_editor_fill_circular);
+        m_array_editor_fill_pattern->setCurrentIndex(
+            m_array_editor_fill_pattern->findData(
+                static_cast<int>(spec.pattern)));
+        m_array_editor_fill_rows->setValue(spec.rows);
+        m_array_editor_fill_columns->setValue(spec.columns);
+        apply_array_editor_display_units();
+        m_array_editor_fill_spacing_x->setValue(
+            storage_length_to_display(spec.spacing_x));
+        m_array_editor_fill_spacing_y->setValue(
+            storage_length_to_display(spec.spacing_y));
+        m_array_editor_fill_circular->setChecked(spec.circular_boundary);
+        m_array_editor_fill_boundary_radius->setValue(
+            storage_length_to_display(spec.boundary_radius));
+        m_array_editor_fill_boundary_radius->setEnabled(
+            spec.circular_boundary);
+        QStringList weight_tokens;
+        for (const int weight : spec.source_weights)
+        {
+            weight_tokens.append(QString::number(weight));
+        }
+        m_array_editor_fill_weights->setText(weight_tokens.join(','));
+        m_array_editor_frame_mode->setCurrentIndex(
+            spec.use_reference_geometry ? 1 : 0);
+        m_array_editor_origin_x->setValue(
+            storage_length_to_display(spec.origin.x()));
+        m_array_editor_origin_y->setValue(
+            storage_length_to_display(spec.origin.y()));
+        m_array_editor_origin_z->setValue(
+            storage_length_to_display(spec.origin.z()));
+        m_array_editor_direction_x->setValue(spec.direction.x());
+        m_array_editor_direction_y->setValue(spec.direction.y());
+        m_array_editor_direction_z->setValue(spec.direction.z());
+        m_array_editor_normal_x->setValue(spec.plane_normal.x());
+        m_array_editor_normal_y->setValue(spec.plane_normal.y());
+        m_array_editor_normal_z->setValue(spec.plane_normal.z());
+        m_array_editor_conform_normal->setChecked(
+            spec.conform_to_reference_normal);
+        m_array_editor_add_layer->setEnabled(false);
+        m_array_editor_update_layer->setEnabled(false);
+        m_array_editor_remove_layer->setEnabled(false);
+        m_array_editor_move_layer_up->setEnabled(false);
+        m_array_editor_move_layer_down->setEnabled(false);
+        m_array_editor_update_fill->setEnabled(true);
+        m_array_editor_updating = false;
+        update_array_editor_preview();
+        return;
+    }
     UnitArraySpec spec;
     const QList<UnitArraySpec> specs = m_3d_widget == nullptr
         ? QList<UnitArraySpec>()
@@ -3418,11 +3598,140 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
     return true;
 }
 
+bool MainWindow::build_fill_editor_spec(UnitFillSpec *output,
+                                        bool show_warning)
+{
+    if (output == nullptr || m_3d_widget == nullptr ||
+        m_array_editor_source_uuid.isNull())
+    {
+        return false;
+    }
+
+    const std::shared_ptr<Unit> source =
+        m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
+    if (source == nullptr || !source->has_fill_spec)
+    {
+        return false;
+    }
+
+    UnitFillSpec spec = source->fill_spec;
+    const int pattern_index = m_array_editor_fill_pattern->currentIndex();
+    spec.pattern = static_cast<UnitFillPattern>(
+        m_array_editor_fill_pattern->itemData(pattern_index).toInt());
+    spec.rows = m_array_editor_fill_rows->value();
+    spec.columns = m_array_editor_fill_columns->value();
+    spec.spacing_x = static_cast<float>(display_length_to_storage(
+        m_array_editor_fill_spacing_x->value()));
+    spec.spacing_y = static_cast<float>(display_length_to_storage(
+        m_array_editor_fill_spacing_y->value()));
+    spec.circular_boundary = m_array_editor_fill_circular->isChecked();
+    spec.boundary_radius = static_cast<float>(display_length_to_storage(
+        m_array_editor_fill_boundary_radius->value()));
+
+    const QList<QUuid> source_uuids =
+        m_3d_widget->unit_fill_source_uuids_by_uuid(
+            m_array_editor_source_uuid);
+    const QStringList weight_tokens = m_array_editor_fill_weights->text()
+                                          .split(',', Qt::SkipEmptyParts);
+    if (source_uuids.isEmpty() || weight_tokens.size() != source_uuids.size())
+    {
+        if (show_warning)
+        {
+            QMessageBox::warning(
+                this, tr("Array Editor"),
+                tr("Enter one positive integer weight for each fill source."));
+        }
+        return false;
+    }
+    spec.source_weights.clear();
+    for (const QString &token : weight_tokens)
+    {
+        bool ok = false;
+        const int weight = token.trimmed().toInt(&ok);
+        if (!ok || weight <= 0)
+        {
+            if (show_warning)
+            {
+                QMessageBox::warning(
+                    this, tr("Array Editor"),
+                    tr("Fill source weights must be positive integers."));
+            }
+            return false;
+        }
+        spec.source_weights.append(weight);
+    }
+
+    if (m_array_editor_frame_mode->currentIndex() == 1)
+    {
+        QVector3D origin;
+        QVector3D reference_x;
+        QVector3D reference_z;
+        if (!m_3d_widget->reference_frame(&origin, &reference_x,
+                                          &reference_z))
+        {
+            if (show_warning)
+            {
+                QMessageBox::warning(
+                    this, tr("Array Editor"),
+                    tr("No usable reference coordinate frame is available."));
+            }
+            return false;
+        }
+        spec.use_reference_geometry = true;
+        spec.reference_geometry_uuid =
+            m_3d_widget->reference_geometry_uuid();
+        spec.origin = origin;
+        spec.direction = reference_x;
+        spec.plane_normal = reference_z;
+    }
+    else
+    {
+        spec.use_reference_geometry = false;
+        spec.reference_geometry_uuid = QUuid();
+        spec.origin = QVector3D(
+            static_cast<float>(display_length_to_storage(
+                m_array_editor_origin_x->value())),
+            static_cast<float>(display_length_to_storage(
+                m_array_editor_origin_y->value())),
+            static_cast<float>(display_length_to_storage(
+                m_array_editor_origin_z->value())));
+        spec.direction = QVector3D(
+            static_cast<float>(m_array_editor_direction_x->value()),
+            static_cast<float>(m_array_editor_direction_y->value()),
+            static_cast<float>(m_array_editor_direction_z->value()));
+        spec.plane_normal = QVector3D(
+            static_cast<float>(m_array_editor_normal_x->value()),
+            static_cast<float>(m_array_editor_normal_y->value()),
+            static_cast<float>(m_array_editor_normal_z->value()));
+    }
+    spec.conform_to_reference_normal =
+        m_array_editor_conform_normal->isChecked();
+    *output = spec;
+    return true;
+}
+
 void MainWindow::update_array_editor_preview()
 {
     if (m_array_editor_updating || m_3d_widget == nullptr ||
         m_array_editor_source_uuid.isNull())
     {
+        return;
+    }
+
+    const std::shared_ptr<Unit> source =
+        m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
+    if (source != nullptr && source->has_fill_spec)
+    {
+        UnitFillSpec edited_fill;
+        if (build_fill_editor_spec(&edited_fill, false))
+        {
+            m_3d_widget->update_fill_preview(m_array_editor_source_uuid,
+                                              edited_fill);
+        }
+        else
+        {
+            m_3d_widget->clear_array_preview();
+        }
         return;
     }
 
