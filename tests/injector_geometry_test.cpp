@@ -1,6 +1,7 @@
 #include "injector.h"
 
 #include <QCoreApplication>
+#include <iostream>
 
 namespace
 {
@@ -8,7 +9,7 @@ bool check(bool condition, const char *message)
 {
     if (!condition)
     {
-        qCritical() << message;
+        std::cerr << message << '\n';
         return false;
     }
     return true;
@@ -36,7 +37,12 @@ Injector_OCCT make_base_injector()
 
 bool geometry_is_valid(Injector_OCCT &injector)
 {
-    return injector.create_injector() && !injector.shape.IsNull();
+    if (!injector.create_injector() || injector.shape.IsNull())
+    {
+        return false;
+    }
+
+    return injector.shape.NbChildren() > 0;
 }
 }
 
@@ -77,6 +83,52 @@ int main(int argc, char *argv[])
         Injector_OCCT injector = make_base_injector();
         injector.injector_data.injection_type = volume;
         if (!check(geometry_is_valid(injector), "Volume geometry should be created"))
+        {
+            return 1;
+        }
+    }
+
+    for (const Volume_Bgeom_Shapes volume_shape :
+         {sphere, cylinder, cone_, hexahedron})
+    {
+        Injector_OCCT injector = make_base_injector();
+        injector.injector_data.injection_type = volume;
+        injector.injector_data.volume_specification = bouning_geometry;
+        injector.injector_data.volume_bgeom_shapes = volume_shape;
+        if (!geometry_is_valid(injector))
+        {
+            std::cerr << "Volume bounding shape failed: "
+                      << static_cast<int>(volume_shape)
+                      << '\n';
+            return 1;
+        }
+    }
+
+    for (const Injection_Type atomizer_type :
+         {plain_oriface_atomizer,
+          pressure_swirl_atomizer,
+          air_blast_atomizer,
+          flat_fan_atomizer,
+          effervescent_atomizer})
+    {
+        Injector_OCCT injector = make_base_injector();
+        injector.injector_data.injection_type = atomizer_type;
+        injector.injector_data.ff_center = injector.injector_data.pos;
+        injector.injector_data.ff_virtual_origin =
+            injector.injector_data.pos + QVector3D(1.0f, 0.0f, 0.0f);
+        injector.injector_data.ff_normal = QVector3D(0.0f, 1.0f, 0.0f);
+        if (!check(geometry_is_valid(injector),
+                   "Every advanced atomizer geometry should be created"))
+        {
+            return 1;
+        }
+    }
+
+    {
+        Injector_OCCT injector = make_base_injector();
+        injector.injector_data.injection_type = condensate;
+        if (!check(geometry_is_valid(injector),
+                   "Condensate geometry should be created"))
         {
             return 1;
         }

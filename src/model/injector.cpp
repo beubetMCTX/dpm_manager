@@ -1074,7 +1074,23 @@ bool Injector_OCCT::create_geometry_volume(TopoDS_Shape &targetShape)
                 double cone_length = (span_length > kTiny) ? span_length : 2.0 * radius;
                 double top_radius = std::max(0.0, radius - cone_length * std::tan(std::abs(injector_data.volume_bgeom_viconeangle)));
                 QVector3D cone_start = center_vec - cone_axis * static_cast<float>(0.5 * cone_length);
-                builder.Add(shape, BRepPrimAPI_MakeCone(to_ax2(cone_start, cone_axis, axis_vec), radius, top_radius, cone_length).Shape());
+                const gp_Ax2 cone_ax2 = to_ax2(cone_start, cone_axis, axis_vec);
+                // OCCT's cone builder can reject the zero-angle case when
+                // both radii are equal. Keep that valid Fluent input as a
+                // cylinder instead of failing the complete injector rebuild.
+                if (std::abs(radius - top_radius) <= 1.0e-9)
+                {
+                    builder.Add(shape,
+                                BRepPrimAPI_MakeCylinder(
+                                    cone_ax2, radius, cone_length).Shape());
+                }
+                else
+                {
+                    builder.Add(shape,
+                                BRepPrimAPI_MakeCone(
+                                    cone_ax2, radius, top_radius,
+                                    cone_length).Shape());
+                }
                 break;
             }
             case hexahedron:

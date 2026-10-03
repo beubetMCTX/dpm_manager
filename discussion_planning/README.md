@@ -2794,3 +2794,13 @@ References:
 - Added offscreen regression coverage for enabling, observing, disabling, and
   restoring Section Plane clipping.
 - Release build and all 12 focused regressions passed.
+
+### 2026-10-03 Stabilize Advanced Injector Geometry Preview
+
+- Enabled the advanced atomizer preview path by default so the application and
+  focused regression targets exercise the same geometry behavior.
+- Added Volume bounding-shape coverage for Sphere, Cylinder, Cone, and
+  Hexahedron, plus advanced atomizer and Condensate geometry cases.
+- Volume Cone with equal top and base radii now falls back to a Cylinder,
+  allowing the valid zero-angle case to rebuild instead of failing in OCCT.
+- Release build and all 12 focused regressions passed.
