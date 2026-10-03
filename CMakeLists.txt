@@ -294,10 +294,12 @@ if(DPM_BUILD_TESTS)
     add_executable(base_geom_read_regression
         tests/base_geom_read_test.cpp
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
+        ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
     )
     target_include_directories(base_geom_read_regression PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${IO_DIR}
+        ${COMMON_DIR}
     )
     target_link_libraries(base_geom_read_regression PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
     target_link_libraries(base_geom_read_regression PRIVATE ${OpenCASCADE_LIBRARIES})

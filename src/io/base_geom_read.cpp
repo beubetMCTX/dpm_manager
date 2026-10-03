@@ -1,5 +1,7 @@
 #include "base_geom_read.h"
 
+#include "unit_system.h"
+
 Base_Geom_Read::Base_Geom_Read(QObject *parent)
     : QObject(parent)
     , m_hasAssembly(false)
@@ -160,8 +162,15 @@ bool Base_Geom_Read::readFile(QString& filePath)
         // Reference-model coordinates are authored in millimetres. Convert
         // every supported imported format to the metre-based internal/DPM
         // coordinate system at the IO boundary.
+        bool scale_ok = false;
+        const double millimetre_scale = UnitSystem::length_to_base(
+            1.0, QStringLiteral("mm"), &scale_ok);
+        if (!scale_ok)
+        {
+            return report_error("参考几何体长度单位配置无效");
+        }
         gp_Trsf millimetre_to_metre;
-        millimetre_to_metre.SetScale(gp::Origin(), 1.0e-3);
+        millimetre_to_metre.SetScale(gp::Origin(), millimetre_scale);
         BRepBuilderAPI_Transform unit_transform(
             m_shape, millimetre_to_metre, Standard_True);
         if (!unit_transform.IsDone())

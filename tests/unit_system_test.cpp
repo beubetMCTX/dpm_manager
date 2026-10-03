@@ -69,6 +69,11 @@ int main(int argc, char **argv)
                 "20 C should convert to 293.15 K") ||
         !expect(close_enough(UnitSystem::convert(1.0, "bar", "Pa", &ok), 100000.0) && ok,
                 "1 bar should convert to 100000 Pa") ||
+        !expect(close_enough(UnitSystem::length_to_base(1.0, "mm", &ok),
+                             1.0e-3) && ok,
+                "1 mm should convert to internal metre length") ||
+        !expect(UnitSystem::length_to_base(1.0, "kg", &ok) == 0.0 && !ok,
+                "length conversion should reject non-length units") ||
         !expect(UnitSystem::convert(1.0, "m", "rad", &ok) == 0.0 && !ok,
                 "incompatible conversion should fail") ||
         !expect(UnitSystem::convert(std::numeric_limits<double>::infinity(), "m", "mm", &ok) == 0.0 && !ok,

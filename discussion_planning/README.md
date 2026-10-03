@@ -1,5 +1,17 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-03 Centralize Length-Unit Conversion
+
+- Added `UnitSystem::length_to_base()` as the guarded entry point for internal
+  metre conversion.
+- Reference CAD import, built-in preview injectors, new injector placement,
+  and the viewport grid now use the unit system instead of scattered `1e-3`
+  conversions.
+- Grid spacing follows the configured display length unit while storage stays
+  metre-based.
+- Added unit-dimension and imported-BREP scale regression checks. Release
+  build and all 12 focused CTest regressions pass.
+
 ### 2026-10-03 Export Concrete Injector Leaves From Runtime Arrays
 
 - DPM save now synchronizes the live OCCT state before exporting.

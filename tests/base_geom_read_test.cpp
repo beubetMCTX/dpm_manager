@@ -7,6 +7,8 @@
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepTools.hxx>
+#include <BRepBndLib.hxx>
+#include <Bnd_Box.hxx>
 
 namespace
 {
@@ -92,6 +94,23 @@ int main(int argc, char *argv[])
         !check(!reader.getShape().IsNull(), "Valid BREP read should produce a shape") ||
         !check(reader.file_path() == QFileInfo(valid_path).absoluteFilePath(),
                "Geometry reader should retain the absolute source path"))
+    {
+        return 1;
+    }
+
+    Bnd_Box bounds;
+    BRepBndLib::Add(reader.getShape(), bounds);
+    Standard_Real xmin = 0.0;
+    Standard_Real ymin = 0.0;
+    Standard_Real zmin = 0.0;
+    Standard_Real xmax = 0.0;
+    Standard_Real ymax = 0.0;
+    Standard_Real zmax = 0.0;
+    bounds.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+    if (!check(std::abs((xmax - xmin) - 0.002) < 5.0e-7 &&
+                   std::abs((ymax - ymin) - 0.003) < 5.0e-7 &&
+                   std::abs((zmax - zmin) - 0.004) < 5.0e-7,
+               "Imported geometry should convert millimetres to internal metres"))
     {
         return 1;
     }

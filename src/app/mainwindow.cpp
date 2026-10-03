@@ -3475,7 +3475,8 @@ void MainWindow::create_object_list_panel()
             m_3d_widget->reference_frame(&origin, &reference_x, &reference_z);
 
         Unit unit;
-        constexpr float scale = 1.0e-3f;
+        const float scale = static_cast<float>(UnitSystem::length_to_base(
+            1.0, QStringLiteral("mm")));
         configure_common_injector(unit, "Injector", origin / scale);
         unit.inj.injector_data.material = m_chemkin_species_names.isEmpty()
             ? QString()
@@ -6041,11 +6042,12 @@ QList<Unit> MainWindow::build_test_injector_units() const
     // Preview geometry is authored in convenient millimeter-sized numbers;
     // convert only this built-in showcase to the application's meter base
     // unit. Imported DPM/project data is never passed through this path.
-    constexpr float kPreviewGeometryScale = 1.0e-3f;
+    const float kPreviewGeometryScale = static_cast<float>(
+        UnitSystem::length_to_base(1.0, QStringLiteral("mm")));
     auto scale_preview_geometry = [=](Unit &unit)
     {
         Injector &injector = unit.inj.injector_data;
-        const auto scale_vector = [](QVector3D &value)
+        const auto scale_vector = [kPreviewGeometryScale](QVector3D &value)
         {
             value *= kPreviewGeometryScale;
         };

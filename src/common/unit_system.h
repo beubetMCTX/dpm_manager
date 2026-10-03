@@ -66,6 +66,11 @@ public:
 
     static double to_base(double value, const QString &from_symbol, bool *ok = nullptr);
     static double from_base(double value, const QString &to_symbol, bool *ok = nullptr);
+    // Convert a length value to internal base metres. Rejects non-length
+    // symbols so IO code cannot accidentally apply a dimensionless scale.
+    static double length_to_base(double value,
+                                 const QString &from_symbol,
+                                 bool *ok = nullptr);
 
     static QStringList symbols(Unit_Dimension dimension);
 };

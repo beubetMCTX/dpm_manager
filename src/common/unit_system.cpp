@@ -274,6 +274,19 @@ double UnitSystem::from_base(double value, const QString &to_symbol, bool *ok)
     return valid ? converted : 0.0;
 }
 
+double UnitSystem::length_to_base(double value,
+                                  const QString &from_symbol,
+                                  bool *ok)
+{
+    const Unit_Definition definition_value = definition(from_symbol);
+    if (definition_value.dimension != Unit_Dimension::Length)
+    {
+        set_result(ok, false);
+        return 0.0;
+    }
+    return to_base(value, from_symbol, ok);
+}
+
 QStringList UnitSystem::symbols(Unit_Dimension dimension)
 {
     QStringList result;

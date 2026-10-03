@@ -7099,7 +7099,14 @@ void OCCTWidget::m_initialize_context()
         // final XZ privileged plane without creating a selectable AIS object.
         m_viewer->SetPrivilegedPlane(
             gp_Ax3(gp::Origin(), gp::DY(), gp::DX()));
-        m_viewer->SetRectangularGridValues(0.0, 0.0, 1.0e-3, 1.0e-3, 0.0);
+        bool grid_scale_ok = false;
+        const double grid_step = UnitSystem::length_to_base(
+            1.0, UnitSystem::preferred_display_unit("m"), &grid_scale_ok);
+        if (grid_scale_ok)
+        {
+            m_viewer->SetRectangularGridValues(
+                0.0, 0.0, grid_step, grid_step, 0.0);
+        }
         m_viewer->SetRectangularGridGraphicValues(0.1, 0.1, 0.0);
         m_viewer->ActivateGrid(Aspect_GT_Rectangular, Aspect_GDM_Lines);
         m_view->Redraw();
