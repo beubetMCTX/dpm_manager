@@ -4015,8 +4015,16 @@ void MainWindow::create_object_list_panel()
             return;
         }
         QTreeWidgetItem *item = m_object_list->currentItem();
-        if (item == nullptr ||
-            item->data(0, Qt::UserRole + 1).toString() != QStringLiteral("unit"))
+        if (item == nullptr)
+        {
+            statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
+            return;
+        }
+
+        const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
+        if (item_kind != QStringLiteral("unit") &&
+            item_kind != QStringLiteral("array_layer") &&
+            item_kind != QStringLiteral("fill"))
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
             return;
@@ -4062,8 +4070,15 @@ void MainWindow::create_object_list_panel()
             return;
         }
         QTreeWidgetItem *item = m_object_list->currentItem();
-        if (item == nullptr ||
-            item->data(0, Qt::UserRole + 1).toString() != QStringLiteral("unit"))
+        if (item == nullptr)
+        {
+            statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
+            return;
+        }
+        const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
+        if (item_kind != QStringLiteral("unit") &&
+            item_kind != QStringLiteral("array_layer") &&
+            item_kind != QStringLiteral("fill"))
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
             return;
