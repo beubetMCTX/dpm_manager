@@ -1270,8 +1270,62 @@ bool MainWindow::load_project_session(const QString &file_path)
         return false;
     }
 
+    // Project sessions store external assets relative to the session file.
+    // If a project was moved without its assets, offer an explicit replacement
+    // instead of failing later with a generic read error.
+    const auto recover_missing_asset = [this](QString *asset_path,
+                                               const QString &asset_name,
+                                               const QString &filter)
+    {
+        if (asset_path == nullptr || asset_path->trimmed().isEmpty())
+        {
+            return true;
+        }
+
+        const QFileInfo original(*asset_path);
+        if (original.exists() && original.isFile())
+        {
+            return true;
+        }
+
+        const QString replacement = QFileDialog::getOpenFileName(
+            this,
+            QString("Locate Project %1").arg(asset_name),
+            original.absolutePath(),
+            filter);
+        if (replacement.trimmed().isEmpty())
+        {
+            statusBar()->showMessage(
+                QString("Project %1 is missing; load canceled").arg(asset_name),
+                8000);
+            return false;
+        }
+
+        const QFileInfo replacement_info(replacement);
+        if (!replacement_info.exists() || !replacement_info.isFile())
+        {
+            QMessageBox::warning(
+                this,
+                "Project Session Error",
+                QString("The selected %1 file is not readable: %2")
+                    .arg(asset_name, replacement));
+            return false;
+        }
+
+        *asset_path = replacement_info.absoluteFilePath();
+        return true;
+    };
+
     if (!data.chemkin_file_path.trimmed().isEmpty())
     {
+        if (!recover_missing_asset(
+                &data.chemkin_file_path,
+                "Chemkin file",
+                "Chemkin Files (*.inp *.ckin *.dat *.txt);;All Files (*.*)"))
+        {
+            return false;
+        }
+
         bool chemkin_ok = false;
         QString chemkin_error;
         project_species_names = read_chemkin_species_names(data.chemkin_file_path,
@@ -1300,13 +1354,11 @@ bool MainWindow::load_project_session(const QString &file_path)
 
     if (!data.reference_geometry.file_path.trimmed().isEmpty())
     {
-        const QFileInfo geometry_info(data.reference_geometry.file_path);
-        if (!geometry_info.exists() || !geometry_info.isFile())
+        if (!recover_missing_asset(
+                &data.reference_geometry.file_path,
+                "reference geometry",
+                Base_Geom_Read::getSupportedFormatsFilter()))
         {
-            const QString message = QString("Project reference geometry was not found: %1")
-                                        .arg(data.reference_geometry.file_path);
-            QMessageBox::critical(this, "Project Session Error", message);
-            statusBar()->showMessage(message, 8000);
             return false;
         }
     }
