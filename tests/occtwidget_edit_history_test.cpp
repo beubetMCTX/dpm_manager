@@ -1063,8 +1063,28 @@ int main(int argc, char *argv[])
                    return widget.reference_frame(&origin, &x_axis, &z_axis) &&
                           vectors_close(x_axis, QVector3D(0.0f, 1.0f, 0.0f));
                }(),
-               "Reference axis direction should not be skewed by translation") ||
-        !check(widget.clear_reference_geometry(),
+               "Reference axis direction should not be skewed by translation"))
+    {
+        return 1;
+    }
+    widget.set_reference_transform(QVector3D(3.0f, 0.0f, 0.0f),
+                                   QVector3D());
+    if (!check(widget.can_undo_reference_transform() &&
+                   widget.undo_reference_transform() &&
+                   vectors_close(
+                       active_reference_array_source->array_spec.direction,
+                       QVector3D(0.0f, 1.0f, 0.0f)) &&
+                   widget.redo_reference_transform() &&
+                   vectors_close(
+                       active_reference_array_source->array_spec.direction,
+                       QVector3D(1.0f, 0.0f, 0.0f)),
+               "Direct active-reference transforms should be undoable"))
+    {
+        return 1;
+    }
+    widget.set_reference_transform(QVector3D(2.0f, 0.0f, 0.0f),
+                                   QVector3D(0.0f, 0.0f, 90.0f));
+    if (!check(widget.clear_reference_geometry(),
                "Clearing reference geometry should succeed") ||
         !check(!widget.unit_hash.value(reference_bound_uuid)->array_spec
                    .use_reference_geometry &&
@@ -1121,6 +1141,17 @@ int main(int argc, char *argv[])
                           vectors_close(origin, QVector3D(7.0f, 8.0f, 9.0f));
                }(),
                "Reference frame should retain the UUID of the selected visual") ||
+        !check(widget.undo_reference_transform() &&
+                   vectors_close(
+                       widget.reference_geometry_visual_position(
+                           secondary_reference.uuid),
+                       secondary_reference.position) &&
+                   widget.redo_reference_transform() &&
+                   vectors_close(
+                       widget.reference_geometry_visual_position(
+                           secondary_reference.uuid),
+                       QVector3D(7.0f, 8.0f, 9.0f)),
+               "Direct secondary-reference transforms should be undoable") ||
         !check(widget.set_reference_geometry_visual_locked(
                    secondary_reference.uuid, true) &&
                    !widget.set_reference_geometry_visual_transform(

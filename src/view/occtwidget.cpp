@@ -1395,6 +1395,7 @@ bool OCCTWidget::add_reference_geometry_visual(
 
 void OCCTWidget::clear_reference_geometry_visuals()
 {
+    clear_reference_transform_history();
     const bool selected_visual_removed =
         m_reference_geometry_visuals.contains(
             m_selected_reference_geometry_uuid) ||
@@ -1457,6 +1458,7 @@ bool OCCTWidget::remove_reference_geometry_visual(const QUuid &uuid)
     {
         return false;
     }
+    clear_reference_transform_history();
 
     detach_reference_geometry_dependencies(uuid, false);
     const ReferenceGeometryVisual visual = it.value();
@@ -1566,6 +1568,8 @@ bool OCCTWidget::set_reference_geometry_visual_transform(
         reference_visual_transform(it->position, it->rotation);
     const gp_Trsf next_transform =
         reference_visual_transform(position, rotation_degrees);
+    const QVector3D previous_position = it->position;
+    const QVector3D previous_rotation = it->rotation;
     it->position = position;
     it->rotation = rotation_degrees;
     const gp_Trsf transform = next_transform;
@@ -1610,8 +1614,21 @@ bool OCCTWidget::set_reference_geometry_visual_transform(
     {
         m_view->Redraw();
     }
-    update_reference_bound_array_frames(uuid, previous_transform,
-                                        next_transform);
+    const bool defer_dependency_update =
+        m_reference_transform_transaction_active &&
+        m_reference_transform_transaction_is_visual &&
+        m_reference_transform_transaction_uuid == uuid;
+    if (!defer_dependency_update)
+    {
+        update_reference_bound_array_frames(uuid, previous_transform,
+                                            next_transform);
+        if (!m_replaying_reference_transform_history)
+        {
+            record_reference_transform(uuid, true, previous_position,
+                                        previous_rotation, position,
+                                        rotation_degrees);
+        }
+    }
     return true;
 }
 
@@ -7938,17 +7955,30 @@ void OCCTWidget::set_reference_transform(const QVector3D &position,
                                          bool update_bound_arrays)
 {
     const gp_Trsf previous_transform = m_reference_transform;
+    const QVector3D previous_position = m_reference_position;
+    const QVector3D previous_rotation = m_reference_rotation;
     const bool transform_changed = m_reference_position != position ||
                                    m_reference_rotation != rotation_degrees;
     m_reference_position = position;
     m_reference_rotation = rotation_degrees;
     apply_reference_transform();
+    const bool defer_dependency_update =
+        m_reference_transform_transaction_active &&
+        !m_reference_transform_transaction_is_visual &&
+        m_reference_transform_transaction_uuid == m_reference_geometry_uuid;
     if (update_bound_arrays && transform_changed &&
-        !m_reference_transform_transaction_active)
+        !defer_dependency_update)
     {
         update_reference_bound_array_frames(m_reference_geometry_uuid,
                                             previous_transform,
                                             m_reference_transform);
+        if (!m_reference_geometry_uuid.isNull() &&
+            !m_replaying_reference_transform_history)
+        {
+            record_reference_transform(m_reference_geometry_uuid, false,
+                                        previous_position, previous_rotation,
+                                        position, rotation_degrees);
+        }
     }
 }
 
@@ -8032,15 +8062,35 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
            z_axis->lengthSquared() > 1.0e-12f;
 }
 
-void OCCTWidget::begin_reference_transform_transaction()
+void OCCTWidget::begin_reference_transform_transaction(
+    const QUuid &reference_uuid)
 {
     if (m_reference_transform_transaction_active)
     {
         return;
     }
 
-    m_reference_transform_before_position = m_reference_position;
-    m_reference_transform_before_rotation = m_reference_rotation;
+    const QUuid target_uuid = reference_uuid.isNull()
+        ? m_reference_geometry_uuid : reference_uuid;
+    const auto visual = m_reference_geometry_visuals.constFind(target_uuid);
+    if (visual != m_reference_geometry_visuals.constEnd())
+    {
+        m_reference_transform_before_position = visual->position;
+        m_reference_transform_before_rotation = visual->rotation;
+        m_reference_transform_transaction_is_visual = true;
+    }
+    else if (target_uuid == m_reference_geometry_uuid &&
+             !base_geometry.IsNull())
+    {
+        m_reference_transform_before_position = m_reference_position;
+        m_reference_transform_before_rotation = m_reference_rotation;
+        m_reference_transform_transaction_is_visual = false;
+    }
+    else
+    {
+        return;
+    }
+    m_reference_transform_transaction_uuid = target_uuid;
     m_reference_transform_transaction_active = true;
 }
 
@@ -8051,22 +8101,32 @@ void OCCTWidget::finish_reference_transform_transaction()
         return;
     }
 
+    const QUuid reference_uuid = m_reference_transform_transaction_uuid;
+    const bool is_visual = m_reference_transform_transaction_is_visual;
+    const QVector3D after_position = is_visual
+        ? reference_geometry_visual_position(reference_uuid)
+        : m_reference_position;
+    const QVector3D after_rotation = is_visual
+        ? reference_geometry_visual_rotation(reference_uuid)
+        : m_reference_rotation;
     m_reference_transform_transaction_active = false;
-    if (m_reference_transform_before_position == m_reference_position &&
-        m_reference_transform_before_rotation == m_reference_rotation)
+    m_reference_transform_transaction_uuid = QUuid();
+    m_reference_transform_transaction_is_visual = false;
+    if (m_reference_transform_before_position == after_position &&
+        m_reference_transform_before_rotation == after_rotation)
     {
         return;
     }
 
     update_reference_bound_array_frames(
-        m_reference_geometry_uuid,
+        reference_uuid,
         reference_visual_transform(m_reference_transform_before_position,
                                    m_reference_transform_before_rotation),
-        m_reference_transform);
-    record_reference_transform(m_reference_transform_before_position,
+        reference_visual_transform(after_position, after_rotation));
+    record_reference_transform(reference_uuid, is_visual,
+                               m_reference_transform_before_position,
                                m_reference_transform_before_rotation,
-                               m_reference_position,
-                               m_reference_rotation);
+                               after_position, after_rotation);
 }
 
 bool OCCTWidget::can_undo_reference_transform() const
@@ -8087,10 +8147,9 @@ bool OCCTWidget::undo_reference_transform()
         return false;
     }
 
-    const ReferenceTransformHistoryEntry &entry =
+    const ReferenceTransformHistoryEntry entry =
         m_reference_transform_history[m_reference_transform_history_index - 1];
-    if (!apply_reference_transform_snapshot(entry.before_position,
-                                            entry.before_rotation))
+    if (!apply_reference_transform_snapshot(entry, true))
     {
         return false;
     }
@@ -8108,10 +8167,9 @@ bool OCCTWidget::redo_reference_transform()
         return false;
     }
 
-    const ReferenceTransformHistoryEntry &entry =
+    const ReferenceTransformHistoryEntry entry =
         m_reference_transform_history[m_reference_transform_history_index];
-    if (!apply_reference_transform_snapshot(entry.after_position,
-                                            entry.after_rotation))
+    if (!apply_reference_transform_snapshot(entry, false))
     {
         return false;
     }
@@ -8123,6 +8181,8 @@ bool OCCTWidget::redo_reference_transform()
 }
 
 void OCCTWidget::record_reference_transform(
+    const QUuid &reference_uuid,
+    bool is_visual,
     const QVector3D &before_position,
     const QVector3D &before_rotation,
     const QVector3D &after_position,
@@ -8134,8 +8194,9 @@ void OCCTWidget::record_reference_transform(
         m_reference_transform_history.resize(m_reference_transform_history_index);
     }
 
-    m_reference_transform_history.push_back({before_position, before_rotation,
-                                             after_position, after_rotation});
+    m_reference_transform_history.push_back(
+        {reference_uuid, is_visual, before_position, before_rotation,
+         after_position, after_rotation});
     m_reference_transform_history_index = m_reference_transform_history.size();
     emit reference_transform_history_changed(can_undo_reference_transform(),
                                              can_redo_reference_transform());
@@ -8144,16 +8205,32 @@ void OCCTWidget::record_reference_transform(
 void OCCTWidget::clear_reference_transform_history()
 {
     m_reference_transform_transaction_active = false;
+    m_reference_transform_transaction_uuid = QUuid();
+    m_reference_transform_transaction_is_visual = false;
     m_reference_transform_history.clear();
     m_reference_transform_history_index = 0;
     emit reference_transform_history_changed(false, false);
 }
 
-bool OCCTWidget::apply_reference_transform_snapshot(const QVector3D &position,
-                                                    const QVector3D &rotation)
+bool OCCTWidget::apply_reference_transform_snapshot(
+    const ReferenceTransformHistoryEntry &entry, bool use_before)
 {
-    set_reference_transform(position, rotation);
-    return true;
+    const QVector3D position = use_before ? entry.before_position
+                                          : entry.after_position;
+    const QVector3D rotation = use_before ? entry.before_rotation
+                                          : entry.after_rotation;
+    m_replaying_reference_transform_history = true;
+    const bool applied = entry.is_visual
+        ? set_reference_geometry_visual_transform(entry.reference_uuid,
+                                                  position, rotation)
+        : (entry.reference_uuid == m_reference_geometry_uuid &&
+           !base_geometry.IsNull());
+    if (!entry.is_visual && applied)
+    {
+        set_reference_transform(position, rotation);
+    }
+    m_replaying_reference_transform_history = false;
+    return applied;
 }
 
 void OCCTWidget::set_reference_geometry_locked(bool locked)

@@ -2826,8 +2826,13 @@ void MainWindow::create_reference_geometry_panel()
             m_3d_widget->selected_reference_geometry_uuid();
         if (m_3d_widget->has_reference_geometry_visual(selected_reference_uuid))
         {
-            if (m_3d_widget->set_reference_geometry_visual_transform(
-                    selected_reference_uuid, QVector3D(), QVector3D()))
+            m_3d_widget->begin_reference_transform_transaction(
+                selected_reference_uuid);
+            const bool reset =
+                m_3d_widget->set_reference_geometry_visual_transform(
+                    selected_reference_uuid, QVector3D(), QVector3D());
+            m_3d_widget->finish_reference_transform_transaction();
+            if (reset)
             {
                 update_reference_geometry_panel();
                 update_object_list_panel();
@@ -7120,7 +7125,10 @@ void MainWindow::apply_reference_geometry_transform()
         m_3d_widget->selected_reference_geometry_uuid();
     if (m_3d_widget->has_reference_geometry_visual(selected_reference_uuid))
     {
-        if (m_3d_widget->set_reference_geometry_visual_transform(
+        m_3d_widget->begin_reference_transform_transaction(
+            selected_reference_uuid);
+        const bool updated =
+            m_3d_widget->set_reference_geometry_visual_transform(
                 selected_reference_uuid,
                 QVector3D(static_cast<float>(display_length_to_storage(
                               m_reference_position_x->value())),
@@ -7133,7 +7141,9 @@ void MainWindow::apply_reference_geometry_transform()
                           static_cast<float>(display_angle_to_storage(
                               m_reference_rotation_y->value())),
                           static_cast<float>(display_angle_to_storage(
-                              m_reference_rotation_z->value())))))
+                              m_reference_rotation_z->value()))));
+        m_3d_widget->finish_reference_transform_transaction();
+        if (updated)
         {
             mark_project_dirty();
             update_object_list_panel();

@@ -153,7 +153,8 @@ public:
     void set_reference_geometry_locked(bool locked);
     bool reference_geometry_locked() const { return m_reference_geometry_locked; }
     void align_view_to_selected_face();
-    void begin_reference_transform_transaction();
+    void begin_reference_transform_transaction(
+        const QUuid &reference_uuid = QUuid());
     void finish_reference_transform_transaction();
     bool undo_reference_transform();
     bool redo_reference_transform();
@@ -531,6 +532,8 @@ private:
     };
     struct ReferenceTransformHistoryEntry
     {
+        QUuid reference_uuid;
+        bool is_visual = false;
         QVector3D before_position;
         QVector3D before_rotation;
         QVector3D after_position;
@@ -580,7 +583,9 @@ private:
                                const QList<Unit> &after);
     bool restore_structure_snapshot(const QList<Unit> &snapshot);
     void clear_edit_history();
-    void record_reference_transform(const QVector3D &before_position,
+    void record_reference_transform(const QUuid &reference_uuid,
+                                    bool is_visual,
+                                    const QVector3D &before_position,
                                     const QVector3D &before_rotation,
                                     const QVector3D &after_position,
                                     const QVector3D &after_rotation);
@@ -593,8 +598,8 @@ private:
                           const QUuid &uuid,
                           const QUuid &batch_id = QUuid());
     void clear_operation_history();
-    bool apply_reference_transform_snapshot(const QVector3D &position,
-                                            const QVector3D &rotation);
+    bool apply_reference_transform_snapshot(
+        const ReferenceTransformHistoryEntry &entry, bool use_before);
 
 protected:
 
@@ -689,6 +694,9 @@ private:
     bool m_reference_transform_transaction_active = false;
     QVector3D m_reference_transform_before_position;
     QVector3D m_reference_transform_before_rotation;
+    QUuid m_reference_transform_transaction_uuid;
+    bool m_reference_transform_transaction_is_visual = false;
+    bool m_replaying_reference_transform_history = false;
 
     QStringList m_chemkin_species_names;
     QHash<QString, QColor> m_species_colors;
