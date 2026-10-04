@@ -35,6 +35,7 @@ public:
 };
 
 
+[[deprecated("Use read_dpm_file(file_path, ...) instead.")]]
 QString Read_File_Dialog();
 [[deprecated("Use read_dpm_file(file_path, ...) instead.")]]
 QList<Unit> read_single_dpm_file(bool *ok);
