@@ -1164,6 +1164,38 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    ReferenceGeometryConfig unselected_reference;
+    unselected_reference.uuid = QUuid::createUuid();
+    unselected_reference.kind = QStringLiteral("datum_axis");
+    unselected_reference.position = QVector3D(-2.0f, 3.0f, 4.0f);
+    unselected_reference.rotation = QVector3D(0.0f, 0.0f, 90.0f);
+    unselected_reference.construction_direction = QVector3D(1.0f, 0.0f, 0.0f);
+    const QUuid selected_reference_before_frame_query =
+        widget.selected_reference_geometry_uuid();
+    QVector3D unselected_origin;
+    QVector3D unselected_x;
+    QVector3D unselected_z;
+    if (!check(widget.add_reference_geometry_visual(unselected_reference) &&
+                   widget.reference_frame_uuids().contains(
+                       unselected_reference.uuid) &&
+                   !widget.reference_frame_label(
+                        unselected_reference.uuid).isEmpty() &&
+                   widget.reference_frame_for_uuid(
+                       unselected_reference.uuid, &unselected_origin,
+                       &unselected_x, &unselected_z) &&
+                   vectors_close(unselected_origin,
+                                 unselected_reference.position) &&
+                   vectors_close(unselected_x, QVector3D(-1.0f, 0.0f, 0.0f)) &&
+                   vectors_close(unselected_z, QVector3D(0.0f, 1.0f, 0.0f)) &&
+                   std::abs(QVector3D::dotProduct(unselected_x,
+                                                  unselected_z)) < 1.0e-6f &&
+                   widget.selected_reference_geometry_uuid() ==
+                       selected_reference_before_frame_query,
+               "A reference frame should be addressable by UUID without changing selection"))
+    {
+        return 1;
+    }
+
     Unit secondary_reference_source = make_valid_unit();
     secondary_reference_source.inj.injector_data.name =
         "secondary-reference-bound-source";
@@ -1328,6 +1360,11 @@ int main(int argc, char *argv[])
         !check(widget.selected_reference_geometry_uuid().isNull(),
                "Removing a selected visual should clear its reference-frame UUID") ||
         !check(!widget.has_reference_geometry_visual(secondary_reference.uuid) &&
+                   !widget.reference_frame_uuids().contains(
+                       secondary_reference.uuid) &&
+                   !widget.reference_frame_for_uuid(
+                       secondary_reference.uuid, &unselected_origin,
+                       &unselected_x, &unselected_z) &&
                    !widget.unit_hash.value(secondary_reference_source.inj.uuid)
                         ->array_spec.use_reference_geometry &&
                    widget.unit_hash.value(secondary_reference_source.inj.uuid)

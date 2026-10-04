@@ -150,6 +150,10 @@ public:
     bool reference_frame(QVector3D *origin, QVector3D *x_axis,
                          QVector3D *z_axis,
                          QUuid *reference_uuid = nullptr) const;
+    QList<QUuid> reference_frame_uuids() const;
+    QString reference_frame_label(const QUuid &uuid) const;
+    bool reference_frame_for_uuid(const QUuid &uuid, QVector3D *origin,
+                                  QVector3D *x_axis, QVector3D *z_axis) const;
     void set_reference_geometry_locked(bool locked);
     bool reference_geometry_locked() const { return m_reference_geometry_locked; }
     void align_view_to_selected_face();
@@ -363,6 +367,8 @@ signals:
     void face_reference_info_changed(const QVector3D &origin,
                                      const QVector3D &normal);
     void reference_geometry_lock_changed(bool locked);
+    void reference_geometry_collection_changed();
+    void reference_geometry_visual_transform_changed(const QUuid &uuid);
     void unit_lock_changed(const QUuid &uuid, bool locked);
     void unit_display_list_changed();
     void unit_removed(const QUuid &uuid);
@@ -388,6 +394,7 @@ private:
         QVector3D selected_face_origin;
         QVector3D selected_face_normal;
         QVector3D selected_face_x_direction;
+        QString label;
         bool visible = true;
         bool locked = false;
     };

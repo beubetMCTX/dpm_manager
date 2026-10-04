@@ -3,6 +3,7 @@
 #include <AIS_ViewCube.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
 #include <QTimer>
+#include <QFileInfo>
 #include <QtMath>
 #include <QMessageBox>
 #include <QQuaternion>
@@ -1337,6 +1338,14 @@ bool OCCTWidget::add_reference_geometry_visual(
     visual.display = new AIS_Shape(resolved_shape);
     visual.position = config.position;
     visual.rotation = config.rotation;
+    visual.label = config.kind.trimmed().compare(QStringLiteral("file"),
+                                                   Qt::CaseInsensitive) == 0
+        ? QFileInfo(config.file_path).fileName()
+        : config.kind.trimmed().replace(QLatin1Char('_'), QLatin1Char(' '));
+    if (visual.label.isEmpty())
+    {
+        visual.label = tr("Reference geometry");
+    }
     visual.visible = config.visible;
     visual.locked = config.locked;
     visual.display->SetLocalTransformation(
@@ -1390,6 +1399,7 @@ bool OCCTWidget::add_reference_geometry_visual(
     m_context->Activate(visual.display, TopAbs_FACE, Standard_True);
     m_context->Deactivate(visual.local_trihedron, TopAbs_SHAPE);
     m_view->Redraw();
+    emit reference_geometry_collection_changed();
     return true;
 }
 
@@ -1437,6 +1447,7 @@ void OCCTWidget::clear_reference_geometry_visuals()
     {
         m_view->Redraw();
     }
+    emit reference_geometry_collection_changed();
 }
 
 QList<QUuid> OCCTWidget::reference_geometry_visual_uuids() const
@@ -1491,6 +1502,7 @@ bool OCCTWidget::remove_reference_geometry_visual(const QUuid &uuid)
     {
         m_view->Redraw();
     }
+    emit reference_geometry_collection_changed();
     return true;
 }
 
@@ -1629,6 +1641,7 @@ bool OCCTWidget::set_reference_geometry_visual_transform(
                                         rotation_degrees);
         }
     }
+    emit reference_geometry_visual_transform_changed(uuid);
     return true;
 }
 
@@ -7986,11 +7999,21 @@ void OCCTWidget::set_reference_geometry_uuid(const QUuid &uuid)
 {
     if (ref_geom.IsNull())
     {
+        const bool changed = !m_reference_geometry_uuid.isNull();
         m_reference_geometry_uuid = QUuid();
+        if (changed)
+        {
+            emit reference_geometry_collection_changed();
+        }
         return;
     }
 
-    m_reference_geometry_uuid = uuid.isNull() ? QUuid::createUuid() : uuid;
+    const QUuid resolved_uuid = uuid.isNull() ? QUuid::createUuid() : uuid;
+    if (resolved_uuid != m_reference_geometry_uuid)
+    {
+        m_reference_geometry_uuid = resolved_uuid;
+        emit reference_geometry_collection_changed();
+    }
 }
 
 bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
@@ -8043,10 +8066,13 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
                z_axis->lengthSquared() > 1.0e-12f;
     }
 
-    gp_Vec x_vector(1.0, 0.0, 0.0);
     const QVector3D local_direction = selected_visual
         ? visual->construction_direction
         : m_reference_construction_direction;
+    const QVector3D local_x_direction =
+        stable_frame_x_direction(local_direction);
+    gp_Vec x_vector(local_x_direction.x(), local_x_direction.y(),
+                    local_x_direction.z());
     gp_Vec z_vector(local_direction.x(), local_direction.y(),
                     local_direction.z());
     x_vector.Transform(transform);
@@ -8058,6 +8084,121 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
     *z_axis = QVector3D(static_cast<float>(z_vector.X()),
                         static_cast<float>(z_vector.Y()),
                         static_cast<float>(z_vector.Z())).normalized();
+    return x_axis->lengthSquared() > 1.0e-12f &&
+           z_axis->lengthSquared() > 1.0e-12f;
+}
+
+QList<QUuid> OCCTWidget::reference_frame_uuids() const
+{
+    QList<QUuid> uuids;
+    if (!m_reference_geometry_uuid.isNull() && !base_geometry.IsNull())
+    {
+        uuids.append(m_reference_geometry_uuid);
+    }
+    for (const QUuid &uuid : reference_geometry_visual_uuids())
+    {
+        if (!uuids.contains(uuid))
+        {
+            uuids.append(uuid);
+        }
+    }
+    return uuids;
+}
+
+QString OCCTWidget::reference_frame_label(const QUuid &uuid) const
+{
+    if (uuid == m_reference_geometry_uuid && !base_geometry.IsNull())
+    {
+        const QString kind = m_reference_geometry_kind.trimmed().replace(
+            QLatin1Char('_'), QLatin1Char(' '));
+        return tr("Active: %1 [%2]")
+            .arg(kind, uuid.toString(QUuid::WithoutBraces).left(8));
+    }
+    const auto visual = m_reference_geometry_visuals.constFind(uuid);
+    if (visual == m_reference_geometry_visuals.constEnd())
+    {
+        return QString();
+    }
+    return tr("%1 [%2]")
+        .arg(visual->label, uuid.toString(QUuid::WithoutBraces).left(8));
+}
+
+bool OCCTWidget::reference_frame_for_uuid(const QUuid &uuid,
+                                          QVector3D *origin,
+                                          QVector3D *x_axis,
+                                          QVector3D *z_axis) const
+{
+    if (uuid.isNull() || origin == nullptr || x_axis == nullptr ||
+        z_axis == nullptr)
+    {
+        return false;
+    }
+
+    gp_Trsf transform;
+    QVector3D construction_direction;
+    bool valid = false;
+    if (uuid == m_reference_geometry_uuid && !base_geometry.IsNull())
+    {
+        transform = m_reference_transform;
+        construction_direction = m_reference_construction_direction;
+        valid = true;
+    }
+    else
+    {
+        const auto visual = m_reference_geometry_visuals.constFind(uuid);
+        if (visual != m_reference_geometry_visuals.constEnd())
+        {
+            transform = reference_visual_transform(visual->position,
+                                                   visual->rotation);
+            construction_direction = visual->construction_direction;
+            valid = true;
+        }
+    }
+    if (!valid)
+    {
+        return false;
+    }
+
+    if (m_selected_reference_geometry_uuid == uuid && !selected_face.IsNull())
+    {
+        gp_Pnt face_origin = selected_face_axis.Location();
+        gp_Vec face_x(selected_face_axis.XDirection());
+        gp_Vec face_z(selected_face_axis.Direction());
+        face_origin.Transform(transform);
+        face_x.Transform(transform);
+        face_z.Transform(transform);
+        *origin = QVector3D(static_cast<float>(face_origin.X()),
+                            static_cast<float>(face_origin.Y()),
+                            static_cast<float>(face_origin.Z()));
+        *x_axis = QVector3D(static_cast<float>(face_x.X()),
+                            static_cast<float>(face_x.Y()),
+                            static_cast<float>(face_x.Z())).normalized();
+        *z_axis = QVector3D(static_cast<float>(face_z.X()),
+                            static_cast<float>(face_z.Y()),
+                            static_cast<float>(face_z.Z())).normalized();
+    }
+    else
+    {
+        gp_Pnt transformed_origin(0.0, 0.0, 0.0);
+        const QVector3D local_x =
+            stable_frame_x_direction(construction_direction);
+        gp_Vec x_vector(local_x.x(), local_x.y(), local_x.z());
+        gp_Vec z_vector(construction_direction.x(),
+                        construction_direction.y(),
+                        construction_direction.z());
+        transformed_origin.Transform(transform);
+        x_vector.Transform(transform);
+        z_vector.Transform(transform);
+        *origin = QVector3D(static_cast<float>(transformed_origin.X()),
+                            static_cast<float>(transformed_origin.Y()),
+                            static_cast<float>(transformed_origin.Z()));
+        *x_axis = QVector3D(static_cast<float>(x_vector.X()),
+                            static_cast<float>(x_vector.Y()),
+                            static_cast<float>(x_vector.Z())).normalized();
+        *z_axis = QVector3D(static_cast<float>(z_vector.X()),
+                            static_cast<float>(z_vector.Y()),
+                            static_cast<float>(z_vector.Z())).normalized();
+    }
     return x_axis->lengthSquared() > 1.0e-12f &&
            z_axis->lengthSquared() > 1.0e-12f;
 }

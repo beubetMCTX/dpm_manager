@@ -388,12 +388,50 @@ MainWindow::MainWindow(QWidget *parent)
         }
         update_reference_geometry_panel();
         update_object_list_panel();
+        refresh_array_editor_reference_options();
+        if (m_array_editor_dock != nullptr &&
+            m_array_editor_dock->isVisible())
+        {
+            update_array_editor_reference_frame_display();
+            update_array_editor_preview();
+        }
+    });
+    connect(m_3d_widget,
+            &OCCTWidget::reference_geometry_collection_changed,
+            this, [this]()
+    {
+        refresh_array_editor_reference_options();
+        if (m_array_editor_dock != nullptr &&
+            m_array_editor_dock->isVisible())
+        {
+            update_array_editor_reference_frame_display();
+            update_array_editor_preview();
+        }
+    });
+    connect(m_3d_widget,
+            &OCCTWidget::reference_geometry_visual_transform_changed,
+            this, [this](const QUuid &uuid)
+    {
+        if (m_array_editor_reference_geometry != nullptr &&
+            m_array_editor_dock != nullptr &&
+            m_array_editor_dock->isVisible() &&
+            m_array_editor_reference_geometry->currentData().toUuid() == uuid)
+        {
+            update_array_editor_reference_frame_display();
+            update_array_editor_preview();
+        }
     });
     connect(m_3d_widget, &OCCTWidget::reference_transform_changed, this,
             [this](const QVector3D &, const QVector3D &)
     {
         update_reference_geometry_panel();
         mark_project_dirty();
+        if (m_array_editor_dock != nullptr &&
+            m_array_editor_dock->isVisible())
+        {
+            update_array_editor_reference_frame_display();
+            update_array_editor_preview();
+        }
     });
     connect(m_3d_widget, &OCCTWidget::face_reference_changed, this,
             [this](bool available)
@@ -3331,8 +3369,11 @@ void MainWindow::create_array_editor_panel()
     auto *frame_layout = new QFormLayout(frame_group);
     m_array_editor_frame_mode = new QComboBox(frame_group);
     m_array_editor_frame_mode->addItems({tr("World / custom vectors"),
-                                         tr("Selected face / reference geometry")});
+                                         tr("Reference geometry frame")});
     frame_layout->addRow(tr("Reference"), m_array_editor_frame_mode);
+    m_array_editor_reference_geometry = new QComboBox(frame_group);
+    frame_layout->addRow(tr("Reference geometry"),
+                         m_array_editor_reference_geometry);
 
     m_array_editor_origin_x = make_double_spin(0.0);
     m_array_editor_origin_y = make_double_spin(0.0);
@@ -3397,6 +3438,8 @@ void MainWindow::create_array_editor_panel()
             this, [this](int index)
     {
         const bool custom = index == 0;
+        m_array_editor_reference_geometry->setEnabled(
+            !custom && m_array_editor_reference_geometry->count() > 0);
         for (QDoubleSpinBox *spin : {m_array_editor_origin_x,
                                      m_array_editor_origin_y,
                                      m_array_editor_origin_z,
@@ -3409,27 +3452,17 @@ void MainWindow::create_array_editor_panel()
         {
             spin->setEnabled(custom);
         }
-        if (!custom && m_3d_widget != nullptr)
+        if (!custom)
         {
-            QVector3D origin;
-            QVector3D reference_x;
-            QVector3D reference_z;
-            if (m_3d_widget->reference_frame(&origin, &reference_x, &reference_z))
-            {
-                m_array_editor_origin_x->setValue(
-                    storage_length_to_display(origin.x()));
-                m_array_editor_origin_y->setValue(
-                    storage_length_to_display(origin.y()));
-                m_array_editor_origin_z->setValue(
-                    storage_length_to_display(origin.z()));
-                m_array_editor_direction_x->setValue(reference_x.x());
-                m_array_editor_direction_y->setValue(reference_x.y());
-                m_array_editor_direction_z->setValue(reference_x.z());
-                m_array_editor_normal_x->setValue(reference_z.x());
-                m_array_editor_normal_y->setValue(reference_z.y());
-                m_array_editor_normal_z->setValue(reference_z.z());
-            }
+            update_array_editor_reference_frame_display();
         }
+        update_array_editor_preview();
+    });
+    connect(m_array_editor_reference_geometry,
+            qOverload<int>(&QComboBox::currentIndexChanged),
+            this, [this](int)
+    {
+        update_array_editor_reference_frame_display();
         update_array_editor_preview();
     });
     connect(m_array_editor_count, qOverload<int>(&QSpinBox::valueChanged),
@@ -3622,6 +3655,7 @@ void MainWindow::create_array_editor_panel()
     scroll_area->setWidget(panel);
     m_array_editor_dock->setWidget(scroll_area);
     addDockWidget(Qt::RightDockWidgetArea, m_array_editor_dock);
+    refresh_array_editor_reference_options();
     m_array_editor_dock->hide();
 }
 
@@ -3632,6 +3666,7 @@ void MainWindow::refresh_array_editor_panel()
         return;
     }
 
+    refresh_array_editor_reference_options();
     m_array_editor_updating = true;
     const int previous_row = m_array_editor_layers->currentRow();
     m_array_editor_layers->clear();
@@ -3719,6 +3754,89 @@ void MainWindow::refresh_array_editor_panel()
     load_array_editor_layer(row);
 }
 
+void MainWindow::refresh_array_editor_reference_options()
+{
+    if (m_array_editor_reference_geometry == nullptr || m_3d_widget == nullptr)
+    {
+        return;
+    }
+
+    const QUuid previous_uuid =
+        m_array_editor_reference_geometry->currentData().toUuid();
+    const QSignalBlocker blocker(m_array_editor_reference_geometry);
+    m_array_editor_reference_geometry->clear();
+    for (const QUuid &uuid : m_3d_widget->reference_frame_uuids())
+    {
+        QString label = m_3d_widget->reference_frame_label(uuid);
+        if (label.isEmpty())
+        {
+            label = uuid.toString(QUuid::WithoutBraces).left(8);
+        }
+        m_array_editor_reference_geometry->addItem(label, uuid);
+    }
+
+    int selected_index = m_array_editor_reference_geometry->findData(
+        previous_uuid);
+    if (selected_index < 0 && !previous_uuid.isNull())
+    {
+        m_array_editor_reference_geometry->addItem(
+            tr("Missing reference [%1]")
+                .arg(previous_uuid.toString(QUuid::WithoutBraces).left(8)),
+            previous_uuid);
+        selected_index = m_array_editor_reference_geometry->count() - 1;
+    }
+    else if (selected_index < 0 &&
+             m_array_editor_reference_geometry->count() > 0)
+    {
+        selected_index = 0;
+    }
+    m_array_editor_reference_geometry->setCurrentIndex(selected_index);
+    m_array_editor_reference_geometry->setEnabled(
+        m_array_editor_frame_mode != nullptr &&
+        m_array_editor_frame_mode->currentIndex() == 1 &&
+        m_array_editor_reference_geometry->count() > 0);
+}
+
+void MainWindow::update_array_editor_reference_frame_display()
+{
+    if (m_array_editor_frame_mode == nullptr ||
+        m_array_editor_frame_mode->currentIndex() != 1 ||
+        m_array_editor_reference_geometry == nullptr || m_3d_widget == nullptr)
+    {
+        return;
+    }
+
+    QVector3D origin;
+    QVector3D direction;
+    QVector3D normal;
+    const QUuid uuid =
+        m_array_editor_reference_geometry->currentData().toUuid();
+    if (!m_3d_widget->reference_frame_for_uuid(uuid, &origin, &direction,
+                                               &normal))
+    {
+        return;
+    }
+
+    const QSignalBlocker origin_x_blocker(m_array_editor_origin_x);
+    const QSignalBlocker origin_y_blocker(m_array_editor_origin_y);
+    const QSignalBlocker origin_z_blocker(m_array_editor_origin_z);
+    const QSignalBlocker direction_x_blocker(m_array_editor_direction_x);
+    const QSignalBlocker direction_y_blocker(m_array_editor_direction_y);
+    const QSignalBlocker direction_z_blocker(m_array_editor_direction_z);
+    const QSignalBlocker normal_x_blocker(m_array_editor_normal_x);
+    const QSignalBlocker normal_y_blocker(m_array_editor_normal_y);
+    const QSignalBlocker normal_z_blocker(m_array_editor_normal_z);
+    m_array_editor_origin_x->setValue(storage_length_to_display(origin.x()));
+    m_array_editor_origin_y->setValue(storage_length_to_display(origin.y()));
+    m_array_editor_origin_z->setValue(storage_length_to_display(origin.z()));
+    m_array_editor_direction_x->setValue(direction.x());
+    m_array_editor_direction_y->setValue(direction.y());
+    m_array_editor_direction_z->setValue(direction.z());
+    m_array_editor_normal_x->setValue(normal.x());
+    m_array_editor_normal_y->setValue(normal.y());
+    m_array_editor_normal_z->setValue(normal.z());
+}
+
 void MainWindow::apply_array_editor_display_units()
 {
     if (m_array_editor_linear_spacing == nullptr)
@@ -3797,6 +3915,17 @@ void MainWindow::load_array_editor_layer(int layer_index)
         m_array_editor_fill_weights->setText(weight_tokens.join(','));
         m_array_editor_frame_mode->setCurrentIndex(
             spec.use_reference_geometry ? 1 : 0);
+        if (spec.use_reference_geometry)
+        {
+            const int reference_index =
+                m_array_editor_reference_geometry->findData(
+                    spec.reference_geometry_uuid);
+            if (reference_index >= 0)
+            {
+                m_array_editor_reference_geometry->setCurrentIndex(
+                    reference_index);
+            }
+        }
         m_array_editor_origin_x->setValue(
             storage_length_to_display(spec.origin.x()));
         m_array_editor_origin_y->setValue(
@@ -3848,6 +3977,17 @@ void MainWindow::load_array_editor_layer(int layer_index)
         storage_angle_to_display(spec.angle_degrees));
     m_array_editor_frame_mode->setCurrentIndex(
         spec.use_reference_geometry ? 1 : 0);
+    if (spec.use_reference_geometry)
+    {
+        const int reference_index =
+            m_array_editor_reference_geometry->findData(
+                spec.reference_geometry_uuid);
+        if (reference_index >= 0)
+        {
+            m_array_editor_reference_geometry->setCurrentIndex(
+                reference_index);
+        }
+    }
     m_array_editor_origin_x->setValue(storage_length_to_display(spec.origin.x()));
     m_array_editor_origin_y->setValue(storage_length_to_display(spec.origin.y()));
     m_array_editor_origin_z->setValue(storage_length_to_display(spec.origin.z()));
@@ -3919,11 +4059,14 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
 
     if (m_array_editor_frame_mode->currentIndex() == 1)
     {
+        spec.reference_geometry_uuid =
+            m_array_editor_reference_geometry->currentData().toUuid();
         QVector3D origin;
         QVector3D reference_x;
         QVector3D reference_z;
-        if (!m_3d_widget->reference_frame(&origin, &reference_x, &reference_z,
-                                          &spec.reference_geometry_uuid))
+        if (!m_3d_widget->reference_frame_for_uuid(
+                spec.reference_geometry_uuid, &origin, &reference_x,
+                &reference_z))
         {
             if (show_warning)
             {
@@ -4027,12 +4170,14 @@ bool MainWindow::build_fill_editor_spec(UnitFillSpec *output,
 
     if (m_array_editor_frame_mode->currentIndex() == 1)
     {
+        spec.reference_geometry_uuid =
+            m_array_editor_reference_geometry->currentData().toUuid();
         QVector3D origin;
         QVector3D reference_x;
         QVector3D reference_z;
-        if (!m_3d_widget->reference_frame(&origin, &reference_x,
-                                          &reference_z,
-                                          &spec.reference_geometry_uuid))
+        if (!m_3d_widget->reference_frame_for_uuid(
+                spec.reference_geometry_uuid, &origin, &reference_x,
+                &reference_z))
         {
             if (show_warning)
             {
