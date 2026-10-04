@@ -1514,7 +1514,7 @@ bool MainWindow::load_project_session(const QString &file_path)
     apply_material_entries(data.materials, true, false);
 
     m_3d_widget->clear_reference_geometry_visuals();
-    m_3d_widget->clear_reference_geometry();
+    m_3d_widget->clear_reference_geometry(true);
     const auto restore_project_face = [&]()
     {
         if (data.reference_geometry.visible &&
@@ -1641,6 +1641,14 @@ bool MainWindow::load_project_session(const QString &file_path)
             QMessageBox::critical(this, "Project Session Error", message);
             statusBar()->showMessage(message, 8000);
             return false;
+        }
+        if (config.visible && config.selected_face_index >= 0)
+        {
+            m_3d_widget->select_reference_geometry_visual_face_by_descriptor(
+                config.uuid, config.selected_face_origin,
+                config.selected_face_normal,
+                config.selected_face_x_direction,
+                config.selected_face_index);
         }
     }
 
@@ -1859,10 +1867,64 @@ project_session::Data MainWindow::collect_project_data() const
                                   nullptr);
     }
     data.reference_geometries = m_project_reference_geometries;
+    if (m_3d_widget != nullptr)
+    {
+        data.reference_geometries.erase(
+            std::remove_if(
+                data.reference_geometries.begin(),
+                data.reference_geometries.end(),
+                [this](const ReferenceGeometryConfig &config)
+                {
+                    return config.uuid != m_3d_widget->reference_geometry_uuid() &&
+                           !m_3d_widget->has_reference_geometry_visual(config.uuid);
+                }),
+            data.reference_geometries.end());
+        for (ReferenceGeometryConfig &config : data.reference_geometries)
+        {
+            if (!m_3d_widget->has_reference_geometry_visual(config.uuid))
+            {
+                continue;
+            }
+            config.position =
+                m_3d_widget->reference_geometry_visual_position(config.uuid);
+            config.rotation =
+                m_3d_widget->reference_geometry_visual_rotation(config.uuid);
+            config.locked =
+                m_3d_widget->reference_geometry_visual_locked(config.uuid);
+            config.visible =
+                m_3d_widget->reference_geometry_visual_visible(config.uuid);
+            config.selected_face_index =
+                m_3d_widget->reference_geometry_visual_selected_face_index(
+                    config.uuid);
+            config.selected_face_origin =
+                m_3d_widget->reference_geometry_visual_selected_face_origin(
+                    config.uuid);
+            config.selected_face_normal =
+                m_3d_widget->reference_geometry_visual_selected_face_normal(
+                    config.uuid);
+            config.selected_face_x_direction =
+                m_3d_widget->reference_geometry_visual_selected_face_x_direction(
+                    config.uuid);
+        }
+    }
     const ReferenceGeometryConfig active_reference_geometry =
         current_reference_geometry_config();
     if (!active_reference_geometry.uuid.isNull())
     {
+        if (!m_project_active_reference_geometry_uuid.isNull() &&
+            m_project_active_reference_geometry_uuid !=
+                active_reference_geometry.uuid)
+        {
+            for (int index = data.reference_geometries.size() - 1;
+                 index >= 0; --index)
+            {
+                if (data.reference_geometries.at(index).uuid ==
+                    m_project_active_reference_geometry_uuid)
+                {
+                    data.reference_geometries.removeAt(index);
+                }
+            }
+        }
         data.reference_geometry = active_reference_geometry;
         bool replaced = false;
         for (ReferenceGeometryConfig &config : data.reference_geometries)
@@ -2748,6 +2810,19 @@ void MainWindow::create_reference_geometry_panel()
             &MainWindow::apply_reference_geometry_transform);
     connect(m_reset_reference_transform, &QPushButton::clicked, this, [this]()
     {
+        const QUuid selected_reference_uuid =
+            m_3d_widget->selected_reference_geometry_uuid();
+        if (m_3d_widget->has_reference_geometry_visual(selected_reference_uuid))
+        {
+            if (m_3d_widget->set_reference_geometry_visual_transform(
+                    selected_reference_uuid, QVector3D(), QVector3D()))
+            {
+                update_reference_geometry_panel();
+                update_object_list_panel();
+                mark_project_dirty();
+            }
+            return;
+        }
         m_3d_widget->begin_reference_transform_transaction();
         m_3d_widget->set_reference_transform(QVector3D(0.0f, 0.0f, 0.0f),
                                               QVector3D(0.0f, 0.0f, 0.0f));
@@ -2759,10 +2834,17 @@ void MainWindow::create_reference_geometry_panel()
             &OCCTWidget::align_view_to_selected_face);
     connect(m_clear_reference_geometry, &QPushButton::clicked, this, [this]()
     {
+        const QUuid selected_reference_uuid =
+            m_3d_widget->selected_reference_geometry_uuid();
+        const bool selected_visual =
+            m_3d_widget->has_reference_geometry_visual(selected_reference_uuid);
         const QMessageBox::StandardButton answer = QMessageBox::question(
             this,
-            "Clear Reference Geometry",
-            "Remove the currently loaded reference geometry?",
+            selected_visual ? "Remove Reference Geometry"
+                            : "Clear Reference Geometry",
+            selected_visual
+                ? "Remove this reference geometry and detach Array/Fill rules that depend on it?"
+                : "Remove the currently loaded reference geometry?",
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::No);
         if (answer != QMessageBox::Yes)
@@ -2770,9 +2852,22 @@ void MainWindow::create_reference_geometry_panel()
             return;
         }
 
-        m_3d_widget->clear_reference_geometry();
+        if (selected_visual)
+        {
+            m_3d_widget->remove_reference_geometry_visual(
+                selected_reference_uuid);
+        }
+        else
+        {
+            m_3d_widget->clear_reference_geometry();
+        }
         mark_project_dirty();
-        save_reference_geometry_state();
+        if (!selected_visual)
+        {
+            save_reference_geometry_state();
+        }
+        update_reference_geometry_panel();
+        update_object_list_panel();
         statusBar()->showMessage("Reference geometry cleared", 5000);
     });
     connect(m_create_datum_plane, &QPushButton::clicked, this, [this]()
@@ -2832,6 +2927,17 @@ void MainWindow::create_reference_geometry_panel()
     });
     connect(m_reference_geometry_lock, &QCheckBox::toggled, this, [this](bool locked)
     {
+        const QUuid selected_reference_uuid =
+            m_3d_widget->selected_reference_geometry_uuid();
+        if (m_3d_widget->has_reference_geometry_visual(selected_reference_uuid))
+        {
+            m_3d_widget->set_reference_geometry_visual_locked(
+                selected_reference_uuid, locked);
+            mark_project_dirty();
+            update_reference_geometry_controls();
+            update_object_list_panel();
+            return;
+        }
         m_3d_widget->set_reference_geometry_locked(locked);
         mark_project_dirty();
         save_reference_geometry_state();
@@ -2855,7 +2961,15 @@ void MainWindow::update_reference_geometry_controls()
         return;
     }
 
-    const bool available = !m_3d_widget->geometry.getShape().IsNull();
+    const QUuid selected_reference_uuid =
+        m_3d_widget->selected_reference_geometry_uuid();
+    const bool selected_visual =
+        m_3d_widget->has_reference_geometry_visual(selected_reference_uuid);
+    const bool available = selected_visual ||
+        !m_3d_widget->geometry.getShape().IsNull();
+    const bool locked = selected_visual
+        ? m_3d_widget->reference_geometry_visual_locked(selected_reference_uuid)
+        : m_3d_widget->reference_geometry_locked();
     if (!available && m_reference_geometry_lock->isChecked())
     {
         const QSignalBlocker blocker(m_reference_geometry_lock);
@@ -2863,7 +2977,12 @@ void MainWindow::update_reference_geometry_controls()
         m_3d_widget->set_reference_geometry_locked(false);
     }
 
-    const bool editable = available && !m_3d_widget->reference_geometry_locked();
+    if (m_reference_geometry_lock->isChecked() != locked)
+    {
+        const QSignalBlocker blocker(m_reference_geometry_lock);
+        m_reference_geometry_lock->setChecked(locked);
+    }
+    const bool editable = available && !locked;
     if (m_reference_position_x != nullptr)
     {
         m_reference_position_x->setEnabled(editable);
@@ -2902,7 +3021,7 @@ void MainWindow::update_reference_geometry_controls()
     }
     if (m_toggle_section_clipping != nullptr)
     {
-        const bool is_section_plane =
+        const bool is_section_plane = !selected_visual &&
             m_3d_widget->reference_geometry_kind() == QStringLiteral("section_plane");
         const QSignalBlocker blocker(m_toggle_section_clipping);
         m_toggle_section_clipping->setEnabled(is_section_plane && editable);
@@ -2950,13 +3069,40 @@ void MainWindow::update_reference_geometry_panel()
         return;
     }
 
-    const QVector3D position = m_3d_widget->reference_position();
-    const QVector3D rotation = m_3d_widget->reference_rotation();
+    const QUuid selected_reference_uuid =
+        m_3d_widget->selected_reference_geometry_uuid();
+    const bool selected_visual =
+        m_3d_widget->has_reference_geometry_visual(selected_reference_uuid);
+    const QVector3D position = selected_visual
+        ? m_3d_widget->reference_geometry_visual_position(selected_reference_uuid)
+        : m_3d_widget->reference_position();
+    const QVector3D rotation = selected_visual
+        ? m_3d_widget->reference_geometry_visual_rotation(selected_reference_uuid)
+        : m_3d_widget->reference_rotation();
     if (m_reference_geometry_path != nullptr)
     {
-        const QString path = m_3d_widget->geometry.file_path();
+        QString path = m_3d_widget->geometry.file_path();
+        if (selected_visual)
+        {
+            for (const ReferenceGeometryConfig &config :
+                 m_project_reference_geometries)
+            {
+                if (config.uuid == selected_reference_uuid)
+                {
+                    path = config.file_path.isEmpty()
+                        ? config.kind : config.file_path;
+                    break;
+                }
+            }
+        }
         m_reference_geometry_path->setText(path.trimmed().isEmpty() ? "-" : path);
         m_reference_geometry_path->setToolTip(path);
+    }
+    if (m_clear_reference_geometry != nullptr)
+    {
+        m_clear_reference_geometry->setText(
+            selected_visual ? "Remove Reference Geometry"
+                            : "Clear Reference Geometry");
     }
     const QSignalBlocker position_x_blocker(m_reference_position_x);
     const QSignalBlocker position_y_blocker(m_reference_position_y);
@@ -3759,7 +3905,8 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
         QVector3D origin;
         QVector3D reference_x;
         QVector3D reference_z;
-        if (!m_3d_widget->reference_frame(&origin, &reference_x, &reference_z))
+        if (!m_3d_widget->reference_frame(&origin, &reference_x, &reference_z,
+                                          &spec.reference_geometry_uuid))
         {
             if (show_warning)
             {
@@ -3770,8 +3917,6 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
             return false;
         }
         spec.use_reference_geometry = true;
-        spec.reference_geometry_uuid =
-            m_3d_widget->reference_geometry_uuid();
         spec.origin = origin;
         spec.direction = reference_x;
         spec.plane_normal = reference_z;
@@ -3869,7 +4014,8 @@ bool MainWindow::build_fill_editor_spec(UnitFillSpec *output,
         QVector3D reference_x;
         QVector3D reference_z;
         if (!m_3d_widget->reference_frame(&origin, &reference_x,
-                                          &reference_z))
+                                          &reference_z,
+                                          &spec.reference_geometry_uuid))
         {
             if (show_warning)
             {
@@ -3880,8 +4026,6 @@ bool MainWindow::build_fill_editor_spec(UnitFillSpec *output,
             return false;
         }
         spec.use_reference_geometry = true;
-        spec.reference_geometry_uuid =
-            m_3d_widget->reference_geometry_uuid();
         spec.origin = origin;
         spec.direction = reference_x;
         spec.plane_normal = reference_z;
@@ -5451,6 +5595,7 @@ void MainWindow::create_object_list_panel()
             };
             QAction *lock_action = nullptr;
             QAction *clear_reference_action = nullptr;
+            QAction *remove_reference_action = nullptr;
             if (active_reference)
             {
                 menu.addSeparator();
@@ -5460,6 +5605,12 @@ void MainWindow::create_object_list_panel()
                         : "Lock Reference Geometry");
                 clear_reference_action = menu.addAction(
                     "Clear Reference Geometry");
+            }
+            else
+            {
+                menu.addSeparator();
+                remove_reference_action = menu.addAction(
+                    "Remove Reference Geometry");
             }
             QAction *chosen_action = menu.exec(
                 m_object_list->viewport()->mapToGlobal(position));
@@ -5528,6 +5679,26 @@ void MainWindow::create_object_list_panel()
                     update_object_list_panel();
                     statusBar()->showMessage(
                         "Reference geometry cleared", 5000);
+                }
+            }
+            else if (chosen_action == remove_reference_action &&
+                     !active_reference)
+            {
+                const QMessageBox::StandardButton answer = QMessageBox::question(
+                    this,
+                    "Remove Reference Geometry",
+                    "Remove this reference geometry and detach Array/Fill rules that depend on it?",
+                    QMessageBox::Yes | QMessageBox::No,
+                    QMessageBox::No);
+                if (answer == QMessageBox::Yes &&
+                    m_3d_widget->remove_reference_geometry_visual(
+                        reference_uuid))
+                {
+                    mark_project_dirty();
+                    update_reference_geometry_panel();
+                    update_object_list_panel();
+                    statusBar()->showMessage(
+                        "Reference geometry removed", 5000);
                 }
             }
             return;
@@ -5746,32 +5917,25 @@ void MainWindow::create_object_list_panel()
 
             UnitArraySpec spec;
             spec.count = count;
-            if (m_3d_widget->reference_geometry_visible() ||
-                m_3d_widget->has_selected_face())
+            QVector3D reference_origin;
+            QVector3D reference_x;
+            QVector3D reference_z;
+            QUuid reference_uuid;
+            if (m_3d_widget->reference_frame(
+                    &reference_origin, &reference_x, &reference_z,
+                    &reference_uuid))
             {
                 const QString reference_prompt =
                     m_3d_widget->has_selected_face()
                         ? "Use the selected reference face frame?"
-                        : "Use the visible reference geometry frame?";
+                        : "Use the selected reference geometry frame?";
                 const auto use_reference = QMessageBox::question(
                     this, "Create Array", reference_prompt,
                     QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
                 if (use_reference == QMessageBox::Yes)
                 {
-                    QVector3D reference_origin;
-                    QVector3D reference_x;
-                    QVector3D reference_z;
-                    if (!m_3d_widget->reference_frame(&reference_origin,
-                                                      &reference_x,
-                                                      &reference_z))
-                    {
-                        statusBar()->showMessage(
-                            "Reference geometry has no usable coordinate frame", 5000);
-                        return;
-                    }
                     spec.use_reference_geometry = true;
-                    spec.reference_geometry_uuid =
-                        m_3d_widget->reference_geometry_uuid();
+                    spec.reference_geometry_uuid = reference_uuid;
                     spec.origin = reference_origin;
                     spec.direction = reference_x;
                     spec.plane_normal = reference_z;
@@ -5895,32 +6059,25 @@ void MainWindow::create_object_list_panel()
             spec.pattern = fill_type == "Hexagonal"
                                ? UnitFillPattern::Hexagonal
                                : UnitFillPattern::Square;
-            if (m_3d_widget->reference_geometry_visible() ||
-                m_3d_widget->has_selected_face())
+            QVector3D reference_origin;
+            QVector3D reference_x;
+            QVector3D reference_z;
+            QUuid reference_uuid;
+            if (m_3d_widget->reference_frame(
+                    &reference_origin, &reference_x, &reference_z,
+                    &reference_uuid))
             {
                 const QString reference_prompt =
                     m_3d_widget->has_selected_face()
                         ? "Use the selected reference face frame?"
-                        : "Use the visible reference geometry frame?";
+                        : "Use the selected reference geometry frame?";
                 const auto use_reference = QMessageBox::question(
                     this, "Create Fill", reference_prompt,
                     QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
                 if (use_reference == QMessageBox::Yes)
                 {
-                    QVector3D reference_origin;
-                    QVector3D reference_x;
-                    QVector3D reference_z;
-                    if (!m_3d_widget->reference_frame(&reference_origin,
-                                                      &reference_x,
-                                                      &reference_z))
-                    {
-                        statusBar()->showMessage(
-                            "Reference geometry has no usable coordinate frame", 5000);
-                        return;
-                    }
                     spec.use_reference_geometry = true;
-                    spec.reference_geometry_uuid =
-                        m_3d_widget->reference_geometry_uuid();
+                    spec.reference_geometry_uuid = reference_uuid;
                     spec.origin = reference_origin;
                     spec.direction = reference_x;
                     spec.plane_normal = reference_z;
@@ -6261,13 +6418,16 @@ void MainWindow::update_object_list_panel()
         {
             reference_name = QStringLiteral("Reference Geometry");
         }
+        const bool locked = is_active
+            ? m_3d_widget->reference_geometry_locked()
+            : m_3d_widget->reference_geometry_visual_locked(config.uuid);
         if (is_active)
         {
             reference_name = QStringLiteral("[Active] ") + reference_name;
-            if (m_3d_widget->reference_geometry_locked())
-            {
-                reference_name = QStringLiteral("[Locked] ") + reference_name;
-            }
+        }
+        if (locked)
+        {
+            reference_name = QStringLiteral("[Locked] ") + reference_name;
         }
         auto *reference_item = new QTreeWidgetItem(
             m_object_list, QStringList{reference_name});
@@ -6292,8 +6452,7 @@ void MainWindow::update_object_list_panel()
                                    config.uuid)
                                    ? QStringLiteral("Yes")
                                    : QStringLiteral("No")),
-                        config.locked ? QStringLiteral("Yes")
-                                      : QStringLiteral("No"),
+                        locked ? QStringLiteral("Yes") : QStringLiteral("No"),
                         config.uuid.toString(QUuid::WithoutBraces)));
         reference_item->setFlags(reference_item->flags() |
                                   Qt::ItemIsUserCheckable);
@@ -6942,6 +7101,31 @@ void MainWindow::apply_reference_geometry_transform()
 {
     if (m_3d_widget == nullptr)
     {
+        return;
+    }
+
+    const QUuid selected_reference_uuid =
+        m_3d_widget->selected_reference_geometry_uuid();
+    if (m_3d_widget->has_reference_geometry_visual(selected_reference_uuid))
+    {
+        if (m_3d_widget->set_reference_geometry_visual_transform(
+                selected_reference_uuid,
+                QVector3D(static_cast<float>(display_length_to_storage(
+                              m_reference_position_x->value())),
+                          static_cast<float>(display_length_to_storage(
+                              m_reference_position_y->value())),
+                          static_cast<float>(display_length_to_storage(
+                              m_reference_position_z->value()))),
+                QVector3D(static_cast<float>(display_angle_to_storage(
+                              m_reference_rotation_x->value())),
+                          static_cast<float>(display_angle_to_storage(
+                              m_reference_rotation_y->value())),
+                          static_cast<float>(display_angle_to_storage(
+                              m_reference_rotation_z->value())))))
+        {
+            mark_project_dirty();
+            update_object_list_panel();
+        }
         return;
     }
 

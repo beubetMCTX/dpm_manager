@@ -951,7 +951,6 @@ bool OCCTWidget::select_units_by_uuid(const QList<QUuid> &uuids,
         selected_primary = valid_uuids.first();
     }
 
-    clear_face_reference();
     clear_transform_gizmo();
     m_context->ClearSelected(Standard_False);
     selected_shape.Nullify();
@@ -1014,12 +1013,14 @@ bool OCCTWidget::select_reference_geometry()
         return false;
     }
 
+    clear_face_reference();
     clear_transform_gizmo();
     m_context->ClearSelected(Standard_False);
     selected_shape = base_geometry;
+    m_selected_reference_geometry_uuid = m_reference_geometry_uuid;
     m_context->SetSelected(base_geometry, Standard_True);
     m_view->Redraw();
-    emit selection_changed(QUuid(), true);
+    emit selection_changed(m_reference_geometry_uuid, true);
     return true;
 }
 
@@ -1308,6 +1309,12 @@ bool OCCTWidget::add_reference_geometry_visual(
     {
         const ReferenceGeometryVisual old =
             m_reference_geometry_visuals.take(config.uuid);
+        if (selected_shape == old.display ||
+            m_selected_reference_geometry_uuid == config.uuid)
+        {
+            clear_face_reference();
+            clear_context_selection_safely();
+        }
         if (!old.display.IsNull())
         {
             m_context->Remove(old.display, Standard_False);
@@ -1316,11 +1323,20 @@ bool OCCTWidget::add_reference_geometry_visual(
         {
             m_context->Remove(old.local_trihedron, Standard_False);
         }
+        for (const Handle(AIS_Trihedron) &trihedron : old.face_trihedrons)
+        {
+            if (!trihedron.IsNull())
+            {
+                m_context->Remove(trihedron, Standard_False);
+            }
+        }
     }
 
     ReferenceGeometryVisual visual;
     visual.shape = resolved_shape;
     visual.display = new AIS_Shape(resolved_shape);
+    visual.position = config.position;
+    visual.rotation = config.rotation;
     visual.visible = config.visible;
     visual.locked = config.locked;
     visual.display->SetLocalTransformation(
@@ -1332,6 +1348,7 @@ bool OCCTWidget::add_reference_geometry_visual(
                                     1.0e-12f
         ? config.construction_direction.normalized()
         : QVector3D(0.0f, 0.0f, 1.0f);
+    visual.construction_direction = direction;
     const gp_Ax2 axis(
         gp_Pnt(0.0, 0.0, 0.0),
         gp_Dir(direction.x(), direction.y(), direction.z()));
@@ -1339,6 +1356,27 @@ bool OCCTWidget::add_reference_geometry_visual(
                                                    get_trihedron_size() * 0.65);
     visual.local_trihedron->SetLocalTransformation(
         reference_visual_transform(config.position, config.rotation));
+
+    for (TopExp_Explorer explorer(resolved_shape, TopAbs_FACE);
+         explorer.More(); explorer.Next())
+    {
+        gp_Ax2 face_axis;
+        if (!face_local_axis(TopoDS::Face(explorer.Current()), face_axis))
+        {
+            continue;
+        }
+        Handle(AIS_Trihedron) face_trihedron = make_local_trihedron(
+            face_axis, get_trihedron_size() * 0.22);
+        face_trihedron->SetLocalTransformation(
+            reference_visual_transform(config.position, config.rotation));
+        if (config.visible &&
+            UnitSystem::active_preferences().show_reference_local_axes)
+        {
+            m_context->Display(face_trihedron, Standard_False);
+        }
+        m_context->Deactivate(face_trihedron, TopAbs_SHAPE);
+        visual.face_trihedrons.append(face_trihedron);
+    }
 
     m_reference_geometry_visuals.insert(config.uuid, visual);
     if (config.visible)
@@ -1349,7 +1387,7 @@ bool OCCTWidget::add_reference_geometry_visual(
             m_context->Display(visual.local_trihedron, Standard_False);
         }
     }
-    m_context->Deactivate(visual.display, TopAbs_SHAPE);
+    m_context->Activate(visual.display, TopAbs_FACE, Standard_True);
     m_context->Deactivate(visual.local_trihedron, TopAbs_SHAPE);
     m_view->Redraw();
     return true;
@@ -1357,6 +1395,20 @@ bool OCCTWidget::add_reference_geometry_visual(
 
 void OCCTWidget::clear_reference_geometry_visuals()
 {
+    const bool selected_visual_removed =
+        m_reference_geometry_visuals.contains(
+            m_selected_reference_geometry_uuid) ||
+        std::any_of(m_reference_geometry_visuals.cbegin(),
+                    m_reference_geometry_visuals.cend(),
+                    [this](const ReferenceGeometryVisual &visual)
+                    {
+                        return selected_shape == visual.display;
+                    });
+    if (selected_visual_removed)
+    {
+        clear_face_reference();
+        clear_context_selection_safely();
+    }
     if (!m_context.IsNull())
     {
         for (const ReferenceGeometryVisual &visual :
@@ -1370,6 +1422,13 @@ void OCCTWidget::clear_reference_geometry_visuals()
             {
                 m_context->Remove(visual.local_trihedron, Standard_False);
             }
+            for (const Handle(AIS_Trihedron) &trihedron : visual.face_trihedrons)
+            {
+                if (!trihedron.IsNull())
+                {
+                    m_context->Remove(trihedron, Standard_False);
+                }
+            }
         }
     }
     m_reference_geometry_visuals.clear();
@@ -1377,6 +1436,65 @@ void OCCTWidget::clear_reference_geometry_visuals()
     {
         m_view->Redraw();
     }
+}
+
+QList<QUuid> OCCTWidget::reference_geometry_visual_uuids() const
+{
+    QList<QUuid> uuids = m_reference_geometry_visuals.keys();
+    std::sort(uuids.begin(), uuids.end(),
+              [](const QUuid &left, const QUuid &right)
+              {
+                  return left.toString(QUuid::WithoutBraces) <
+                         right.toString(QUuid::WithoutBraces);
+              });
+    return uuids;
+}
+
+bool OCCTWidget::remove_reference_geometry_visual(const QUuid &uuid)
+{
+    auto it = m_reference_geometry_visuals.find(uuid);
+    if (it == m_reference_geometry_visuals.end())
+    {
+        return false;
+    }
+
+    detach_reference_geometry_dependencies(uuid, false);
+    const ReferenceGeometryVisual visual = it.value();
+    if (selected_shape == visual.display ||
+        m_selected_reference_geometry_uuid == uuid)
+    {
+        clear_face_reference();
+        clear_context_selection_safely();
+    }
+    if (!m_context.IsNull())
+    {
+        if (!visual.display.IsNull())
+        {
+            m_context->Remove(visual.display, Standard_False);
+        }
+        if (!visual.local_trihedron.IsNull())
+        {
+            m_context->Remove(visual.local_trihedron, Standard_False);
+        }
+        for (const Handle(AIS_Trihedron) &trihedron : visual.face_trihedrons)
+        {
+            if (!trihedron.IsNull())
+            {
+                m_context->Remove(trihedron, Standard_False);
+            }
+        }
+    }
+    m_reference_geometry_visuals.erase(it);
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
+bool OCCTWidget::has_reference_geometry_visual(const QUuid &uuid) const
+{
+    return !uuid.isNull() && m_reference_geometry_visuals.contains(uuid);
 }
 
 bool OCCTWidget::set_reference_geometry_visual_visible(const QUuid &uuid,
@@ -1395,14 +1513,24 @@ bool OCCTWidget::set_reference_geometry_visual_visible(const QUuid &uuid,
         if (UnitSystem::active_preferences().show_reference_local_axes)
         {
             m_context->Display(it->local_trihedron, Standard_False);
+            for (const Handle(AIS_Trihedron) &trihedron : it->face_trihedrons)
+            {
+                m_context->Display(trihedron, Standard_False);
+            }
         }
     }
     else
     {
         m_context->Erase(it->display, Standard_False);
         m_context->Erase(it->local_trihedron, Standard_False);
-        if (selected_shape == it->display)
+        for (const Handle(AIS_Trihedron) &trihedron : it->face_trihedrons)
         {
+            m_context->Erase(trihedron, Standard_False);
+        }
+        if (selected_shape == it->display ||
+            m_selected_reference_geometry_uuid == uuid)
+        {
+            clear_face_reference();
             clear_context_selection_safely();
         }
     }
@@ -1419,6 +1547,131 @@ bool OCCTWidget::reference_geometry_visual_visible(const QUuid &uuid) const
     return it != m_reference_geometry_visuals.constEnd() && it->visible;
 }
 
+bool OCCTWidget::set_reference_geometry_visual_transform(
+    const QUuid &uuid,
+    const QVector3D &position,
+    const QVector3D &rotation_degrees)
+{
+    auto it = m_reference_geometry_visuals.find(uuid);
+    if (it == m_reference_geometry_visuals.end() || it->locked)
+    {
+        return false;
+    }
+
+    it->position = position;
+    it->rotation = rotation_degrees;
+    const gp_Trsf transform = reference_visual_transform(position,
+                                                         rotation_degrees);
+    if (!it->display.IsNull())
+    {
+        it->display->SetLocalTransformation(transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(it->display, Standard_False);
+        }
+    }
+    if (!it->local_trihedron.IsNull())
+    {
+        it->local_trihedron->SetLocalTransformation(transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(it->local_trihedron, Standard_False);
+        }
+    }
+    for (const Handle(AIS_Trihedron) &trihedron : it->face_trihedrons)
+    {
+        if (trihedron.IsNull())
+        {
+            continue;
+        }
+        trihedron->SetLocalTransformation(transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(trihedron, Standard_False);
+        }
+    }
+    if (m_selected_reference_geometry_uuid == uuid &&
+        !face_trihedron.IsNull())
+    {
+        face_trihedron->SetLocalTransformation(transform);
+        if (!m_context.IsNull())
+        {
+            m_context->Redisplay(face_trihedron, Standard_False);
+        }
+    }
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
+}
+
+QVector3D OCCTWidget::reference_geometry_visual_position(const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it == m_reference_geometry_visuals.constEnd()
+        ? QVector3D()
+        : it->position;
+}
+
+QVector3D OCCTWidget::reference_geometry_visual_rotation(const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it == m_reference_geometry_visuals.constEnd()
+        ? QVector3D()
+        : it->rotation;
+}
+
+int OCCTWidget::reference_geometry_visual_selected_face_index(
+    const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it == m_reference_geometry_visuals.constEnd()
+        ? -1 : it->selected_face_index;
+}
+
+QVector3D OCCTWidget::reference_geometry_visual_selected_face_origin(
+    const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it == m_reference_geometry_visuals.constEnd()
+        ? QVector3D() : it->selected_face_origin;
+}
+
+QVector3D OCCTWidget::reference_geometry_visual_selected_face_normal(
+    const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it == m_reference_geometry_visuals.constEnd()
+        ? QVector3D() : it->selected_face_normal;
+}
+
+QVector3D OCCTWidget::reference_geometry_visual_selected_face_x_direction(
+    const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it == m_reference_geometry_visuals.constEnd()
+        ? QVector3D() : it->selected_face_x_direction;
+}
+
+bool OCCTWidget::set_reference_geometry_visual_locked(const QUuid &uuid,
+                                                      bool locked)
+{
+    auto it = m_reference_geometry_visuals.find(uuid);
+    if (it == m_reference_geometry_visuals.end())
+    {
+        return false;
+    }
+    it->locked = locked;
+    return true;
+}
+
+bool OCCTWidget::reference_geometry_visual_locked(const QUuid &uuid) const
+{
+    const auto it = m_reference_geometry_visuals.constFind(uuid);
+    return it != m_reference_geometry_visuals.constEnd() && it->locked;
+}
+
 bool OCCTWidget::select_reference_geometry_visual(const QUuid &uuid)
 {
     const auto it = m_reference_geometry_visuals.constFind(uuid);
@@ -1428,13 +1681,116 @@ bool OCCTWidget::select_reference_geometry_visual(const QUuid &uuid)
         return false;
     }
 
+    clear_face_reference();
     clear_transform_gizmo();
     m_context->ClearSelected(Standard_False);
     selected_shape = it->display;
+    m_selected_reference_geometry_uuid = uuid;
     m_context->SetSelected(it->display, Standard_True);
     m_view->Redraw();
     emit selection_changed(uuid, true);
     return true;
+}
+
+bool OCCTWidget::select_reference_geometry_visual_face_by_index(
+    const QUuid &uuid,
+    int face_index)
+{
+    const auto visual = m_reference_geometry_visuals.constFind(uuid);
+    if (visual == m_reference_geometry_visuals.constEnd() || !visual->visible ||
+        face_index < 0)
+    {
+        return false;
+    }
+
+    int index = 0;
+    for (TopExp_Explorer explorer(visual->shape, TopAbs_FACE);
+         explorer.More(); explorer.Next(), ++index)
+    {
+        if (index == face_index)
+        {
+            show_reference_face_for_uuid(
+                uuid, TopoDS::Face(explorer.Current()));
+            if (!m_view.IsNull())
+            {
+                m_view->Redraw();
+            }
+            return m_selected_reference_face_index == face_index;
+        }
+    }
+    return false;
+}
+
+bool OCCTWidget::select_reference_geometry_visual_face_by_descriptor(
+    const QUuid &uuid,
+    const QVector3D &origin,
+    const QVector3D &normal,
+    const QVector3D &x_direction,
+    int fallback_face_index)
+{
+    const auto visual = m_reference_geometry_visuals.constFind(uuid);
+    if (visual == m_reference_geometry_visuals.constEnd() || !visual->visible)
+    {
+        return false;
+    }
+    if (normal.lengthSquared() <= 1.0e-12f ||
+        x_direction.lengthSquared() <= 1.0e-12f)
+    {
+        return fallback_face_index >= 0 &&
+               select_reference_geometry_visual_face_by_index(
+                   uuid, fallback_face_index);
+    }
+
+    const QVector3D target_normal = normal.normalized();
+    const QVector3D target_x = x_direction.normalized();
+    const double tolerance = std::max(
+        1.0e-6, static_cast<double>(get_trihedron_size()) * 1.0e-3);
+    int best_index = -1;
+    double best_score = std::numeric_limits<double>::max();
+    int face_index = 0;
+    for (TopExp_Explorer explorer(visual->shape, TopAbs_FACE);
+         explorer.More(); explorer.Next(), ++face_index)
+    {
+        gp_Ax2 candidate_axis;
+        if (!face_local_axis(TopoDS::Face(explorer.Current()), candidate_axis))
+        {
+            continue;
+        }
+        const gp_Pnt point = candidate_axis.Location();
+        const QVector3D candidate_origin(
+            static_cast<float>(point.X()), static_cast<float>(point.Y()),
+            static_cast<float>(point.Z()));
+        const gp_Dir candidate_normal_dir = candidate_axis.Direction();
+        const gp_Dir candidate_x_dir = candidate_axis.XDirection();
+        const QVector3D candidate_normal(
+            static_cast<float>(candidate_normal_dir.X()),
+            static_cast<float>(candidate_normal_dir.Y()),
+            static_cast<float>(candidate_normal_dir.Z()));
+        const QVector3D candidate_x(
+            static_cast<float>(candidate_x_dir.X()),
+            static_cast<float>(candidate_x_dir.Y()),
+            static_cast<float>(candidate_x_dir.Z()));
+        const double origin_error = (candidate_origin - origin).length();
+        const double normal_error = 1.0 - std::abs(
+            QVector3D::dotProduct(candidate_normal, target_normal));
+        const double x_error = 1.0 - std::abs(
+            QVector3D::dotProduct(candidate_x, target_x));
+        const double score = origin_error + normal_error + x_error;
+        if (score < best_score)
+        {
+            best_score = score;
+            best_index = face_index;
+        }
+    }
+
+    if (best_index >= 0 && best_score <= tolerance + 1.0e-3)
+    {
+        return select_reference_geometry_visual_face_by_index(uuid,
+                                                              best_index);
+    }
+    return fallback_face_index >= 0 &&
+           select_reference_geometry_visual_face_by_index(
+               uuid, fallback_face_index);
 }
 
 bool OCCTWidget::unit_visible(const QUuid &uuid) const
@@ -1714,6 +2070,21 @@ void OCCTWidget::apply_visual_preferences(const Unit_Preferences &preferences)
                 m_context->Erase(it->local_trihedron, Standard_False);
             }
         }
+        for (const Handle(AIS_Trihedron) &trihedron : it->face_trihedrons)
+        {
+            if (trihedron.IsNull())
+            {
+                continue;
+            }
+            if (preferences.show_reference_local_axes && it->visible)
+            {
+                m_context->Display(trihedron, Standard_False);
+            }
+            else
+            {
+                m_context->Erase(trihedron, Standard_False);
+            }
+        }
     }
     for (const Handle(AIS_Trihedron) &trihedron : m_reference_face_trihedrons)
     {
@@ -1723,9 +2094,16 @@ void OCCTWidget::apply_visual_preferences(const Unit_Preferences &preferences)
         else
             m_context->Erase(trihedron, Standard_False);
     }
+    const auto selected_reference_visual =
+        m_reference_geometry_visuals.constFind(
+            m_selected_reference_geometry_uuid);
+    const bool selected_reference_visible =
+        selected_reference_visual != m_reference_geometry_visuals.constEnd()
+            ? selected_reference_visual->visible
+            : m_reference_geometry_visible;
     if (!face_trihedron.IsNull())
     {
-        if (preferences.show_reference_local_axes && m_reference_geometry_visible)
+        if (preferences.show_reference_local_axes && selected_reference_visible)
             m_context->Display(face_trihedron, Standard_False);
         else
             m_context->Erase(face_trihedron, Standard_False);
@@ -7011,7 +7389,6 @@ void OCCTWidget::add_readed_geometry()
 {
     // Replacing reference geometry creates a new logical reference object.
     // Project loading may restore the saved UUID immediately afterwards.
-    clear_reference_geometry_visuals();
     m_reference_geometry_uuid = QUuid::createUuid();
     clear_reference_transform_history();
     clear_face_reference();
@@ -7276,16 +7653,10 @@ void OCCTWidget::set_unit_editor_case_context(const Unit_Edit_Case_Context &cont
     }
 }
 
-bool OCCTWidget::clear_reference_geometry()
+void OCCTWidget::detach_reference_geometry_dependencies(
+    const QUuid &uuid,
+    bool include_unbound)
 {
-    clear_reference_transform_history();
-    clear_face_reference();
-    set_reference_geometry_locked(false);
-
-    // Reference-bound Array/Fill rules cannot be evaluated after the
-    // reference object is removed. Downgrade them to world-space rules
-    // instead of leaving a stale dependency that silently changes on the
-    // next rebuild or project reload.
     QList<QUuid> dependent_sources;
     for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
     {
@@ -7295,10 +7666,17 @@ bool OCCTWidget::clear_reference_geometry()
             continue;
         }
 
+        const auto matches_removed_reference = [uuid, include_unbound](
+            const QUuid &reference_uuid)
+        {
+            return reference_uuid == uuid ||
+                   (include_unbound && reference_uuid.isNull());
+        };
         bool changed = false;
         for (UnitArraySpec &spec : unit->array_specs)
         {
-            if (spec.use_reference_geometry)
+            if (spec.use_reference_geometry &&
+                matches_removed_reference(spec.reference_geometry_uuid))
             {
                 spec.use_reference_geometry = false;
                 spec.conform_to_reference_normal = false;
@@ -7306,14 +7684,16 @@ bool OCCTWidget::clear_reference_geometry()
                 changed = true;
             }
         }
-        if (unit->has_array_spec && unit->array_spec.use_reference_geometry)
+        if (unit->has_array_spec && unit->array_spec.use_reference_geometry &&
+            matches_removed_reference(unit->array_spec.reference_geometry_uuid))
         {
             unit->array_spec.use_reference_geometry = false;
             unit->array_spec.conform_to_reference_normal = false;
             unit->array_spec.reference_geometry_uuid = QUuid();
             changed = true;
         }
-        if (unit->has_fill_spec && unit->fill_spec.use_reference_geometry)
+        if (unit->has_fill_spec && unit->fill_spec.use_reference_geometry &&
+            matches_removed_reference(unit->fill_spec.reference_geometry_uuid))
         {
             unit->fill_spec.use_reference_geometry = false;
             unit->fill_spec.conform_to_reference_normal = false;
@@ -7322,8 +7702,35 @@ bool OCCTWidget::clear_reference_geometry()
         }
         if (changed)
         {
+            if (unit->has_array_spec && !unit->array_specs.isEmpty())
+            {
+                unit->array_spec = unit->array_specs.last();
+            }
             dependent_sources.append(unit->inj.uuid);
+            emit unit_data_updated(unit.get());
         }
+    }
+
+    for (const QUuid &source_uuid : dependent_sources)
+    {
+        QSet<QUuid> visited;
+        rebuild_unit_outputs(source_uuid, visited);
+    }
+}
+
+bool OCCTWidget::clear_reference_geometry(bool preserve_array_dependencies)
+{
+    clear_reference_transform_history();
+    clear_face_reference();
+    set_reference_geometry_locked(false);
+
+    // Reference-bound Array/Fill rules cannot be evaluated after the
+    // reference object is removed. Downgrade them to world-space rules
+    // instead of leaving a stale dependency that silently changes on the
+    // next rebuild or project reload.
+    if (!preserve_array_dependencies)
+    {
+        detach_reference_geometry_dependencies(m_reference_geometry_uuid, true);
     }
 
     if (!m_context.IsNull() && !base_geometry.IsNull())
@@ -7351,18 +7758,13 @@ bool OCCTWidget::clear_reference_geometry()
     m_reference_transform = gp_Trsf();
     m_reference_geometry_visible = true;
     m_reference_geometry_uuid = QUuid();
+    m_selected_reference_geometry_uuid = QUuid();
     m_reference_geometry_kind = QStringLiteral("file");
     m_section_plane_clipping = false;
 
     if (!m_view.IsNull())
     {
         m_view->Redraw();
-    }
-
-    for (const QUuid &source_uuid : dependent_sources)
-    {
-        QSet<QUuid> visited;
-        rebuild_unit_outputs(source_uuid, visited);
     }
 
     emit reference_geometry_available(false);
@@ -7390,13 +7792,33 @@ void OCCTWidget::set_reference_geometry_uuid(const QUuid &uuid)
 }
 
 bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
-                                 QVector3D *z_axis) const
+                                 QVector3D *z_axis,
+                                 QUuid *reference_uuid) const
 {
-    if (origin == nullptr || x_axis == nullptr || z_axis == nullptr ||
-        reference_geometry.IsNull() || !m_reference_geometry_visible)
+    if (origin == nullptr || x_axis == nullptr || z_axis == nullptr)
     {
         return false;
     }
+
+    const auto visual = m_reference_geometry_visuals.constFind(
+        m_selected_reference_geometry_uuid);
+    const bool selected_visual =
+        visual != m_reference_geometry_visuals.constEnd();
+    if ((selected_visual && !visual->visible) ||
+        (!selected_visual &&
+         (base_geometry.IsNull() || !m_reference_geometry_visible)))
+    {
+        return false;
+    }
+    if (reference_uuid != nullptr)
+    {
+        *reference_uuid = selected_visual
+            ? m_selected_reference_geometry_uuid
+            : m_reference_geometry_uuid;
+    }
+    const gp_Trsf transform = selected_visual
+        ? reference_visual_transform(visual->position, visual->rotation)
+        : m_reference_transform;
 
     if (!selected_face.IsNull())
     {
@@ -7409,9 +7831,9 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
         gp_XYZ face_z(selected_face_axis.Direction().X(),
                       selected_face_axis.Direction().Y(),
                       selected_face_axis.Direction().Z());
-        m_reference_transform.Transforms(face_origin);
-        m_reference_transform.Transforms(face_x);
-        m_reference_transform.Transforms(face_z);
+        transform.Transforms(face_origin);
+        transform.Transforms(face_x);
+        transform.Transforms(face_z);
         *origin = QVector3D(static_cast<float>(face_origin.X()),
                             static_cast<float>(face_origin.Y()),
                             static_cast<float>(face_origin.Z()));
@@ -7426,10 +7848,14 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
     }
 
     gp_XYZ x_vector(1.0, 0.0, 0.0);
-    gp_XYZ z_vector(0.0, 0.0, 1.0);
-    m_reference_transform.Transforms(x_vector);
-    m_reference_transform.Transforms(z_vector);
-    *origin = m_reference_position;
+    const QVector3D local_direction = selected_visual
+        ? visual->construction_direction
+        : m_reference_construction_direction;
+    gp_XYZ z_vector(local_direction.x(), local_direction.y(),
+                    local_direction.z());
+    transform.Transforms(x_vector);
+    transform.Transforms(z_vector);
+    *origin = selected_visual ? visual->position : m_reference_position;
     *x_axis = QVector3D(static_cast<float>(x_vector.X()),
                         static_cast<float>(x_vector.Y()),
                         static_cast<float>(x_vector.Z())).normalized();
@@ -7600,7 +8026,14 @@ void OCCTWidget::apply_reference_transform()
 
     if (!face_trihedron.IsNull())
     {
-        face_trihedron->SetLocalTransformation(m_reference_transform);
+        const auto selected_visual = m_reference_geometry_visuals.constFind(
+            m_selected_reference_geometry_uuid);
+        const gp_Trsf face_transform =
+            selected_visual != m_reference_geometry_visuals.constEnd()
+                ? reference_visual_transform(selected_visual->position,
+                                             selected_visual->rotation)
+                : m_reference_transform;
+        face_trihedron->SetLocalTransformation(face_transform);
         if (!m_context.IsNull())
         {
             m_context->Redisplay(face_trihedron, Standard_False);
@@ -7631,7 +8064,17 @@ void OCCTWidget::align_view_to_selected_face()
         gp_XYZ direction(selected_face_axis.Direction().X(),
                          selected_face_axis.Direction().Y(),
                          selected_face_axis.Direction().Z());
-        m_reference_transform.Transforms(direction);
+        const auto visual = m_reference_geometry_visuals.constFind(
+            m_selected_reference_geometry_uuid);
+        if (visual != m_reference_geometry_visuals.constEnd())
+        {
+            reference_visual_transform(visual->position, visual->rotation)
+                .Transforms(direction);
+        }
+        else
+        {
+            m_reference_transform.Transforms(direction);
+        }
         m_view->SetProj(direction.X(), direction.Y(), direction.Z());
         m_view->FitAll();
         m_view->Redraw();
@@ -7642,6 +8085,15 @@ void OCCTWidget::clear_face_reference()
 {
     const bool had_face_reference = !selected_face.IsNull() ||
                                     !face_trihedron.IsNull();
+    auto selected_visual = m_reference_geometry_visuals.find(
+        m_selected_reference_geometry_uuid);
+    if (selected_visual != m_reference_geometry_visuals.end())
+    {
+        selected_visual->selected_face_index = -1;
+        selected_visual->selected_face_origin = QVector3D();
+        selected_visual->selected_face_normal = QVector3D();
+        selected_visual->selected_face_x_direction = QVector3D();
+    }
     selected_face.Nullify();
     m_selected_reference_face_index = -1;
     emit selection_changed(QUuid(), false);
@@ -7661,7 +8113,8 @@ void OCCTWidget::clear_face_reference()
     }
 }
 
-void OCCTWidget::clear_context_selection_safely(bool notify_selection)
+void OCCTWidget::clear_context_selection_safely(bool notify_selection,
+                                                bool preserve_reference_frame)
 {
     if (!m_context.IsNull())
     {
@@ -7670,6 +8123,10 @@ void OCCTWidget::clear_context_selection_safely(bool notify_selection)
         m_context->ClearSelected(Standard_False);
     }
     selected_shape.Nullify();
+    if (!preserve_reference_frame && selected_face.IsNull())
+    {
+        m_selected_reference_geometry_uuid = QUuid();
+    }
 
     if (m_is_destroying)
     {
@@ -7692,6 +8149,12 @@ void OCCTWidget::clear_context_selection_safely(bool notify_selection)
 
 void OCCTWidget::show_face_reference(const TopoDS_Face &face)
 {
+    show_reference_face_for_uuid(m_reference_geometry_uuid, face);
+}
+
+void OCCTWidget::show_reference_face_for_uuid(const QUuid &uuid,
+                                              const TopoDS_Face &face)
+{
     if (face.IsNull() || m_context.IsNull() || m_view.IsNull())
     {
         return;
@@ -7703,9 +8166,23 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
         return;
     }
 
+    TopoDS_Shape reference_shape = ref_geom;
+    gp_Trsf reference_transform = m_reference_transform;
+    const auto visual = m_reference_geometry_visuals.constFind(uuid);
+    if (visual != m_reference_geometry_visuals.constEnd())
+    {
+        if (!visual->visible)
+        {
+            return;
+        }
+        reference_shape = visual->shape;
+        reference_transform = reference_visual_transform(visual->position,
+                                                         visual->rotation);
+    }
+
     int face_index = -1;
     int current_face_index = 0;
-    for (TopExp_Explorer explorer(ref_geom, TopAbs_FACE);
+    for (TopExp_Explorer explorer(reference_shape, TopAbs_FACE);
          explorer.More(); explorer.Next(), ++current_face_index)
     {
         if (TopoDS::Face(explorer.Current()).IsSame(face))
@@ -7716,9 +8193,28 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
     }
 
     clear_face_reference();
+    m_selected_reference_geometry_uuid = uuid;
     selected_face = face;
     m_selected_reference_face_index = face_index;
     selected_face_axis = face_axis;
+    auto selected_visual = m_reference_geometry_visuals.find(uuid);
+    if (selected_visual != m_reference_geometry_visuals.end())
+    {
+        const gp_Pnt point = face_axis.Location();
+        const gp_Dir normal = face_axis.Direction();
+        const gp_Dir x_direction = face_axis.XDirection();
+        selected_visual->selected_face_index = face_index;
+        selected_visual->selected_face_origin = QVector3D(
+            static_cast<float>(point.X()), static_cast<float>(point.Y()),
+            static_cast<float>(point.Z()));
+        selected_visual->selected_face_normal = QVector3D(
+            static_cast<float>(normal.X()), static_cast<float>(normal.Y()),
+            static_cast<float>(normal.Z()));
+        selected_visual->selected_face_x_direction = QVector3D(
+            static_cast<float>(x_direction.X()),
+            static_cast<float>(x_direction.Y()),
+            static_cast<float>(x_direction.Z()));
+    }
     face_axis_placement = new Geom_Axis2Placement(face_axis);
     face_trihedron = new AIS_Trihedron(face_axis_placement);
     face_trihedron->SetSize(std::max(get_trihedron_size() * 0.75, 1.0e-3));
@@ -7733,7 +8229,7 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
     face_trihedron->SetTextColor(Prs3d_DP_YAxis, Quantity_NOC_GREEN);
     face_trihedron->SetTextColor(Prs3d_DP_ZAxis, Quantity_NOC_BLUE);
 
-    face_trihedron->SetLocalTransformation(m_reference_transform);
+    face_trihedron->SetLocalTransformation(reference_transform);
     m_context->Display(face_trihedron, Standard_False);
     m_context->Deactivate(face_trihedron, TopAbs_SHAPE);
     emit face_reference_changed(true);
@@ -7742,7 +8238,7 @@ void OCCTWidget::show_face_reference(const TopoDS_Face &face)
         QVector3D(static_cast<float>(face_axis.Direction().X()),
                   static_cast<float>(face_axis.Direction().Y()),
                   static_cast<float>(face_axis.Direction().Z())));
-    emit selection_changed(QUuid(), true);
+    emit selection_changed(uuid, true);
 }
 
 bool OCCTWidget::select_reference_face_by_index(int face_index)
@@ -8111,6 +8607,30 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
             }
         }
 
+        if (m_context->HasDetected())
+        {
+            const Handle(AIS_InteractiveObject) detected =
+                m_context->DetectedInteractive();
+            for (auto it = m_reference_geometry_visuals.constBegin();
+                 it != m_reference_geometry_visuals.constEnd(); ++it)
+            {
+                if (detected == it->display && it->visible)
+                {
+                    const TopoDS_Shape detected_shape =
+                        m_context->DetectedShape();
+                    select_reference_geometry_visual(it.key());
+                    if (!detected_shape.IsNull() &&
+                        detected_shape.ShapeType() == TopAbs_FACE)
+                    {
+                        show_reference_face_for_uuid(
+                            it.key(), TopoDS::Face(detected_shape));
+                    }
+                    event->accept();
+                    return;
+                }
+            }
+        }
+
         if (select_face_reference())
         {
             selected_shape = base_geometry;
@@ -8119,7 +8639,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
             {
                 begin_reference_transform_transaction();
             }
-            emit selection_changed(QUuid(), true);
+            emit selection_changed(m_reference_geometry_uuid, true);
             return;
         }
 
@@ -8927,7 +9447,7 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
     {
         finish_direct_drag(true);
     }
-    clear_context_selection_safely();
+    clear_context_selection_safely(true, true);
     ensure_reference_face_selection_mode();
     m_context->MoveTo(pos.x(),pos.y(),m_view,Standard_True);
 
@@ -9007,7 +9527,7 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
         });
 
         menu.exec(event->globalPos());
-        clear_context_selection_safely();
+        clear_context_selection_safely(true, true);
         event->accept();
         return;
     }
@@ -9022,7 +9542,7 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
     Unit *selected_unit = get_unit(selected_shape);
     if (selected_unit == nullptr)
     {
-        clear_context_selection_safely();
+        clear_context_selection_safely(true, true);
         event->ignore();
         return;
     }
@@ -9088,7 +9608,7 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
 
 
         menu.exec(event->globalPos());	// 右键菜单被模态显示出来了
-        clear_context_selection_safely();
+        clear_context_selection_safely(true, true);
         event->accept();
         return;
 
@@ -9125,18 +9645,18 @@ void OCCTWidget::contextMenuEvent(QContextMenuEvent *event)
             set_unit_locked(target_uuid, !unit_locked(target_uuid));
         });
         menu.exec(event->globalPos());
-        clear_context_selection_safely();
+        clear_context_selection_safely(true, true);
         event->accept();
         return;
     }
 
-    clear_context_selection_safely();
+    clear_context_selection_safely(true, true);
     event->ignore();
 }
 
 void OCCTWidget::on_menu_closed()
 {
-    clear_context_selection_safely();
+    clear_context_selection_safely(true, true);
 }
 
 

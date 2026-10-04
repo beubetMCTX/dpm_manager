@@ -128,7 +128,7 @@ public:
     double reference_construction_thickness() const { return m_reference_construction_thickness; }
     double reference_construction_radius() const { return m_reference_construction_radius; }
     QVector3D reference_construction_direction() const { return m_reference_construction_direction; }
-    bool clear_reference_geometry();
+    bool clear_reference_geometry(bool preserve_array_dependencies = false);
     void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
     QVector3D reference_position() const { return m_reference_position; }
     QVector3D reference_rotation() const { return m_reference_rotation; }
@@ -146,7 +146,8 @@ public:
         int fallback_face_index = -1);
     bool select_reference_face_by_index(int face_index);
     bool reference_frame(QVector3D *origin, QVector3D *x_axis,
-                         QVector3D *z_axis) const;
+                         QVector3D *z_axis,
+                         QUuid *reference_uuid = nullptr) const;
     void set_reference_geometry_locked(bool locked);
     bool reference_geometry_locked() const { return m_reference_geometry_locked; }
     void align_view_to_selected_face();
@@ -175,9 +176,36 @@ public:
     bool add_reference_geometry_visual(const ReferenceGeometryConfig &config,
                                        const TopoDS_Shape &shape = TopoDS_Shape());
     void clear_reference_geometry_visuals();
+    bool remove_reference_geometry_visual(const QUuid &uuid);
+    QList<QUuid> reference_geometry_visual_uuids() const;
+    bool has_reference_geometry_visual(const QUuid &uuid) const;
     bool set_reference_geometry_visual_visible(const QUuid &uuid, bool visible);
     bool reference_geometry_visual_visible(const QUuid &uuid) const;
+    bool set_reference_geometry_visual_transform(const QUuid &uuid,
+                                                 const QVector3D &position,
+                                                 const QVector3D &rotation_degrees);
+    QVector3D reference_geometry_visual_position(const QUuid &uuid) const;
+    QVector3D reference_geometry_visual_rotation(const QUuid &uuid) const;
+    int reference_geometry_visual_selected_face_index(const QUuid &uuid) const;
+    QVector3D reference_geometry_visual_selected_face_origin(
+        const QUuid &uuid) const;
+    QVector3D reference_geometry_visual_selected_face_normal(
+        const QUuid &uuid) const;
+    QVector3D reference_geometry_visual_selected_face_x_direction(
+        const QUuid &uuid) const;
+    bool set_reference_geometry_visual_locked(const QUuid &uuid, bool locked);
+    bool reference_geometry_visual_locked(const QUuid &uuid) const;
     bool select_reference_geometry_visual(const QUuid &uuid);
+    bool select_reference_geometry_visual_face_by_index(const QUuid &uuid,
+                                                        int face_index);
+    bool select_reference_geometry_visual_face_by_descriptor(
+        const QUuid &uuid, const QVector3D &origin,
+        const QVector3D &normal, const QVector3D &x_direction,
+        int fallback_face_index = -1);
+    QUuid selected_reference_geometry_uuid() const
+    {
+        return m_selected_reference_geometry_uuid;
+    }
     bool set_unit_locked(const QUuid &uuid, bool locked);
     bool unit_locked(const QUuid &uuid) const;
     QHash<QUuid, UnitDisplayState> persistent_unit_display_states() const;
@@ -349,6 +377,14 @@ private:
         TopoDS_Shape shape;
         Handle(AIS_Shape) display;
         Handle(AIS_Trihedron) local_trihedron;
+        QVector<Handle(AIS_Trihedron)> face_trihedrons;
+        QVector3D position;
+        QVector3D rotation;
+        QVector3D construction_direction = QVector3D(0.0f, 0.0f, 1.0f);
+        int selected_face_index = -1;
+        QVector3D selected_face_origin;
+        QVector3D selected_face_normal;
+        QVector3D selected_face_x_direction;
         bool visible = true;
         bool locked = false;
     };
@@ -378,14 +414,19 @@ private:
     void ensure_reference_face_selection_mode();
     bool select_face_reference();
     void clear_face_reference();
-    void clear_context_selection_safely(bool notify_selection = true);
+    void clear_context_selection_safely(bool notify_selection = true,
+                                        bool preserve_reference_frame = false);
     void show_face_reference(const TopoDS_Face &face);
+    void show_reference_face_for_uuid(const QUuid &uuid,
+                                      const TopoDS_Face &face);
     void clear_unit_local_coordinate_frames();
     void rebuild_unit_local_coordinate_frames();
     void update_unit_local_coordinate_frame(const QUuid &uuid);
     void clear_reference_face_coordinate_frames();
     void rebuild_reference_face_coordinate_frames();
     void update_reference_face_coordinate_frames_transform();
+    void detach_reference_geometry_dependencies(const QUuid &uuid,
+                                               bool include_unbound);
     void apply_reference_transform();
 
     Unit* get_unit(Handle(AIS_Shape) shape);
@@ -654,6 +695,7 @@ private:
     QHash<QUuid, QSet<QUuid>> m_array_dependents;
     bool m_reference_geometry_visible = true;
     QUuid m_reference_geometry_uuid;
+    QUuid m_selected_reference_geometry_uuid;
     QString m_reference_geometry_kind = "file";
     double m_reference_construction_size = 0.01;
     double m_reference_construction_thickness = 1.0e-5;

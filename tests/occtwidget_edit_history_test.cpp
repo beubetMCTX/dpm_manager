@@ -1027,6 +1027,120 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    ReferenceGeometryConfig secondary_reference;
+    secondary_reference.uuid = QUuid::createUuid();
+    secondary_reference.kind = QStringLiteral("datum_plane");
+    secondary_reference.construction_size = 1.0;
+    secondary_reference.construction_thickness = 0.01;
+    secondary_reference.position = QVector3D(4.0f, 5.0f, 6.0f);
+    if (!check(widget.add_reference_geometry_visual(secondary_reference),
+               "A secondary reference geometry should display") ||
+        !check(widget.has_reference_geometry_visual(secondary_reference.uuid) &&
+                   widget.reference_geometry_visual_visible(
+                       secondary_reference.uuid),
+               "Secondary reference geometry should have independent visibility") ||
+        !check(widget.select_reference_geometry_visual(secondary_reference.uuid) &&
+                   widget.selected_reference_geometry_uuid() ==
+                       secondary_reference.uuid,
+               "Secondary reference geometry should be selectable by UUID") ||
+        !check(widget.select_reference_geometry_visual_face_by_index(
+                   secondary_reference.uuid, 0) &&
+                   widget.reference_geometry_visual_selected_face_index(
+                       secondary_reference.uuid) == 0,
+               "Secondary reference faces should be individually selectable") ||
+        !check(widget.select_reference_geometry_visual(
+                   secondary_reference.uuid) &&
+                   widget.reference_geometry_visual_selected_face_index(
+                       secondary_reference.uuid) == -1,
+               "Changing selection should clear stale per-reference face state") ||
+        !check(widget.set_reference_geometry_visual_transform(
+                   secondary_reference.uuid,
+                   QVector3D(7.0f, 8.0f, 9.0f),
+                   QVector3D(0.0f, 0.0f, 45.0f)) &&
+                   vectors_close(widget.reference_geometry_visual_position(
+                                     secondary_reference.uuid),
+                                 QVector3D(7.0f, 8.0f, 9.0f)),
+               "Secondary reference transform should be independently editable") ||
+        !check([&widget, &secondary_reference]()
+               {
+                   QVector3D origin;
+                   QVector3D x_axis;
+                   QVector3D z_axis;
+                   QUuid reference_uuid;
+                   return widget.reference_frame(&origin, &x_axis, &z_axis,
+                                                 &reference_uuid) &&
+                          reference_uuid == secondary_reference.uuid &&
+                          vectors_close(origin, QVector3D(7.0f, 8.0f, 9.0f));
+               }(),
+               "Reference frame should retain the UUID of the selected visual") ||
+        !check(widget.set_reference_geometry_visual_locked(
+                   secondary_reference.uuid, true) &&
+                   !widget.set_reference_geometry_visual_transform(
+                       secondary_reference.uuid, QVector3D(), QVector3D()),
+               "Locked secondary reference geometry should reject transforms") ||
+        !check(widget.set_reference_geometry_visual_locked(
+                   secondary_reference.uuid, false),
+               "Secondary reference geometry should be unlockable"))
+    {
+        return 1;
+    }
+
+    Unit secondary_reference_source = make_valid_unit();
+    secondary_reference_source.inj.injector_data.name =
+        "secondary-reference-bound-source";
+    secondary_reference_source.has_array_spec = true;
+    secondary_reference_source.array_spec.type = UnitArrayType::Linear;
+    secondary_reference_source.array_spec.count = 2;
+    secondary_reference_source.array_spec.direction =
+        QVector3D(1.0f, 0.0f, 0.0f);
+    secondary_reference_source.array_spec.spacing = 1.0f;
+    secondary_reference_source.array_spec.use_reference_geometry = true;
+    secondary_reference_source.array_spec.reference_geometry_uuid =
+        secondary_reference.uuid;
+    secondary_reference_source.array_specs = {
+        secondary_reference_source.array_spec};
+    if (!check(secondary_reference_source.inj.create_injector(),
+               "Secondary reference dependency fixture should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({secondary_reference_source}, true);
+    if (!check(widget.select_reference_geometry_visual(
+                   secondary_reference.uuid) &&
+                   widget.select_reference_geometry_visual_face_by_index(
+                       secondary_reference.uuid, 0) &&
+                   widget.select_unit_by_uuid(
+                       secondary_reference_source.inj.uuid),
+               "Selecting an injector should preserve the chosen reference face") ||
+        !check([&widget, &secondary_reference]()
+               {
+                   QVector3D origin;
+                   QVector3D x_axis;
+                   QVector3D z_axis;
+                   QUuid reference_uuid;
+                   return widget.reference_frame(&origin, &x_axis, &z_axis,
+                                                 &reference_uuid) &&
+                          reference_uuid == secondary_reference.uuid;
+               }(),
+               "Reference frame should retain its face owner while selecting an injector"))
+    {
+        return 1;
+    }
+    if (!check(widget.remove_reference_geometry_visual(
+                   secondary_reference.uuid),
+               "Secondary reference geometry should be removable") ||
+        !check(widget.selected_reference_geometry_uuid().isNull(),
+               "Removing a selected visual should clear its reference-frame UUID") ||
+        !check(!widget.has_reference_geometry_visual(secondary_reference.uuid) &&
+                   !widget.unit_hash.value(secondary_reference_source.inj.uuid)
+                        ->array_spec.use_reference_geometry &&
+                   widget.unit_hash.value(secondary_reference_source.inj.uuid)
+                        ->array_spec.reference_geometry_uuid.isNull(),
+               "Removing secondary reference should detach only its Array dependency"))
+    {
+        return 1;
+    }
+
     // Structural additions and deletes must preserve the same persistent
     // hierarchy that was visible before the operation.
     widget.display_units({source}, true);
