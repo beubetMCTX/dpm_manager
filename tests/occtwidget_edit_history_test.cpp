@@ -51,6 +51,37 @@ double shape_center_x(const TopoDS_Shape &shape)
 }
 }
 
+class OCCTWidgetEditHistoryTestAccess
+{
+public:
+    static bool begin_preview(OCCTWidget &widget, const QUuid &uuid,
+                              AIS_ManipulatorMode mode,
+                              const gp_Trsf &transformation)
+    {
+        if (!widget.attach_transform_gizmo(uuid, mode))
+        {
+            return false;
+        }
+        widget.update_transform_gizmo_preview(transformation);
+        return true;
+    }
+
+    static void cancel_preview(OCCTWidget &widget)
+    {
+        widget.restore_transform_gizmo_preview();
+        widget.m_transform_gizmo_snapshot_valid = false;
+        widget.clear_transform_gizmo();
+    }
+
+    static bool commit_preview(OCCTWidget &widget)
+    {
+        const bool committed = widget.commit_transform_gizmo_preview();
+        widget.m_transform_gizmo_snapshot_valid = false;
+        widget.clear_transform_gizmo();
+        return committed;
+    }
+};
+
 int main(int argc, char *argv[])
 {
     QApplication application(argc, argv);
@@ -736,6 +767,145 @@ int main(int argc, char *argv[])
     }
     if (!check(generated_children == 2,
                "Assembly source should own all generated composite instances"))
+    {
+        return 1;
+    }
+
+    const QVector3D gizmo_source_position =
+        widget.unit_hash.value(uuid)->inj.injector_data.pos;
+    const QVector3D gizmo_member_position =
+        widget.unit_hash.value(member_uuid)->inj.injector_data.pos;
+    const QVector3D gizmo_array_origin =
+        widget.unit_hash.value(uuid)->array_specs.first().origin;
+    std::shared_ptr<Unit> gizmo_array_instance;
+    for (const std::shared_ptr<Unit> &child : widget.unit_hash.value(uuid)->child_units)
+    {
+        if (child != nullptr && child->is_array_child)
+        {
+            gizmo_array_instance = child;
+            break;
+        }
+    }
+    if (!check(gizmo_array_instance != nullptr,
+               "Gizmo regression should find a generated Assembly instance"))
+    {
+        return 1;
+    }
+    const QVector3D gizmo_array_instance_position =
+        gizmo_array_instance->inj.injector_data.pos;
+    const QVector3D gizmo_delta(0.008f, 0.0f, 0.0f);
+    gp_Trsf gizmo_translation;
+    gizmo_translation.SetTranslation(
+        gp_Vec(gizmo_delta.x(), gizmo_delta.y(), gizmo_delta.z()));
+    if (!check(OCCTWidgetEditHistoryTestAccess::begin_preview(
+                   widget, uuid, AIS_MM_Translation, gizmo_translation),
+               "Assembly translation gizmo should attach") ||
+        !check(vectors_close(
+                   widget.unit_hash.value(uuid)->inj.injector_data.pos,
+                   gizmo_source_position + gizmo_delta) &&
+                   vectors_close(
+                       widget.unit_hash.value(member_uuid)->inj.injector_data.pos,
+                       gizmo_member_position + gizmo_delta) &&
+                   vectors_close(
+                       gizmo_array_instance->inj.injector_data.pos,
+                       gizmo_array_instance_position + gizmo_delta),
+               "Gizmo preview should transform Assembly members and array instances"))
+    {
+        return 1;
+    }
+    OCCTWidgetEditHistoryTestAccess::cancel_preview(widget);
+    if (!check(vectors_close(
+                   widget.unit_hash.value(uuid)->inj.injector_data.pos,
+                   gizmo_source_position) &&
+                   vectors_close(
+                       widget.unit_hash.value(member_uuid)->inj.injector_data.pos,
+                       gizmo_member_position) &&
+                   vectors_close(
+                       widget.unit_hash.value(uuid)->array_specs.first().origin,
+                       gizmo_array_origin),
+               "Cancel should restore the full Assembly and array preview state"))
+    {
+        return 1;
+    }
+
+    if (!check(OCCTWidgetEditHistoryTestAccess::begin_preview(
+                   widget, uuid, AIS_MM_Translation, gizmo_translation) &&
+                   OCCTWidgetEditHistoryTestAccess::commit_preview(widget),
+               "Assembly translation gizmo should commit") ||
+        !check(vectors_close(
+                   widget.unit_hash.value(uuid)->inj.injector_data.pos,
+                   gizmo_source_position + gizmo_delta) &&
+                   vectors_close(
+                       widget.unit_hash.value(member_uuid)->inj.injector_data.pos,
+                       gizmo_member_position + gizmo_delta),
+               "Gizmo commit should apply one shared translation to persistent members"))
+    {
+        return 1;
+    }
+    if (!check(widget.undo_last_operation(),
+               "Assembly gizmo translation should undo as one operation") ||
+        !check(vectors_close(widget.unit_hash.value(uuid)->inj.injector_data.pos,
+                             gizmo_source_position) &&
+                   vectors_close(
+                       widget.unit_hash.value(member_uuid)->inj.injector_data.pos,
+                       gizmo_member_position) &&
+                   vectors_close(
+                       widget.unit_hash.value(uuid)->array_specs.first().origin,
+                       gizmo_array_origin),
+               "Undo should restore all Assembly and array coordinates") ||
+        !check(widget.redo_operation(),
+               "Assembly gizmo translation should redo as one operation") ||
+        !check(vectors_close(
+                   widget.unit_hash.value(member_uuid)->inj.injector_data.pos,
+                   gizmo_member_position + gizmo_delta),
+               "Redo should restore the Assembly member transform") ||
+        !check(widget.undo_last_operation(),
+               "Assembly gizmo translation should return to baseline"))
+    {
+        return 1;
+    }
+
+    gp_Trsf gizmo_rotation;
+    const QVector3D gizmo_rotation_pivot =
+        widget.unit_hash.value(uuid)->inj.injector_data.pos;
+    gizmo_rotation.SetRotation(
+        gp_Ax1(gp_Pnt(gizmo_rotation_pivot.x(), gizmo_rotation_pivot.y(),
+                      gizmo_rotation_pivot.z()),
+               gp_Dir(0.0, 0.0, 1.0)),
+        qDegreesToRadians(90.0));
+    gp_Pnt expected_gizmo_member_position(
+        gizmo_member_position.x(), gizmo_member_position.y(),
+        gizmo_member_position.z());
+    expected_gizmo_member_position.Transform(gizmo_rotation);
+    const QVector3D expected_gizmo_member(
+        static_cast<float>(expected_gizmo_member_position.X()),
+        static_cast<float>(expected_gizmo_member_position.Y()),
+        static_cast<float>(expected_gizmo_member_position.Z()));
+    const QVector3D array_direction_before_rotation =
+        widget.unit_hash.value(uuid)->array_specs.first().direction;
+    if (!check(OCCTWidgetEditHistoryTestAccess::begin_preview(
+                   widget, uuid, AIS_MM_Rotation, gizmo_rotation) &&
+                   vectors_close(
+                       widget.unit_hash.value(member_uuid)->inj.injector_data.pos,
+                       expected_gizmo_member) &&
+                   OCCTWidgetEditHistoryTestAccess::commit_preview(widget),
+               "Assembly rotation gizmo should preview and commit its member tree") ||
+        !check(!vectors_close(
+                   widget.unit_hash.value(uuid)->array_specs.first().direction,
+                   array_direction_before_rotation),
+               "Rotating an Assembly should rotate its array frame") ||
+        !check(widget.undo_last_operation() &&
+                   vectors_close(
+                       widget.unit_hash.value(uuid)->array_specs.first().direction,
+                       array_direction_before_rotation),
+               "Undo should restore Assembly array-frame orientation") ||
+        !check(widget.redo_operation() &&
+                   !vectors_close(
+                       widget.unit_hash.value(uuid)->array_specs.first().direction,
+                       array_direction_before_rotation),
+               "Redo should restore Assembly array-frame orientation") ||
+        !check(widget.undo_last_operation(),
+               "Assembly gizmo rotation should return to baseline"))
     {
         return 1;
     }

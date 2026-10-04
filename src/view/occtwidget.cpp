@@ -2363,11 +2363,42 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
     m_transform_gizmo_uuid = uuid;
     m_transform_gizmo_position = origin;
     m_transform_gizmo_mode = mode;
-    m_transform_gizmo_before_data = injector;
-    m_transform_gizmo_before_local_transformation =
-        unit->ais_display->LocalTransformation();
-    m_transform_gizmo_before_move = make_move_snapshot(*unit);
-    m_transform_gizmo_snapshot_valid = true;
+    m_transform_gizmo_before_tree.clear();
+    QSet<QUuid> captured_units;
+    std::function<void(const std::shared_ptr<Unit> &)> capture_tree;
+    capture_tree = [&](const std::shared_ptr<Unit> &node)
+    {
+        if (node == nullptr || captured_units.contains(node->inj.uuid) ||
+            node->ais_display.IsNull())
+        {
+            return;
+        }
+        captured_units.insert(node->inj.uuid);
+        TransformGizmoUnitSnapshot snapshot;
+        snapshot.uuid = node->inj.uuid;
+        snapshot.unit_type = node->type;
+        snapshot.injector_data = node->inj.injector_data;
+        snapshot.shape = node->inj.shape;
+        snapshot.local_transformation = node->ais_display->LocalTransformation();
+        snapshot.move_snapshot = make_move_snapshot(*node);
+        snapshot.assembly_local_position = node->assembly_local_position;
+        snapshot.assembly_local_rotation = node->assembly_local_rotation;
+        snapshot.has_array_spec = node->has_array_spec;
+        snapshot.array_spec = node->array_spec;
+        snapshot.array_specs = node->array_specs;
+        snapshot.has_fill_spec = node->has_fill_spec;
+        snapshot.fill_spec = node->fill_spec;
+        snapshot.derived_array_output = node != unit && node->is_array_child &&
+                                        node->follows_array;
+        m_transform_gizmo_before_tree.append(snapshot);
+        for (const std::shared_ptr<Unit> &child : node->child_units)
+        {
+            capture_tree(child);
+        }
+    };
+    capture_tree(unit);
+    m_transform_gizmo_preview_transformation = gp_Trsf();
+    m_transform_gizmo_snapshot_valid = !m_transform_gizmo_before_tree.isEmpty();
     m_transform_gizmo_preview_changed = false;
 
     // Attach() displays the manipulator, but the visual parts and their
@@ -2385,7 +2416,8 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
 
 void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
 {
-    if (!m_transform_gizmo_snapshot_valid || m_transform_gizmo_uuid.isNull())
+    if (!m_transform_gizmo_snapshot_valid || m_transform_gizmo_uuid.isNull() ||
+        m_transform_gizmo_before_tree.isEmpty())
     {
         return;
     }
@@ -2396,19 +2428,21 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         return;
     }
 
+    const TransformGizmoUnitSnapshot &root_snapshot =
+        m_transform_gizmo_before_tree.first();
     gp_Trsf snapped_transformation = transformation;
     const Unit_Preferences preferences = UnitSystem::active_preferences();
     if (m_transform_gizmo_mode == AIS_MM_Rotation &&
         preferences.rotation_snap > 0.0)
     {
-        const QVector3D pivot = injector_frame_origin(m_transform_gizmo_before_data);
+        const QVector3D pivot = injector_frame_origin(root_snapshot.injector_data);
         snapped_transformation = transform_snap::snap_rotation_about_pivot(
             transformation,
             gp_Pnt(pivot.x(), pivot.y(), pivot.z()),
             preferences.rotation_snap);
     }
 
-    Injector preview = m_transform_gizmo_before_data;
+    Injector preview = root_snapshot.injector_data;
     apply_transform_to_injector(preview, snapped_transformation);
     if (m_transform_gizmo_mode == AIS_MM_Translation &&
         preferences.translation_snap > 0.0)
@@ -2416,41 +2450,41 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         const QVector3D snapped_position = snap_position(
             preview.pos, preferences.translation_snap);
         const QVector3D delta = snapped_position - preview.pos;
-        preview.pos = snapped_position;
-        preview.pos2 += delta;
-        preview.ff_center += delta;
-        preview.ff_virtual_origin += delta;
-        preview.volume_bgeom_min += delta;
-        preview.volume_bgeom_max += delta;
-        if (preview.single_target_scope != Single_Target_Scope::World)
-        {
-            preview.single_target_hitpoint += delta;
-        }
-
-        // AIS_Manipulator has already moved the display using the raw mouse
-        // transform. Keep the previewed display on the same snapped transform
-        // as the data and the local coordinate frame.
         snapped_transformation.SetTranslationPart(
             snapped_transformation.TranslationPart() +
             gp_XYZ(delta.x(), delta.y(), delta.z()));
+        preview = root_snapshot.injector_data;
+        apply_transform_to_injector(preview, snapped_transformation);
     }
-    unit->inj.injector_data = preview;
-    if (!unit->ais_display.IsNull())
+    m_transform_gizmo_preview_transformation = snapped_transformation;
+
+    const QVector3D root_position = preview.pos;
+    for (const TransformGizmoUnitSnapshot &snapshot :
+         m_transform_gizmo_before_tree)
     {
-        unit->ais_display->SetLocalTransformation(
-            snapped_transformation * m_transform_gizmo_before_local_transformation);
-        m_context->Redisplay(unit->ais_display, Standard_False);
+        const std::shared_ptr<Unit> affected = unit_hash.value(snapshot.uuid);
+        if (affected == nullptr)
+        {
+            continue;
+        }
+        Injector transformed = snapshot.injector_data;
+        apply_transform_to_injector(transformed, snapped_transformation);
+        affected->inj.injector_data = transformed;
+        if (!affected->ais_display.IsNull())
+        {
+            affected->ais_display->SetLocalTransformation(
+                snapped_transformation * snapshot.local_transformation);
+            m_context->Redisplay(affected->ais_display, Standard_False);
+        }
+        update_unit_local_coordinate_frame(snapshot.uuid);
+        emit unit_position_updated(affected.get());
     }
-    const QVector3D gizmo_origin = injector_frame_origin(preview);
     m_transform_gizmo->SetPosition(
-        gp_Ax2(gp_Pnt(gizmo_origin.x(), gizmo_origin.y(), gizmo_origin.z()),
+        gp_Ax2(gp_Pnt(root_position.x(), root_position.y(), root_position.z()),
                gp_Dir(0.0, 0.0, 1.0),
                gp_Dir(1.0, 0.0, 0.0)));
     m_transform_gizmo_preview_changed =
-        m_transform_gizmo_preview_changed || snapped_transformation.Form() != gp_Identity;
-
-    update_unit_local_coordinate_frame(m_transform_gizmo_uuid);
-    emit unit_position_updated(unit.get());
+        snapped_transformation.Form() != gp_Identity;
 }
 
 void OCCTWidget::restore_transform_gizmo_preview()
@@ -2460,27 +2494,203 @@ void OCCTWidget::restore_transform_gizmo_preview()
         return;
     }
 
-    const std::shared_ptr<Unit> unit = unit_hash.value(m_transform_gizmo_uuid);
-    if (unit == nullptr)
+    for (const TransformGizmoUnitSnapshot &snapshot :
+         m_transform_gizmo_before_tree)
     {
-        return;
+        const std::shared_ptr<Unit> affected = unit_hash.value(snapshot.uuid);
+        if (affected == nullptr)
+        {
+            continue;
+        }
+        affected->inj.injector_data = snapshot.injector_data;
+        affected->inj.shape = snapshot.shape;
+        affected->assembly_local_position = snapshot.assembly_local_position;
+        affected->assembly_local_rotation = snapshot.assembly_local_rotation;
+        affected->has_array_spec = snapshot.has_array_spec;
+        affected->array_spec = snapshot.array_spec;
+        affected->array_specs = snapshot.array_specs;
+        affected->has_fill_spec = snapshot.has_fill_spec;
+        affected->fill_spec = snapshot.fill_spec;
+        if (!affected->ais_display.IsNull())
+        {
+            affected->ais_display->SetLocalTransformation(
+                snapshot.local_transformation);
+            affected->ais_display->Set(affected->inj.shape);
+            affected->ais_display->SetColor(
+                color_for_injector(affected->inj.injector_data));
+            affected->ais_display->SetTransparency(
+                configured_injector_transparency(affected->inj.injector_data));
+            if (!m_context.IsNull())
+            {
+                m_context->Redisplay(affected->ais_display, Standard_False);
+            }
+        }
+        update_unit_local_coordinate_frame(snapshot.uuid);
+        emit unit_position_updated(affected.get());
+    }
+}
+
+bool OCCTWidget::commit_transform_gizmo_preview()
+{
+    if (!m_transform_gizmo_snapshot_valid || m_transform_gizmo_uuid.isNull() ||
+        m_transform_gizmo_before_tree.isEmpty())
+    {
+        return false;
+    }
+    if (!m_transform_gizmo_preview_changed)
+    {
+        return true;
     }
 
-    unit->inj.injector_data = m_transform_gizmo_before_data;
-    if (unit->inj.create_injector() && !unit->ais_display.IsNull())
+    QSet<QUuid> affected_uuids;
+    for (const TransformGizmoUnitSnapshot &snapshot :
+         m_transform_gizmo_before_tree)
     {
-unit->ais_display->SetLocalTransformation(gp_Trsf());
-        unit->ais_display->Set(unit->inj.shape);
-        unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
-        unit->ais_display->SetTransparency(
-            configured_injector_transparency(unit->inj.injector_data));
-        if (!m_context.IsNull())
-        {
-            m_context->Redisplay(unit->ais_display, Standard_False);
-        }
-        update_unit_local_coordinate_frame(m_transform_gizmo_uuid);
-        emit unit_position_updated(unit.get());
+        affected_uuids.insert(snapshot.uuid);
     }
+
+    const gp_Quaternion occt_rotation =
+        m_transform_gizmo_preview_transformation.GetRotation();
+    const QQuaternion delta_rotation(occt_rotation.W(), occt_rotation.X(),
+                                     occt_rotation.Y(), occt_rotation.Z());
+
+    for (const TransformGizmoUnitSnapshot &snapshot :
+         m_transform_gizmo_before_tree)
+    {
+        const std::shared_ptr<Unit> affected = unit_hash.value(snapshot.uuid);
+        if (affected == nullptr)
+        {
+            restore_transform_gizmo_preview();
+            return false;
+        }
+
+        if (!snapshot.derived_array_output)
+        {
+            transform_unit_pattern_frames(
+                *affected, m_transform_gizmo_preview_transformation);
+        }
+
+        if (!affected->assembly_parent_uuid.isNull() &&
+            !affected_uuids.contains(affected->assembly_parent_uuid))
+        {
+            const std::shared_ptr<Unit> parent =
+                unit_hash.value(affected->assembly_parent_uuid);
+            if (parent != nullptr)
+            {
+                affected->assembly_local_position =
+                    affected->inj.injector_data.pos -
+                    parent->inj.injector_data.pos;
+                if (m_transform_gizmo_mode == AIS_MM_Rotation)
+                {
+                    QQuaternion local_rotation;
+                    const QVector3D local_vector =
+                        snapshot.assembly_local_rotation;
+                    const float local_angle = local_vector.length();
+                    if (local_angle > 1.0e-6f)
+                    {
+                        local_rotation = QQuaternion::fromAxisAndAngle(
+                            local_vector.normalized(),
+                            qRadiansToDegrees(local_angle));
+                    }
+                    const QQuaternion combined =
+                        delta_rotation * local_rotation;
+                    QVector3D combined_axis;
+                    float combined_angle_degrees = 0.0f;
+                    combined.getAxisAndAngle(&combined_axis,
+                                             &combined_angle_degrees);
+                    affected->assembly_local_rotation =
+                        combined_axis *
+                        qDegreesToRadians(combined_angle_degrees);
+                }
+            }
+        }
+
+        if (snapshot.derived_array_output)
+        {
+            continue;
+        }
+        if (!affected->inj.create_injector())
+        {
+            restore_transform_gizmo_preview();
+            return false;
+        }
+        if (!affected->ais_display.IsNull())
+        {
+            affected->ais_display->SetLocalTransformation(gp_Trsf());
+            affected->ais_display->Set(affected->inj.shape);
+            affected->ais_display->SetColor(
+                color_for_injector(affected->inj.injector_data));
+            affected->ais_display->SetTransparency(
+                configured_injector_transparency(
+                    affected->inj.injector_data));
+            m_context->Redisplay(affected->ais_display, Standard_False);
+        }
+        update_unit_local_coordinate_frame(snapshot.uuid);
+        capture_array_override_snapshot(*affected);
+    }
+
+    const QUuid batch_id = QUuid::createUuid();
+    if (m_transform_gizmo_mode == AIS_MM_Translation)
+    {
+        m_active_move_batch_id = batch_id;
+        for (const TransformGizmoUnitSnapshot &snapshot :
+             m_transform_gizmo_before_tree)
+        {
+            if (snapshot.derived_array_output)
+            {
+                continue;
+            }
+            const std::shared_ptr<Unit> affected = unit_hash.value(snapshot.uuid);
+            if (affected != nullptr)
+            {
+                record_move(snapshot.uuid, snapshot.move_snapshot,
+                            make_move_snapshot(*affected));
+                emit unit_data_updated(affected.get());
+            }
+        }
+        m_active_move_batch_id = QUuid();
+    }
+    else if (m_transform_gizmo_mode == AIS_MM_Rotation)
+    {
+        m_active_edit_batch_id = batch_id;
+        for (const TransformGizmoUnitSnapshot &snapshot :
+             m_transform_gizmo_before_tree)
+        {
+            if (snapshot.derived_array_output)
+            {
+                continue;
+            }
+            const std::shared_ptr<Unit> affected = unit_hash.value(snapshot.uuid);
+            if (affected == nullptr)
+            {
+                continue;
+            }
+            UnitEditTransaction transaction =
+                make_unit_edit_transaction(*affected);
+            transaction.before_type = snapshot.unit_type;
+            transaction.before_data = snapshot.injector_data;
+            transaction.before_local_position =
+                snapshot.assembly_local_position;
+            transaction.before_local_rotation =
+                snapshot.assembly_local_rotation;
+            transaction.before_has_array_spec = snapshot.has_array_spec;
+            transaction.before_array_spec = snapshot.array_spec;
+            transaction.before_array_specs = snapshot.array_specs;
+            transaction.before_has_fill_spec = snapshot.has_fill_spec;
+            transaction.before_fill_spec = snapshot.fill_spec;
+            record_edit(transaction, *affected);
+            emit unit_data_updated(affected.get());
+        }
+        m_active_edit_batch_id = QUuid();
+    }
+
+    QSet<QUuid> visited;
+    rebuild_unit_outputs(m_transform_gizmo_uuid, visited);
+    if (!m_view.IsNull())
+    {
+        m_view->Redraw();
+    }
+    return true;
 }
 
 void OCCTWidget::clear_transform_gizmo()
@@ -2507,8 +2717,8 @@ void OCCTWidget::clear_transform_gizmo()
     m_transform_gizmo.Nullify();
     m_transform_gizmo_uuid = QUuid();
     m_transform_gizmo_position = QVector3D();
-    m_transform_gizmo_before_data = Injector();
-    m_transform_gizmo_before_local_transformation = gp_Trsf();
+    m_transform_gizmo_before_tree.clear();
+    m_transform_gizmo_preview_transformation = gp_Trsf();
     m_transform_gizmo_mode = AIS_MM_None;
     m_transform_gizmo_snapshot_valid = false;
     m_transform_gizmo_preview_changed = false;
@@ -2552,46 +2762,7 @@ void OCCTWidget::finish_transform_gizmo(bool apply)
         return;
     }
 
-    bool committed = false;
-    if (unit != nullptr && m_transform_gizmo_snapshot_valid)
-    {
-        UnitEditTransaction edit_transaction;
-        edit_transaction.uuid = uuid;
-        edit_transaction.before_type = unit->type;
-        edit_transaction.before_data = m_transform_gizmo_before_data;
-
-        if (unit->inj.create_injector() && !unit->ais_display.IsNull())
-        {
-unit->ais_display->SetLocalTransformation(gp_Trsf());
-            unit->ais_display->Set(unit->inj.shape);
-            unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
-            unit->ais_display->SetTransparency(
-                configured_injector_transparency(unit->inj.injector_data));
-            m_context->Redisplay(unit->ais_display, Standard_False);
-            update_unit_local_coordinate_frame(uuid);
-            capture_array_override_snapshot(*unit);
-
-            if (m_transform_gizmo_preview_changed)
-            {
-                if (mode == AIS_MM_Translation)
-                {
-                    m_active_move_batch_id = QUuid::createUuid();
-                    const UnitMoveSnapshot after = make_move_snapshot(*unit);
-                    record_move(uuid, m_transform_gizmo_before_move, after);
-                    m_active_move_batch_id = QUuid();
-                }
-                else if (mode == AIS_MM_Rotation)
-                {
-                    m_active_edit_batch_id = QUuid::createUuid();
-                    record_edit(edit_transaction, *unit);
-                    m_active_edit_batch_id = QUuid();
-                }
-                emit unit_data_updated(unit.get());
-            }
-            committed = true;
-        }
-    }
-
+    const bool committed = unit != nullptr && commit_transform_gizmo_preview();
     if (!committed)
     {
         restore_transform_gizmo_preview();
@@ -2607,11 +2778,6 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
             m_interaction_mode == Interaction_Mode::Translation
                 ? AIS_MM_Translation
                 : AIS_MM_Rotation);
-    }
-    if (committed && unit != nullptr)
-    {
-        QSet<QUuid> visited;
-        rebuild_unit_outputs(uuid, visited);
     }
 }
 
@@ -3401,9 +3567,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
 
         Injector &injector = unit->inj.injector_data;
         const Injector before = injector;
-    UnitEditTransaction transaction;
-    transaction.uuid = unit->inj.uuid;
-        transaction.before_type = unit->type;
+        UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
         transaction.before_data = before;
         const QVector3D pivot = use_shared_pivot ? shared_pivot : injector.pos;
         const auto rotate_point = [&](const QVector3D &point)
@@ -3546,10 +3710,7 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
         }
         edited_units.insert(unit->inj.uuid);
 
-    UnitEditTransaction transaction;
-    transaction.uuid = unit->inj.uuid;
-        transaction.before_type = unit->type;
-        transaction.before_data = unit->inj.injector_data;
+        UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
         unit->inj.injector_data.material = normalized_material;
         if (!unit->ais_display.IsNull())
         {
@@ -3609,10 +3770,7 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
             continue;
         }
 
-        UnitEditTransaction transaction;
-        transaction.uuid = unit->inj.uuid;
-        transaction.before_type = unit->type;
-        transaction.before_data = unit->inj.injector_data;
+        UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
         *species_field = normalized_species;
         if (!unit->ais_display.IsNull())
         {
@@ -3668,12 +3826,7 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
         }
     }
 
-    UnitEditTransaction transaction;
-    transaction.uuid = unit->inj.uuid;
-    transaction.before_type = unit->type;
-    transaction.before_data = unit->inj.injector_data;
-    transaction.before_local_position = unit->assembly_local_position;
-    transaction.before_local_rotation = unit->assembly_local_rotation;
+    UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
     unit->inj.injector_data.name = normalized_name;
     record_edit(transaction, *unit);
     emit unit_data_updated(unit.get());
@@ -3745,10 +3898,7 @@ bool OCCTWidget::paste_unit_by_uuid(const QUuid &uuid)
         return false;
     }
 
-    UnitEditTransaction transaction;
-    transaction.uuid = unit->inj.uuid;
-    transaction.before_type = unit->type;
-    transaction.before_data = unit->inj.injector_data;
+    UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
 
     unit->type = m_copied_unit->type;
     unit->inj.injector_data = m_copied_unit->injector_data;
@@ -3948,12 +4098,7 @@ bool OCCTWidget::attach_unit_to_selected_face(const QUuid &uuid)
     m_active_edit_batch_id = edit_batch_id;
     for (const std::shared_ptr<Unit> &node : transformed_nodes)
     {
-        UnitEditTransaction transaction;
-        transaction.uuid = node->inj.uuid;
-        transaction.before_type = node->type;
-        transaction.before_data = node->inj.injector_data;
-        transaction.before_local_position = node->assembly_local_position;
-        transaction.before_local_rotation = node->assembly_local_rotation;
+        UnitEditTransaction transaction = make_unit_edit_transaction(*node);
         m_edit_transactions.insert(transaction.uuid, std::move(transaction));
     }
 
@@ -6510,7 +6655,31 @@ OCCTWidget::UnitMoveSnapshot OCCTWidget::make_move_snapshot(const Unit &unit) co
     snapshot.ff_virtual_origin = unit.inj.injector_data.ff_virtual_origin;
     snapshot.volume_bgeom_min = unit.inj.injector_data.volume_bgeom_min;
     snapshot.volume_bgeom_max = unit.inj.injector_data.volume_bgeom_max;
+    snapshot.assembly_local_position = unit.assembly_local_position;
+    snapshot.assembly_local_rotation = unit.assembly_local_rotation;
+    snapshot.has_array_spec = unit.has_array_spec;
+    snapshot.array_spec = unit.array_spec;
+    snapshot.array_specs = unit.array_specs;
+    snapshot.has_fill_spec = unit.has_fill_spec;
+    snapshot.fill_spec = unit.fill_spec;
     return snapshot;
+}
+
+OCCTWidget::UnitEditTransaction OCCTWidget::make_unit_edit_transaction(
+    const Unit &unit) const
+{
+    UnitEditTransaction transaction;
+    transaction.uuid = unit.inj.uuid;
+    transaction.before_type = unit.type;
+    transaction.before_data = unit.inj.injector_data;
+    transaction.before_local_position = unit.assembly_local_position;
+    transaction.before_local_rotation = unit.assembly_local_rotation;
+    transaction.before_has_array_spec = unit.has_array_spec;
+    transaction.before_array_spec = unit.array_spec;
+    transaction.before_array_specs = unit.array_specs;
+    transaction.before_has_fill_spec = unit.has_fill_spec;
+    transaction.before_fill_spec = unit.fill_spec;
+    return transaction;
 }
 
 bool OCCTWidget::apply_move_snapshot(const UnitMoveHistoryEntry &entry,
@@ -6523,23 +6692,43 @@ bool OCCTWidget::apply_move_snapshot(const UnitMoveHistoryEntry &entry,
     }
 
     Injector &injector = unit->inj.injector_data;
+    const Injector previous_data = injector;
+    const UnitMoveSnapshot previous_snapshot = make_move_snapshot(*unit);
     injector.pos = snapshot.pos;
     injector.pos2 = snapshot.pos2;
     injector.ff_center = snapshot.ff_center;
     injector.ff_virtual_origin = snapshot.ff_virtual_origin;
     injector.volume_bgeom_min = snapshot.volume_bgeom_min;
     injector.volume_bgeom_max = snapshot.volume_bgeom_max;
+    unit->assembly_local_position = snapshot.assembly_local_position;
+    unit->assembly_local_rotation = snapshot.assembly_local_rotation;
+    unit->has_array_spec = snapshot.has_array_spec;
+    unit->array_spec = snapshot.array_spec;
+    unit->array_specs = snapshot.array_specs;
+    unit->has_fill_spec = snapshot.has_fill_spec;
+    unit->fill_spec = snapshot.fill_spec;
 
     if (!unit->inj.create_injector())
     {
+        injector = previous_data;
+        unit->assembly_local_position = previous_snapshot.assembly_local_position;
+        unit->assembly_local_rotation = previous_snapshot.assembly_local_rotation;
+        unit->has_array_spec = previous_snapshot.has_array_spec;
+        unit->array_spec = previous_snapshot.array_spec;
+        unit->array_specs = previous_snapshot.array_specs;
+        unit->has_fill_spec = previous_snapshot.has_fill_spec;
+        unit->fill_spec = previous_snapshot.fill_spec;
         return false;
     }
 
 unit->ais_display->SetLocalTransformation(gp_Trsf());
     unit->ais_display->Set(unit->inj.shape);
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
+    unit->ais_display->SetTransparency(
+        configured_injector_transparency(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(entry.uuid);
+    capture_array_override_snapshot(*unit);
     m_view->Redraw();
     emit unit_data_updated(unit.get());
     return true;
@@ -6590,10 +6779,7 @@ void OCCTWidget::begin_unit_edit_transaction(Unit *unit)
         return;
     }
 
-    UnitEditTransaction transaction;
-    transaction.uuid = unit->inj.uuid;
-    transaction.before_type = unit->type;
-    transaction.before_data = unit->inj.injector_data;
+    UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
     if (unit->is_array_child && unit->follows_array)
     {
         transaction.structure_sensitive = true;
@@ -6660,12 +6846,18 @@ bool OCCTWidget::cancel_unit_edit_transaction(Unit *unit)
     before_entry.before_local_rotation = transaction.before_local_rotation;
     before_entry.after_local_position = transaction.before_local_position;
     before_entry.after_local_rotation = transaction.before_local_rotation;
+    before_entry.before_has_array_spec = transaction.before_has_array_spec;
+    before_entry.before_array_spec = transaction.before_array_spec;
+    before_entry.before_array_specs = transaction.before_array_specs;
+    before_entry.before_has_fill_spec = transaction.before_has_fill_spec;
+    before_entry.before_fill_spec = transaction.before_fill_spec;
+    before_entry.after_has_array_spec = transaction.before_has_array_spec;
+    before_entry.after_array_spec = transaction.before_array_spec;
+    before_entry.after_array_specs = transaction.before_array_specs;
+    before_entry.after_has_fill_spec = transaction.before_has_fill_spec;
+    before_entry.after_fill_spec = transaction.before_fill_spec;
 
-    if (!apply_edit_snapshot(before_entry,
-                             transaction.before_type,
-                             transaction.before_data,
-                             transaction.before_local_position,
-                             transaction.before_local_rotation))
+    if (!apply_edit_snapshot(before_entry, true))
     {
         return false;
     }
@@ -6675,10 +6867,7 @@ bool OCCTWidget::cancel_unit_edit_transaction(Unit *unit)
 }
 
 bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
-                                     Unit_Type type,
-                                     const Injector &data,
-                                     const QVector3D &local_position,
-                                     const QVector3D &local_rotation)
+                                     bool restore_before)
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(entry.uuid);
     if (unit == nullptr || m_context.IsNull() || unit->ais_display.IsNull())
@@ -6689,15 +6878,44 @@ bool OCCTWidget::apply_edit_snapshot(const UnitEditHistoryEntry &entry,
     const Unit_Type previous_type = unit->type;
     const Injector previous_data = unit->inj.injector_data;
     const TopoDS_Compound previous_shape = unit->inj.shape;
-    unit->type = type;
-    unit->inj.injector_data = data;
-    unit->assembly_local_position = local_position;
-    unit->assembly_local_rotation = local_rotation;
+    const QVector3D previous_local_position = unit->assembly_local_position;
+    const QVector3D previous_local_rotation = unit->assembly_local_rotation;
+    const bool previous_has_array_spec = unit->has_array_spec;
+    const UnitArraySpec previous_array_spec = unit->array_spec;
+    const QList<UnitArraySpec> previous_array_specs = unit->array_specs;
+    const bool previous_has_fill_spec = unit->has_fill_spec;
+    const UnitFillSpec previous_fill_spec = unit->fill_spec;
+    unit->type = restore_before ? entry.before_type : entry.after_type;
+    unit->inj.injector_data = restore_before ? entry.before_data
+                                            : entry.after_data;
+    unit->assembly_local_position = restore_before
+                                        ? entry.before_local_position
+                                        : entry.after_local_position;
+    unit->assembly_local_rotation = restore_before
+                                       ? entry.before_local_rotation
+                                       : entry.after_local_rotation;
+    unit->has_array_spec = restore_before ? entry.before_has_array_spec
+                                          : entry.after_has_array_spec;
+    unit->array_spec = restore_before ? entry.before_array_spec
+                                      : entry.after_array_spec;
+    unit->array_specs = restore_before ? entry.before_array_specs
+                                       : entry.after_array_specs;
+    unit->has_fill_spec = restore_before ? entry.before_has_fill_spec
+                                         : entry.after_has_fill_spec;
+    unit->fill_spec = restore_before ? entry.before_fill_spec
+                                     : entry.after_fill_spec;
     if (!unit->inj.create_injector())
     {
         unit->type = previous_type;
         unit->inj.injector_data = previous_data;
         unit->inj.shape = previous_shape;
+        unit->assembly_local_position = previous_local_position;
+        unit->assembly_local_rotation = previous_local_rotation;
+        unit->has_array_spec = previous_has_array_spec;
+        unit->array_spec = previous_array_spec;
+        unit->array_specs = previous_array_specs;
+        unit->has_fill_spec = previous_has_fill_spec;
+        unit->fill_spec = previous_fill_spec;
         return false;
     }
 
@@ -6939,6 +7157,16 @@ void OCCTWidget::record_edit(const UnitEditTransaction &transaction,
     entry.before_local_rotation = transaction.before_local_rotation;
     entry.after_local_position = unit.assembly_local_position;
     entry.after_local_rotation = unit.assembly_local_rotation;
+    entry.before_has_array_spec = transaction.before_has_array_spec;
+    entry.before_array_spec = transaction.before_array_spec;
+    entry.before_array_specs = transaction.before_array_specs;
+    entry.before_has_fill_spec = transaction.before_has_fill_spec;
+    entry.before_fill_spec = transaction.before_fill_spec;
+    entry.after_has_array_spec = unit.has_array_spec;
+    entry.after_array_spec = unit.array_spec;
+    entry.after_array_specs = unit.array_specs;
+    entry.after_has_fill_spec = unit.has_fill_spec;
+    entry.after_fill_spec = unit.fill_spec;
     m_edit_history.append(std::move(entry));
     m_edit_history_index = m_edit_history.size();
     emit edit_history_changed(can_undo_edit(), can_redo_edit());
@@ -7004,12 +7232,16 @@ bool OCCTWidget::undo_last_edit()
     for (int index = m_edit_history_index - 1; index >= batch_start; --index)
     {
         const UnitEditHistoryEntry &entry = m_edit_history[index];
-        if (!apply_edit_snapshot(entry, entry.before_type, entry.before_data,
-                                 entry.before_local_position,
-                                 entry.before_local_rotation))
+        if (!apply_edit_snapshot(entry, true))
         {
             return false;
         }
+    }
+
+    QSet<QUuid> visited;
+    for (int index = batch_start; index < m_edit_history_index; ++index)
+    {
+        rebuild_unit_outputs(m_edit_history[index].uuid, visited);
     }
 
     m_edit_history_index = batch_start;
@@ -7047,12 +7279,16 @@ bool OCCTWidget::redo_edit()
     for (int index = m_edit_history_index; index < batch_end; ++index)
     {
         const UnitEditHistoryEntry &entry = m_edit_history[index];
-        if (!apply_edit_snapshot(entry, entry.after_type, entry.after_data,
-                                 entry.after_local_position,
-                                 entry.after_local_rotation))
+        if (!apply_edit_snapshot(entry, false))
         {
             return false;
         }
+    }
+
+    QSet<QUuid> visited;
+    for (int index = m_edit_history_index; index < batch_end; ++index)
+    {
+        rebuild_unit_outputs(m_edit_history[index].uuid, visited);
     }
 
     m_edit_history_index = batch_end;
@@ -7095,6 +7331,12 @@ bool OCCTWidget::undo_last_move()
         {
             return false;
         }
+    }
+
+    QSet<QUuid> visited;
+    for (int index = batch_start; index < m_move_history_index; ++index)
+    {
+        rebuild_unit_outputs(m_move_history[index].uuid, visited);
     }
 
     m_move_history_index = batch_start;
@@ -7174,6 +7416,12 @@ bool OCCTWidget::redo_move()
         {
             return false;
         }
+    }
+
+    QSet<QUuid> visited;
+    for (int index = m_move_history_index; index < batch_end; ++index)
+    {
+        rebuild_unit_outputs(m_move_history[index].uuid, visited);
     }
 
     m_move_history_index = batch_end;

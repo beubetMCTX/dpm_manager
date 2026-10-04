@@ -87,6 +87,7 @@
 class OCCTWidget : public QWidget
 {
     Q_OBJECT
+    friend class OCCTWidgetEditHistoryTestAccess;
 
 public:
     enum class Interaction_Mode
@@ -485,6 +486,7 @@ private:
                                 AIS_ManipulatorMode mode);
     void update_transform_gizmo_preview(const gp_Trsf &transformation);
     void restore_transform_gizmo_preview();
+    bool commit_transform_gizmo_preview();
     void finish_transform_gizmo(bool apply);
     void finish_direct_drag(bool record_history);
     bool cancel_active_drag_for_undo();
@@ -498,6 +500,30 @@ private:
         QVector3D ff_virtual_origin;
         QVector3D volume_bgeom_min;
         QVector3D volume_bgeom_max;
+        QVector3D assembly_local_position;
+        QVector3D assembly_local_rotation;
+        bool has_array_spec = false;
+        UnitArraySpec array_spec;
+        QList<UnitArraySpec> array_specs;
+        bool has_fill_spec = false;
+        UnitFillSpec fill_spec;
+    };
+    struct TransformGizmoUnitSnapshot
+    {
+        QUuid uuid;
+        Unit_Type unit_type = injector;
+        Injector injector_data;
+        TopoDS_Compound shape;
+        gp_Trsf local_transformation;
+        UnitMoveSnapshot move_snapshot;
+        QVector3D assembly_local_position;
+        QVector3D assembly_local_rotation;
+        bool has_array_spec = false;
+        UnitArraySpec array_spec;
+        QList<UnitArraySpec> array_specs;
+        bool has_fill_spec = false;
+        UnitFillSpec fill_spec;
+        bool derived_array_output = false;
     };
     struct UnitMoveHistoryEntry
     {
@@ -513,6 +539,11 @@ private:
         Injector before_data;
         QVector3D before_local_position;
         QVector3D before_local_rotation;
+        bool before_has_array_spec = false;
+        UnitArraySpec before_array_spec;
+        QList<UnitArraySpec> before_array_specs;
+        bool before_has_fill_spec = false;
+        UnitFillSpec before_fill_spec;
         bool structure_sensitive = false;
         QList<Unit> before_units;
     };
@@ -529,6 +560,16 @@ private:
         QVector3D before_local_rotation;
         QVector3D after_local_position;
         QVector3D after_local_rotation;
+        bool before_has_array_spec = false;
+        UnitArraySpec before_array_spec;
+        QList<UnitArraySpec> before_array_specs;
+        bool before_has_fill_spec = false;
+        UnitFillSpec before_fill_spec;
+        bool after_has_array_spec = false;
+        UnitArraySpec after_array_spec;
+        QList<UnitArraySpec> after_array_specs;
+        bool after_has_fill_spec = false;
+        UnitFillSpec after_fill_spec;
         QList<Unit> before_units;
         QList<Unit> after_units;
     };
@@ -572,6 +613,7 @@ private:
         QUuid batch_id;
     };
     UnitMoveSnapshot make_move_snapshot(const Unit &unit) const;
+    UnitEditTransaction make_unit_edit_transaction(const Unit &unit) const;
     bool apply_move_snapshot(const UnitMoveHistoryEntry &entry,
                              const UnitMoveSnapshot &snapshot);
     void record_move(const QUuid &uuid,
@@ -579,10 +621,7 @@ private:
                      const UnitMoveSnapshot &after);
     void clear_move_history();
     bool apply_edit_snapshot(const UnitEditHistoryEntry &entry,
-                             Unit_Type type,
-                             const Injector &data,
-                             const QVector3D &local_position,
-                             const QVector3D &local_rotation);
+                             bool restore_before);
     void record_edit(const UnitEditTransaction &transaction,
                      const Unit &unit);
     QList<Unit> capture_persistent_units() const;
@@ -676,9 +715,8 @@ private:
     Handle(AIS_Manipulator) m_transform_gizmo;
     QUuid m_transform_gizmo_uuid;
     QVector3D m_transform_gizmo_position;
-    Injector m_transform_gizmo_before_data;
-    gp_Trsf m_transform_gizmo_before_local_transformation;
-    UnitMoveSnapshot m_transform_gizmo_before_move;
+    QVector<TransformGizmoUnitSnapshot> m_transform_gizmo_before_tree;
+    gp_Trsf m_transform_gizmo_preview_transformation;
     AIS_ManipulatorMode m_transform_gizmo_mode = AIS_MM_None;
     bool m_transform_gizmo_dragging = false;
     bool m_transform_gizmo_snapshot_valid = false;
