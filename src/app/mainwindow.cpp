@@ -2909,6 +2909,8 @@ void MainWindow::create_reference_geometry_panel()
         "Datum Axis");
     QAction *add_datum_origin_action = add_reference_geometry_menu->addAction(
         "Datum Origin");
+    QAction *add_section_plane_action = add_reference_geometry_menu->addAction(
+        "Section Plane (Reference Only)");
     QAction *add_alignment_frame_action = add_reference_geometry_menu->addAction(
         "Alignment Frame");
     m_align_reference_face->setEnabled(false);
@@ -2990,7 +2992,8 @@ void MainWindow::create_reference_geometry_panel()
         ReferenceGeometryConfig config;
         config.uuid = QUuid::createUuid();
         config.kind = kind;
-        if (kind == QStringLiteral("datum_plane"))
+        if (kind == QStringLiteral("datum_plane") ||
+            kind == QStringLiteral("section_plane"))
         {
             config.construction_size = 0.01;
             config.construction_thickness = 1.0e-5;
@@ -3031,6 +3034,11 @@ void MainWindow::create_reference_geometry_panel()
             [add_constructed_reference]()
     {
         add_constructed_reference(QStringLiteral("datum_origin"));
+    });
+    connect(add_section_plane_action, &QAction::triggered, this,
+            [add_constructed_reference]()
+    {
+        add_constructed_reference(QStringLiteral("section_plane"));
     });
     connect(add_alignment_frame_action, &QAction::triggered, this,
             [add_constructed_reference]()
