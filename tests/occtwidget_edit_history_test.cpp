@@ -1,4 +1,5 @@
 #include "occtwidget.h"
+#include "transform_snap.h"
 
 #include <algorithm>
 #include <BRepBndLib.hxx>
@@ -53,6 +54,29 @@ double shape_center_x(const TopoDS_Shape &shape)
 int main(int argc, char *argv[])
 {
     QApplication application(argc, argv);
+
+    const gp_Pnt rotation_pivot(0.012, -0.023, 0.005);
+    gp_Trsf unsnapped_rotation;
+    unsnapped_rotation.SetRotation(
+        gp_Ax1(rotation_pivot, gp_Dir(0.0, 0.0, 1.0)),
+        qDegreesToRadians(43.0));
+    const gp_Trsf snapped_rotation = transform_snap::snap_rotation_about_pivot(
+        unsnapped_rotation, rotation_pivot, qDegreesToRadians(15.0));
+    gp_Pnt transformed_pivot = rotation_pivot;
+    transformed_pivot.Transform(snapped_rotation);
+    gp_Pnt rotated_probe(rotation_pivot.X() + 1.0,
+                         rotation_pivot.Y(), rotation_pivot.Z());
+    rotated_probe.Transform(snapped_rotation);
+    if (!check(transformed_pivot.Distance(rotation_pivot) < 1.0e-10,
+               "Snapped gizmo rotation should preserve a non-origin pivot") ||
+        !check(std::abs((rotated_probe.X() - rotation_pivot.X()) -
+                        std::sqrt(0.5)) < 1.0e-10 &&
+                   std::abs((rotated_probe.Y() - rotation_pivot.Y()) -
+                            std::sqrt(0.5)) < 1.0e-10,
+               "Snapped gizmo rotation should apply the nearest 45 degree step"))
+    {
+        return 1;
+    }
     OCCTWidget widget(nullptr);
     widget.resize(640, 480);
     widget.show();

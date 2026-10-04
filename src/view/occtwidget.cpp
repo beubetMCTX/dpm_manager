@@ -1,4 +1,5 @@
 #include "occtwidget.h"
+#include "transform_snap.h"
 #include "runtime_debug.h"
 #include <AIS_ViewCube.hxx>
 #include <BRepPrimAPI_MakeSphere.hxx>
@@ -2400,16 +2401,11 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
     if (m_transform_gizmo_mode == AIS_MM_Rotation &&
         preferences.rotation_snap > 0.0)
     {
-        gp_XYZ rotation_axis;
-        Standard_Real rotation_angle = 0.0;
-        if (transformation.GetRotation(rotation_axis, rotation_angle) &&
-            rotation_axis.Modulus() > Precision::Confusion())
-        {
-            const Standard_Real snapped_angle = snap_scalar(
-                rotation_angle, preferences.rotation_snap);
-            snapped_transformation.SetRotationPart(gp_Quaternion(
-                gp_Vec(rotation_axis), snapped_angle));
-        }
+        const QVector3D pivot = injector_frame_origin(m_transform_gizmo_before_data);
+        snapped_transformation = transform_snap::snap_rotation_about_pivot(
+            transformation,
+            gp_Pnt(pivot.x(), pivot.y(), pivot.z()),
+            preferences.rotation_snap);
     }
 
     Injector preview = m_transform_gizmo_before_data;
