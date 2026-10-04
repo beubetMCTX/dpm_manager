@@ -1557,11 +1557,18 @@ bool OCCTWidget::set_reference_geometry_visual_transform(
     {
         return false;
     }
+    if (it->position == position && it->rotation == rotation_degrees)
+    {
+        return true;
+    }
 
+    const gp_Trsf previous_transform =
+        reference_visual_transform(it->position, it->rotation);
+    const gp_Trsf next_transform =
+        reference_visual_transform(position, rotation_degrees);
     it->position = position;
     it->rotation = rotation_degrees;
-    const gp_Trsf transform = reference_visual_transform(position,
-                                                         rotation_degrees);
+    const gp_Trsf transform = next_transform;
     if (!it->display.IsNull())
     {
         it->display->SetLocalTransformation(transform);
@@ -1603,6 +1610,8 @@ bool OCCTWidget::set_reference_geometry_visual_transform(
     {
         m_view->Redraw();
     }
+    update_reference_bound_array_frames(uuid, previous_transform,
+                                        next_transform);
     return true;
 }
 
@@ -7718,6 +7727,158 @@ void OCCTWidget::detach_reference_geometry_dependencies(
     }
 }
 
+void OCCTWidget::update_reference_bound_array_frames(
+    const QUuid &uuid,
+    const gp_Trsf &previous_transform,
+    const gp_Trsf &next_transform)
+{
+    if (uuid.isNull())
+    {
+        return;
+    }
+
+    gp_Trsf previous_inverse = previous_transform;
+    previous_inverse.Invert();
+    const auto transform_point = [&previous_inverse, &next_transform](
+                                    const QVector3D &value)
+    {
+        gp_Pnt point(value.x(), value.y(), value.z());
+        point.Transform(previous_inverse);
+        point.Transform(next_transform);
+        return QVector3D(static_cast<float>(point.X()),
+                         static_cast<float>(point.Y()),
+                         static_cast<float>(point.Z()));
+    };
+    const auto transform_direction = [&previous_inverse, &next_transform](
+                                        const QVector3D &value)
+    {
+        if (value.lengthSquared() <= 1.0e-12f)
+        {
+            return value;
+        }
+        gp_Vec direction(value.x(), value.y(), value.z());
+        direction.Transform(previous_inverse);
+        direction.Transform(next_transform);
+        const QVector3D transformed(
+            static_cast<float>(direction.X()),
+            static_cast<float>(direction.Y()),
+            static_cast<float>(direction.Z()));
+        return transformed.lengthSquared() > 1.0e-12f
+            ? transformed.normalized() : value;
+    };
+    const auto matches_reference = [this, &uuid](const QUuid &reference_uuid)
+    {
+        return reference_uuid == uuid ||
+               (reference_uuid.isNull() &&
+                uuid == m_reference_geometry_uuid);
+    };
+    const auto update_array_spec = [&](UnitArraySpec &spec)
+    {
+        if (!spec.use_reference_geometry ||
+            !matches_reference(spec.reference_geometry_uuid))
+        {
+            return false;
+        }
+        spec.origin = transform_point(spec.origin);
+        spec.direction = transform_direction(spec.direction);
+        spec.plane_normal = transform_direction(spec.plane_normal);
+        return true;
+    };
+    const auto update_fill_spec = [&](UnitFillSpec &spec)
+    {
+        if (!spec.use_reference_geometry ||
+            !matches_reference(spec.reference_geometry_uuid))
+        {
+            return false;
+        }
+        spec.origin = transform_point(spec.origin);
+        spec.direction = transform_direction(spec.direction);
+        spec.plane_normal = transform_direction(spec.plane_normal);
+        return true;
+    };
+
+    QSet<QUuid> affected_sources;
+    for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
+    {
+        const std::shared_ptr<Unit> &unit = it.value();
+        if (unit == nullptr || (unit->is_array_child && unit->follows_array))
+        {
+            continue;
+        }
+
+        bool changed = false;
+        if (unit->has_array_spec)
+        {
+            if (unit->array_specs.isEmpty())
+            {
+                changed = update_array_spec(unit->array_spec) || changed;
+            }
+            else
+            {
+                for (UnitArraySpec &spec : unit->array_specs)
+                {
+                    changed = update_array_spec(spec) || changed;
+                }
+                if (changed)
+                {
+                    unit->array_spec = unit->array_specs.last();
+                }
+            }
+        }
+        if (unit->has_fill_spec)
+        {
+            changed = update_fill_spec(unit->fill_spec) || changed;
+        }
+        if (changed)
+        {
+            affected_sources.insert(unit->inj.uuid);
+        }
+    }
+
+    QList<QUuid> ordered_sources = affected_sources.values();
+    const auto ancestor_depth = [this](const QUuid &source_uuid)
+    {
+        int depth = 0;
+        QSet<QUuid> visited;
+        QUuid current_uuid = source_uuid;
+        while (!current_uuid.isNull() && !visited.contains(current_uuid))
+        {
+            visited.insert(current_uuid);
+            const std::shared_ptr<Unit> current = unit_hash.value(current_uuid);
+            if (current == nullptr)
+            {
+                break;
+            }
+            const QUuid parent_uuid = !current->array_parent_uuid.isNull()
+                ? current->array_parent_uuid : current->assembly_parent_uuid;
+            if (parent_uuid.isNull())
+            {
+                break;
+            }
+            current_uuid = parent_uuid;
+            ++depth;
+        }
+        return depth;
+    };
+    std::sort(ordered_sources.begin(), ordered_sources.end(),
+              [&](const QUuid &left, const QUuid &right)
+              {
+                  return ancestor_depth(left) < ancestor_depth(right);
+              });
+
+    QSet<QUuid> visited;
+    for (const QUuid &source_uuid : ordered_sources)
+    {
+        const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
+        if (source == nullptr)
+        {
+            continue;
+        }
+        emit unit_data_updated(source.get());
+        rebuild_unit_outputs(source_uuid, visited);
+    }
+}
+
 bool OCCTWidget::clear_reference_geometry(bool preserve_array_dependencies)
 {
     clear_reference_transform_history();
@@ -7773,11 +7934,22 @@ bool OCCTWidget::clear_reference_geometry(bool preserve_array_dependencies)
 }
 
 void OCCTWidget::set_reference_transform(const QVector3D &position,
-                                         const QVector3D &rotation_degrees)
+                                         const QVector3D &rotation_degrees,
+                                         bool update_bound_arrays)
 {
+    const gp_Trsf previous_transform = m_reference_transform;
+    const bool transform_changed = m_reference_position != position ||
+                                   m_reference_rotation != rotation_degrees;
     m_reference_position = position;
     m_reference_rotation = rotation_degrees;
     apply_reference_transform();
+    if (update_bound_arrays && transform_changed &&
+        !m_reference_transform_transaction_active)
+    {
+        update_reference_bound_array_frames(m_reference_geometry_uuid,
+                                            previous_transform,
+                                            m_reference_transform);
+    }
 }
 
 void OCCTWidget::set_reference_geometry_uuid(const QUuid &uuid)
@@ -7822,18 +7994,12 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
 
     if (!selected_face.IsNull())
     {
-        gp_XYZ face_origin(selected_face_axis.Location().X(),
-                           selected_face_axis.Location().Y(),
-                           selected_face_axis.Location().Z());
-        gp_XYZ face_x(selected_face_axis.XDirection().X(),
-                      selected_face_axis.XDirection().Y(),
-                      selected_face_axis.XDirection().Z());
-        gp_XYZ face_z(selected_face_axis.Direction().X(),
-                      selected_face_axis.Direction().Y(),
-                      selected_face_axis.Direction().Z());
-        transform.Transforms(face_origin);
-        transform.Transforms(face_x);
-        transform.Transforms(face_z);
+        gp_Pnt face_origin = selected_face_axis.Location();
+        gp_Vec face_x(selected_face_axis.XDirection());
+        gp_Vec face_z(selected_face_axis.Direction());
+        face_origin.Transform(transform);
+        face_x.Transform(transform);
+        face_z.Transform(transform);
         *origin = QVector3D(static_cast<float>(face_origin.X()),
                             static_cast<float>(face_origin.Y()),
                             static_cast<float>(face_origin.Z()));
@@ -7847,14 +8013,14 @@ bool OCCTWidget::reference_frame(QVector3D *origin, QVector3D *x_axis,
                z_axis->lengthSquared() > 1.0e-12f;
     }
 
-    gp_XYZ x_vector(1.0, 0.0, 0.0);
+    gp_Vec x_vector(1.0, 0.0, 0.0);
     const QVector3D local_direction = selected_visual
         ? visual->construction_direction
         : m_reference_construction_direction;
-    gp_XYZ z_vector(local_direction.x(), local_direction.y(),
+    gp_Vec z_vector(local_direction.x(), local_direction.y(),
                     local_direction.z());
-    transform.Transforms(x_vector);
-    transform.Transforms(z_vector);
+    x_vector.Transform(transform);
+    z_vector.Transform(transform);
     *origin = selected_visual ? visual->position : m_reference_position;
     *x_axis = QVector3D(static_cast<float>(x_vector.X()),
                         static_cast<float>(x_vector.Y()),
@@ -7892,6 +8058,11 @@ void OCCTWidget::finish_reference_transform_transaction()
         return;
     }
 
+    update_reference_bound_array_frames(
+        m_reference_geometry_uuid,
+        reference_visual_transform(m_reference_transform_before_position,
+                                   m_reference_transform_before_rotation),
+        m_reference_transform);
     record_reference_transform(m_reference_transform_before_position,
                                m_reference_transform_before_rotation,
                                m_reference_position,

@@ -129,7 +129,9 @@ public:
     double reference_construction_radius() const { return m_reference_construction_radius; }
     QVector3D reference_construction_direction() const { return m_reference_construction_direction; }
     bool clear_reference_geometry(bool preserve_array_dependencies = false);
-    void set_reference_transform(const QVector3D &position, const QVector3D &rotation_degrees);
+    void set_reference_transform(const QVector3D &position,
+                                 const QVector3D &rotation_degrees,
+                                 bool update_bound_arrays = true);
     QVector3D reference_position() const { return m_reference_position; }
     QVector3D reference_rotation() const { return m_reference_rotation; }
     int reference_selected_face_index() const
@@ -427,6 +429,9 @@ private:
     void update_reference_face_coordinate_frames_transform();
     void detach_reference_geometry_dependencies(const QUuid &uuid,
                                                bool include_unbound);
+    void update_reference_bound_array_frames(const QUuid &uuid,
+                                             const gp_Trsf &previous_transform,
+                                             const gp_Trsf &next_transform);
     void apply_reference_transform();
 
     Unit* get_unit(Handle(AIS_Shape) shape);

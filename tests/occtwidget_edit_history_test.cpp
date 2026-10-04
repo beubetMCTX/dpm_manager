@@ -1013,9 +1013,57 @@ int main(int argc, char *argv[])
         return 1;
     }
     const QUuid reference_bound_uuid = reference_bound_source.inj.uuid;
+    widget.set_reference_transform(QVector3D(2.0f, 0.0f, 0.0f),
+                                   QVector3D(0.0f, 0.0f, 90.0f), false);
+    if (!check(widget.unit_hash.value(reference_bound_uuid)->array_spec.direction ==
+                   QVector3D(1.0f, 0.0f, 0.0f),
+               "Restoring a saved reference transform should not rebase specs"))
+    {
+        return 1;
+    }
+    widget.set_reference_transform(QVector3D(), QVector3D(), false);
+    widget.begin_reference_transform_transaction();
+    widget.set_reference_transform(QVector3D(2.0f, 0.0f, 0.0f),
+                                   QVector3D(0.0f, 0.0f, 90.0f));
+    widget.finish_reference_transform_transaction();
+    const std::shared_ptr<Unit> active_reference_array_source =
+        widget.unit_hash.value(reference_bound_uuid);
     if (!check(widget.unit_hash.value(reference_bound_uuid)->array_spec
                    .use_reference_geometry,
                "Reference-bound Array should retain its dependency before clear") ||
+        !check(vectors_close(
+                   active_reference_array_source->array_spec.direction,
+                   QVector3D(0.0f, 1.0f, 0.0f)) &&
+                   vectors_close(
+                       active_reference_array_source->child_units.at(1)
+                               ->inj.injector_data.pos -
+                           active_reference_array_source->inj.injector_data.pos,
+                       QVector3D(0.0f, 2.0f, 0.0f)),
+               "Active reference rotation should update bound Array geometry") ||
+        !check(widget.undo_reference_transform() &&
+                   vectors_close(
+                       active_reference_array_source->array_spec.direction,
+                       QVector3D(1.0f, 0.0f, 0.0f)) &&
+                   vectors_close(
+                       active_reference_array_source->child_units.at(1)
+                               ->inj.injector_data.pos -
+                           active_reference_array_source->inj.injector_data.pos,
+                       QVector3D(2.0f, 0.0f, 0.0f)),
+               "Undo should restore reference-bound Array coordinates") ||
+        !check(widget.redo_reference_transform() &&
+                   vectors_close(
+                       active_reference_array_source->array_spec.direction,
+                       QVector3D(0.0f, 1.0f, 0.0f)),
+               "Redo should reapply reference-bound Array coordinates") ||
+        !check([&widget]()
+               {
+                   QVector3D origin;
+                   QVector3D x_axis;
+                   QVector3D z_axis;
+                   return widget.reference_frame(&origin, &x_axis, &z_axis) &&
+                          vectors_close(x_axis, QVector3D(0.0f, 1.0f, 0.0f));
+               }(),
+               "Reference axis direction should not be skewed by translation") ||
         !check(widget.clear_reference_geometry(),
                "Clearing reference geometry should succeed") ||
         !check(!widget.unit_hash.value(reference_bound_uuid)->array_spec
@@ -1097,6 +1145,22 @@ int main(int argc, char *argv[])
     secondary_reference_source.array_spec.use_reference_geometry = true;
     secondary_reference_source.array_spec.reference_geometry_uuid =
         secondary_reference.uuid;
+    QVector3D initial_array_origin;
+    QVector3D initial_array_direction;
+    QVector3D initial_array_normal;
+    QUuid initial_array_reference_uuid;
+    if (!check(widget.reference_frame(
+                   &initial_array_origin, &initial_array_direction,
+                   &initial_array_normal, &initial_array_reference_uuid),
+               "Selected reference should provide the initial Array frame"))
+    {
+        return 1;
+    }
+    secondary_reference_source.array_spec.origin = initial_array_origin;
+    secondary_reference_source.array_spec.direction = initial_array_direction;
+    secondary_reference_source.array_spec.plane_normal = initial_array_normal;
+    secondary_reference_source.array_spec.reference_geometry_uuid =
+        initial_array_reference_uuid;
     secondary_reference_source.array_specs = {
         secondary_reference_source.array_spec};
     if (!check(secondary_reference_source.inj.create_injector(),
@@ -1105,6 +1169,107 @@ int main(int argc, char *argv[])
         return 1;
     }
     widget.display_units({secondary_reference_source}, true);
+    const std::shared_ptr<Unit> stored_secondary_array_source =
+        widget.unit_hash.value(secondary_reference_source.inj.uuid);
+    if (!check(stored_secondary_array_source != nullptr &&
+                   stored_secondary_array_source->child_units.size() == 2,
+               "Reference-bound Array should initially generate two children") ||
+        !check(vectors_close(
+                   stored_secondary_array_source->child_units.at(1)
+                           ->inj.injector_data.pos -
+                       stored_secondary_array_source->inj.injector_data.pos,
+                   initial_array_direction),
+               "Initial Array spacing should follow its saved direction") ||
+        !check(widget.set_reference_geometry_visual_transform(
+                   secondary_reference.uuid,
+                   QVector3D(7.0f, 8.0f, 9.0f),
+                   QVector3D(0.0f, 0.0f, 90.0f)),
+               "Secondary reference rotation should update bound Arrays"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> rotated_array_source =
+        widget.unit_hash.value(secondary_reference_source.inj.uuid);
+    if (!check(vectors_close(
+                   rotated_array_source->array_specs.last().direction,
+                   QVector3D(0.0f, 1.0f, 0.0f)) &&
+                   vectors_close(
+                       rotated_array_source->child_units.at(1)
+                               ->inj.injector_data.pos -
+                           rotated_array_source->inj.injector_data.pos,
+                       QVector3D(0.0f, 1.0f, 0.0f)),
+               "Array rules and generated children should follow reference rotation"))
+    {
+        return 1;
+    }
+
+    Unit reference_fill_source = make_valid_unit();
+    reference_fill_source.inj.injector_data.name =
+        "secondary-reference-bound-fill-source";
+    if (!check(reference_fill_source.inj.create_injector(),
+               "Secondary reference Fill fixture should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({reference_fill_source}, false, false);
+    if (!check(widget.select_reference_geometry_visual(
+                   secondary_reference.uuid),
+               "Secondary reference should be selectable for Fill setup"))
+    {
+        return 1;
+    }
+    QVector3D fill_origin;
+    QVector3D fill_x;
+    QVector3D fill_z;
+    QUuid fill_reference_uuid;
+    if (!check(widget.reference_frame(&fill_origin, &fill_x, &fill_z,
+                                     &fill_reference_uuid),
+               "Selected secondary reference should provide a Fill frame"))
+    {
+        return 1;
+    }
+    UnitFillSpec reference_fill;
+    reference_fill.rows = 1;
+    reference_fill.columns = 2;
+    reference_fill.spacing_x = 2.0f;
+    reference_fill.origin = fill_origin;
+    reference_fill.direction = fill_x;
+    reference_fill.plane_normal = fill_z;
+    reference_fill.use_reference_geometry = true;
+    reference_fill.reference_geometry_uuid = fill_reference_uuid;
+    if (!check(widget.create_unit_fill(
+                   {reference_fill_source.inj.uuid}, reference_fill) == 2,
+               "Reference-bound Fill should generate two placements"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> stored_fill_source =
+        widget.unit_hash.value(reference_fill_source.inj.uuid);
+    const QVector3D fill_first_before =
+        stored_fill_source->child_units.at(0)->inj.injector_data.pos;
+    const QVector3D fill_second_before =
+        stored_fill_source->child_units.at(1)->inj.injector_data.pos;
+    if (!check(widget.set_reference_geometry_visual_transform(
+                   secondary_reference.uuid,
+                   QVector3D(9.0f, 10.0f, 11.0f),
+                   QVector3D(0.0f, 0.0f, 90.0f)),
+               "Secondary reference translation should update bound Fills") ||
+        !check(vectors_close(
+                   stored_fill_source->fill_spec.origin,
+                   fill_origin + QVector3D(2.0f, 2.0f, 2.0f)) &&
+                   vectors_close(
+                       stored_fill_source->child_units.at(0)
+                               ->inj.injector_data.pos,
+                       fill_first_before + QVector3D(2.0f, 2.0f, 2.0f)) &&
+                   vectors_close(
+                       stored_fill_source->child_units.at(1)
+                               ->inj.injector_data.pos,
+                       fill_second_before + QVector3D(2.0f, 2.0f, 2.0f)),
+               "Fill frame and generated placements should follow translation"))
+    {
+        return 1;
+    }
+
     if (!check(widget.select_reference_geometry_visual(
                    secondary_reference.uuid) &&
                    widget.select_reference_geometry_visual_face_by_index(
