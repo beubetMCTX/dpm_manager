@@ -41,6 +41,9 @@ QString Read_File_Dialog();
 QList<Unit> read_single_dpm_file(bool *ok);
 [[deprecated("Use read_dpm_file(file_path, ...) instead.")]]
 QList<Unit> read_single_dpm_file_regex(bool *ok);
+// Fluent injection files use SI values. Injector storage follows that
+// contract: lengths in metres, velocity in m/s, mass flow in kg/s, and
+// temperature in kelvin. Angle fields retain their Fluent field semantics.
 QList<Unit> read_dpm_file(const QString &file_path,
                           bool *ok = nullptr,
                           QString *error_message = nullptr,

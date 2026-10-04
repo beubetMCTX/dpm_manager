@@ -112,6 +112,10 @@ int main(int argc, char *argv[])
     first.inj.injector_data.vel = QVector3D(4.0f, 5.0f, 6.0f);
     first.inj.injector_data.axis = QVector3D(1.0f, 0.0f, 0.0f);
     first.inj.injector_data.atomizer_axis = QVector3D(0.0f, 0.0f, 1.0f);
+    first.inj.injector_data.diameter = 1.0e-4;
+    first.inj.injector_data.half_angle = 0.34906585;
+    first.inj.injector_data.atomizer_disp_angle = 6.0;
+    first.inj.injector_data.temperature = 300.0;
     first.inj.injector_data.total_flow_rate = 0.25;
     first.inj.injector_data.cone_angle = 37.0;
     first.inj.injector_data.material = "water";
@@ -138,6 +142,11 @@ int main(int argc, char *argv[])
         !check(round_trip.at(0).inj.injector_data.pos == QVector3D(1.0f, 2.0f, 3.0f) &&
                    round_trip.at(1).inj.injector_data.pos == QVector3D(7.0f, 8.0f, 9.0f),
                "written DPM should preserve injector positions") ||
+        !check(qAbs(round_trip.at(0).inj.injector_data.diameter - 1.0e-4) < 1.0e-15 &&
+                   qAbs(round_trip.at(0).inj.injector_data.half_angle - 0.34906585) < 1.0e-12 &&
+                   qAbs(round_trip.at(0).inj.injector_data.atomizer_disp_angle - 6.0) < 1.0e-12 &&
+                   qAbs(round_trip.at(0).inj.injector_data.temperature - 300.0) < 1.0e-12,
+               "written DPM should preserve SI values and Fluent angle semantics") ||
         !check(round_trip.at(0).inj.injector_data.dpm_fname ==
                    "\"spray_profile.inj\"",
                "written DPM should preserve the DPM file name") ||
