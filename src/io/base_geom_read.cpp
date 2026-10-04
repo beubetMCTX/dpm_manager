@@ -2,6 +2,46 @@
 
 #include "unit_system.h"
 
+#include <cmath>
+#include <Interface_Static.hxx>
+#include <IGESData_IGESModel.hxx>
+#include <UnitsMethods.hxx>
+#include <UnitsMethods_LengthUnit.hxx>
+
+namespace
+{
+class CascadeLengthUnitGuard
+{
+public:
+    CascadeLengthUnitGuard()
+        : m_previous_unit(UnitsMethods::GetCasCadeLengthUnit())
+        , m_previous_static_unit(Interface_Static::CVal("xstep.cascade.unit"))
+    {
+        UnitsMethods::SetCasCadeLengthUnit(
+            1.0, UnitsMethods_LengthUnit_Millimeter);
+        Interface_Static::SetCVal("xstep.cascade.unit", "MM");
+    }
+
+    ~CascadeLengthUnitGuard()
+    {
+        UnitsMethods::SetCasCadeLengthUnit(
+            m_previous_unit, UnitsMethods_LengthUnit_Millimeter);
+        if (!m_previous_static_unit.IsEmpty())
+        {
+            Interface_Static::SetCVal(
+                "xstep.cascade.unit", m_previous_static_unit.ToCString());
+        }
+    }
+
+    CascadeLengthUnitGuard(const CascadeLengthUnitGuard &) = delete;
+    CascadeLengthUnitGuard &operator=(const CascadeLengthUnitGuard &) = delete;
+
+private:
+    Standard_Real m_previous_unit;
+    TCollection_AsciiString m_previous_static_unit;
+};
+}
+
 Base_Geom_Read::Base_Geom_Read(QObject *parent)
     : QObject(parent)
     , m_hasAssembly(false)
@@ -199,6 +239,10 @@ bool Base_Geom_Read::readSTEPFile(const QString& filePath)
         return report_error("STEP文件读取失败");
     }
 
+    // Keep the reader output in OCCT's documented millimetre unit. The
+    // public read boundary converts that result to internal metres once.
+    reader.SetSystemLengthUnit(1.0);
+
     emit progressUpdate(50);
 
     // 转换所有根实体
@@ -226,7 +270,9 @@ bool Base_Geom_Read::readSTEPFile(const QString& filePath)
 
 bool Base_Geom_Read::readIGESFile(const QString& filePath)
 {
-
+    // IGES uses OCCT's process-wide Cascade unit while creating its model.
+    // Scope that setting so an earlier import cannot change this import.
+    CascadeLengthUnitGuard unit_guard;
     IGESControl_Reader reader;
 
     emit progressUpdate(10);
@@ -246,6 +292,25 @@ bool Base_Geom_Read::readIGESFile(const QString& filePath)
         return report_error("IGES文件实体转换失败");
     }
     m_shape = reader.OneShape();
+
+    const Standard_Real file_unit_mm =
+        reader.IGESModel()->GlobalSection().UnitValue();
+    if (file_unit_mm <= 0.0)
+    {
+        return report_error("IGES文件长度单位无效");
+    }
+    if (std::abs(file_unit_mm - 1.0) > 1.0e-12)
+    {
+        gp_Trsf file_unit_transform;
+        file_unit_transform.SetScale(gp::Origin(), file_unit_mm);
+        BRepBuilderAPI_Transform unit_transform(
+            m_shape, file_unit_transform, Standard_True);
+        if (!unit_transform.IsDone())
+        {
+            return report_error("IGES文件单位转换失败");
+        }
+        m_shape = unit_transform.Shape();
+    }
 
     emit progressUpdate(100);
 
