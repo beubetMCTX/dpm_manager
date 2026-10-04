@@ -1333,6 +1333,98 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    widget.display_units({}, true);
+    Unit nested_reference_source = make_valid_unit();
+    nested_reference_source.inj.injector_data.name =
+        "nested-reference-array-source";
+    if (!check(nested_reference_source.inj.create_injector(),
+               "Nested reference-bound Array fixture should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({nested_reference_source});
+    const QUuid nested_reference_root_uuid =
+        nested_reference_source.inj.uuid;
+    QVector3D nested_reference_origin;
+    QVector3D nested_reference_direction;
+    QVector3D nested_reference_normal;
+    if (!check(widget.reference_frame_for_uuid(
+                   secondary_reference.uuid, &nested_reference_origin,
+                   &nested_reference_direction, &nested_reference_normal),
+               "Nested Array setup should resolve its reference by UUID"))
+    {
+        return 1;
+    }
+    UnitArraySpec outer_reference_array;
+    outer_reference_array.type = UnitArrayType::Linear;
+    outer_reference_array.count = 2;
+    outer_reference_array.spacing = 2.0f;
+    outer_reference_array.origin = nested_reference_origin;
+    outer_reference_array.direction = nested_reference_direction;
+    outer_reference_array.plane_normal = nested_reference_normal;
+    outer_reference_array.use_reference_geometry = true;
+    outer_reference_array.reference_geometry_uuid = secondary_reference.uuid;
+    if (!check(widget.create_unit_array(nested_reference_root_uuid,
+                                        outer_reference_array) == 2,
+               "Reference-bound outer Array should create two instances"))
+    {
+        return 1;
+    }
+    const auto nested_reference_root =
+        widget.unit_hash.value(nested_reference_root_uuid);
+    if (!check(nested_reference_root != nullptr &&
+                   !nested_reference_root->child_units.isEmpty(),
+               "Reference-bound outer Array should expose a child source"))
+    {
+        return 1;
+    }
+    const QUuid nested_reference_child_uuid =
+        nested_reference_root->child_units.first()->inj.uuid;
+    UnitArraySpec inner_reference_array = outer_reference_array;
+    inner_reference_array.spacing = 0.5f;
+    if (!check(widget.create_unit_array(nested_reference_child_uuid,
+                                        inner_reference_array) > 0,
+               "Reference-bound nested Array should be created from its child") ||
+        !check(widget.unit_hash.value(nested_reference_child_uuid) != nullptr &&
+                   widget.unit_hash.value(nested_reference_child_uuid)
+                       ->has_array_spec,
+               "Nested source should retain its own bound Array rule"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_reference_geometry_visual_transform(
+                   secondary_reference.uuid,
+                   QVector3D(10.0f, 11.0f, 12.0f),
+                   QVector3D(0.0f, 0.0f, 180.0f)),
+               "Moving shared reference should rebuild nested Arrays"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> moved_nested_reference_root =
+        widget.unit_hash.value(nested_reference_root_uuid);
+    const std::shared_ptr<Unit> moved_nested_reference_source =
+        widget.unit_hash.value(nested_reference_child_uuid);
+    if (!check(moved_nested_reference_root != nullptr &&
+                   moved_nested_reference_source != nullptr &&
+                   moved_nested_reference_source->child_units.size() == 2 &&
+                   vectors_close(
+                       moved_nested_reference_root->array_specs.last().direction,
+                       QVector3D(-1.0f, 0.0f, 0.0f)) &&
+                   vectors_close(
+                       moved_nested_reference_source->array_specs.last().direction,
+                       QVector3D(-1.0f, 0.0f, 0.0f)) &&
+                   vectors_close(
+                       moved_nested_reference_source->child_units.at(1)
+                               ->inj.injector_data.pos -
+                           moved_nested_reference_source->inj.injector_data.pos,
+                       QVector3D(-0.5f, 0.0f, 0.0f)),
+               "Reference motion should update both nested rules and leaf placements"))
+    {
+        return 1;
+    }
+    widget.display_units({secondary_reference_source}, true);
+    application.processEvents();
+
     if (!check(widget.select_reference_geometry_visual(
                    secondary_reference.uuid) &&
                    widget.select_reference_geometry_visual_face_by_index(
