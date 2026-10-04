@@ -40,6 +40,7 @@
 #include <QVBoxLayout>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolButton>
 #include <QStyle>
 #include <QSettings>
 #include <QMap>
@@ -412,6 +413,11 @@ MainWindow::MainWindow(QWidget *parent)
             &OCCTWidget::reference_geometry_visual_transform_changed,
             this, [this](const QUuid &uuid)
     {
+        if (m_3d_widget->selected_reference_geometry_uuid() == uuid)
+        {
+            update_reference_geometry_panel();
+        }
+        mark_project_dirty();
         if (m_array_editor_reference_geometry != nullptr &&
             m_array_editor_dock != nullptr &&
             m_array_editor_dock->isVisible() &&
@@ -2243,6 +2249,77 @@ bool MainWindow::run_project_session_self_test(QString *error_message)
                         .arg(runtime_target_state.locked));
     }
 
+    ReferenceGeometryConfig secondary_reference;
+    secondary_reference.uuid = QUuid::createUuid();
+    secondary_reference.kind = QStringLiteral("datum_plane");
+    secondary_reference.construction_size = 0.02;
+    secondary_reference.construction_thickness = 1.0e-5;
+    secondary_reference.construction_direction = QVector3D(0.0f, 1.0f, 0.0f);
+    if (!add_project_reference_geometry(secondary_reference, TopoDS_Shape(),
+                                        &local_error))
+    {
+        return fail(local_error.isEmpty()
+                        ? QStringLiteral("Unable to add a runtime secondary reference.")
+                        : local_error);
+    }
+
+    project_session::Data reference_data = collect_project_data();
+    reference_data.chemkin_file_path.clear();
+    const auto has_secondary_reference =
+        [&secondary_reference](const QList<ReferenceGeometryConfig> &references)
+    {
+        return std::any_of(references.cbegin(), references.cend(),
+                           [&secondary_reference](const ReferenceGeometryConfig &entry)
+        {
+            return entry.uuid == secondary_reference.uuid &&
+                   entry.kind == secondary_reference.kind &&
+                   entry.construction_size == secondary_reference.construction_size;
+        });
+    };
+    if (!has_secondary_reference(reference_data.reference_geometries))
+    {
+        return fail(QStringLiteral(
+            "Runtime project snapshot omitted the newly added secondary reference."));
+    }
+
+    const QString reference_session_path =
+        session_directory.filePath(QStringLiteral("reference-roundtrip.dpmpj"));
+    if (!project_session::save(reference_session_path, reference_data, &local_error))
+    {
+        return fail(local_error.isEmpty()
+                        ? QStringLiteral("Unable to save the secondary reference session.")
+                        : local_error);
+    }
+    project_session::Data restored_reference_data;
+    if (!project_session::load(reference_session_path, &restored_reference_data,
+                               &local_error) ||
+        !has_secondary_reference(restored_reference_data.reference_geometries))
+    {
+        return fail(local_error.isEmpty()
+                        ? QStringLiteral("Secondary reference did not round-trip.")
+                        : local_error);
+    }
+    const auto restored_secondary_reference = std::find_if(
+        restored_reference_data.reference_geometries.cbegin(),
+        restored_reference_data.reference_geometries.cend(),
+        [&secondary_reference](const ReferenceGeometryConfig &entry)
+        {
+            return entry.uuid == secondary_reference.uuid;
+        });
+    if (restored_secondary_reference ==
+            restored_reference_data.reference_geometries.cend() ||
+        restored_secondary_reference->construction_thickness !=
+            secondary_reference.construction_thickness ||
+        restored_secondary_reference->construction_direction !=
+            secondary_reference.construction_direction ||
+        !m_3d_widget->add_reference_geometry_visual(
+            *restored_secondary_reference) ||
+        !m_3d_widget->has_reference_geometry_visual(secondary_reference.uuid))
+    {
+        return fail(QStringLiteral(
+            "Unable to rebuild the round-tripped secondary reference visual."));
+    }
+
     if (error_message != nullptr)
     {
         error_message->clear();
@@ -2817,6 +2894,23 @@ void MainWindow::create_reference_geometry_panel()
     m_toggle_section_clipping = new QPushButton("Enable Section Clipping", panel);
     m_toggle_section_clipping->setCheckable(true);
     m_create_alignment_frame = new QPushButton("Create Alignment Frame", panel);
+    auto *add_reference_geometry_button = new QToolButton(panel);
+    add_reference_geometry_button->setText("Add Reference Geometry");
+    add_reference_geometry_button->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    add_reference_geometry_button->setPopupMode(QToolButton::InstantPopup);
+    auto *add_reference_geometry_menu = new QMenu(add_reference_geometry_button);
+    add_reference_geometry_button->setMenu(add_reference_geometry_menu);
+    QAction *import_reference_action = add_reference_geometry_menu->addAction(
+        "Import Geometry From File...");
+    add_reference_geometry_menu->addSeparator();
+    QAction *add_datum_plane_action = add_reference_geometry_menu->addAction(
+        "Datum Plane");
+    QAction *add_datum_axis_action = add_reference_geometry_menu->addAction(
+        "Datum Axis");
+    QAction *add_datum_origin_action = add_reference_geometry_menu->addAction(
+        "Datum Origin");
+    QAction *add_alignment_frame_action = add_reference_geometry_menu->addAction(
+        "Alignment Frame");
     m_align_reference_face->setEnabled(false);
     m_reference_geometry_lock = new QCheckBox("Lock Reference Geometry", panel);
     apply_reference_geometry_display_units();
@@ -2841,6 +2935,7 @@ void MainWindow::create_reference_geometry_panel()
     panel_layout->addWidget(m_reset_reference_transform);
     panel_layout->addWidget(m_align_reference_face);
     panel_layout->addWidget(m_clear_reference_geometry);
+    panel_layout->addWidget(add_reference_geometry_button);
     panel_layout->addWidget(m_create_datum_plane);
     panel_layout->addWidget(m_create_datum_axis);
     panel_layout->addWidget(m_create_datum_origin);
@@ -2858,6 +2953,90 @@ void MainWindow::create_reference_geometry_panel()
 
     connect(m_apply_reference_transform, &QPushButton::clicked, this,
             &MainWindow::apply_reference_geometry_transform);
+    connect(import_reference_action, &QAction::triggered, this, [this]()
+    {
+        const QString file_path = QFileDialog::getOpenFileName(
+            this, "Add Reference Geometry", QString(),
+            Base_Geom_Read::getSupportedFormatsFilter());
+        if (file_path.trimmed().isEmpty())
+        {
+            return;
+        }
+
+        Base_Geom_Read loaded_geometry;
+        QString geometry_path = file_path;
+        if (!loaded_geometry.readFile(geometry_path))
+        {
+            const QString message = loaded_geometry.last_error_message().trimmed().isEmpty()
+                ? QString("Unable to read reference geometry: %1").arg(file_path)
+                : loaded_geometry.last_error_message();
+            QMessageBox::warning(this, "Reference Geometry Import", message);
+            return;
+        }
+
+        ReferenceGeometryConfig config;
+        config.uuid = QUuid::createUuid();
+        config.kind = QStringLiteral("file");
+        config.file_path = QFileInfo(file_path).absoluteFilePath();
+        QString error_message;
+        if (!add_project_reference_geometry(config, loaded_geometry.getShape(),
+                                            &error_message))
+        {
+            QMessageBox::warning(this, "Reference Geometry Import", error_message);
+        }
+    });
+    const auto add_constructed_reference = [this](const QString &kind)
+    {
+        ReferenceGeometryConfig config;
+        config.uuid = QUuid::createUuid();
+        config.kind = kind;
+        if (kind == QStringLiteral("datum_plane"))
+        {
+            config.construction_size = 0.01;
+            config.construction_thickness = 1.0e-5;
+        }
+        else if (kind == QStringLiteral("datum_axis"))
+        {
+            config.construction_size = 0.01;
+            config.construction_radius = 5.0e-5;
+        }
+        else if (kind == QStringLiteral("datum_origin"))
+        {
+            config.construction_size = 0.01;
+            config.construction_radius = 1.5e-4;
+        }
+        else if (kind == QStringLiteral("alignment_frame"))
+        {
+            config.construction_size = 0.002;
+        }
+
+        QString error_message;
+        if (!add_project_reference_geometry(config, TopoDS_Shape(),
+                                            &error_message))
+        {
+            QMessageBox::warning(this, "Reference Geometry", error_message);
+        }
+    };
+    connect(add_datum_plane_action, &QAction::triggered, this,
+            [add_constructed_reference]()
+    {
+        add_constructed_reference(QStringLiteral("datum_plane"));
+    });
+    connect(add_datum_axis_action, &QAction::triggered, this,
+            [add_constructed_reference]()
+    {
+        add_constructed_reference(QStringLiteral("datum_axis"));
+    });
+    connect(add_datum_origin_action, &QAction::triggered, this,
+            [add_constructed_reference]()
+    {
+        add_constructed_reference(QStringLiteral("datum_origin"));
+    });
+    connect(add_alignment_frame_action, &QAction::triggered, this,
+            [add_constructed_reference]()
+    {
+        add_constructed_reference(QStringLiteral("alignment_frame"));
+    });
     connect(m_reset_reference_transform, &QPushButton::clicked, this, [this]()
     {
         const QUuid selected_reference_uuid =
@@ -3007,6 +3186,64 @@ void MainWindow::create_reference_geometry_panel()
     });
 
     update_reference_geometry_controls();
+}
+
+bool MainWindow::add_project_reference_geometry(
+    const ReferenceGeometryConfig &config,
+    const TopoDS_Shape &shape,
+    QString *error_message)
+{
+    if (m_3d_widget == nullptr || config.uuid.isNull())
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QStringLiteral("Reference geometry has no valid identity.");
+        }
+        return false;
+    }
+    if (std::any_of(m_project_reference_geometries.cbegin(),
+                    m_project_reference_geometries.cend(),
+                    [&config](const ReferenceGeometryConfig &existing)
+    {
+        return existing.uuid == config.uuid;
+    }))
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QStringLiteral("Reference geometry UUID is already registered.");
+        }
+        return false;
+    }
+
+    ReferenceGeometryConfig stored_config = config;
+    if (stored_config.kind.compare(QStringLiteral("file"),
+                                   Qt::CaseInsensitive) == 0)
+    {
+        stored_config.file_path =
+            QFileInfo(stored_config.file_path).absoluteFilePath();
+    }
+    if (!m_3d_widget->add_reference_geometry_visual(stored_config, shape))
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = QStringLiteral("Unable to create the reference geometry visual.");
+        }
+        return false;
+    }
+
+    m_project_reference_geometries.append(stored_config);
+    m_3d_widget->select_reference_geometry_visual(stored_config.uuid);
+    update_reference_geometry_panel();
+    update_object_list_panel();
+    mark_project_dirty();
+    statusBar()->showMessage(QString("Added reference geometry: %1")
+                                 .arg(stored_config.kind),
+                             5000);
+    if (error_message != nullptr)
+    {
+        error_message->clear();
+    }
+    return true;
 }
 
 void MainWindow::update_reference_geometry_controls()

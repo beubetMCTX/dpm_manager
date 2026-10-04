@@ -138,6 +138,9 @@ private:
                                 bool show_status_feedback);
     void update_chemkin_status();
     void create_reference_geometry_panel();
+    bool add_project_reference_geometry(const ReferenceGeometryConfig &config,
+                                        const TopoDS_Shape &shape,
+                                        QString *error_message = nullptr);
     void apply_reference_geometry_display_units();
     void update_reference_geometry_panel();
     void update_reference_geometry_controls();
