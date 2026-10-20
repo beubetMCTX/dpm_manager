@@ -67,3 +67,9 @@ Testing rule from the user: data is disposable until they say otherwise, so
 old app instances may be closed and replaced. The old `release_gizmo`
 process was closed and `build/codex_msvc142_release/dpm_manager.exe` was
 started.
+
+## Follow-up - selection drag and inspector values
+
+- Selection mode no longer starts a direct injector drag. Reference-geometry dragging is unchanged.
+- Left inspector position, direction, pitch/yaw, and target fields commit through `valueChanged` with keyboard tracking off: wheel/step is immediate, typed text commits on Enter or focus loss.
+- Target hitpoint writeback now converts display length to metres. Previously the displayed millimetre value was stored as metres and the next refresh multiplied it again.

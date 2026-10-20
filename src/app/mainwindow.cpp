@@ -5037,6 +5037,7 @@ void MainWindow::create_object_list_panel()
         box->setRange(-1.0e9, 1.0e9);
         box->setDecimals(6);
         box->setSingleStep(0.1);
+        box->setKeyboardTracking(false);
         box->setEnabled(false);
         return box;
     };
@@ -5063,6 +5064,7 @@ void MainWindow::create_object_list_panel()
         box->setRange(-1.0e9, 1.0e9);
         box->setDecimals(6);
         box->setSingleStep(0.1);
+        box->setKeyboardTracking(false);
         box->setEnabled(false);
         return box;
     };
@@ -5083,6 +5085,7 @@ void MainWindow::create_object_list_panel()
         box->setRange(-360.0, 360.0);
         box->setDecimals(4);
         box->setSingleStep(1.0);
+        box->setKeyboardTracking(false);
         box->setEnabled(false);
     }
     angle_layout->addRow("Pitch (deg)", m_unit_pitch);
@@ -5095,6 +5098,7 @@ void MainWindow::create_object_list_panel()
         box->setRange(-1.0e9, 1.0e9);
         box->setDecimals(6);
         box->setSingleStep(0.1);
+        box->setKeyboardTracking(false);
         box->setEnabled(false);
         return box;
     };
@@ -5198,18 +5202,23 @@ void MainWindow::create_object_list_panel()
             update_unit_position_controls();
         }
     };
-    connect(m_unit_position_x, &QDoubleSpinBox::editingFinished, this,
-            [this, apply_position]()
+    const auto bind_live_vector = [](QDoubleSpinBox *box, const auto &apply)
+    {
+        QObject::connect(box, qOverload<double>(&QDoubleSpinBox::valueChanged),
+                         box, [apply](double)
+        {
+            apply();
+        });
+    };
+    bind_live_vector(m_unit_position_x, [this, apply_position]()
     {
         apply_position(m_unit_position_x, m_unit_position_y, m_unit_position_z);
     });
-    connect(m_unit_position_y, &QDoubleSpinBox::editingFinished, this,
-            [this, apply_position]()
+    bind_live_vector(m_unit_position_y, [this, apply_position]()
     {
         apply_position(m_unit_position_x, m_unit_position_y, m_unit_position_z);
     });
-    connect(m_unit_position_z, &QDoubleSpinBox::editingFinished, this,
-            [this, apply_position]()
+    bind_live_vector(m_unit_position_z, [this, apply_position]()
     {
         apply_position(m_unit_position_x, m_unit_position_y, m_unit_position_z);
     });
@@ -5236,18 +5245,15 @@ void MainWindow::create_object_list_panel()
             update_unit_position_controls();
         }
     };
-    connect(m_unit_direction_x, &QDoubleSpinBox::editingFinished, this,
-            [this, apply_direction]()
+    bind_live_vector(m_unit_direction_x, [this, apply_direction]()
     {
         apply_direction(m_unit_direction_x, m_unit_direction_y, m_unit_direction_z);
     });
-    connect(m_unit_direction_y, &QDoubleSpinBox::editingFinished, this,
-            [this, apply_direction]()
+    bind_live_vector(m_unit_direction_y, [this, apply_direction]()
     {
         apply_direction(m_unit_direction_x, m_unit_direction_y, m_unit_direction_z);
     });
-    connect(m_unit_direction_z, &QDoubleSpinBox::editingFinished, this,
-            [this, apply_direction]()
+    bind_live_vector(m_unit_direction_z, [this, apply_direction]()
     {
         apply_direction(m_unit_direction_x, m_unit_direction_y, m_unit_direction_z);
     });
@@ -5265,13 +5271,15 @@ void MainWindow::create_object_list_panel()
         }
         const QUuid uuid(item->data(0, Qt::UserRole).toString());
         if (!uuid.isNull() && m_3d_widget->set_unit_single_pitch_yaw_by_uuid(
-                uuid, m_unit_pitch->value(), m_unit_yaw->value()))
+                uuid,
+                display_angle_to_storage(m_unit_pitch->value()),
+                display_angle_to_storage(m_unit_yaw->value())))
         {
             update_unit_position_controls();
         }
     };
-    connect(m_unit_pitch, &QDoubleSpinBox::editingFinished, this, apply_pitch_yaw);
-    connect(m_unit_yaw, &QDoubleSpinBox::editingFinished, this, apply_pitch_yaw);
+    bind_live_vector(m_unit_pitch, apply_pitch_yaw);
+    bind_live_vector(m_unit_yaw, apply_pitch_yaw);
     const auto apply_target = [this]()
     {
         if (m_object_list == nullptr || m_3d_widget == nullptr ||
@@ -5286,17 +5294,27 @@ void MainWindow::create_object_list_panel()
             return;
         }
         const QUuid uuid(item->data(0, Qt::UserRole).toString());
-        if (!uuid.isNull() && m_3d_widget->set_unit_single_target_by_uuid(
-                uuid, QVector3D(static_cast<float>(m_unit_target_x->value()),
-                                static_cast<float>(m_unit_target_y->value()),
-                                static_cast<float>(m_unit_target_z->value()))))
+        bool ok_x = false;
+        bool ok_y = false;
+        bool ok_z = false;
+        const QString display_unit = UnitSystem::preferred_display_unit("m");
+        const auto to_storage = [&display_unit](double value, bool *ok)
+        {
+            return UnitSystem::convert(value, display_unit, "m", ok);
+        };
+        const QVector3D storage_target(
+            static_cast<float>(to_storage(m_unit_target_x->value(), &ok_x)),
+            static_cast<float>(to_storage(m_unit_target_y->value(), &ok_y)),
+            static_cast<float>(to_storage(m_unit_target_z->value(), &ok_z)));
+        if (!uuid.isNull() && ok_x && ok_y && ok_z &&
+            m_3d_widget->set_unit_single_target_by_uuid(uuid, storage_target))
         {
             update_unit_position_controls();
         }
     };
-    connect(m_unit_target_x, &QDoubleSpinBox::editingFinished, this, apply_target);
-    connect(m_unit_target_y, &QDoubleSpinBox::editingFinished, this, apply_target);
-    connect(m_unit_target_z, &QDoubleSpinBox::editingFinished, this, apply_target);
+    bind_live_vector(m_unit_target_x, apply_target);
+    bind_live_vector(m_unit_target_y, apply_target);
+    bind_live_vector(m_unit_target_z, apply_target);
     connect(m_unit_target_scope, &QComboBox::currentIndexChanged, this,
             [this](int index)
     {
@@ -7428,8 +7446,8 @@ void MainWindow::update_unit_position_controls()
     m_unit_direction_x->setValue(direction.x());
     m_unit_direction_y->setValue(direction.y());
     m_unit_direction_z->setValue(direction.z());
-    m_unit_pitch->setValue(pitch);
-    m_unit_yaw->setValue(yaw);
+    m_unit_pitch->setValue(storage_angle_to_display(pitch));
+    m_unit_yaw->setValue(storage_angle_to_display(yaw));
     m_unit_target_x->setValue(from_storage(target.x()));
     m_unit_target_y->setValue(from_storage(target.y()));
     m_unit_target_z->setValue(from_storage(target.z()));

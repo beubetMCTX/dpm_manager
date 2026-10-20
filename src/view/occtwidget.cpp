@@ -3486,6 +3486,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
         !std::isfinite(target.z()) ||
         unit->inj.injector_data.injection_type != single ||
         unit->inj.injector_data.single_direction_mode != Single_Direction_Mode::Target_Hitpoint ||
+        (target - unit->inj.injector_data.single_target_hitpoint).lengthSquared() <= 1.0e-12f ||
         (target - unit->inj.injector_data.pos).lengthSquared() <= 1.0e-12f)
     {
         return false;
@@ -9392,11 +9393,11 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         }
 
         // Keep an explicitly selected reference face while selecting an
-        // injector. Selection-mode dragging can then snap the injector to
-        // that face instead of silently falling back to the camera plane.
-        myIsDragging = select_injector();
+        // injector. Selection mode only picks; it does not drag the injector.
+        // Translation and rotation use the persistent gizmo.
+        const bool injector_selected = select_injector();
         if (m_interaction_mode != Interaction_Mode::Selection &&
-            myIsDragging && !selected_shape.IsNull())
+            injector_selected && !selected_shape.IsNull())
         {
             if (Unit *unit = get_unit(selected_shape))
             {
@@ -9411,41 +9412,16 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
             return;
         }
 
-        // Selection mode only changes the current selection. Object movement
-        // uses a reference/camera plane; translation mode uses the persistent
-        // world-axis gizmo instead.
-        if (m_interaction_mode == Interaction_Mode::Selection)
-        {
-            if (!selected_shape.IsNull())
-            {
-                if (Unit *unit = get_unit(selected_shape))
-                {
-                    myIsDragging = !unit_locked(unit->inj.uuid);
-                    if (myIsDragging)
-                    {
-                        m_drag_unit_uuid = unit->inj.uuid;
-                        m_drag_move_before = make_move_snapshot(*unit);
-                        m_drag_before_local_transformation =
-                            selected_shape->LocalTransformation();
-                        m_drag_move_snapshot_valid = true;
-                        // Freeze the attachment plane for the whole drag.
-                        // Selection changes during MoveTo/SelectDetected must
-                        // not make a reference-face drag fall back to camera
-                        // space on a later mouse-move event.
-                        m_drag_base_plane = get_moving_base_plane(selected_shape);
-                        m_drag_base_plane_valid = true;
-                    }
-                }
-            }
-            event->accept();
-            return;
-        }
-
-        // Translation and rotation are persistent handle modes. If a handle
-        // could not be attached (for example because the unit is locked), do
-        // not fall back to the legacy direct-drag path.
+        // Selection only changes the current selection. Translation and
+        // rotation stay on the gizmo and must not fall back to direct drag
+        // when the handle cannot be attached.
         myIsDragging = false;
-        selected_shape.Nullify();
+        if (m_interaction_mode != Interaction_Mode::Selection)
+        {
+            selected_shape.Nullify();
+        }
+        event->accept();
+        return;
     }
     // else if(event->buttons()&Qt::RightButton)
     // {

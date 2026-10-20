@@ -1,5 +1,12 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-21 Inspector Edits And Selection Drag
+
+- Selection mode now only picks injectors. Direct dragging remains for reference geometry; translation and rotation stay on the gizmo.
+- Unit Position / Direction spin boxes apply on wheel and step changes. Typed values still commit on Enter or when the field loses focus.
+- Target hitpoint values convert from the displayed length unit back to metres before storage, so an edit no longer multiplies millimetres by 1000.
+- Pitch / Yaw use the same display-angle conversion as the rest of the inspector.
+
 ### 2026-10-21 Preserve Transform Gizmo Across Mode Changes
 
 - Reduced injector-local trihedron size from `0.45` to `0.1` of the injector
