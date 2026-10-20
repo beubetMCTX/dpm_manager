@@ -3841,6 +3841,13 @@ void MainWindow::create_array_editor_panel()
         mark_project_dirty();
         update_object_list_panel();
         refresh_array_editor_panel();
+        const std::shared_ptr<Unit> source =
+            m_3d_widget->unit_hash.value(m_array_editor_source_uuid);
+        if (source == nullptr ||
+            (!source->has_array_spec && !source->has_fill_spec))
+        {
+            m_3d_widget->clear_array_preview();
+        }
         statusBar()->showMessage(tr("Array layer removed"), 4000);
     });
 

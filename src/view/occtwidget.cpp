@@ -4981,6 +4981,7 @@ bool OCCTWidget::remove_unit_array_layer(const QUuid &source_uuid,
     specs.removeAt(layer_index);
     if (specs.isEmpty())
     {
+        clear_array_preview();
         clear_unit_array_children(*source);
         source->has_array_spec = false;
         source->array_specs.clear();
@@ -5010,6 +5011,7 @@ bool OCCTWidget::remove_unit_array_layer(const QUuid &source_uuid,
     record_structure_edit(before, capture_persistent_units());
     QSet<QUuid> visited;
     rebuild_dependent_arrays(source_uuid, visited);
+    clear_array_preview();
     return true;
 }
 
@@ -6300,6 +6302,7 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     m_unit_locks.remove(uuid);
     m_edit_transactions.remove(uuid);
     unit_hash.remove(uuid);
+    clear_array_preview();
     if (capture_delete_history)
     {
         delete_entry.has_structure_snapshot = true;
