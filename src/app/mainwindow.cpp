@@ -25,7 +25,6 @@
 #include <QDebug>
 #include <QApplication>
 #include <QButtonGroup>
-#include <QActionGroup>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -4683,10 +4682,13 @@ void MainWindow::create_object_list_panel()
         "  margin: 0px;"
         "}"
         "QToolBar#viewportInteractionToolbar QToolButton:hover {"
-        "  background: rgba(255, 255, 255, 32);"
+        "  background: #39424B;"
         "}"
         "QToolBar#viewportInteractionToolbar QToolButton:checked {"
-        "  background: rgba(150, 220, 205, 64);"
+        "  background: #356A5A;"
+        "}"
+        "QToolBar#viewportInteractionToolbar QToolButton:checked:hover {"
+        "  background: #356A5A;"
         "}"
         "QToolBar#viewportInteractionToolbar::separator {"
         "  width: 1px;"
@@ -4700,23 +4702,26 @@ void MainWindow::create_object_list_panel()
     interaction_toolbar->show();
     interaction_toolbar->raise();
     QTimer::singleShot(0, this, &MainWindow::position_viewport_interaction_toolbar);
-    auto *toolbar_selection = new QAction(
-        QIcon(QStringLiteral(":/ui/icons/icon-select.svg")),
-        tr("Select"), interaction_toolbar);
-    auto *toolbar_translation = new QAction(
-        QIcon(QStringLiteral(":/ui/icons/icon-translate.svg")),
-        tr("Translate"), interaction_toolbar);
-    auto *toolbar_rotation = new QAction(
-        QIcon(QStringLiteral(":/ui/icons/icon-rotate.svg")),
-        tr("Rotate"), interaction_toolbar);
+    auto *toolbar_selection = new QToolButton(interaction_toolbar);
+    auto *toolbar_translation = new QToolButton(interaction_toolbar);
+    auto *toolbar_rotation = new QToolButton(interaction_toolbar);
+    const QList<QPair<QToolButton *, QString>> mode_buttons = {
+        {toolbar_selection, QStringLiteral("icon-select.svg")},
+        {toolbar_translation, QStringLiteral("icon-translate.svg")},
+        {toolbar_rotation, QStringLiteral("icon-rotate.svg")}};
+    for (const auto &button_and_icon : mode_buttons)
+    {
+        QToolButton *button = button_and_icon.first;
+        button->setIcon(QIcon(QStringLiteral(":/ui/icons/") +
+                              button_and_icon.second));
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setCheckable(true);
+        button->setAutoRaise(true);
+        interaction_toolbar->addWidget(button);
+    }
     toolbar_selection->setToolTip(tr("Select"));
     toolbar_translation->setToolTip(tr("Translate"));
     toolbar_rotation->setToolTip(tr("Rotate"));
-    for (QAction *action : {toolbar_selection, toolbar_translation, toolbar_rotation})
-    {
-        action->setCheckable(true);
-        interaction_toolbar->addAction(action);
-    }
     interaction_toolbar->addSeparator();
     auto *array_tools_action = new QAction(
         QIcon(QStringLiteral(":/ui/icons/icon-array.svg")),
@@ -4749,23 +4754,23 @@ void MainWindow::create_object_list_panel()
     interaction_toolbar->addAction(test_set_action);
     interaction_toolbar->addAction(reference_tools_action);
     interaction_toolbar->adjustSize();
-    auto *toolbar_mode_group = new QActionGroup(interaction_toolbar);
+    auto *toolbar_mode_group = new QButtonGroup(interaction_toolbar);
     toolbar_mode_group->setExclusive(true);
-    toolbar_mode_group->addAction(toolbar_selection);
-    toolbar_mode_group->addAction(toolbar_translation);
-    toolbar_mode_group->addAction(toolbar_rotation);
+    toolbar_mode_group->addButton(
+        toolbar_selection,
+        static_cast<int>(OCCTWidget::Interaction_Mode::Selection));
+    toolbar_mode_group->addButton(
+        toolbar_translation,
+        static_cast<int>(OCCTWidget::Interaction_Mode::Translation));
+    toolbar_mode_group->addButton(
+        toolbar_rotation,
+        static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
     toolbar_selection->setChecked(true);
-    connect(toolbar_selection, &QAction::triggered, this, [this]()
+    connect(toolbar_mode_group, &QButtonGroup::idClicked, this,
+            [this](int mode)
     {
-        m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Selection);
-    });
-    connect(toolbar_translation, &QAction::triggered, this, [this]()
-    {
-        m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Translation);
-    });
-    connect(toolbar_rotation, &QAction::triggered, this, [this]()
-    {
-        m_3d_widget->set_interaction_mode(OCCTWidget::Interaction_Mode::Rotation);
+        m_3d_widget->set_interaction_mode(
+            static_cast<OCCTWidget::Interaction_Mode>(mode));
     });
     connect(array_tools_action, &QAction::triggered, this, [this]()
     {
@@ -4945,6 +4950,9 @@ void MainWindow::create_object_list_panel()
             this, [toolbar_selection, toolbar_translation, toolbar_rotation,
                    interaction_toolbar](int mode)
     {
+        const QSignalBlocker selection_blocker(toolbar_selection);
+        const QSignalBlocker translation_blocker(toolbar_translation);
+        const QSignalBlocker rotation_blocker(toolbar_rotation);
         toolbar_selection->setChecked(
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Selection));
         toolbar_translation->setChecked(

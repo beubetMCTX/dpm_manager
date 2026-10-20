@@ -7576,7 +7576,7 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
             gp_Pnt(origin.x(), origin.y(), origin.z()),
             gp_Dir(direction.x(), direction.y(), direction.z()));
         const Standard_Real local_axis_size =
-            shape_extent(unit->inj.shape, get_trihedron_size()) * 2.0;
+            shape_extent(unit->inj.shape, get_trihedron_size()) * 0.45;
         trihedron = make_local_trihedron(axis, local_axis_size);
         m_context->Deactivate(trihedron, TopAbs_SHAPE);
         if (unit_visible(uuid))
@@ -7593,7 +7593,7 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
         gp_Dir(direction.x(), direction.y(), direction.z()));
     trihedron->SetComponent(new Geom_Axis2Placement(axis));
     const Standard_Real local_axis_size =
-        shape_extent(unit->inj.shape, get_trihedron_size()) * 2.0;
+        shape_extent(unit->inj.shape, get_trihedron_size()) * 0.45;
     trihedron->SetSize(std::max(local_axis_size, 1.0e-4));
     m_context->Redisplay(trihedron, Standard_False);
 }
