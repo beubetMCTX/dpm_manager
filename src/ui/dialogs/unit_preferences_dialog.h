@@ -10,6 +10,7 @@ class QCheckBox;
 class QDoubleSpinBox;
 class QLabel;
 class QSlider;
+class QSpinBox;
 
 class UnitPreferencesDialog : public QDialog
 {
@@ -34,6 +35,8 @@ private:
     QLabel *m_transparency_value = nullptr;
     QDoubleSpinBox *m_translation_snap = nullptr;
     QDoubleSpinBox *m_rotation_snap = nullptr;
+    QSpinBox *m_length_decimals = nullptr;
+    QSpinBox *m_angle_decimals = nullptr;
     QCheckBox *m_show_injector_axes = nullptr;
     QCheckBox *m_show_reference_axes = nullptr;
 };

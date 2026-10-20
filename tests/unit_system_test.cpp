@@ -31,7 +31,9 @@ int main(int argc, char **argv)
     const Unit_Preferences defaults = UnitSystem::default_preferences();
     if (!expect(UnitSystem::validate_preferences(defaults), "default unit preferences should be valid") ||
         !expect(defaults.length == "mm" && defaults.angle == "deg",
-                "default display units should match current editor conventions"))
+                "default display units should match current editor conventions") ||
+        !expect(defaults.length_decimals == 2 && defaults.angle_decimals == 2,
+                "position and angle editors should default to two decimal places"))
     {
         return 1;
     }
@@ -40,6 +42,13 @@ int main(int argc, char **argv)
     invalid.length = "rad";
     if (!expect(!UnitSystem::validate_preferences(invalid, nullptr),
                 "incompatible preference should fail validation"))
+    {
+        return 1;
+    }
+    invalid = defaults;
+    invalid.length_decimals = 7;
+    if (!expect(!UnitSystem::validate_preferences(invalid, nullptr),
+                "length decimals outside 0 through 6 should fail validation"))
     {
         return 1;
     }

@@ -1701,6 +1701,10 @@ QJsonObject data_to_json(const project_session::Data &data,
                                 data.unit_preferences.translation_snap);
         unit_preferences.insert("rotation_snap",
                                 data.unit_preferences.rotation_snap);
+        unit_preferences.insert("length_decimals",
+                                data.unit_preferences.length_decimals);
+        unit_preferences.insert("angle_decimals",
+                                data.unit_preferences.angle_decimals);
         unit_preferences.insert("show_injector_local_axes",
                                 data.unit_preferences.show_injector_local_axes);
         unit_preferences.insert("show_reference_local_axes",
@@ -2724,6 +2728,31 @@ bool load(const QString &file_path, Data *data, QString *error_message)
             *target = value.toDouble();
             return true;
         };
+        const auto read_decimal_preference = [&unit_preferences](const char *key,
+                                                                   int *target)
+        {
+            if (target == nullptr)
+            {
+                return false;
+            }
+            double value = *target;
+            const QJsonValue stored = unit_preferences.value(QString::fromLatin1(key));
+            if (stored.isUndefined())
+            {
+                return true;
+            }
+            if (!stored.isDouble() || !std::isfinite(stored.toDouble()))
+            {
+                return false;
+            }
+            value = stored.toDouble();
+            if (std::abs(value - std::round(value)) > 1.0e-6)
+            {
+                return false;
+            }
+            *target = static_cast<int>(std::round(value));
+            return true;
+        };
         const auto read_bool_preference = [&unit_preferences](const char *key,
                                                                 bool *target)
         {
@@ -2756,6 +2785,10 @@ bool load(const QString &file_path, Data *data, QString *error_message)
                                     &parsed.unit_preferences.translation_snap) ||
             !read_double_preference("rotation_snap",
                                     &parsed.unit_preferences.rotation_snap) ||
+            !read_decimal_preference("length_decimals",
+                                     &parsed.unit_preferences.length_decimals) ||
+            !read_decimal_preference("angle_decimals",
+                                     &parsed.unit_preferences.angle_decimals) ||
             !read_bool_preference("show_injector_local_axes",
                                   &parsed.unit_preferences.show_injector_local_axes) ||
             !read_bool_preference("show_reference_local_axes",

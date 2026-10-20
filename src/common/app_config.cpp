@@ -901,12 +901,16 @@ bool load_unit_preferences(Unit_Preferences *preferences,
     const QJsonValue reference_transparency = units_object.value("reference_geometry_transparency");
     const QJsonValue translation_snap = units_object.value("translation_snap");
     const QJsonValue rotation_snap = units_object.value("rotation_snap");
+    const QJsonValue length_decimals = units_object.value("length_decimals");
+    const QJsonValue angle_decimals = units_object.value("angle_decimals");
     const QJsonValue show_injector_axes = units_object.value("show_injector_local_axes");
     const QJsonValue show_reference_axes = units_object.value("show_reference_local_axes");
     if ((!injector_transparency.isUndefined() && !injector_transparency.isDouble()) ||
         (!reference_transparency.isUndefined() && !reference_transparency.isDouble()) ||
         (!translation_snap.isUndefined() && !translation_snap.isDouble()) ||
         (!rotation_snap.isUndefined() && !rotation_snap.isDouble()) ||
+        (!length_decimals.isUndefined() && !length_decimals.isDouble()) ||
+        (!angle_decimals.isUndefined() && !angle_decimals.isDouble()) ||
         (!show_injector_axes.isUndefined() && !show_injector_axes.isBool()) ||
         (!show_reference_axes.isUndefined() && !show_reference_axes.isBool()))
     {
@@ -918,6 +922,22 @@ bool load_unit_preferences(Unit_Preferences *preferences,
     if (reference_transparency.isDouble()) loaded.reference_geometry_transparency = reference_transparency.toDouble();
     if (translation_snap.isDouble()) loaded.translation_snap = translation_snap.toDouble();
     if (rotation_snap.isDouble()) loaded.rotation_snap = rotation_snap.toDouble();
+    const auto read_decimals = [](const QJsonValue &value, int *target)
+    {
+        if (!value.isDouble() || target == nullptr)
+        {
+            return;
+        }
+        const double number = value.toDouble();
+        if (!std::isfinite(number) || std::abs(number - std::round(number)) > 1.0e-6)
+        {
+            *target = -1;
+            return;
+        }
+        *target = static_cast<int>(std::round(number));
+    };
+    read_decimals(length_decimals, &loaded.length_decimals);
+    read_decimals(angle_decimals, &loaded.angle_decimals);
     if (show_injector_axes.isBool()) loaded.show_injector_local_axes = show_injector_axes.toBool();
     if (show_reference_axes.isBool()) loaded.show_reference_local_axes = show_reference_axes.toBool();
 
@@ -980,6 +1000,8 @@ bool save_unit_preferences(const Unit_Preferences &preferences,
     units_object.insert("reference_geometry_transparency", preferences.reference_geometry_transparency);
     units_object.insert("translation_snap", preferences.translation_snap);
     units_object.insert("rotation_snap", preferences.rotation_snap);
+    units_object.insert("length_decimals", preferences.length_decimals);
+    units_object.insert("angle_decimals", preferences.angle_decimals);
     units_object.insert("show_injector_local_axes", preferences.show_injector_local_axes);
     units_object.insert("show_reference_local_axes", preferences.show_reference_local_axes);
     root_object.insert("unit_preferences", units_object);

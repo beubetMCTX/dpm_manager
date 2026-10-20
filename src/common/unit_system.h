@@ -40,6 +40,10 @@ struct Unit_Preferences
     // Stored in base units (metres/radians); editors display preferred units.
     double translation_snap = 1.0e-3;
     double rotation_snap = 3.14159265358979323846 / 12.0;
+    // Position and angle editors normally show this many decimal places.
+    // A component left off the translation step by rotation may show three.
+    int length_decimals = 2;
+    int angle_decimals = 2;
     bool show_injector_local_axes = true;
     bool show_reference_local_axes = true;
 };

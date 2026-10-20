@@ -1,5 +1,16 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-21 Display Precision And Axis Follow
+
+- Display Units now has Length Decimals and Angle Decimals, default 2.
+- Position and angle spin boxes use that precision. If rotation leaves another
+  axis off the translation step, that component keeps three decimal places.
+- Spin-box steps follow Translation Snap and Rotation Snap. Position edits snap
+  the change relative to the current value, so a sub-step residue is not pulled
+  onto the grid.
+- Inspector translation now moves the injector local axes and any attached gizmo
+  with the model.
+
 ### 2026-10-21 Inspector Edits And Selection Drag
 
 - Selection mode now only picks injectors. Direct dragging remains for reference geometry; translation and rotation stay on the gizmo.

@@ -153,6 +153,15 @@ bool UnitSystem::validate_preferences(const Unit_Preferences &preferences,
         }
         return false;
     }
+    if (preferences.length_decimals < 0 || preferences.length_decimals > 6 ||
+        preferences.angle_decimals < 0 || preferences.angle_decimals > 6)
+    {
+        if (error_message != nullptr)
+        {
+            *error_message = "Display decimals must be integers from 0 through 6.";
+        }
+        return false;
+    }
     return true;
 }
 

@@ -22,6 +22,7 @@
 #include <QDialogButtonBox>
 #include <QSizePolicy>
 #include <QtMath>
+#include <cmath>
 #include <QDebug>
 #include <QApplication>
 #include <QButtonGroup>
@@ -104,6 +105,86 @@ double display_angle_to_storage(double value)
     return convert_display_value(
         value, UnitSystem::preferred_display_unit("deg"),
         QStringLiteral("deg"));
+}
+
+int clamped_decimals(int decimals)
+{
+    if (decimals < 0)
+    {
+        return 0;
+    }
+    return decimals > 6 ? 6 : decimals;
+}
+
+int decimals_keeping_residue(double value, int preferred)
+{
+    preferred = clamped_decimals(preferred);
+    if (!std::isfinite(value))
+    {
+        return preferred;
+    }
+    const double quantum = std::pow(10.0, -static_cast<double>(preferred));
+    if (!(quantum > 0.0))
+    {
+        return preferred;
+    }
+    const double nearest = std::round(value / quantum) * quantum;
+    if (std::abs(value - nearest) > quantum * 1.0e-4)
+    {
+        return preferred > 3 ? preferred : 3;
+    }
+    return preferred;
+}
+
+double length_editor_step()
+{
+    const double step = storage_length_to_display(
+        UnitSystem::active_preferences().translation_snap);
+    if (std::isfinite(step) && step > 0.0)
+    {
+        return step;
+    }
+    return std::pow(10.0, -static_cast<double>(
+        clamped_decimals(UnitSystem::active_preferences().length_decimals)));
+}
+
+double angle_editor_step()
+{
+    bool ok = false;
+    const double step = UnitSystem::from_base(
+        UnitSystem::active_preferences().rotation_snap,
+        UnitSystem::preferred_display_unit("deg"),
+        &ok);
+    if (ok && std::isfinite(step) && step > 0.0)
+    {
+        return step;
+    }
+    return std::pow(10.0, -static_cast<double>(
+        clamped_decimals(UnitSystem::active_preferences().angle_decimals)));
+}
+
+void assign_length_editor(QDoubleSpinBox *box, double display_value)
+{
+    if (box == nullptr)
+    {
+        return;
+    }
+    box->setDecimals(decimals_keeping_residue(
+        display_value, UnitSystem::active_preferences().length_decimals));
+    box->setSingleStep(length_editor_step());
+    box->setValue(display_value);
+}
+
+void assign_angle_editor(QDoubleSpinBox *box, double display_value)
+{
+    if (box == nullptr)
+    {
+        return;
+    }
+    box->setDecimals(decimals_keeping_residue(
+        display_value, UnitSystem::active_preferences().angle_decimals));
+    box->setSingleStep(angle_editor_step());
+    box->setValue(display_value);
 }
 
 void configure_common_injector(Unit &unit, const QString &name, const QVector3D &pos)
@@ -3350,6 +3431,7 @@ void MainWindow::apply_reference_geometry_display_units()
         if (spin != nullptr)
         {
             spin->setSuffix(length_suffix);
+            spin->setSingleStep(length_editor_step());
         }
     }
     for (QDoubleSpinBox *spin : {m_reference_rotation_x,
@@ -3359,6 +3441,7 @@ void MainWindow::apply_reference_geometry_display_units()
         if (spin != nullptr)
         {
             spin->setSuffix(angle_suffix);
+            spin->setSingleStep(angle_editor_step());
         }
     }
 }
@@ -3412,12 +3495,12 @@ void MainWindow::update_reference_geometry_panel()
     const QSignalBlocker rotation_y_blocker(m_reference_rotation_y);
     const QSignalBlocker rotation_z_blocker(m_reference_rotation_z);
     apply_reference_geometry_display_units();
-    m_reference_position_x->setValue(storage_length_to_display(position.x()));
-    m_reference_position_y->setValue(storage_length_to_display(position.y()));
-    m_reference_position_z->setValue(storage_length_to_display(position.z()));
-    m_reference_rotation_x->setValue(storage_angle_to_display(rotation.x()));
-    m_reference_rotation_y->setValue(storage_angle_to_display(rotation.y()));
-    m_reference_rotation_z->setValue(storage_angle_to_display(rotation.z()));
+    assign_length_editor(m_reference_position_x, storage_length_to_display(position.x()));
+    assign_length_editor(m_reference_position_y, storage_length_to_display(position.y()));
+    assign_length_editor(m_reference_position_z, storage_length_to_display(position.z()));
+    assign_angle_editor(m_reference_rotation_x, storage_angle_to_display(rotation.x()));
+    assign_angle_editor(m_reference_rotation_y, storage_angle_to_display(rotation.y()));
+    assign_angle_editor(m_reference_rotation_z, storage_angle_to_display(rotation.z()));
     update_reference_geometry_controls();
 }
 
@@ -4115,6 +4198,9 @@ void MainWindow::apply_array_editor_display_units()
         if (spin != nullptr)
         {
             spin->setSuffix(length_suffix);
+            spin->setDecimals(clamped_decimals(
+                UnitSystem::active_preferences().length_decimals));
+            spin->setSingleStep(length_editor_step());
         }
     }
     for (QDoubleSpinBox *spin : {m_array_editor_rotational_angle,
@@ -4123,6 +4209,9 @@ void MainWindow::apply_array_editor_display_units()
         if (spin != nullptr)
         {
             spin->setSuffix(angle_suffix);
+            spin->setDecimals(clamped_decimals(
+                UnitSystem::active_preferences().angle_decimals));
+            spin->setSingleStep(angle_editor_step());
         }
     }
 }
@@ -5035,8 +5124,9 @@ void MainWindow::create_object_list_panel()
     {
         auto *box = new QDoubleSpinBox(m_unit_position_group);
         box->setRange(-1.0e9, 1.0e9);
-        box->setDecimals(6);
-        box->setSingleStep(0.1);
+        box->setDecimals(clamped_decimals(
+            UnitSystem::active_preferences().length_decimals));
+        box->setSingleStep(length_editor_step());
         box->setKeyboardTracking(false);
         box->setEnabled(false);
         return box;
@@ -5083,8 +5173,9 @@ void MainWindow::create_object_list_panel()
     for (QDoubleSpinBox *box : {m_unit_pitch, m_unit_yaw})
     {
         box->setRange(-360.0, 360.0);
-        box->setDecimals(4);
-        box->setSingleStep(1.0);
+        box->setDecimals(clamped_decimals(
+            UnitSystem::active_preferences().angle_decimals));
+        box->setSingleStep(angle_editor_step());
         box->setKeyboardTracking(false);
         box->setEnabled(false);
     }
@@ -5096,8 +5187,9 @@ void MainWindow::create_object_list_panel()
     {
         auto *box = new QDoubleSpinBox(m_unit_direction_group);
         box->setRange(-1.0e9, 1.0e9);
-        box->setDecimals(6);
-        box->setSingleStep(0.1);
+        box->setDecimals(clamped_decimals(
+            UnitSystem::active_preferences().length_decimals));
+        box->setSingleStep(length_editor_step());
         box->setKeyboardTracking(false);
         box->setEnabled(false);
         return box;
@@ -5532,8 +5624,9 @@ void MainWindow::create_object_list_panel()
         {
             auto *box = new QDoubleSpinBox(&dialog);
             box->setRange(-1.0e9, 1.0e9);
-            box->setDecimals(6);
-            box->setSingleStep(0.1);
+            box->setDecimals(clamped_decimals(
+                UnitSystem::active_preferences().length_decimals));
+            box->setSingleStep(length_editor_step());
             return box;
         };
         auto *x_box = create_offset_box();
@@ -5612,6 +5705,9 @@ void MainWindow::create_object_list_panel()
         auto *axis_z = create_box(1.0);
         auto *angle = create_box(0.0);
         angle->setSuffix(" " + UnitSystem::preferred_display_unit("deg"));
+        angle->setDecimals(clamped_decimals(
+            UnitSystem::active_preferences().angle_decimals));
+        angle->setSingleStep(angle_editor_step());
         auto *axis_source = new QComboBox(&dialog);
         axis_source->addItem("Custom", 0);
         QVector3D reference_origin;
@@ -7440,17 +7536,17 @@ void MainWindow::update_unit_position_controls()
         const double converted = UnitSystem::convert(value, "m", display_length, &ok);
         return ok ? converted : value;
     };
-    m_unit_position_x->setValue(from_storage(position.x()));
-    m_unit_position_y->setValue(from_storage(position.y()));
-    m_unit_position_z->setValue(from_storage(position.z()));
+    assign_length_editor(m_unit_position_x, from_storage(position.x()));
+    assign_length_editor(m_unit_position_y, from_storage(position.y()));
+    assign_length_editor(m_unit_position_z, from_storage(position.z()));
     m_unit_direction_x->setValue(direction.x());
     m_unit_direction_y->setValue(direction.y());
     m_unit_direction_z->setValue(direction.z());
-    m_unit_pitch->setValue(storage_angle_to_display(pitch));
-    m_unit_yaw->setValue(storage_angle_to_display(yaw));
-    m_unit_target_x->setValue(from_storage(target.x()));
-    m_unit_target_y->setValue(from_storage(target.y()));
-    m_unit_target_z->setValue(from_storage(target.z()));
+    assign_angle_editor(m_unit_pitch, storage_angle_to_display(pitch));
+    assign_angle_editor(m_unit_yaw, storage_angle_to_display(yaw));
+    assign_length_editor(m_unit_target_x, from_storage(target.x()));
+    assign_length_editor(m_unit_target_y, from_storage(target.y()));
+    assign_length_editor(m_unit_target_z, from_storage(target.z()));
     const int target_scope_index = m_unit_target_scope->findData(
         static_cast<int>(target_scope));
     if (target_scope_index >= 0)

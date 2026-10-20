@@ -10,6 +10,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QSlider>
+#include <QSpinBox>
 #include <QVBoxLayout>
 #include <QtMath>
 
@@ -92,6 +93,15 @@ UnitPreferencesDialog::UnitPreferencesDialog(const Unit_Preferences &preferences
         preferences.rotation_snap, preferences.angle));
     add_unit_row(form_layout, "Rotation Snap", m_rotation_snap);
 
+    m_length_decimals = new QSpinBox(this);
+    m_length_decimals->setRange(0, 6);
+    m_length_decimals->setValue(preferences.length_decimals);
+    add_unit_row(form_layout, "Length Decimals", m_length_decimals);
+    m_angle_decimals = new QSpinBox(this);
+    m_angle_decimals->setRange(0, 6);
+    m_angle_decimals->setValue(preferences.angle_decimals);
+    add_unit_row(form_layout, "Angle Decimals", m_angle_decimals);
+
     auto *transparency_widget = new QWidget(this);
     auto *transparency_layout = new QHBoxLayout(transparency_widget);
     transparency_layout->setContentsMargins(0, 0, 0, 0);
@@ -148,5 +158,7 @@ Unit_Preferences UnitPreferencesDialog::preferences() const
         m_rotation_snap->value(), result.angle);
     result.show_injector_local_axes = m_show_injector_axes->isChecked();
     result.show_reference_local_axes = m_show_reference_axes->isChecked();
+    result.length_decimals = m_length_decimals->value();
+    result.angle_decimals = m_angle_decimals->value();
     return result;
 }

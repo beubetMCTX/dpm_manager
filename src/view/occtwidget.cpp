@@ -39,6 +39,31 @@ QVector3D snap_position(const QVector3D &position, double increment)
         static_cast<float>(snap_scalar(position.z(), increment)));
 }
 
+QVector3D snap_position_relative(const QVector3D &current,
+                                 const QVector3D &requested,
+                                 double increment)
+{
+    if (!std::isfinite(increment) || increment <= 0.0)
+    {
+        return requested;
+    }
+    const auto snap_component = [increment](float current_value, float requested_value)
+    {
+        const double delta = static_cast<double>(requested_value) -
+                             static_cast<double>(current_value);
+        if (!std::isfinite(delta))
+        {
+            return requested_value;
+        }
+        const double snapped_delta = std::round(delta / increment) * increment;
+        return static_cast<float>(static_cast<double>(current_value) + snapped_delta);
+    };
+    return QVector3D(
+        snap_component(current.x(), requested.x()),
+        snap_component(current.y(), requested.y()),
+        snap_component(current.z(), requested.z()));
+}
+
 QVector3D snap_translation_delta(const QVector3D &position,
                                  const QVector3D &delta,
                                  double increment)
@@ -2991,6 +3016,27 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         {
             rebuild_unit_outputs(uuid, visited);
         }
+        for (const QUuid &uuid : operation_uuids)
+        {
+            update_unit_local_coordinate_frame(uuid);
+        }
+        if (!m_transform_gizmo.IsNull() &&
+            operation_set.contains(m_transform_gizmo_uuid))
+        {
+            const std::shared_ptr<Unit> gizmo_unit =
+                unit_hash.value(m_transform_gizmo_uuid);
+            if (gizmo_unit != nullptr)
+            {
+                const QVector3D origin =
+                    injector_frame_origin(gizmo_unit->inj.injector_data);
+                m_transform_gizmo->SetPosition(gp_Ax2(
+                    gp_Pnt(origin.x(), origin.y(), origin.z()),
+                    gp_Dir(0.0, 0.0, 1.0),
+                    gp_Dir(1.0, 0.0, 0.0)));
+                m_transform_gizmo->SetToUpdate();
+                m_transform_gizmo_position = origin;
+            }
+        }
     }
     if (translated_count > 0 && !m_view.IsNull())
     {
@@ -3589,10 +3635,12 @@ bool OCCTWidget::set_unit_position_by_uuid(const QUuid &uuid,
         return false;
     }
 
-    const QVector3D snapped_position = snap_position(
-        position, UnitSystem::active_preferences().translation_snap);
-    const QVector3D delta = snapped_position - unit->inj.injector_data.pos;
-    return !delta.isNull() && translate_units_by_uuid({unit->inj.uuid}, delta) > 0;
+    const QVector3D current = unit->inj.injector_data.pos;
+    const QVector3D snapped_position = snap_position_relative(
+        current, position, UnitSystem::active_preferences().translation_snap);
+    const QVector3D delta = snapped_position - current;
+    return delta.lengthSquared() > 1.0e-12f &&
+           translate_units_by_uuid({unit->inj.uuid}, delta) > 0;
 }
 
 int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
