@@ -663,6 +663,53 @@ int main(int argc, char *argv[])
         return 1;
     }
     widget.set_interaction_mode(OCCTWidget::Interaction_Mode::Selection);
+    if (!check(!widget.transform_gizmo_active(),
+               "Selection mode should detach the transform gizmo"))
+    {
+        return 1;
+    }
+
+    widget.set_interaction_mode(OCCTWidget::Interaction_Mode::Translation);
+    if (!check(widget.transform_gizmo_active() &&
+                   widget.transform_gizmo_target() == uuid,
+               "Translation mode should reattach axes to the selected injector"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_visible(uuid, false) &&
+                   !widget.transform_gizmo_active(),
+               "Hiding the selected injector should remove its gizmo"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_visible(uuid, true) &&
+                   widget.select_unit_by_uuid(uuid) &&
+                   widget.transform_gizmo_active(),
+               "Showing and reselecting an injector should restore its gizmo"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_locked(uuid, true) &&
+                   !widget.transform_gizmo_active(),
+               "Locking an injector should detach its gizmo"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_locked(uuid, false),
+               "Unlocking an injector should succeed"))
+    {
+        return 1;
+    }
+    widget.set_interaction_mode(OCCTWidget::Interaction_Mode::Rotation);
+    if (!check(widget.transform_gizmo_active() &&
+                   widget.transform_gizmo_target() == uuid &&
+                   widget.interaction_mode() ==
+                       OCCTWidget::Interaction_Mode::Rotation,
+               "Unlocking should allow the rotation gizmo to attach again"))
+    {
+        return 1;
+    }
+    widget.set_interaction_mode(OCCTWidget::Interaction_Mode::Selection);
 
     Unit second_source = make_valid_unit();
     second_source.inj.injector_data.name = "assembly-seed";

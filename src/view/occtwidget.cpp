@@ -1067,6 +1067,10 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
         }
         else
         {
+            if (m_transform_gizmo_uuid == current_uuid)
+            {
+                clear_transform_gizmo();
+            }
             m_context->Erase(current->ais_display, Standard_False);
             if (!m_unit_local_trihedrons.value(current_uuid).IsNull())
             {
@@ -1131,6 +1135,10 @@ void OCCTWidget::set_all_units_visible(bool visible)
         }
         else
         {
+            if (m_transform_gizmo_uuid == uuid)
+            {
+                clear_transform_gizmo();
+            }
             m_context->Erase(unit->ais_display, Standard_False);
             if (!m_unit_local_trihedrons.value(uuid).IsNull())
             {
@@ -1877,6 +1885,10 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
         }
         const bool changed = m_unit_locks.value(current_uuid, false) != locked;
         m_unit_locks.insert(current_uuid, locked);
+        if (locked && m_transform_gizmo_uuid == current_uuid)
+        {
+            clear_transform_gizmo();
+        }
         if (locked && selected_shape == current->ais_display)
         {
             myIsDragging = false;
@@ -2371,14 +2383,49 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
         .SetEnableModes(Standard_False);
 
     m_transform_gizmo = new AIS_Manipulator();
+    // Keep the handle planted on the pivot. Following the dragged shape
+    // feeds the manipulator's own translation back into the preview.
+    AIS_Manipulator::BehaviorOnTransform behavior;
+    behavior.SetFollowTranslation(Standard_False);
+    behavior.SetFollowRotation(Standard_False);
+    behavior.SetFollowDragging(Standard_False);
+    m_transform_gizmo->SetTransformBehavior(behavior);
     m_transform_gizmo->Attach(unit->ais_display, options);
     m_transform_gizmo->SetPosition(world_position);
-    // Size the handle from the selected injector, not the reference geometry.
-    // This keeps interaction scale stable when a large model is loaded.
-    m_transform_gizmo->SetZoomPersistence(Standard_True);
-    const Standard_Real gizmo_size =
-        shape_extent(unit->inj.shape, get_trihedron_size()) * 4.0;
-    m_transform_gizmo->SetSize(std::max(gizmo_size, 1.0e-4));
+    // Zoom persistence on AIS_Manipulator parks the geometry at the origin
+    // and then anchors it. With this OCCT build that anchor collapses, so the
+    // axes and rings never appear on the injector. Size them from the current
+    // view instead: about 110 pixels, independent of the reference model.
+    m_transform_gizmo->SetZoomPersistence(Standard_False);
+    Standard_Real gizmo_size =
+        shape_extent(unit->inj.shape, get_trihedron_size()) * 0.75;
+    if (!m_view->Window().IsNull())
+    {
+        Standard_Integer width = 0;
+        Standard_Integer height = 0;
+        m_view->Window()->Size(width, height);
+        if (width > 2 && height > 2)
+        {
+            Standard_Real x0 = 0.0;
+            Standard_Real y0 = 0.0;
+            Standard_Real z0 = 0.0;
+            Standard_Real x1 = 0.0;
+            Standard_Real y1 = 0.0;
+            Standard_Real z1 = 0.0;
+            const Standard_Integer sample = 100;
+            m_view->Convert(width / 2, height / 2, x0, y0, z0);
+            m_view->Convert(width / 2 + sample, height / 2, x1, y1, z1);
+            const Standard_Real world_per_pixel =
+                gp_Pnt(x0, y0, z0).Distance(gp_Pnt(x1, y1, z1)) /
+                static_cast<Standard_Real>(sample);
+            if (std::isfinite(world_per_pixel) && world_per_pixel > 1.0e-12)
+            {
+                gizmo_size = world_per_pixel * 110.0;
+            }
+        }
+    }
+    gizmo_size = std::min(std::max(gizmo_size, 1.0e-3), 30000.0);
+    m_transform_gizmo->SetSize(static_cast<Standard_ShortReal>(gizmo_size));
     m_transform_gizmo->SetPart(AIS_MM_Translation, mode == AIS_MM_Translation);
     m_transform_gizmo->SetPart(AIS_MM_Rotation, mode == AIS_MM_Rotation);
     m_transform_gizmo->SetPart(AIS_MM_Scaling, Standard_False);
@@ -2432,6 +2479,9 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
 
     // Attach() displays the manipulator, but the visual parts and their
     // sensitive entities are configured afterwards. Rebuild both explicitly.
+    m_context->SetDisplayMode(m_transform_gizmo, AIS_Shaded, Standard_False);
+    m_context->SetZLayer(m_transform_gizmo, Graphic3d_ZLayerId_Default);
+    m_transform_gizmo->SetToUpdate();
     m_context->Display(m_transform_gizmo, Standard_False);
     m_context->Redisplay(m_transform_gizmo, Standard_False, Standard_True);
     m_context->RecomputeSelectionOnly(m_transform_gizmo);
@@ -2461,14 +2511,24 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         m_transform_gizmo_before_tree.first();
     gp_Trsf snapped_transformation = transformation;
     const Unit_Preferences preferences = UnitSystem::active_preferences();
-    if (m_transform_gizmo_mode == AIS_MM_Rotation &&
-        preferences.rotation_snap > 0.0)
+    if (m_transform_gizmo_mode == AIS_MM_Rotation)
     {
         const QVector3D pivot = injector_frame_origin(root_snapshot.injector_data);
-        snapped_transformation = transform_snap::snap_rotation_about_pivot(
-            transformation,
-            gp_Pnt(pivot.x(), pivot.y(), pivot.z()),
-            preferences.rotation_snap);
+        const gp_Pnt pivot_point(pivot.x(), pivot.y(), pivot.z());
+        gp_XYZ axis_direction;
+        Standard_Real angle = 0.0;
+        if (transformation.GetRotation(axis_direction, angle) &&
+            axis_direction.Modulus() > Precision::Confusion())
+        {
+            snapped_transformation = gp_Trsf();
+            snapped_transformation.SetRotation(
+                gp_Ax1(pivot_point, gp_Dir(axis_direction)), angle);
+        }
+        if (preferences.rotation_snap > 0.0)
+        {
+            snapped_transformation = transform_snap::snap_rotation_about_pivot(
+                snapped_transformation, pivot_point, preferences.rotation_snap);
+        }
     }
 
     Injector preview = root_snapshot.injector_data;
@@ -2508,10 +2568,16 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         update_unit_local_coordinate_frame(snapshot.uuid);
         emit unit_position_updated(affected.get());
     }
-    m_transform_gizmo->SetPosition(
-        gp_Ax2(gp_Pnt(root_position.x(), root_position.y(), root_position.z()),
-               gp_Dir(0.0, 0.0, 1.0),
-               gp_Dir(1.0, 0.0, 0.0)));
+    // Rotation stays on the pivot captured when the drag started.
+    // Moving the ring onto the preview origin makes it orbit and, in
+    // perspective, look like its radius changed.
+    if (m_transform_gizmo_mode != AIS_MM_Rotation)
+    {
+        m_transform_gizmo->SetPosition(
+            gp_Ax2(gp_Pnt(root_position.x(), root_position.y(), root_position.z()),
+                   gp_Dir(0.0, 0.0, 1.0),
+                   gp_Dir(1.0, 0.0, 0.0)));
+    }
     m_transform_gizmo_preview_changed =
         snapped_transformation.Form() != gp_Identity;
 }
@@ -6310,6 +6376,11 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
         }
     }
 
+    if (m_transform_gizmo_uuid == uuid)
+    {
+        clear_transform_gizmo();
+    }
+
     if (!m_context.IsNull() && !unit->ais_display.IsNull())
     {
         m_context->Remove(unit->ais_display, Standard_False);
@@ -9308,6 +9379,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
         if (select_face_reference())
         {
+            clear_transform_gizmo();
             m_selected_unit_uuid = QUuid();
             selected_shape = base_geometry;
             myIsDragging = !m_reference_geometry_locked;

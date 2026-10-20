@@ -26,6 +26,7 @@
 #include <QApplication>
 #include <QButtonGroup>
 #include <QFormLayout>
+#include <QFrame>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -40,7 +41,6 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
-#include <QRadioButton>
 #include <QWidgetAction>
 #include <QStyle>
 #include <QSettings>
@@ -3448,9 +3448,8 @@ void MainWindow::restore_window_layout()
     // Keep it as one overlay child of the main window instead.
     if (m_viewport_interaction_toolbar != nullptr)
     {
-        removeToolBar(m_viewport_interaction_toolbar);
-        m_viewport_interaction_toolbar->setParent(this);
         m_viewport_interaction_toolbar->show();
+        m_viewport_interaction_toolbar->raise();
         QTimer::singleShot(0, this,
                            &MainWindow::position_viewport_interaction_toolbar);
     }
@@ -4546,15 +4545,15 @@ void MainWindow::position_viewport_interaction_toolbar()
         return;
     }
 
-    m_viewport_interaction_toolbar->move(
-        m_3d_widget->mapTo(this, QPoint(8, 8)));
+    m_viewport_interaction_toolbar->move(8, 8);
     m_viewport_interaction_toolbar->raise();
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_3d_widget && event != nullptr &&
-        (event->type() == QEvent::Move || event->type() == QEvent::Resize))
+        (event->type() == QEvent::Move || event->type() == QEvent::Resize ||
+         event->type() == QEvent::Show))
     {
         position_viewport_interaction_toolbar();
     }
@@ -4570,9 +4569,8 @@ void MainWindow::changeEvent(QEvent *event)
         {
             if (m_viewport_interaction_toolbar != nullptr)
             {
-                removeToolBar(m_viewport_interaction_toolbar);
-                m_viewport_interaction_toolbar->setParent(this);
                 m_viewport_interaction_toolbar->show();
+                m_viewport_interaction_toolbar->raise();
             }
             position_viewport_interaction_toolbar();
         });
@@ -4663,81 +4661,77 @@ void MainWindow::create_object_list_panel()
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
     });
 
-    // Keep the viewport tools overlaid on the OCCT view instead of consuming
-    // space in the main window's top toolbar area.
-    m_viewport_interaction_toolbar = new QToolBar(tr("Viewport Tools"), this);
+    // Child of the viewport, not a main-window QToolBar. A toolbar stylesheet
+    // paints every QToolButton as hovered, and the native OCCT window swallows
+    // the leave event, so the highlight sticks and the mode click never lands.
+    m_viewport_interaction_toolbar = new QWidget(m_3d_widget);
     auto *interaction_toolbar = m_viewport_interaction_toolbar;
     interaction_toolbar->setObjectName("viewportInteractionToolbar");
-    interaction_toolbar->setMovable(false);
-    interaction_toolbar->setFloatable(false);
-    interaction_toolbar->setAllowedAreas(Qt::NoToolBarArea);
-    interaction_toolbar->setToolButtonStyle(Qt::ToolButtonIconOnly);
-    interaction_toolbar->setIconSize(QSize(22, 22));
-    interaction_toolbar->setContentsMargins(2, 1, 2, 1);
+    auto *interaction_layout = new QHBoxLayout(interaction_toolbar);
+    interaction_layout->setContentsMargins(2, 1, 2, 1);
+    interaction_layout->setSpacing(0);
     interaction_toolbar->setFixedHeight(30);
     interaction_toolbar->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     interaction_toolbar->setStyleSheet(
-        "QToolBar#viewportInteractionToolbar {"
-        "  background: transparent;"
+        "QWidget#viewportInteractionToolbar {"
+        "  background: rgba(18, 22, 26, 210);"
         "  border: none;"
-        "  padding: 0px;"
-        "  spacing: 0px;"
-        "}"
-        "QToolBar#viewportInteractionToolbar QRadioButton {"
+        "  border-radius: 4px;"
+        "}");
+    interaction_toolbar->setAttribute(Qt::WA_StyledBackground, true);
+    interaction_toolbar->setAttribute(Qt::WA_NativeWindow);
+    interaction_toolbar->show();
+    interaction_toolbar->raise();
+    QTimer::singleShot(0, this, &MainWindow::position_viewport_interaction_toolbar);
+    auto *toolbar_selection = new QToolButton(interaction_toolbar);
+    auto *toolbar_translation = new QToolButton(interaction_toolbar);
+    auto *toolbar_rotation = new QToolButton(interaction_toolbar);
+    const QString mode_button_style = QStringLiteral(
+        "QToolButton {"
         "  background: transparent;"
         "  border: none;"
         "  border-radius: 3px;"
         "  padding: 2px;"
         "  margin: 0px;"
         "}"
-        "QToolBar#viewportInteractionToolbar QRadioButton::indicator {"
-        "  width: 0px; height: 0px;"
-        "}"
-        "QToolBar#viewportInteractionToolbar QRadioButton:hover {"
+        "QToolButton:hover:!checked {"
         "  background: #39424B;"
         "}"
-        "QToolBar#viewportInteractionToolbar QRadioButton:checked {"
+        "QToolButton:checked {"
         "  background: #356A5A;"
         "}"
-        "QToolBar#viewportInteractionToolbar QRadioButton:checked:hover {"
-        "  background: #356A5A;"
-        "}"
-        "QToolBar#viewportInteractionToolbar::separator {"
-        "  width: 1px;"
-        "  background: rgba(235, 240, 245, 80);"
-        "  margin: 5px 2px;"
+        "QToolButton:checked:hover {"
+        "  background: #3E7A68;"
         "}");
-    interaction_toolbar->setAttribute(Qt::WA_TranslucentBackground);
-    interaction_toolbar->setAutoFillBackground(false);
-    interaction_toolbar->setAttribute(Qt::WA_NativeWindow);
-    position_viewport_interaction_toolbar();
-    interaction_toolbar->show();
-    interaction_toolbar->raise();
-    QTimer::singleShot(0, this, &MainWindow::position_viewport_interaction_toolbar);
-    auto *toolbar_selection = new QRadioButton(interaction_toolbar);
-    auto *toolbar_translation = new QRadioButton(interaction_toolbar);
-    auto *toolbar_rotation = new QRadioButton(interaction_toolbar);
-    const QList<QPair<QRadioButton *, QString>> mode_buttons = {
+    const QList<QPair<QToolButton *, QString>> mode_buttons = {
         {toolbar_selection, QStringLiteral("icon-select.svg")},
         {toolbar_translation, QStringLiteral("icon-translate.svg")},
         {toolbar_rotation, QStringLiteral("icon-rotate.svg")}};
     for (const auto &button_and_icon : mode_buttons)
     {
-        QRadioButton *button = button_and_icon.first;
+        QToolButton *button = button_and_icon.first;
         button->setIcon(QIcon(QStringLiteral(":/ui/icons/") +
                               button_and_icon.second));
         button->setText(QString());
+        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setAutoRaise(false);
         button->setCheckable(true);
+        button->setFocusPolicy(Qt::NoFocus);
         button->setFixedSize(30, 26);
         button->setIconSize(QSize(22, 22));
-        auto *mode_action = new QWidgetAction(interaction_toolbar);
-        mode_action->setDefaultWidget(button);
-        interaction_toolbar->addAction(mode_action);
+        button->setStyleSheet(mode_button_style);
+        interaction_layout->addWidget(button);
     }
     toolbar_selection->setToolTip(tr("Select"));
     toolbar_translation->setToolTip(tr("Translate"));
     toolbar_rotation->setToolTip(tr("Rotate"));
-    interaction_toolbar->addSeparator();
+    auto *mode_separator = new QFrame(interaction_toolbar);
+    mode_separator->setFrameShape(QFrame::VLine);
+    mode_separator->setFixedWidth(1);
+    mode_separator->setStyleSheet("background: rgba(235, 240, 245, 80);");
+    interaction_layout->addSpacing(4);
+    interaction_layout->addWidget(mode_separator);
+    interaction_layout->addSpacing(4);
     auto *array_tools_action = new QAction(
         QIcon(QStringLiteral(":/ui/icons/icon-array.svg")),
         tr("Array Tools..."), interaction_toolbar);
@@ -4762,13 +4756,21 @@ void MainWindow::create_object_list_panel()
     {
         action->setToolTip(action->text());
     }
-    interaction_toolbar->addAction(new_injector_action);
-    interaction_toolbar->addAction(assembly_tools_action);
-    interaction_toolbar->addAction(array_tools_action);
-    interaction_toolbar->addAction(fill_tools_action);
-    interaction_toolbar->addAction(test_set_action);
-    interaction_toolbar->addAction(reference_tools_action);
+    for (QAction *action : {new_injector_action, assembly_tools_action,
+                            array_tools_action, fill_tools_action,
+                            test_set_action, reference_tools_action})
+    {
+        auto *tool_button = new QToolButton(interaction_toolbar);
+        tool_button->setDefaultAction(action);
+        tool_button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        tool_button->setAutoRaise(true);
+        tool_button->setFocusPolicy(Qt::NoFocus);
+        tool_button->setFixedSize(30, 26);
+        tool_button->setIconSize(QSize(22, 22));
+        interaction_layout->addWidget(tool_button);
+    }
     interaction_toolbar->adjustSize();
+    interaction_toolbar->setFixedWidth(interaction_toolbar->sizeHint().width());
     auto *toolbar_mode_group = new QButtonGroup(interaction_toolbar);
     toolbar_mode_group->setExclusive(true);
     toolbar_mode_group->addButton(
@@ -4781,11 +4783,33 @@ void MainWindow::create_object_list_panel()
         toolbar_rotation,
         static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
     toolbar_selection->setChecked(true);
-    connect(toolbar_mode_group, &QButtonGroup::idClicked, this,
-            [this](int mode)
+    const auto activate_mode = [this](OCCTWidget::Interaction_Mode mode,
+                                      const QString &message)
     {
-        m_3d_widget->set_interaction_mode(
-            static_cast<OCCTWidget::Interaction_Mode>(mode));
+        if (m_3d_widget == nullptr)
+        {
+            return;
+        }
+        m_3d_widget->set_interaction_mode(mode);
+        statusBar()->showMessage(message, 3000);
+    };
+    connect(toolbar_selection, &QToolButton::clicked, this,
+            [activate_mode]()
+    {
+        activate_mode(OCCTWidget::Interaction_Mode::Selection,
+                      QStringLiteral("Selection mode"));
+    });
+    connect(toolbar_translation, &QToolButton::clicked, this,
+            [activate_mode]()
+    {
+        activate_mode(OCCTWidget::Interaction_Mode::Translation,
+                      QStringLiteral("Translation mode"));
+    });
+    connect(toolbar_rotation, &QToolButton::clicked, this,
+            [activate_mode]()
+    {
+        activate_mode(OCCTWidget::Interaction_Mode::Rotation,
+                      QStringLiteral("Rotation mode"));
     });
     connect(array_tools_action, &QAction::triggered, this, [this]()
     {

@@ -45,3 +45,25 @@ exclusive `QButtonGroup`, with stable checked-state styling.
 - `src/app/mainwindow.cpp`
 - `discussion_planning/README.md`
 - `discussion_planning/2026-10-21-viewport-gizmo-handoff.md`
+
+## Follow-up - gizmo lifetime
+
+Code review found the mode-switch UUID fix already on `main`. Remaining holes:
+hide, hide-all, delete, lock, and reference-face selection left
+`AIS_Manipulator` attached.
+
+- Those paths now call `clear_transform_gizmo()` before the target leaves
+  the scene or becomes locked.
+- Unlock plus a later mode change can attach again because the selected
+  shape UUID is kept.
+- `OCCTWidget::transform_gizmo_active()` / `transform_gizmo_target()` cover
+  the regression test.
+
+Release rebuild of `build/codex_msvc142_release` succeeded. CTest `13/13`
+passed, including hide/lock/reattach checks. `git diff --check` passed.
+
+Live click-through of Select -> Translate -> Rotate -> Select is still not done by a person.
+Testing rule from the user: data is disposable until they say otherwise, so
+old app instances may be closed and replaced. The old `release_gizmo`
+process was closed and `build/codex_msvc142_release/dpm_manager.exe` was
+started.

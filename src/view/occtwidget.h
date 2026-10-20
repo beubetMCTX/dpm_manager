@@ -229,6 +229,11 @@ public:
     bool activate_rotation_gizmo(const QUuid &uuid);
     void set_interaction_mode(Interaction_Mode mode);
     Interaction_Mode interaction_mode() const { return m_interaction_mode; }
+    bool transform_gizmo_active() const
+    {
+        return !m_transform_gizmo.IsNull() && !m_transform_gizmo_uuid.isNull();
+    }
+    QUuid transform_gizmo_target() const { return m_transform_gizmo_uuid; }
     void clear_transform_gizmo();
     void apply_visual_preferences(const Unit_Preferences &preferences);
     int translate_units_by_uuid(const QList<QUuid> &uuids,

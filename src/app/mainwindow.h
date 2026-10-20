@@ -195,7 +195,7 @@ private:
     QList<ReferenceGeometryConfig> m_project_reference_geometries;
     QUuid m_project_active_reference_geometry_uuid;
     QToolBar *m_chemkin_toolbar = nullptr;
-    QToolBar *m_viewport_interaction_toolbar = nullptr;
+    QWidget *m_viewport_interaction_toolbar = nullptr;
     QLabel *m_chemkin_status_label = nullptr;
     QLineEdit *m_chemkin_path_edit = nullptr;
     QMenu *m_recent_projects_menu = nullptr;
