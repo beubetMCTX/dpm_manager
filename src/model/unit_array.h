@@ -49,4 +49,12 @@ void reconcile_fill_spec_identity(UnitFillSpec &spec,
                                   const UnitFillSpec &previous);
 void ensure_fill_spec_identity(UnitFillSpec &spec);
 
+// New array layers should not inherit the hardcoded world +X default.
+// Direction is a stable offset perpendicular to the injector, and the
+// plane normal follows the injector spray axis.
+void array_frame_from_injector(const Injector &injector,
+                               QVector3D *origin,
+                               QVector3D *direction,
+                               QVector3D *plane_normal);
+
 #endif // UNIT_ARRAY_H

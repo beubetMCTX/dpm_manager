@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "unit_array.h"
 #include "./ui_mainwindow.h"
 #include "app_config.h"
 #include "chemkin_io.h"
@@ -4030,6 +4031,10 @@ void MainWindow::refresh_array_editor_panel()
         {
             m_array_editor_fill_group->hide();
         }
+        if (m_array_editor_frame_group != nullptr)
+        {
+            m_array_editor_frame_group->hide();
+        }
         m_array_editor_updating = false;
         load_array_editor_layer(-1);
         return;
@@ -4060,8 +4065,7 @@ void MainWindow::refresh_array_editor_panel()
     }
     if (m_array_editor_frame_group != nullptr)
     {
-        m_array_editor_frame_group->setVisible(
-            has_fill || source->has_array_spec);
+        m_array_editor_frame_group->setVisible(true);
     }
 
     const QList<UnitArraySpec> specs =
@@ -4300,12 +4304,24 @@ void MainWindow::load_array_editor_layer(int layer_index)
     {
         spec = specs.at(layer_index);
     }
+    else if (source != nullptr)
+    {
+        // A blank UnitArraySpec points both axes at world +X. That default is
+        // unrelated to the selected injector, so seed the new layer from it.
+        array_frame_from_injector(source->inj.injector_data,
+                                  &spec.origin, &spec.direction,
+                                  &spec.plane_normal);
+        spec.count = 4;
+        spec.type = UnitArrayType::Linear;
+        spec.use_reference_geometry = false;
+        spec.conform_to_reference_normal = false;
+    }
 
     m_array_editor_type->setCurrentIndex(static_cast<int>(spec.type));
     m_array_editor_count->setValue(spec.count);
     apply_array_editor_display_units();
     m_array_editor_linear_spacing->setValue(
-        storage_length_to_display(spec.spacing));
+        storage_length_to_display(has_layer ? spec.spacing : 0.004f));
     m_array_editor_rotational_angle->setValue(
         storage_angle_to_display(spec.angle_degrees));
     m_array_editor_rotational_spacing->setValue(
@@ -6485,6 +6501,14 @@ void MainWindow::create_object_list_panel()
 
             UnitArraySpec spec;
             spec.count = count;
+            const std::shared_ptr<Unit> array_source =
+                m_3d_widget->unit_hash.value(uuid);
+            if (array_source != nullptr)
+            {
+                array_frame_from_injector(array_source->inj.injector_data,
+                                          &spec.origin, &spec.direction,
+                                          &spec.plane_normal);
+            }
             QVector3D reference_origin;
             QVector3D reference_x;
             QVector3D reference_z;
@@ -6529,7 +6553,6 @@ void MainWindow::create_object_list_panel()
             else if (array_type == "Rotational")
             {
                 spec.type = UnitArrayType::Rotational;
-                spec.direction = QVector3D(1.0f, 0.0f, 0.0f);
                 spec.angle_degrees = QInputDialog::getDouble(
                     this, "Rotational Array",
                     QString("Total angle (%1):").arg(
@@ -6557,7 +6580,6 @@ void MainWindow::create_object_list_panel()
             else if (array_type == "Mirror")
             {
                 spec.type = UnitArrayType::Mirror;
-                spec.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
                 spec.count = 2;
             }
             else

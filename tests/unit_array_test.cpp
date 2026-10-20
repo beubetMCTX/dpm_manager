@@ -337,5 +337,32 @@ int main(int argc, char **argv)
     ok = check(prefix_instances.size() == 2 &&
                    prefix_instances[1]->inj.injector_data.name.startsWith("AB"),
                "Composite fill should prefer the longest source-name match") && ok;
+    Injector x_injector;
+    x_injector.injection_type = single;
+    x_injector.vel = QVector3D(4.0f, 0.0f, 0.0f);
+    x_injector.pos = QVector3D(1.0f, 2.0f, 3.0f);
+    QVector3D frame_origin;
+    QVector3D frame_direction;
+    QVector3D frame_normal;
+    array_frame_from_injector(x_injector, &frame_origin, &frame_direction,
+                              &frame_normal);
+    ok = check(frame_origin == x_injector.pos &&
+                   qAbs(frame_normal.x() - 1.0f) < 1.0e-4f &&
+                   qAbs(frame_direction.x()) < 1.0e-4f &&
+                   qAbs(QVector3D::dotProduct(frame_direction, frame_normal)) < 1.0e-4f,
+               "new array frame should follow +X spray instead of default +X offset") && ok;
+
+    Injector z_injector;
+    z_injector.injection_type = cone;
+    z_injector.axis = QVector3D(0.0f, 0.0f, 5.0f);
+    z_injector.pos = QVector3D(8.0f, 0.0f, 1.0f);
+    array_frame_from_injector(z_injector, &frame_origin, &frame_direction,
+                              &frame_normal);
+    ok = check(frame_origin == z_injector.pos &&
+                   qAbs(frame_normal.z() - 1.0f) < 1.0e-4f &&
+                   qAbs(frame_direction.z()) < 1.0e-4f &&
+                   frame_direction.lengthSquared() > 0.9f,
+               "new array frame should stay perpendicular to a +Z spray") && ok;
+
     return ok ? 0 : 1;
 }

@@ -20,7 +20,15 @@ QVector3D reference_local_point(const QVector3D &value,
                                            QVector3D(1.0f, 0.0f, 0.0f));
     const QVector3D z_axis = normalized_or(plane_normal,
                                            QVector3D(0.0f, 0.0f, 1.0f));
-    const QVector3D y_axis = QVector3D::crossProduct(z_axis, x_axis).normalized();
+    QVector3D y_axis = QVector3D::crossProduct(z_axis, x_axis);
+    if (y_axis.lengthSquared() <= 1.0e-12f)
+    {
+        y_axis = QVector3D(0.0f, 1.0f, 0.0f);
+    }
+    else
+    {
+        y_axis.normalize();
+    }
     return origin + x_axis * value.x() + y_axis * value.y() + z_axis * value.z();
 }
 
@@ -918,4 +926,78 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
         result.append(instance);
     }
     return result;
+}
+
+static QVector3D injector_spray_direction(const Injector &injector)
+{
+    QVector3D direction;
+    switch (injector.injection_type)
+    {
+    case single:
+        if (injector.single_direction_mode == Single_Direction_Mode::Pitch_Yaw)
+        {
+            const double pitch = qDegreesToRadians(injector.single_pitch_degrees);
+            const double yaw = qDegreesToRadians(injector.single_yaw_degrees);
+            direction = QVector3D(
+                static_cast<float>(std::cos(pitch) * std::cos(yaw)),
+                static_cast<float>(std::cos(pitch) * std::sin(yaw)),
+                static_cast<float>(std::sin(pitch)));
+        }
+        else if (injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint)
+        {
+            direction = injector.single_target_hitpoint - injector.pos;
+        }
+        else
+        {
+            direction = injector.vel;
+        }
+        break;
+    case cone:
+        direction = injector.axis;
+        break;
+    case flat_fan_atomizer:
+        direction = injector.ff_normal;
+        break;
+    case plain_oriface_atomizer:
+    case pressure_swirl_atomizer:
+    case air_blast_atomizer:
+    case effervescent_atomizer:
+        direction = injector.atomizer_axis;
+        break;
+    default:
+        direction = injector.vel;
+        break;
+    }
+    return direction.lengthSquared() > 1.0e-12f
+               ? direction.normalized()
+               : QVector3D(0.0f, 0.0f, 1.0f);
+}
+
+void array_frame_from_injector(const Injector &injector,
+                               QVector3D *origin,
+                               QVector3D *direction,
+                               QVector3D *plane_normal)
+{
+    const QVector3D spray = injector_spray_direction(injector);
+    QVector3D offset = QVector3D::crossProduct(QVector3D(0.0f, 0.0f, 1.0f), spray);
+    if (offset.lengthSquared() <= 1.0e-12f)
+    {
+        offset = QVector3D::crossProduct(QVector3D(0.0f, 1.0f, 0.0f), spray);
+    }
+    offset.normalize();
+
+    if (origin != nullptr)
+    {
+        *origin = injector.injection_type == flat_fan_atomizer
+                      ? injector.ff_center
+                      : injector.pos;
+    }
+    if (direction != nullptr)
+    {
+        *direction = offset;
+    }
+    if (plane_normal != nullptr)
+    {
+        *plane_normal = spray;
+    }
 }
