@@ -988,6 +988,8 @@ bool OCCTWidget::select_units_by_uuid(const QList<QUuid> &uuids,
         return false;
     }
 
+    m_selected_unit_uuid = selected_primary;
+
     if (m_interaction_mode != Interaction_Mode::Selection &&
         valid_uuids.size() == 1)
     {
@@ -1018,6 +1020,7 @@ bool OCCTWidget::select_reference_geometry()
     clear_face_reference();
     clear_transform_gizmo();
     m_context->ClearSelected(Standard_False);
+    m_selected_unit_uuid = QUuid();
     selected_shape = base_geometry;
     m_selected_reference_geometry_uuid = m_reference_geometry_uuid;
     m_context->SetSelected(base_geometry, Standard_True);
@@ -1072,7 +1075,12 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
         }
         if (!visible && selected_shape == current->ais_display)
         {
+            m_selected_unit_uuid = QUuid();
             clear_context_selection_safely();
+        }
+        if (!visible && m_selected_unit_uuid == current_uuid)
+        {
+            m_selected_unit_uuid = QUuid();
         }
         // Array instances live in child_units, while Assembly members are
         // tracked by assembly_child_uuids. A tree-level visibility change
@@ -1134,6 +1142,7 @@ void OCCTWidget::set_all_units_visible(bool visible)
         {
             myIsDragging = false;
             selected_shape.Nullify();
+            m_selected_unit_uuid = QUuid();
             cleared_selected_unit = true;
         }
     }
@@ -1724,6 +1733,7 @@ bool OCCTWidget::select_reference_geometry_visual(const QUuid &uuid)
     clear_face_reference();
     clear_transform_gizmo();
     m_context->ClearSelected(Standard_False);
+    m_selected_unit_uuid = QUuid();
     selected_shape = it->display;
     m_selected_reference_geometry_uuid = uuid;
     m_context->SetSelected(it->display, Standard_True);
@@ -2180,6 +2190,22 @@ void OCCTWidget::set_interaction_mode(Interaction_Mode mode)
         {
             selected_uuid = unit->inj.uuid;
         }
+        else
+        {
+            m_selected_unit_uuid = QUuid();
+        }
+    }
+    if (selected_uuid.isNull())
+    {
+        selected_uuid = m_selected_unit_uuid;
+    }
+    if (selected_uuid.isNull())
+    {
+        selected_uuid = m_transform_gizmo_uuid;
+    }
+    if (!selected_uuid.isNull())
+    {
+        m_selected_unit_uuid = selected_uuid;
     }
 
     m_interaction_mode = mode;
@@ -2187,11 +2213,14 @@ void OCCTWidget::set_interaction_mode(Interaction_Mode mode)
 
     if (mode != Interaction_Mode::Selection && !selected_uuid.isNull())
     {
-        attach_transform_gizmo(
+        if (attach_transform_gizmo(
             selected_uuid,
             mode == Interaction_Mode::Translation
                 ? AIS_MM_Translation
-                : AIS_MM_Rotation);
+                : AIS_MM_Rotation))
+        {
+            m_selected_unit_uuid = selected_uuid;
+        }
     }
     emit interaction_mode_changed(static_cast<int>(mode));
     if (!m_view.IsNull())
@@ -6294,7 +6323,12 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
 
     if (selected_shape == unit->ais_display)
     {
+        m_selected_unit_uuid = QUuid();
         clear_context_selection_safely();
+    }
+    if (m_selected_unit_uuid == uuid)
+    {
+        m_selected_unit_uuid = QUuid();
     }
 
     m_pending_visual_refreshes.remove(uuid);
@@ -6645,6 +6679,7 @@ void OCCTWidget::clear_selection()
         finish_direct_drag(true);
     }
     clear_face_reference();
+    m_selected_unit_uuid = QUuid();
     selected_shape.Nullify();
     clear_context_selection_safely();
 }
@@ -7579,7 +7614,7 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
             gp_Pnt(origin.x(), origin.y(), origin.z()),
             gp_Dir(direction.x(), direction.y(), direction.z()));
         const Standard_Real local_axis_size =
-            shape_extent(unit->inj.shape, get_trihedron_size()) * 0.45;
+            shape_extent(unit->inj.shape, get_trihedron_size()) * 0.1;
         trihedron = make_local_trihedron(axis, local_axis_size);
         m_context->Deactivate(trihedron, TopAbs_SHAPE);
         if (unit_visible(uuid))
@@ -7596,7 +7631,7 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
         gp_Dir(direction.x(), direction.y(), direction.z()));
     trihedron->SetComponent(new Geom_Axis2Placement(axis));
     const Standard_Real local_axis_size =
-        shape_extent(unit->inj.shape, get_trihedron_size()) * 0.45;
+        shape_extent(unit->inj.shape, get_trihedron_size()) * 0.1;
     trihedron->SetSize(std::max(local_axis_size, 1.0e-4));
     m_context->Redisplay(trihedron, Standard_False);
 }
@@ -8759,6 +8794,10 @@ void OCCTWidget::clear_context_selection_safely(bool notify_selection,
         m_context->ClearSelected(Standard_False);
     }
     selected_shape.Nullify();
+    if (notify_selection)
+    {
+        m_selected_unit_uuid = QUuid();
+    }
     if (!preserve_reference_frame && selected_face.IsNull())
     {
         m_selected_reference_geometry_uuid = QUuid();
@@ -9269,6 +9308,7 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
 
         if (select_face_reference())
         {
+            m_selected_unit_uuid = QUuid();
             selected_shape = base_geometry;
             myIsDragging = !m_reference_geometry_locked;
             if (myIsDragging)
@@ -9580,19 +9620,22 @@ bool OCCTWidget::select_injector()
 
     if (select(TopAbs_COMPOUND) && get_unit(selected_shape) != nullptr)
     {
-        emit selection_changed(get_unit(selected_shape)->inj.uuid, false);
+        m_selected_unit_uuid = get_unit(selected_shape)->inj.uuid;
+        emit selection_changed(m_selected_unit_uuid, false);
         emit_unit_selection();
         return true;
     }
 
     if (select(TopAbs_SHAPE) && get_unit(selected_shape) != nullptr)
     {
-        emit selection_changed(get_unit(selected_shape)->inj.uuid, false);
+        m_selected_unit_uuid = get_unit(selected_shape)->inj.uuid;
+        emit selection_changed(m_selected_unit_uuid, false);
         emit_unit_selection();
         return true;
     }
 
     selected_shape.Nullify();
+    m_selected_unit_uuid = QUuid();
     return false;
 }
 

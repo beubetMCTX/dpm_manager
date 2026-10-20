@@ -711,6 +711,7 @@ private:
     Standard_Boolean myIsDragging = false;
 
     Handle(AIS_Shape) selected_shape;
+    QUuid m_selected_unit_uuid;
     Handle(AIS_Shape) m_array_preview_shape;
     Handle(AIS_Manipulator) m_transform_gizmo;
     QUuid m_transform_gizmo_uuid;

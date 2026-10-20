@@ -1,5 +1,20 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-21 Preserve Transform Gizmo Across Mode Changes
+
+- Reduced injector-local trihedron size from `0.45` to `0.1` of the injector
+  shape extent.
+- Replaced the Select/Translate/Rotate toolbar controls with icon-only,
+  exclusive `QRadioButton` controls backed by `QButtonGroup`.
+- Kept the selected Unit UUID separately from OCCT's temporary selection
+  handle. Mode changes can now rebuild the translation/rotation gizmo after
+  mouse release clears that handle; explicit deselection, hide, delete, and
+  reference-geometry selection clear the saved UUID.
+- Release build succeeded and all 13 CTest tests passed. Interactive visual
+  verification remains pending.
+
+See [2026-10-21 viewport gizmo handoff](2026-10-21-viewport-gizmo-handoff.md).
+
 ### 2026-10-03 Make Reference Geometry Import Transactional
 
 - Reference geometry files are now loaded into a temporary reader and replace

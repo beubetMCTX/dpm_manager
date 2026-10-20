@@ -40,6 +40,8 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QRadioButton>
+#include <QWidgetAction>
 #include <QStyle>
 #include <QSettings>
 #include <QMap>
@@ -4681,20 +4683,23 @@ void MainWindow::create_object_list_panel()
         "  padding: 0px;"
         "  spacing: 0px;"
         "}"
-        "QToolBar#viewportInteractionToolbar QToolButton {"
+        "QToolBar#viewportInteractionToolbar QRadioButton {"
         "  background: transparent;"
         "  border: none;"
         "  border-radius: 3px;"
-        "  padding: 1px;"
+        "  padding: 2px;"
         "  margin: 0px;"
         "}"
-        "QToolBar#viewportInteractionToolbar QToolButton:hover {"
+        "QToolBar#viewportInteractionToolbar QRadioButton::indicator {"
+        "  width: 0px; height: 0px;"
+        "}"
+        "QToolBar#viewportInteractionToolbar QRadioButton:hover {"
         "  background: #39424B;"
         "}"
-        "QToolBar#viewportInteractionToolbar QToolButton:checked {"
+        "QToolBar#viewportInteractionToolbar QRadioButton:checked {"
         "  background: #356A5A;"
         "}"
-        "QToolBar#viewportInteractionToolbar QToolButton:checked:hover {"
+        "QToolBar#viewportInteractionToolbar QRadioButton:checked:hover {"
         "  background: #356A5A;"
         "}"
         "QToolBar#viewportInteractionToolbar::separator {"
@@ -4709,22 +4714,25 @@ void MainWindow::create_object_list_panel()
     interaction_toolbar->show();
     interaction_toolbar->raise();
     QTimer::singleShot(0, this, &MainWindow::position_viewport_interaction_toolbar);
-    auto *toolbar_selection = new QToolButton(interaction_toolbar);
-    auto *toolbar_translation = new QToolButton(interaction_toolbar);
-    auto *toolbar_rotation = new QToolButton(interaction_toolbar);
-    const QList<QPair<QToolButton *, QString>> mode_buttons = {
+    auto *toolbar_selection = new QRadioButton(interaction_toolbar);
+    auto *toolbar_translation = new QRadioButton(interaction_toolbar);
+    auto *toolbar_rotation = new QRadioButton(interaction_toolbar);
+    const QList<QPair<QRadioButton *, QString>> mode_buttons = {
         {toolbar_selection, QStringLiteral("icon-select.svg")},
         {toolbar_translation, QStringLiteral("icon-translate.svg")},
         {toolbar_rotation, QStringLiteral("icon-rotate.svg")}};
     for (const auto &button_and_icon : mode_buttons)
     {
-        QToolButton *button = button_and_icon.first;
+        QRadioButton *button = button_and_icon.first;
         button->setIcon(QIcon(QStringLiteral(":/ui/icons/") +
                               button_and_icon.second));
-        button->setToolButtonStyle(Qt::ToolButtonIconOnly);
+        button->setText(QString());
         button->setCheckable(true);
-        button->setAutoRaise(true);
-        interaction_toolbar->addWidget(button);
+        button->setFixedSize(30, 26);
+        button->setIconSize(QSize(22, 22));
+        auto *mode_action = new QWidgetAction(interaction_toolbar);
+        mode_action->setDefaultWidget(button);
+        interaction_toolbar->addAction(mode_action);
     }
     toolbar_selection->setToolTip(tr("Select"));
     toolbar_translation->setToolTip(tr("Translate"));
