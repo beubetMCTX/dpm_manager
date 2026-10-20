@@ -5,6 +5,7 @@
 - Adding a layer no longer uses the hardcoded world +X array axis.
 - A new layer takes its origin from the source injector. Its offset is perpendicular to the spray, and its plane normal follows the spray.
 - The coordinate frame stays visible before the first layer exists. Context-menu rotational and mirror arrays keep that frame instead of replacing it with (1, 0, 0).
+- Reloading an unsaved layer keeps Rotational, Mirror, and Elliptical instead of forcing Linear.
 
 ### 2026-10-21 Display Precision And Axis Follow
 

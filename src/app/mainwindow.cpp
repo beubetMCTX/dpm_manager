@@ -4306,32 +4306,83 @@ void MainWindow::load_array_editor_layer(int layer_index)
     }
     else if (source != nullptr)
     {
-        // A blank UnitArraySpec points both axes at world +X. That default is
-        // unrelated to the selected injector, so seed the new layer from it.
-        array_frame_from_injector(source->inj.injector_data,
-                                  &spec.origin, &spec.direction,
-                                  &spec.plane_normal);
-        spec.count = 4;
-        spec.type = UnitArrayType::Linear;
-        spec.use_reference_geometry = false;
-        spec.conform_to_reference_normal = false;
+        // Keep the array type the user already chose. Only the blank world
+        // +X frame is unrelated to the injector and needs to be replaced.
+        const int type_index = qBound(0, m_array_editor_type->currentIndex(), 3);
+        spec.type = static_cast<UnitArrayType>(type_index);
+        spec.count = m_array_editor_count->value();
+        spec.spacing = static_cast<float>(display_length_to_storage(
+            spec.type == UnitArrayType::Rotational
+                ? m_array_editor_rotational_spacing->value()
+                : m_array_editor_linear_spacing->value()));
+        spec.angle_degrees = static_cast<float>(display_angle_to_storage(
+            spec.type == UnitArrayType::Elliptical
+                ? m_array_editor_elliptical_angle->value()
+                : m_array_editor_rotational_angle->value()));
+        spec.major_radius = static_cast<float>(display_length_to_storage(
+            m_array_editor_major_radius->value()));
+        spec.minor_radius = static_cast<float>(display_length_to_storage(
+            m_array_editor_minor_radius->value()));
+        spec.use_reference_geometry =
+            m_array_editor_frame_mode->currentIndex() == 1;
+        spec.conform_to_reference_normal =
+            m_array_editor_conform_normal->isChecked();
+        if (spec.use_reference_geometry)
+        {
+            spec.reference_geometry_uuid =
+                m_array_editor_reference_geometry->currentData().toUuid();
+            spec.origin = QVector3D(
+                static_cast<float>(display_length_to_storage(
+                    m_array_editor_origin_x->value())),
+                static_cast<float>(display_length_to_storage(
+                    m_array_editor_origin_y->value())),
+                static_cast<float>(display_length_to_storage(
+                    m_array_editor_origin_z->value())));
+            spec.direction = QVector3D(
+                static_cast<float>(m_array_editor_direction_x->value()),
+                static_cast<float>(m_array_editor_direction_y->value()),
+                static_cast<float>(m_array_editor_direction_z->value()));
+            spec.plane_normal = QVector3D(
+                static_cast<float>(m_array_editor_normal_x->value()),
+                static_cast<float>(m_array_editor_normal_y->value()),
+                static_cast<float>(m_array_editor_normal_z->value()));
+        }
+        else
+        {
+            array_frame_from_injector(source->inj.injector_data,
+                                      &spec.origin, &spec.direction,
+                                      &spec.plane_normal);
+        }
     }
+
+    const double preserved_linear_spacing = has_layer
+        ? storage_length_to_display(spec.spacing)
+        : m_array_editor_linear_spacing->value();
+    const double preserved_rotational_spacing = has_layer
+        ? storage_length_to_display(spec.spacing)
+        : m_array_editor_rotational_spacing->value();
+    const double preserved_rotational_angle = has_layer
+        ? storage_angle_to_display(spec.angle_degrees)
+        : m_array_editor_rotational_angle->value();
+    const double preserved_elliptical_angle = has_layer
+        ? storage_angle_to_display(spec.angle_degrees)
+        : m_array_editor_elliptical_angle->value();
+    const double preserved_major_radius = has_layer
+        ? storage_length_to_display(spec.major_radius)
+        : m_array_editor_major_radius->value();
+    const double preserved_minor_radius = has_layer
+        ? storage_length_to_display(spec.minor_radius)
+        : m_array_editor_minor_radius->value();
 
     m_array_editor_type->setCurrentIndex(static_cast<int>(spec.type));
     m_array_editor_count->setValue(spec.count);
     apply_array_editor_display_units();
-    m_array_editor_linear_spacing->setValue(
-        storage_length_to_display(has_layer ? spec.spacing : 0.004f));
-    m_array_editor_rotational_angle->setValue(
-        storage_angle_to_display(spec.angle_degrees));
-    m_array_editor_rotational_spacing->setValue(
-        storage_length_to_display(spec.spacing));
-    m_array_editor_major_radius->setValue(
-        storage_length_to_display(spec.major_radius));
-    m_array_editor_minor_radius->setValue(
-        storage_length_to_display(spec.minor_radius));
-    m_array_editor_elliptical_angle->setValue(
-        storage_angle_to_display(spec.angle_degrees));
+    m_array_editor_linear_spacing->setValue(preserved_linear_spacing);
+    m_array_editor_rotational_angle->setValue(preserved_rotational_angle);
+    m_array_editor_rotational_spacing->setValue(preserved_rotational_spacing);
+    m_array_editor_major_radius->setValue(preserved_major_radius);
+    m_array_editor_minor_radius->setValue(preserved_minor_radius);
+    m_array_editor_elliptical_angle->setValue(preserved_elliptical_angle);
     m_array_editor_frame_mode->setCurrentIndex(
         spec.use_reference_geometry ? 1 : 0);
     if (spec.use_reference_geometry)
