@@ -33,6 +33,8 @@ struct UnitArraySpec
     QVector3D direction = QVector3D(1.0f, 0.0f, 0.0f);
     QVector3D origin = QVector3D(0.0f, 0.0f, 0.0f);
     float spacing = 0.0f;
+    // Circle radius around origin. Copies move onto this circle.
+    float orbit_radius = 0.01f;
     float angle_degrees = 360.0f;
     float major_radius = 0.01f;
     float minor_radius = 0.005f;

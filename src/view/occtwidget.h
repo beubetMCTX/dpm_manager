@@ -346,6 +346,7 @@ public:
     bool can_undo_operation() const;
     bool can_redo_operation() const;
     void set_chemkin_species_names(const QStringList &species_names);
+    void set_material_names(const QStringList &material_names);
     void set_species_colors(const QHash<QString, QColor> &species_colors);
     // Shared case capabilities used by every unit editor.
     void set_unit_editor_case_context(const Unit_Edit_Case_Context &context);
@@ -468,6 +469,8 @@ private:
     bool promote_derived_unit_to_persistent(
         const std::shared_ptr<Unit> &unit);
     void clear_unit_array_children(Unit &source);
+    bool array_source_represented_by_instances(const Unit &source) const;
+    void sync_array_source_presentation(Unit &source);
     int rebuild_unit_array_layers(const QUuid &source_uuid);
     bool synchronize_parent_following_unit(Unit &target,
                                            const Unit &source);
@@ -718,6 +721,8 @@ private:
     Handle(AIS_Shape) selected_shape;
     QUuid m_selected_unit_uuid;
     Handle(AIS_Shape) m_array_preview_shape;
+    Handle(AIS_Shape) m_array_guide_wire;
+    Handle(AIS_Shape) m_array_guide_face;
     Handle(AIS_Manipulator) m_transform_gizmo;
     QUuid m_transform_gizmo_uuid;
     QVector3D m_transform_gizmo_position;
@@ -750,6 +755,7 @@ private:
     bool m_replaying_reference_transform_history = false;
 
     QStringList m_chemkin_species_names;
+    QStringList m_material_names;
     QHash<QString, QColor> m_species_colors;
     Unit_Edit_Case_Context m_unit_editor_case_context;
     QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;

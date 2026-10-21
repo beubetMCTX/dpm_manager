@@ -32,7 +32,7 @@ int main(int argc, char **argv)
     initialize_new_array_spec_identity(linear);
     const QList<Unit> linear_children = expand_unit_array(source, linear);
     bool ok = check(linear_children.size() == 3, "linear count mismatch") &&
-              check(linear_children[2].inj.injector_data.pos == QVector3D(9.0f, 2.0f, 0.0f),
+              check(linear_children[2].inj.injector_data.pos == QVector3D(8.0f, 0.0f, 0.0f),
                     "linear offset mismatch") &&
               check(linear_children[0].inj.uuid != linear_children[1].inj.uuid,
                     "child UUIDs must be unique") &&
@@ -53,7 +53,7 @@ int main(int argc, char **argv)
               check(source.inj.injector_data.pos == QVector3D(1.0f, 2.0f, 0.0f),
                     "source was mutated") &&
               check(linear_children[2].inj.injector_data.single_target_hitpoint ==
-                        QVector3D(11.0f, 2.0f, 0.0f),
+                        QVector3D(10.0f, 0.0f, 0.0f),
                     "linear target hitpoint mismatch");
 
     UnitArraySpec resized_linear = linear;
@@ -78,9 +78,32 @@ int main(int argc, char **argv)
     ok = check(rotational_children.size() == 2, "rotational count mismatch") && ok;
     ok = check(qAbs(rotational_children[1].inj.injector_data.vel.y() - 10.0f) < 1.0e-4f,
                "rotational direction mismatch") && ok;
-    ok = check(qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.x() + 2.0f) < 1.0e-4f &&
-                   qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.y() - 3.0f) < 1.0e-4f,
+    ok = check(qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.x() + 0.01f) < 1.0e-3f &&
+                   qAbs(rotational_children[1].inj.injector_data.single_target_hitpoint.y() - 2.0f) < 1.0e-3f,
                "rotational target hitpoint mismatch") && ok;
+
+    UnitArraySpec circular = rotational;
+    circular.origin = source.inj.injector_data.pos;
+    circular.direction = QVector3D(0.0f, 0.0f, 1.0f);
+    circular.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
+    circular.count = 4;
+    circular.angle_degrees = 360.0f;
+    circular.spacing = 0.0f;
+    circular.orbit_radius = 5.0f;
+    const QList<Unit> circular_children = expand_unit_array(source, circular);
+    ok = check(qAbs(circular_children[0].inj.injector_data.pos.x() - 1.0f) < 1.0e-3f &&
+                   qAbs(circular_children[0].inj.injector_data.pos.y() - 7.0f) < 1.0e-3f &&
+                   qAbs(circular_children[1].inj.injector_data.pos.x() + 4.0f) < 1.0e-3f &&
+                   qAbs(circular_children[1].inj.injector_data.pos.y() - 2.0f) < 1.0e-3f &&
+                   qAbs(circular_children[1].inj.injector_data.vel.y() - 10.0f) < 1.0e-3f,
+               "rotational array should follow the frame circle") && ok;
+    const ArrayPatternGuide circular_guide = array_pattern_guide(
+        source.inj.injector_data.pos, circular);
+    ok = check(circular_guide.kind == ArrayGuideKind::Loop &&
+                   qAbs(circular_guide.origin.x() - 1.0f) < 1.0e-3f &&
+                   qAbs(circular_guide.origin.y() - 2.0f) < 1.0e-3f &&
+                   qAbs(circular_guide.major.length() - 5.0f) < 1.0e-3f,
+               "rotational guide should use the frame circle") && ok;
 
     rotational.spacing = 2.5f;
     const QList<Unit> helical_children = expand_unit_array(source, rotational);
@@ -100,8 +123,10 @@ int main(int argc, char **argv)
     elliptical.minor_radius = 4.0f;
     const QList<Unit> elliptical_children = expand_unit_array(source, elliptical);
     ok = check(qAbs(elliptical_children[0].inj.injector_data.pos.x() - 10.0f) < 1.0e-4f &&
+                   qAbs(elliptical_children[0].inj.injector_data.pos.y()) < 1.0e-4f &&
+                   qAbs(elliptical_children[1].inj.injector_data.pos.x()) < 1.0e-4f &&
                    qAbs(elliptical_children[1].inj.injector_data.pos.y() - 4.0f) < 1.0e-4f,
-               "elliptical array positions mismatch") && ok;
+               "elliptical array should follow the frame ellipse") && ok;
 
     source.inj.injector_data.single_target_scope = Single_Target_Scope::World;
     const QList<Unit> world_target_children = expand_unit_array(source, linear);
@@ -112,7 +137,7 @@ int main(int argc, char **argv)
     source.inj.injector_data.single_target_scope = Single_Target_Scope::Parent_Local;
     const QList<Unit> parent_target_children = expand_unit_array(source, linear);
     ok = check(parent_target_children[2].inj.injector_data.single_target_hitpoint ==
-                   QVector3D(11.0f, 2.0f, 0.0f),
+                   QVector3D(10.0f, 0.0f, 0.0f),
                "parent-local target hitpoint must follow a linear array") && ok;
 
     source.inj.injector_data.single_target_scope = Single_Target_Scope::Reference_Local;
@@ -159,7 +184,8 @@ int main(int argc, char **argv)
     mirror.plane_normal = QVector3D(1.0f, 0.0f, 0.0f);
     source.inj.injector_data.single_target_scope = Single_Target_Scope::Array_Local;
     const QList<Unit> mirror_children = expand_unit_array(source, mirror);
-    ok = check(mirror_children[1].inj.injector_data.pos.x() == -1.0f,
+    ok = check(mirror_children[0].inj.injector_data.pos.x() == 1.0f &&
+                   mirror_children[1].inj.injector_data.pos.x() == -1.0f,
                "mirror position mismatch") && ok;
     ok = check(mirror_children[1].inj.injector_data.single_target_hitpoint.x() == -3.0f,
                "mirror target hitpoint mismatch") && ok;
@@ -298,8 +324,7 @@ int main(int argc, char **argv)
         expand_unit_tree_array(assembly_source, tree_ellipse);
     ok = check(elliptical_tree_instances.size() == 4 &&
                    elliptical_tree_instances[0]->child_units.size() == 1 &&
-                   qAbs(elliptical_tree_instances[0]->inj.injector_data.pos.x() -
-                        tree_ellipse.major_radius) < 1.0e-4f,
+                   qAbs(elliptical_tree_instances[0]->inj.injector_data.pos.x() - 10.0f) < 1.0e-4f,
                "Composite elliptical expansion should preserve hierarchy") && ok;
     const QList<std::shared_ptr<Unit>> tree_fill_sources = {cloned_tree};
     UnitFillSpec tree_fill_spec;

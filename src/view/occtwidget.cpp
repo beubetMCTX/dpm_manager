@@ -12,7 +12,11 @@
 #include <gp_Quaternion.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Ax3.hxx>
+#include <gp_Pln.hxx>
 #include <gp_Vec.hxx>
+#include <BRepBuilderAPI_MakeEdge.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
 
 #include <algorithm>
 #include <array>
@@ -1082,12 +1086,20 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
             return;
         }
         m_unit_visibility.insert(current_uuid, visible);
-        if (visible)
+        if (visible && !array_source_represented_by_instances(*current))
         {
             m_context->Display(current->ais_display, Standard_False);
             if (!m_unit_local_trihedrons.value(current_uuid).IsNull())
             {
                 m_context->Display(m_unit_local_trihedrons.value(current_uuid), Standard_False);
+            }
+        }
+        else if (visible)
+        {
+            m_context->Erase(current->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(current_uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(current_uuid), Standard_False);
             }
         }
         else
@@ -1150,12 +1162,20 @@ void OCCTWidget::set_all_units_visible(bool visible)
         }
 
         m_unit_visibility.insert(uuid, visible);
-        if (visible)
+        if (visible && !array_source_represented_by_instances(*unit))
         {
             m_context->Display(unit->ais_display, Standard_False);
             if (!m_unit_local_trihedrons.value(uuid).IsNull())
             {
                 m_context->Display(m_unit_local_trihedrons.value(uuid), Standard_False);
+            }
+        }
+        else if (visible)
+        {
+            m_context->Erase(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(uuid), Standard_False);
             }
         }
         else
@@ -2081,13 +2101,22 @@ void OCCTWidget::restore_unit_display_states(
         const UnitDisplayState state = states.value(uuid);
         m_unit_visibility.insert(uuid, state.visible);
         m_unit_locks.insert(uuid, state.locked);
-        if (state.visible)
+        if (state.visible && !array_source_represented_by_instances(*unit))
         {
             m_context->Display(unit->ais_display, Standard_False);
             if (!m_unit_local_trihedrons.value(uuid).IsNull())
             {
                 m_context->Display(m_unit_local_trihedrons.value(uuid),
                                   Standard_False);
+            }
+        }
+        else if (state.visible)
+        {
+            m_context->Erase(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(uuid),
+                                Standard_False);
             }
         }
         else
@@ -2303,13 +2332,22 @@ void OCCTWidget::restore_derived_unit_display_states(
         const QUuid uuid = unit->inj.uuid;
         m_unit_visibility.insert(uuid, state.visible);
         m_unit_locks.insert(uuid, state.locked);
-        if (state.visible)
+        if (state.visible && !array_source_represented_by_instances(*unit))
         {
             m_context->Display(unit->ais_display, Standard_False);
             if (!m_unit_local_trihedrons.value(uuid).IsNull())
             {
                 m_context->Display(m_unit_local_trihedrons.value(uuid),
                                    Standard_False);
+            }
+        }
+        else if (state.visible)
+        {
+            m_context->Erase(unit->ais_display, Standard_False);
+            if (!m_unit_local_trihedrons.value(uuid).IsNull())
+            {
+                m_context->Erase(m_unit_local_trihedrons.value(uuid),
+                                 Standard_False);
             }
         }
         else
@@ -3832,7 +3870,16 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
     {
         return 0;
     }
-    if (!m_chemkin_species_names.contains(normalized_material, Qt::CaseInsensitive))
+    QString canonical_material;
+    for (const QString &material_name : m_material_names)
+    {
+        if (material_name.compare(normalized_material, Qt::CaseInsensitive) == 0)
+        {
+            canonical_material = material_name;
+            break;
+        }
+    }
+    if (canonical_material.isEmpty())
     {
         return 0;
     }
@@ -3848,14 +3895,14 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
         if (unit == nullptr || unit->type == Assebly ||
             edited_units.contains(unit->inj.uuid) ||
             unit->inj.injector_data.material.compare(
-                normalized_material, Qt::CaseSensitive) == 0)
+                canonical_material, Qt::CaseSensitive) == 0)
         {
             continue;
         }
         edited_units.insert(unit->inj.uuid);
 
         UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
-        unit->inj.injector_data.material = normalized_material;
+        unit->inj.injector_data.material = canonical_material;
         if (!unit->ais_display.IsNull())
         {
             unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
@@ -4969,6 +5016,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
             return child != nullptr && child->is_array_child;
         }));
     rebuild_unit_local_coordinate_frames();
+    sync_array_source_presentation(*source);
     m_view->Redraw();
     emit unit_display_list_changed();
     emit unit_data_updated(source.get());
@@ -5200,11 +5248,17 @@ bool OCCTWidget::move_unit_array_layer(const QUuid &source_uuid,
 
 void OCCTWidget::clear_array_preview()
 {
-    if (!m_array_preview_shape.IsNull() && !m_context.IsNull())
+    const auto remove_shape = [this](Handle(AIS_Shape) &shape)
     {
-        m_context->Remove(m_array_preview_shape, Standard_False);
-    }
-    m_array_preview_shape.Nullify();
+        if (!shape.IsNull() && !m_context.IsNull())
+        {
+            m_context->Remove(shape, Standard_False);
+        }
+        shape.Nullify();
+    };
+    remove_shape(m_array_preview_shape);
+    remove_shape(m_array_guide_wire);
+    remove_shape(m_array_guide_face);
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -5375,15 +5429,126 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
         }
     }
 
-    if (preview_count <= 0 || preview_compound.IsNull())
+    TopoDS_Compound guide_wires;
+    TopoDS_Compound guide_faces;
+    preview_builder.MakeCompound(guide_wires);
+    preview_builder.MakeCompound(guide_faces);
+    int guide_wire_count = 0;
+    int guide_face_count = 0;
+    const auto add_point = [](const QVector3D &point)
+    {
+        return gp_Pnt(point.x(), point.y(), point.z());
+    };
+    const auto add_guide = [&](const UnitArraySpec &spec)
+    {
+        const ArrayPatternGuide guide = array_pattern_guide(
+            source->inj.injector_data.pos, spec);
+        if (guide.kind == ArrayGuideKind::Segment)
+        {
+            BRepBuilderAPI_MakeEdge edge(
+                add_point(guide.origin),
+                add_point(guide.origin + guide.normal * guide.length));
+            if (edge.IsDone())
+            {
+                preview_builder.Add(guide_wires, edge.Edge());
+                ++guide_wire_count;
+            }
+            return;
+        }
+        if (guide.kind == ArrayGuideKind::Loop)
+        {
+            BRepBuilderAPI_MakePolygon polygon;
+            constexpr int steps = 72;
+            constexpr double pi = 3.14159265358979323846;
+            for (int step = 0; step < steps; ++step)
+            {
+                const double theta = 2.0 * pi * static_cast<double>(step) / steps;
+                polygon.Add(add_point(
+                    guide.origin +
+                    guide.major * static_cast<float>(std::cos(theta)) +
+                    guide.minor * static_cast<float>(std::sin(theta))));
+            }
+            polygon.Close();
+            if (polygon.IsDone())
+            {
+                preview_builder.Add(guide_wires, polygon.Wire());
+                ++guide_wire_count;
+            }
+            BRepBuilderAPI_MakeEdge axis(
+                add_point(guide.origin - guide.normal * guide.length),
+                add_point(guide.origin + guide.normal * guide.length));
+            BRepBuilderAPI_MakeEdge radial(
+                add_point(guide.origin), add_point(guide.origin + guide.major));
+            if (axis.IsDone())
+            {
+                preview_builder.Add(guide_wires, axis.Edge());
+            }
+            if (radial.IsDone())
+            {
+                preview_builder.Add(guide_wires, radial.Edge());
+            }
+            return;
+        }
+        if (guide.kind == ArrayGuideKind::Plane &&
+            guide.normal.lengthSquared() > 1.0e-12f)
+        {
+            const gp_Pln plane(add_point(guide.origin),
+                               gp_Dir(guide.normal.x(), guide.normal.y(),
+                                      guide.normal.z()));
+            BRepBuilderAPI_MakeFace face(plane, -guide.half_extent,
+                                         guide.half_extent, -guide.half_extent,
+                                         guide.half_extent);
+            if (face.IsDone())
+            {
+                preview_builder.Add(guide_faces, face.Face());
+                ++guide_face_count;
+            }
+            BRepBuilderAPI_MakeEdge normal_tick(
+                add_point(guide.origin),
+                add_point(guide.origin + guide.normal * guide.length));
+            if (normal_tick.IsDone())
+            {
+                preview_builder.Add(guide_wires, normal_tick.Edge());
+                ++guide_wire_count;
+            }
+        }
+    };
+    for (const UnitArraySpec &spec : specs)
+    {
+        add_guide(spec);
+    }
+
+    if ((preview_count <= 0 || preview_compound.IsNull()) &&
+        guide_wire_count <= 0 && guide_face_count <= 0)
     {
         return;
     }
 
-    m_array_preview_shape = new AIS_Shape(preview_compound);
-    m_array_preview_shape->SetColor(Quantity_Color(Quantity_NOC_YELLOW));
-    m_array_preview_shape->SetTransparency(0.72);
-    m_context->Display(m_array_preview_shape, Standard_False);
+    if (preview_count > 0 && !preview_compound.IsNull())
+    {
+        m_array_preview_shape = new AIS_Shape(preview_compound);
+        m_array_preview_shape->SetColor(Quantity_Color(Quantity_NOC_YELLOW));
+        m_array_preview_shape->SetTransparency(0.72);
+        m_context->Display(m_array_preview_shape, Standard_False);
+    }
+    if (guide_wire_count > 0)
+    {
+        m_array_guide_wire = new AIS_Shape(guide_wires);
+        m_array_guide_wire->SetColor(Quantity_Color(Quantity_NOC_CYAN1));
+        m_array_guide_wire->SetDisplayMode(AIS_WireFrame);
+        m_array_guide_wire->SetWidth(2.0);
+        m_context->Display(m_array_guide_wire, Standard_False);
+        m_context->Deactivate(m_array_guide_wire);
+    }
+    if (guide_face_count > 0)
+    {
+        m_array_guide_face = new AIS_Shape(guide_faces);
+        m_array_guide_face->SetColor(Quantity_Color(Quantity_NOC_CYAN1));
+        m_array_guide_face->SetTransparency(0.82);
+        m_array_guide_face->SetDisplayMode(AIS_Shaded);
+        m_context->Display(m_array_guide_face, Standard_False);
+        m_context->Deactivate(m_array_guide_face);
+    }
     m_view->Redraw();
 }
 
@@ -5878,6 +6043,46 @@ bool OCCTWidget::promote_derived_unit_to_persistent(
     return true;
 }
 
+bool OCCTWidget::array_source_represented_by_instances(const Unit &source) const
+{
+    if (!source.has_array_spec)
+    {
+        return false;
+    }
+    return std::any_of(source.child_units.cbegin(), source.child_units.cend(),
+                       [](const std::shared_ptr<Unit> &child)
+                       {
+                           return child != nullptr && child->is_array_child &&
+                                  child->follows_array;
+                       });
+}
+
+void OCCTWidget::sync_array_source_presentation(Unit &source)
+{
+    if (source.ais_display.IsNull() || m_context.IsNull())
+    {
+        return;
+    }
+    const Handle(AIS_Trihedron) trihedron =
+        m_unit_local_trihedrons.value(source.inj.uuid);
+    if (array_source_represented_by_instances(source))
+    {
+        // The first pattern instance stands in for the source. Keeping the
+        // prototype drawn as well leaves a second part at the pattern center.
+        m_context->Erase(source.ais_display, Standard_False);
+        if (!trihedron.IsNull())
+        {
+            m_context->Erase(trihedron, Standard_False);
+        }
+        return;
+    }
+    if (unit_visible(source.inj.uuid) &&
+        !m_context->IsDisplayed(source.ais_display))
+    {
+        m_context->Display(source.ais_display, Standard_False);
+    }
+}
+
 void OCCTWidget::clear_unit_array_children(Unit &source)
 {
     const QVector<std::shared_ptr<Unit>> children = source.child_units;
@@ -5935,6 +6140,7 @@ void OCCTWidget::clear_unit_array_children(Unit &source)
         }
         remove_derived_tree(child);
     }
+    sync_array_source_presentation(source);
 }
 
 int OCCTWidget::rebuild_unit_array(const QUuid &source_uuid)
@@ -7620,6 +7826,18 @@ void OCCTWidget::set_chemkin_species_names(const QStringList &species_names)
     }
 }
 
+void OCCTWidget::set_material_names(const QStringList &material_names)
+{
+    m_material_names = material_names;
+    for (const QPointer<unit_edit_dialog> &dialog : m_open_edit_dialogs)
+    {
+        if (dialog != nullptr)
+        {
+            dialog->set_material_names(m_material_names);
+        }
+    }
+}
+
 void OCCTWidget::set_species_colors(const QHash<QString, QColor> &species_colors)
 {
     m_species_colors = species_colors;
@@ -7722,6 +7940,15 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
     if (unit == nullptr)
     {
+        return;
+    }
+    if (array_source_represented_by_instances(*unit))
+    {
+        const Handle(AIS_Trihedron) existing = m_unit_local_trihedrons.value(uuid);
+        if (!existing.IsNull())
+        {
+            m_context->Erase(existing, Standard_False);
+        }
         return;
     }
 
@@ -9786,7 +10013,7 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
 
     unit_edit_dialog* inj_edit_dialog = new unit_edit_dialog(unit,
                                                              m_chemkin_species_names,
-                                                             m_chemkin_species_names,
+                                                             m_material_names,
                                                              this);
     inj_edit_dialog->set_case_context(m_unit_editor_case_context);
     inj_edit_dialog->setProperty("unit_ptr", QVariant::fromValue(target_unit_ptr));

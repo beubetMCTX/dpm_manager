@@ -1386,6 +1386,7 @@ QJsonObject array_spec_to_json(const UnitArraySpec &spec)
     result.insert("direction", vector_to_json(spec.direction));
     result.insert("origin", vector_to_json(spec.origin));
     result.insert("spacing", spec.spacing);
+    result.insert("orbit_radius", spec.orbit_radius);
     result.insert("angle_degrees", spec.angle_degrees);
     result.insert("major_radius", spec.major_radius);
     result.insert("minor_radius", spec.minor_radius);
@@ -1425,6 +1426,7 @@ bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec)
     vector_from_json(object.value("direction"), &spec->direction);
     vector_from_json(object.value("origin"), &spec->origin);
     spec->spacing = static_cast<float>(object.value("spacing").toDouble(0.0));
+    spec->orbit_radius = static_cast<float>(object.value("orbit_radius").toDouble(0.01));
     spec->angle_degrees = static_cast<float>(
         object.value("angle_degrees").toDouble(360.0));
     spec->major_radius = static_cast<float>(
@@ -1462,6 +1464,7 @@ bool is_valid_array_spec(const UnitArraySpec &spec)
            is_finite_vector(spec.origin) &&
            is_finite_vector(spec.plane_normal) &&
            std::isfinite(spec.spacing) &&
+           std::isfinite(spec.orbit_radius) &&
            std::isfinite(spec.angle_degrees) &&
            std::isfinite(spec.major_radius) &&
            std::isfinite(spec.minor_radius) &&

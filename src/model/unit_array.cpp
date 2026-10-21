@@ -45,6 +45,101 @@ QVector3D rotate_vector(const QVector3D &value, const QVector3D &axis, float ang
                                          static_cast<float>(qRadiansToDegrees(angle))) * value;
 }
 
+struct EllipticalPlacement
+{
+    QVector3D center;
+    QVector3D axis;
+    float angle = 0.0f;
+    QVector3D target;
+};
+
+// Place copies on the nominal ellipse. The injector position is not an extra
+// constraint, so angle 0 is origin + direction * major radius.
+EllipticalPlacement elliptical_placement(const QVector3D &source_position,
+                                         const UnitArraySpec &spec,
+                                         int index,
+                                         int count)
+{
+    Q_UNUSED(source_position);
+    const QVector3D axis = normalized_or(spec.plane_normal,
+                                         QVector3D(0.0f, 0.0f, 1.0f));
+    const QVector3D x_axis = normalized_or(spec.direction,
+                                           QVector3D(1.0f, 0.0f, 0.0f));
+    QVector3D y_axis = QVector3D::crossProduct(axis, x_axis);
+    if (y_axis.lengthSquared() <= 1.0e-12f)
+    {
+        y_axis = QVector3D(0.0f, 1.0f, 0.0f);
+    }
+    else
+    {
+        y_axis.normalize();
+    }
+    const float angle = count > 0
+                            ? qDegreesToRadians(spec.angle_degrees) /
+                                  static_cast<float>(count) * static_cast<float>(index)
+                            : 0.0f;
+    EllipticalPlacement placement;
+    placement.center = spec.origin;
+    placement.axis = axis;
+    placement.angle = angle;
+    placement.target = spec.origin +
+                       x_axis * (spec.major_radius * std::cos(angle)) +
+                       y_axis * (spec.minor_radius * std::sin(angle));
+    return placement;
+}
+
+struct RotationalPlacement
+{
+    QVector3D pivot;
+    QVector3D axis;
+    float angle = 0.0f;
+    QVector3D anchor;
+};
+
+QVector3D axis_perpendicular(const QVector3D &axis, const QVector3D &hint)
+{
+    QVector3D radial = QVector3D::crossProduct(axis, hint);
+    if (radial.lengthSquared() <= 1.0e-12f)
+    {
+        radial = QVector3D::crossProduct(axis, QVector3D(0.0f, 0.0f, 1.0f));
+    }
+    if (radial.lengthSquared() <= 1.0e-12f)
+    {
+        radial = QVector3D::crossProduct(axis, QVector3D(0.0f, 1.0f, 0.0f));
+    }
+    return radial.normalized();
+}
+
+// The editor origin, axis, radius, and plane normal define the circle. Copies
+// are rotated about the source and then translated onto that circle.
+RotationalPlacement rotational_placement(const QVector3D &source_position,
+                                         const UnitArraySpec &spec,
+                                         int index,
+                                         int count)
+{
+    Q_UNUSED(source_position);
+    const QVector3D axis = normalized_or(spec.direction,
+                                         QVector3D(0.0f, 0.0f, 1.0f));
+    float radius = spec.orbit_radius;
+    if (qAbs(radius) <= 1.0e-8f)
+    {
+        radius = 0.01f;
+    }
+    const float angle = count > 0
+                            ? qDegreesToRadians(spec.angle_degrees) /
+                                  static_cast<float>(count) * static_cast<float>(index)
+                            : 0.0f;
+    const QVector3D radial = rotate_vector(
+        axis_perpendicular(axis, spec.plane_normal) * radius, axis, angle);
+    RotationalPlacement placement;
+    placement.pivot = spec.origin;
+    placement.axis = axis;
+    placement.angle = angle;
+    placement.anchor = spec.origin + radial +
+                       axis * (spec.spacing * static_cast<float>(index));
+    return placement;
+}
+
 QVector3D primary_direction(const Injector &injector)
 {
     switch (injector.injection_type)
@@ -59,6 +154,21 @@ QVector3D primary_direction(const Injector &injector)
         return injector.atomizer_axis;
     default:
         return injector.vel;
+    }
+}
+
+void translate_injector_spatial(Injector &injector, const QVector3D &offset)
+{
+    injector.pos += offset;
+    injector.pos2 += offset;
+    injector.ff_center += offset;
+    injector.ff_virtual_origin += offset;
+    injector.volume_bgeom_min += offset;
+    injector.volume_bgeom_max += offset;
+    if (injector.single_target_scope != Single_Target_Scope::World &&
+        injector.single_target_scope != Single_Target_Scope::Reference_Local)
+    {
+        injector.single_target_hitpoint += offset;
     }
 }
 
@@ -359,7 +469,6 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
     const int count = qBound(1, spec.count, 100000);
     const QVector3D linear_direction = normalized_or(
         spec.direction, QVector3D(1.0f, 0.0f, 0.0f));
-    const QVector3D rotation_axis = linear_direction;
 
     for (int index = 0; index < count; ++index)
     {
@@ -379,78 +488,35 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
                                            .arg(source.inj.injector_data.name)
                                            .arg(index + 1);
 
+        const QVector3D source_position = source.inj.injector_data.pos;
         if (spec.type == UnitArrayType::Linear)
         {
-            const QVector3D offset = linear_direction * (spec.spacing * index);
-            child.inj.injector_data.pos += offset;
-            child.inj.injector_data.pos2 += offset;
-            child.inj.injector_data.ff_center += offset;
-            child.inj.injector_data.ff_virtual_origin += offset;
-            child.inj.injector_data.volume_bgeom_min += offset;
-            child.inj.injector_data.volume_bgeom_max += offset;
-            if (child.inj.injector_data.single_target_scope !=
-                    Single_Target_Scope::World &&
-                child.inj.injector_data.single_target_scope !=
-                    Single_Target_Scope::Reference_Local)
-            {
-                child.inj.injector_data.single_target_hitpoint += offset;
-            }
+            const QVector3D anchor = spec.origin +
+                                     linear_direction * (spec.spacing * index);
+            translate_injector_spatial(child.inj.injector_data,
+                                       anchor - source_position);
         }
         else if (spec.type == UnitArrayType::Elliptical)
         {
-            const QVector3D ellipse_axis = normalized_or(
-                spec.plane_normal, QVector3D(0.0f, 0.0f, 1.0f));
-            const QVector3D ellipse_x = normalized_or(
-                spec.direction, QVector3D(1.0f, 0.0f, 0.0f));
-            QVector3D ellipse_y = QVector3D::crossProduct(ellipse_axis, ellipse_x);
-            if (ellipse_y.lengthSquared() <= 1.0e-12f)
-            {
-                ellipse_y = QVector3D(0.0f, 1.0f, 0.0f);
-            }
-            else
-            {
-                ellipse_y.normalize();
-            }
-            const float angle = spec.count > 0
-                                    ? qDegreesToRadians(spec.angle_degrees) /
-                                          static_cast<float>(spec.count) * index
-                                    : 0.0f;
-            rotate_injector_data(child.inj.injector_data, spec.origin,
-                                 ellipse_axis, angle);
-            const QVector3D target = spec.origin +
-                                     ellipse_x * (spec.major_radius * std::cos(angle)) +
-                                     ellipse_y * (spec.minor_radius * std::sin(angle));
-            const QVector3D offset = target - child.inj.injector_data.pos;
-            child.inj.injector_data.pos += offset;
-            child.inj.injector_data.pos2 += offset;
-            child.inj.injector_data.ff_center += offset;
-            child.inj.injector_data.ff_virtual_origin += offset;
-            child.inj.injector_data.volume_bgeom_min += offset;
-            child.inj.injector_data.volume_bgeom_max += offset;
+            const EllipticalPlacement placement = elliptical_placement(
+                source_position, spec, index, count);
+            rotate_injector_data(child.inj.injector_data, source_position,
+                                 placement.axis, placement.angle);
+            translate_injector_spatial(
+                child.inj.injector_data,
+                placement.target - child.inj.injector_data.pos);
         }
         else if (spec.type == UnitArrayType::Rotational)
         {
-            const float step = spec.count > 0
-                                   ? qDegreesToRadians(spec.angle_degrees) / spec.count
-                                   : 0.0f;
-            rotate_injector_data(child.inj.injector_data, spec.origin,
-                                 rotation_axis, step * index);
-            const QVector3D axial_offset = rotation_axis * (spec.spacing * index);
-            child.inj.injector_data.pos += axial_offset;
-            child.inj.injector_data.pos2 += axial_offset;
-            child.inj.injector_data.ff_center += axial_offset;
-            child.inj.injector_data.ff_virtual_origin += axial_offset;
-            child.inj.injector_data.volume_bgeom_min += axial_offset;
-            child.inj.injector_data.volume_bgeom_max += axial_offset;
-            if (child.inj.injector_data.single_target_scope !=
-                    Single_Target_Scope::World &&
-                child.inj.injector_data.single_target_scope !=
-                    Single_Target_Scope::Reference_Local)
-            {
-                child.inj.injector_data.single_target_hitpoint += axial_offset;
-            }
+            const RotationalPlacement placement = rotational_placement(
+                source_position, spec, index, count);
+            rotate_injector_data(child.inj.injector_data, source_position,
+                                 placement.axis, placement.angle);
+            translate_injector_spatial(
+                child.inj.injector_data,
+                placement.anchor - child.inj.injector_data.pos);
         }
-        else
+        else if (index % 2 != 0)
         {
             mirror_injector_data(child.inj.injector_data, spec.origin,
                                  spec.plane_normal);
@@ -787,10 +853,6 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
         spec.direction, QVector3D(1.0f, 0.0f, 0.0f));
     const QVector3D plane_normal = normalized_or(
         spec.plane_normal, QVector3D(0.0f, 0.0f, 1.0f));
-    const float angle_step = spec.type == UnitArrayType::Rotational && count > 0
-                                 ? qDegreesToRadians(spec.angle_degrees) /
-                                       static_cast<float>(count)
-                                 : 0.0f;
     for (int index = 0; index < count; ++index)
     {
         QHash<QUuid, QUuid> uuid_map;
@@ -808,36 +870,31 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
         instance->inj.injector_data.name =
             QStringLiteral("%1[%2]").arg(source.inj.injector_data.name)
                                      .arg(index + 1);
+        const QVector3D source_position = source.inj.injector_data.pos;
         if (spec.type == UnitArrayType::Linear)
         {
+            const QVector3D anchor = spec.origin +
+                                     direction * (spec.spacing * index);
             transform_unit_tree(*instance, QVector3D(), direction, 0.0f,
-                                direction * (spec.spacing * index));
+                                anchor - source_position);
         }
         else if (spec.type == UnitArrayType::Elliptical)
         {
-            const float angle = count > 0
-                                    ? qDegreesToRadians(spec.angle_degrees) /
-                                          static_cast<float>(count) * index
-                                    : 0.0f;
-            const QVector3D ellipse_y = normalized_or(
-                QVector3D::crossProduct(plane_normal, direction),
-                QVector3D(0.0f, 1.0f, 0.0f));
-            const QVector3D target = spec.origin +
-                                     direction * (spec.major_radius * std::cos(angle)) +
-                                     ellipse_y * (spec.minor_radius * std::sin(angle));
-            const QVector3D rotated_source = spec.origin +
-                rotate_vector(source.inj.injector_data.pos - spec.origin,
-                              plane_normal, angle);
-            transform_unit_tree(*instance, spec.origin, plane_normal, angle,
-                                target - rotated_source);
+            const EllipticalPlacement placement = elliptical_placement(
+                source_position, spec, index, count);
+            transform_unit_tree(*instance, source_position, placement.axis,
+                                placement.angle,
+                                placement.target - source_position);
         }
         else
         {
             if (spec.type == UnitArrayType::Rotational)
             {
-                transform_unit_tree(*instance, spec.origin, direction,
-                                    angle_step * index,
-                                    direction * (spec.spacing * index));
+                const RotationalPlacement placement = rotational_placement(
+                    source_position, spec, index, count);
+                transform_unit_tree(*instance, source_position, placement.axis,
+                                    placement.angle,
+                                    placement.anchor - source_position);
             }
             else if (index % 2 != 0)
             {
@@ -1000,4 +1057,83 @@ void array_frame_from_injector(const Injector &injector,
     {
         *plane_normal = spray;
     }
+}
+
+ArrayPatternGuide array_pattern_guide(const QVector3D &source_position,
+                                      const UnitArraySpec &spec)
+{
+    ArrayPatternGuide guide;
+    const int count = qBound(1, spec.count, 100000);
+    if (spec.type == UnitArrayType::Linear)
+    {
+        const QVector3D direction = normalized_or(spec.direction,
+                                                  QVector3D(1.0f, 0.0f, 0.0f));
+        const QVector3D delta = direction * (spec.spacing * static_cast<float>(
+                                                  qMax(0, count - 1)));
+        if (delta.lengthSquared() <= 1.0e-12f)
+        {
+            return guide;
+        }
+        guide.kind = ArrayGuideKind::Segment;
+        guide.origin = spec.origin;
+        guide.normal = delta.normalized();
+        guide.length = delta.length();
+        return guide;
+    }
+    if (spec.type == UnitArrayType::Rotational)
+    {
+        const RotationalPlacement placement = rotational_placement(
+            source_position, spec, 0, count);
+        const QVector3D radial = placement.anchor - spec.origin;
+        if (radial.lengthSquared() <= 1.0e-12f)
+        {
+            return guide;
+        }
+        const float radius = radial.length();
+        guide.kind = ArrayGuideKind::Loop;
+        guide.origin = spec.origin;
+        guide.normal = placement.axis;
+        guide.major = radial;
+        guide.minor = QVector3D::crossProduct(placement.axis, radial.normalized())
+                          .normalized() * radius;
+        guide.length = radius;
+        return guide;
+    }
+    if (spec.type == UnitArrayType::Elliptical)
+    {
+        const EllipticalPlacement placement = elliptical_placement(
+            source_position, spec, 0, count);
+        const QVector3D x_axis = normalized_or(spec.direction,
+                                               QVector3D(1.0f, 0.0f, 0.0f));
+        QVector3D y_axis = QVector3D::crossProduct(placement.axis, x_axis);
+        if (y_axis.lengthSquared() <= 1.0e-12f)
+        {
+            y_axis = QVector3D(0.0f, 1.0f, 0.0f);
+        }
+        else
+        {
+            y_axis.normalize();
+        }
+        if (qAbs(spec.major_radius) <= 1.0e-8f)
+        {
+            return guide;
+        }
+        guide.kind = ArrayGuideKind::Loop;
+        guide.origin = placement.center;
+        guide.normal = placement.axis;
+        guide.major = x_axis * spec.major_radius;
+        guide.minor = y_axis * spec.minor_radius;
+        guide.length = qAbs(spec.major_radius);
+        return guide;
+    }
+    if (spec.type == UnitArrayType::Mirror)
+    {
+        const float reach = qMax(0.02f, (source_position - spec.origin).length());
+        guide.kind = ArrayGuideKind::Plane;
+        guide.origin = spec.origin;
+        guide.normal = normalized_or(spec.plane_normal, QVector3D(0.0f, 0.0f, 1.0f));
+        guide.half_extent = reach;
+        guide.length = reach;
+    }
+    return guide;
 }

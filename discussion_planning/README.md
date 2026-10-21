@@ -6,6 +6,12 @@
 - A new layer takes its origin from the source injector. Its offset is perpendicular to the spray, and its plane normal follows the spray.
 - The coordinate frame stays visible before the first layer exists. Context-menu rotational and mirror arrays keep that frame instead of replacing it with (1, 0, 0).
 - Reloading an unsaved layer keeps Rotational, Mirror, and Elliptical instead of forcing Linear.
+- Array instances follow the editor frame, including index 0. The prototype shape stays hidden while those instances are shown.
+- Linear copies start at the given origin and step along its direction. Rotational copies are translated onto the circle defined by origin, axis, radius, and the angle-zero plane normal. Elliptical copies use that nominal ellipse. Mirror still reflects across the given plane. Circle radius defaults to 10 mm.
+- The editor shows origin for every pattern, direction for linear, rotational, and elliptical patterns, and plane normal for rotational, mirror, and elliptical patterns. Reference mode shows those numbers but does not let them override the reference geometry.
+- While the array editor is open, the viewport draws a cyan guide on that nominal geometry: a circle and axis for rotation, the ellipse, a mirror plane, or a linear segment.
+- Material choices come from the material table. Chemkin names stay on the evaporating, devolatilizing, oxidizing, and product fields.
+- Deleting an array layer removes only that layer and keeps the source injector.
 
 ### 2026-10-21 Display Precision And Axis Follow
 

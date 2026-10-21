@@ -33,6 +33,8 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMenu>
+#include <QPair>
+#include <QSet>
 #include <QComboBox>
 #include <QSpinBox>
 #include <QSignalBlocker>
@@ -2868,6 +2870,11 @@ void MainWindow::apply_material_entries(const QList<MaterialConfigEntry> &entrie
                                         bool show_status_feedback)
 {
     m_material_entries = entries;
+    if (m_3d_widget != nullptr)
+    {
+        m_3d_widget->set_material_names(
+            material_names_from_entries(m_material_entries));
+    }
     if (m_species_material_dialog != nullptr &&
         !material_entries_equal(m_species_material_dialog->material_entries(), m_material_entries))
     {
@@ -3665,13 +3672,15 @@ void MainWindow::create_array_editor_panel()
     auto *rotational_form = new QFormLayout(rotational_page);
     m_array_editor_rotational_angle = make_double_spin(360.0, 3);
     m_array_editor_rotational_spacing = make_double_spin(0.0, 6);
+    m_array_editor_orbit_radius = make_double_spin(0.010, 6);
     rotational_form->addRow(tr("Total angle"), m_array_editor_rotational_angle);
+    rotational_form->addRow(tr("Circle radius"), m_array_editor_orbit_radius);
     rotational_form->addRow(tr("Axial spacing"), m_array_editor_rotational_spacing);
 
     auto *mirror_page = new QWidget(m_array_editor_parameter_stack);
     auto *mirror_form = new QFormLayout(mirror_page);
     mirror_form->addRow(new QLabel(
-        tr("Mirror uses the plane normal defined below."), mirror_page));
+        tr("Mirror uses the injector plane, or the selected reference normal."), mirror_page));
 
     auto *elliptical_page = new QWidget(m_array_editor_parameter_stack);
     auto *elliptical_form = new QFormLayout(elliptical_page);
@@ -3697,8 +3706,8 @@ void MainWindow::create_array_editor_panel()
     m_array_editor_frame_group = frame_group;
     auto *frame_layout = new QFormLayout(frame_group);
     m_array_editor_frame_mode = new QComboBox(frame_group);
-    m_array_editor_frame_mode->addItems({tr("World / custom vectors"),
-                                         tr("Reference geometry frame")});
+    m_array_editor_frame_mode->addItems({tr("Injector"),
+                                         tr("Reference geometry")});
     frame_layout->addRow(tr("Reference"), m_array_editor_frame_mode);
     m_array_editor_reference_geometry = new QComboBox(frame_group);
     frame_layout->addRow(tr("Reference geometry"),
@@ -3707,8 +3716,6 @@ void MainWindow::create_array_editor_panel()
     m_array_editor_origin_x = make_double_spin(0.0);
     m_array_editor_origin_y = make_double_spin(0.0);
     m_array_editor_origin_z = make_double_spin(0.0);
-    // Start linear previews on a visible transverse axis instead of stacking
-    // every child along the injector's usual X direction.
     m_array_editor_direction_x = make_double_spin(0.0);
     m_array_editor_direction_y = make_double_spin(1.0);
     m_array_editor_direction_z = make_double_spin(0.0);
@@ -3727,6 +3734,13 @@ void MainWindow::create_array_editor_panel()
     m_array_editor_conform_normal = new QCheckBox(
         tr("Align injector directions to reference normal"), frame_group);
     frame_layout->addRow(m_array_editor_conform_normal);
+    m_array_editor_reference_geometry->hide();
+    m_array_editor_conform_normal->hide();
+    if (QWidget *reference_label = frame_layout->labelForField(
+            m_array_editor_reference_geometry))
+    {
+        reference_label->hide();
+    }
     layout->addWidget(frame_group);
 
     auto *hint = new QLabel(
@@ -3743,6 +3757,7 @@ void MainWindow::create_array_editor_panel()
     m_array_editor_linear_spacing->setValue(storage_length_to_display(0.004));
     m_array_editor_rotational_angle->setValue(storage_angle_to_display(360.0));
     m_array_editor_rotational_spacing->setValue(storage_length_to_display(0.0));
+    m_array_editor_orbit_radius->setValue(storage_length_to_display(0.010));
     m_array_editor_major_radius->setValue(storage_length_to_display(0.010));
     m_array_editor_minor_radius->setValue(storage_length_to_display(0.005));
     m_array_editor_elliptical_angle->setValue(storage_angle_to_display(360.0));
@@ -3761,30 +3776,27 @@ void MainWindow::create_array_editor_panel()
         {
             m_array_editor_count->setValue(2);
         }
+        update_array_editor_frame_fields();
         update_array_editor_preview();
     });
     connect(m_array_editor_frame_mode, qOverload<int>(&QComboBox::currentIndexChanged),
-            this, [this](int index)
+            this, [this, frame_layout](int index)
     {
         const bool custom = index == 0;
         m_array_editor_reference_geometry->setEnabled(
             !custom && m_array_editor_reference_geometry->count() > 0);
-        for (QDoubleSpinBox *spin : {m_array_editor_origin_x,
-                                     m_array_editor_origin_y,
-                                     m_array_editor_origin_z,
-                                     m_array_editor_direction_x,
-                                     m_array_editor_direction_y,
-                                     m_array_editor_direction_z,
-                                     m_array_editor_normal_x,
-                                     m_array_editor_normal_y,
-                                     m_array_editor_normal_z})
+        m_array_editor_reference_geometry->setVisible(!custom);
+        m_array_editor_conform_normal->setVisible(!custom);
+        if (QWidget *reference_label = frame_layout->labelForField(
+                m_array_editor_reference_geometry))
         {
-            spin->setEnabled(custom);
+            reference_label->setVisible(!custom);
         }
         if (!custom)
         {
             update_array_editor_reference_frame_display();
         }
+        update_array_editor_frame_fields();
         update_array_editor_preview();
     });
     connect(m_array_editor_reference_geometry,
@@ -3799,6 +3811,7 @@ void MainWindow::create_array_editor_panel()
     for (QDoubleSpinBox *spin : {m_array_editor_linear_spacing,
                                  m_array_editor_rotational_angle,
                                  m_array_editor_rotational_spacing,
+                                 m_array_editor_orbit_radius,
                                  m_array_editor_major_radius,
                                  m_array_editor_minor_radius,
                                  m_array_editor_elliptical_angle,
@@ -3992,6 +4005,7 @@ void MainWindow::create_array_editor_panel()
     m_array_editor_dock->setWidget(scroll_area);
     addDockWidget(Qt::RightDockWidgetArea, m_array_editor_dock);
     refresh_array_editor_reference_options();
+    update_array_editor_frame_fields();
     m_array_editor_dock->hide();
 }
 
@@ -4136,6 +4150,48 @@ void MainWindow::refresh_array_editor_reference_options()
         m_array_editor_reference_geometry->count() > 0);
 }
 
+void MainWindow::update_array_editor_frame_fields()
+{
+    if (m_array_editor_frame_group == nullptr || m_array_editor_type == nullptr)
+    {
+        return;
+    }
+    auto *form = qobject_cast<QFormLayout *>(m_array_editor_frame_group->layout());
+    if (form == nullptr)
+    {
+        return;
+    }
+
+    const int type_index = m_array_editor_type->currentIndex();
+    const bool injector = m_array_editor_frame_mode == nullptr ||
+                          m_array_editor_frame_mode->currentIndex() == 0;
+    const bool show_origin = true;
+    const bool show_direction = type_index == 0 || type_index == 1 || type_index == 3;
+    const bool show_normal = type_index == 1 || type_index == 2 || type_index == 3;
+    const auto apply_field = [&](QWidget *field, bool visible)
+    {
+        if (field == nullptr)
+        {
+            return;
+        }
+        field->setVisible(visible);
+        field->setEnabled(visible && injector);
+        if (QWidget *label = form->labelForField(field))
+        {
+            label->setVisible(visible);
+        }
+    };
+    apply_field(m_array_editor_origin_x, show_origin);
+    apply_field(m_array_editor_origin_y, show_origin);
+    apply_field(m_array_editor_origin_z, show_origin);
+    apply_field(m_array_editor_direction_x, show_direction);
+    apply_field(m_array_editor_direction_y, show_direction);
+    apply_field(m_array_editor_direction_z, show_direction);
+    apply_field(m_array_editor_normal_x, show_normal);
+    apply_field(m_array_editor_normal_y, show_normal);
+    apply_field(m_array_editor_normal_z, show_normal);
+}
+
 void MainWindow::update_array_editor_reference_frame_display()
 {
     if (m_array_editor_frame_mode == nullptr ||
@@ -4190,6 +4246,7 @@ void MainWindow::apply_array_editor_display_units()
 
     for (QDoubleSpinBox *spin : {m_array_editor_linear_spacing,
                                  m_array_editor_rotational_spacing,
+                                 m_array_editor_orbit_radius,
                                  m_array_editor_major_radius,
                                  m_array_editor_minor_radius,
                                  m_array_editor_fill_spacing_x,
@@ -4323,6 +4380,8 @@ void MainWindow::load_array_editor_layer(int layer_index)
             m_array_editor_major_radius->value()));
         spec.minor_radius = static_cast<float>(display_length_to_storage(
             m_array_editor_minor_radius->value()));
+        spec.orbit_radius = static_cast<float>(display_length_to_storage(
+            m_array_editor_orbit_radius->value()));
         spec.use_reference_geometry =
             m_array_editor_frame_mode->currentIndex() == 1;
         spec.conform_to_reference_normal =
@@ -4361,6 +4420,9 @@ void MainWindow::load_array_editor_layer(int layer_index)
     const double preserved_rotational_spacing = has_layer
         ? storage_length_to_display(spec.spacing)
         : m_array_editor_rotational_spacing->value();
+    const double preserved_orbit_radius = has_layer
+        ? storage_length_to_display(spec.orbit_radius)
+        : m_array_editor_orbit_radius->value();
     const double preserved_rotational_angle = has_layer
         ? storage_angle_to_display(spec.angle_degrees)
         : m_array_editor_rotational_angle->value();
@@ -4380,6 +4442,7 @@ void MainWindow::load_array_editor_layer(int layer_index)
     m_array_editor_linear_spacing->setValue(preserved_linear_spacing);
     m_array_editor_rotational_angle->setValue(preserved_rotational_angle);
     m_array_editor_rotational_spacing->setValue(preserved_rotational_spacing);
+    m_array_editor_orbit_radius->setValue(preserved_orbit_radius);
     m_array_editor_major_radius->setValue(preserved_major_radius);
     m_array_editor_minor_radius->setValue(preserved_minor_radius);
     m_array_editor_elliptical_angle->setValue(preserved_elliptical_angle);
@@ -4421,6 +4484,7 @@ void MainWindow::load_array_editor_layer(int layer_index)
         has_source && layer_index >= 0 && layer_index + 1 < specs.size());
 
     m_array_editor_updating = false;
+    update_array_editor_frame_fields();
     update_array_editor_preview();
 }
 
@@ -4449,6 +4513,8 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
             display_angle_to_storage(m_array_editor_rotational_angle->value()));
         spec.spacing = static_cast<float>(
             display_length_to_storage(m_array_editor_rotational_spacing->value()));
+        spec.orbit_radius = static_cast<float>(
+            display_length_to_storage(m_array_editor_orbit_radius->value()));
         break;
     case 2:
         spec.type = UnitArrayType::Mirror;
@@ -4491,6 +4557,8 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
     }
     else
     {
+        spec.use_reference_geometry = false;
+        spec.reference_geometry_uuid = QUuid();
         spec.origin = QVector3D(
             static_cast<float>(display_length_to_storage(
                 m_array_editor_origin_x->value())),
@@ -4508,6 +4576,7 @@ bool MainWindow::build_array_editor_spec(UnitArraySpec *output,
             static_cast<float>(m_array_editor_normal_z->value()));
     }
     spec.conform_to_reference_normal =
+        spec.use_reference_geometry &&
         m_array_editor_conform_normal->isChecked();
     *output = spec;
     return true;
@@ -5082,9 +5151,11 @@ void MainWindow::create_object_list_panel()
         const float scale = static_cast<float>(UnitSystem::length_to_base(
             1.0, QStringLiteral("mm")));
         configure_common_injector(unit, "Injector", origin / scale);
-        unit.inj.injector_data.material = m_chemkin_species_names.isEmpty()
+        const QStringList material_names =
+            material_names_from_entries(m_material_entries);
+        unit.inj.injector_data.material = material_names.isEmpty()
             ? QString()
-            : m_chemkin_species_names.first();
+            : material_names.first();
         if (has_reference)
         {
             unit.inj.injector_data.vel = 100.0f * reference_z;
@@ -5599,18 +5670,71 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        const QList<QUuid> selected_units = selected_object_unit_uuids();
+        QList<QPair<QUuid, int>> array_layers;
+        QList<QUuid> selected_units;
+        QSet<QUuid> seen_units;
+        for (QTreeWidgetItem *item : m_object_list->selectedItems())
+        {
+            if (item == nullptr)
+            {
+                continue;
+            }
+            const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
+            const QUuid uuid(item->data(0, Qt::UserRole).toString());
+            if (item_kind == QStringLiteral("array_layer"))
+            {
+                const int layer_number = item->data(0, Qt::UserRole + 3).toInt();
+                if (!uuid.isNull() && layer_number > 0)
+                {
+                    array_layers.append(qMakePair(uuid, layer_number - 1));
+                }
+                continue;
+            }
+            if (item_kind == QStringLiteral("reference") || uuid.isNull() ||
+                !m_3d_widget->unit_hash.contains(uuid) || seen_units.contains(uuid))
+            {
+                continue;
+            }
+            seen_units.insert(uuid);
+            selected_units.append(uuid);
+        }
+        QList<QPair<QUuid, int>> layers_to_remove;
+        for (const QPair<QUuid, int> &layer : array_layers)
+        {
+            if (!seen_units.contains(layer.first))
+            {
+                layers_to_remove.append(layer);
+            }
+        }
 
-        if (selected_units.isEmpty())
+        if (selected_units.isEmpty() && layers_to_remove.isEmpty())
         {
             statusBar()->showMessage("Select one or more injectors first", 4000);
             return;
         }
 
+        QString prompt;
+        QString title = "Delete Selected Injectors";
+        if (selected_units.isEmpty())
+        {
+            title = "Delete Array Layers";
+            prompt = QString("Delete %1 array layer(s)? Source injectors are kept.")
+                         .arg(layers_to_remove.size());
+        }
+        else if (layers_to_remove.isEmpty())
+        {
+            prompt = QString("Delete %1 selected injector(s)?").arg(selected_units.size());
+        }
+        else
+        {
+            prompt = QString("Delete %1 selected injector(s) and %2 array layer(s)?")
+                         .arg(selected_units.size())
+                         .arg(layers_to_remove.size());
+        }
         const auto answer = QMessageBox::question(
             this,
-            "Delete Selected Injectors",
-            QString("Delete %1 selected injector(s)?").arg(selected_units.size()),
+            title,
+            prompt,
             QMessageBox::Yes | QMessageBox::No,
             QMessageBox::No);
         if (answer != QMessageBox::Yes)
@@ -5618,9 +5742,32 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
+        std::sort(layers_to_remove.begin(), layers_to_remove.end(),
+                  [](const QPair<QUuid, int> &left, const QPair<QUuid, int> &right)
+                  {
+                      if (left.first == right.first)
+                      {
+                          return left.second > right.second;
+                      }
+                      return left.first < right.first;
+                  });
+        int removed_layers = 0;
+        for (const QPair<QUuid, int> &layer : layers_to_remove)
+        {
+            if (m_3d_widget->remove_unit_array_layer(layer.first, layer.second))
+            {
+                ++removed_layers;
+            }
+        }
         for (const QUuid &uuid : selected_units)
         {
             m_3d_widget->remove_unit_by_uuid(uuid);
+        }
+        if (removed_layers > 0)
+        {
+            mark_project_dirty();
+            update_object_list_panel();
+            refresh_array_editor_panel();
         }
     });
     connect(paste_selected_button, &QPushButton::clicked, this, [this]()
@@ -5950,10 +6097,11 @@ void MainWindow::create_object_list_panel()
             return;
         }
 
-        const QStringList species_names = m_chemkin_species_names;
-        if (species_names.isEmpty())
+        const QStringList material_names =
+            material_names_from_entries(m_material_entries);
+        if (material_names.isEmpty())
         {
-            statusBar()->showMessage("No Chemkin species are available", 4000);
+            statusBar()->showMessage("No materials are available", 4000);
             return;
         }
 
@@ -5962,7 +6110,7 @@ void MainWindow::create_object_list_panel()
             this,
             "Set Material",
             "Material:",
-            species_names,
+            material_names,
             0,
             false,
             &accepted);
@@ -6616,6 +6764,18 @@ void MainWindow::create_object_list_panel()
                 {
                     return;
                 }
+                const double orbit_radius = QInputDialog::getDouble(
+                    this, "Rotational Array",
+                    QString("Circle radius (%1):").arg(
+                        UnitSystem::preferred_display_unit("m")),
+                    storage_length_to_display(0.010), 0.0, 1.0e12,
+                    3, &accepted);
+                spec.orbit_radius = static_cast<float>(
+                    display_length_to_storage(orbit_radius));
+                if (!accepted)
+                {
+                    return;
+                }
                 const double spacing = QInputDialog::getDouble(
                     this, "Rotational Array",
                     QString("Axial spacing per child (%1):").arg(
@@ -6940,15 +7100,35 @@ void MainWindow::create_object_list_panel()
         }
         else if (chosen_action == delete_action)
         {
-            const QString name = m_3d_widget->unit_hash.value(uuid)
-                                     ->inj.injector_data.name;
-            const auto answer = QMessageBox::question(
-                this, "Delete Injector",
-                QString("Delete injector \"%1\"?").arg(name),
-                QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
-            if (answer == QMessageBox::Yes)
+            if (item_kind == QStringLiteral("array_layer"))
             {
-                m_3d_widget->remove_unit_by_uuid(uuid);
+                const int layer_number = item->data(0, Qt::UserRole + 3).toInt();
+                const auto answer = QMessageBox::question(
+                    this, "Delete Array Layer",
+                    QString("Delete array layer %1? The source injector is kept.")
+                        .arg(layer_number),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                if (answer == QMessageBox::Yes &&
+                    m_3d_widget->remove_unit_array_layer(uuid, layer_number - 1))
+                {
+                    mark_project_dirty();
+                    update_object_list_panel();
+                    refresh_array_editor_panel();
+                    statusBar()->showMessage("Array layer removed", 4000);
+                }
+            }
+            else
+            {
+                const QString name = m_3d_widget->unit_hash.value(uuid)
+                                         ->inj.injector_data.name;
+                const auto answer = QMessageBox::question(
+                    this, "Delete Injector",
+                    QString("Delete injector \"%1\"?").arg(name),
+                    QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+                if (answer == QMessageBox::Yes)
+                {
+                    m_3d_widget->remove_unit_by_uuid(uuid);
+                }
             }
         }
     });

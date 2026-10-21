@@ -57,4 +57,28 @@ void array_frame_from_injector(const Injector &injector,
                                QVector3D *direction,
                                QVector3D *plane_normal);
 
+// Preview geometry for the array frame. Loop vectors run from the center to
+// the curve; they are not unit vectors.
+enum class ArrayGuideKind
+{
+    None,
+    Segment,
+    Loop,
+    Plane
+};
+
+struct ArrayPatternGuide
+{
+    ArrayGuideKind kind = ArrayGuideKind::None;
+    QVector3D origin;
+    QVector3D normal;
+    QVector3D major;
+    QVector3D minor;
+    float length = 0.0f;
+    float half_extent = 0.0f;
+};
+
+ArrayPatternGuide array_pattern_guide(const QVector3D &source_position,
+                                      const UnitArraySpec &spec);
+
 #endif // UNIT_ARRAY_H

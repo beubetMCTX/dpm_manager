@@ -148,6 +148,7 @@ private:
     void apply_array_editor_display_units();
     void refresh_array_editor_panel();
     void refresh_array_editor_reference_options();
+    void update_array_editor_frame_fields();
     void update_array_editor_reference_frame_display();
     void load_array_editor_layer(int layer_index);
     bool build_array_editor_spec(UnitArraySpec *output,
@@ -241,6 +242,7 @@ private:
     QDoubleSpinBox *m_array_editor_linear_spacing = nullptr;
     QDoubleSpinBox *m_array_editor_rotational_angle = nullptr;
     QDoubleSpinBox *m_array_editor_rotational_spacing = nullptr;
+    QDoubleSpinBox *m_array_editor_orbit_radius = nullptr;
     QDoubleSpinBox *m_array_editor_major_radius = nullptr;
     QDoubleSpinBox *m_array_editor_minor_radius = nullptr;
     QDoubleSpinBox *m_array_editor_elliptical_angle = nullptr;
