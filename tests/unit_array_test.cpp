@@ -389,5 +389,64 @@ int main(int argc, char **argv)
                    frame_direction.lengthSquared() > 0.9f,
                "new array frame should stay perpendicular to a +Z spray") && ok;
 
+    UnitArraySpec headed_linear = linear;
+    headed_linear.heading = QQuaternion::fromAxisAndAngle(
+        QVector3D(0.0f, 0.0f, 1.0f), 90.0f);
+    const QVector3D headed_origin = headed_linear.origin;
+    const QVector3D headed_direction = headed_linear.direction;
+    const QList<Unit> headed_linear_children =
+        expand_unit_array(source, headed_linear);
+    ok = check(headed_linear_children.size() == 3 &&
+                   headed_linear_children[2].inj.injector_data.pos ==
+                       QVector3D(8.0f, 0.0f, 0.0f) &&
+                   qAbs(headed_linear_children[2].inj.injector_data.vel.x()) < 1.0e-3f &&
+                   qAbs(headed_linear_children[2].inj.injector_data.vel.y() - 10.0f) < 1.0e-3f &&
+                   headed_linear.origin == headed_origin &&
+                   headed_linear.direction == headed_direction,
+               "linear heading should yaw copies without moving the line") && ok;
+
+    UnitArraySpec headed_circular = circular;
+    headed_circular.heading = headed_linear.heading;
+    const QList<Unit> headed_circular_children =
+        expand_unit_array(source, headed_circular);
+    ok = check(headed_circular_children.size() == circular_children.size() &&
+                   qAbs(headed_circular_children[1].inj.injector_data.pos.x() -
+                        circular_children[1].inj.injector_data.pos.x()) < 1.0e-3f &&
+                   qAbs(headed_circular_children[1].inj.injector_data.pos.y() -
+                        circular_children[1].inj.injector_data.pos.y()) < 1.0e-3f &&
+                   qAbs(headed_circular_children[1].inj.injector_data.vel.x() + 10.0f) < 1.0e-3f &&
+                   qAbs(headed_circular.plane_normal.x() - 1.0f) < 1.0e-4f,
+               "rotational heading should yaw copies without moving the circle") && ok;
+
+    Unit target_source = source;
+    target_source.inj.injector_data.single_direction_mode =
+        Single_Direction_Mode::Target_Hitpoint;
+    target_source.inj.injector_data.single_target_scope =
+        Single_Target_Scope::World;
+    target_source.inj.injector_data.single_target_hitpoint =
+        QVector3D(1.0f, 4.0f, 0.0f);
+    target_source.inj.injector_data.pos = QVector3D(1.0f, 2.0f, 0.0f);
+    UnitArraySpec target_plain = headed_linear;
+    target_plain.heading = QQuaternion();
+    target_plain.count = 1;
+    UnitArraySpec target_heading = target_plain;
+    target_heading.heading = QQuaternion::fromAxisAndAngle(
+        QVector3D(0.0f, 0.0f, 1.0f), 90.0f);
+    const QList<Unit> plain_children =
+        expand_unit_array(target_source, target_plain);
+    const QList<Unit> target_children =
+        expand_unit_array(target_source, target_heading);
+    const QVector3D plain_pos = plain_children[0].inj.injector_data.pos;
+    const QVector3D plain_hit =
+        plain_children[0].inj.injector_data.single_target_hitpoint - plain_pos;
+    const QVector3D yawed_hit(-plain_hit.y(), plain_hit.x(), plain_hit.z());
+    ok = check(plain_children.size() == 1 && target_children.size() == 1 &&
+                   (target_children[0].inj.injector_data.pos - plain_pos)
+                           .lengthSquared() < 1.0e-6f &&
+                   (target_children[0].inj.injector_data.single_target_hitpoint -
+                    (plain_pos + yawed_hit))
+                           .lengthSquared() < 1.0e-4f,
+               "heading should yaw a world target around the injector") && ok;
+
     return ok ? 0 : 1;
 }

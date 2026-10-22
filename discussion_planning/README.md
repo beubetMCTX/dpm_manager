@@ -1,5 +1,13 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-22 Array Follow And Preview
+
+- Deleting the last array layer, or refreshing the editor while it is hidden, clears the yellow pattern preview instead of leaving a draft copy in the viewport.
+- An injector with Follow Array turned off stays where it is. Rebuilding or moving the array does not clone that injector into a second pattern.
+- Translating a following array injector moves the pattern frame, so every injector that still follows the array moves together. Rotating one only changes that layer heading; the line, circle, ellipse, or mirror plane stays put. A detached injector does not follow.
+- Releasing a gizmo no longer leaves the previous handle displayed after the injector is rebuilt.
+
+
 ### 2026-10-21 Array Layer Frame
 
 - Adding a layer no longer uses the hardcoded world +X array axis.

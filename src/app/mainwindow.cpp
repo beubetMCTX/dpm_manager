@@ -4485,6 +4485,14 @@ void MainWindow::load_array_editor_layer(int layer_index)
 
     m_array_editor_updating = false;
     update_array_editor_frame_fields();
+    if (!has_layer && specs.isEmpty())
+    {
+        if (m_3d_widget != nullptr)
+        {
+            m_3d_widget->clear_array_preview();
+        }
+        return;
+    }
     update_array_editor_preview();
 }
 
@@ -4697,9 +4705,14 @@ bool MainWindow::build_fill_editor_spec(UnitFillSpec *output,
 
 void MainWindow::update_array_editor_preview()
 {
-    if (m_array_editor_updating || m_3d_widget == nullptr ||
+    if (m_array_editor_updating || m_3d_widget == nullptr)
+    {
+        return;
+    }
+    if (m_array_editor_dock == nullptr || !m_array_editor_dock->isVisible() ||
         m_array_editor_source_uuid.isNull())
     {
+        m_3d_widget->clear_array_preview();
         return;
     }
 

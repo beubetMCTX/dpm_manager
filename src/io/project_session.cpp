@@ -1399,6 +1399,15 @@ QJsonObject array_spec_to_json(const UnitArraySpec &spec)
                       spec.reference_geometry_uuid.toString(
                           QUuid::WithoutBraces));
     }
+    if (!array_heading_is_identity(spec.heading))
+    {
+        QJsonArray heading;
+        heading.append(spec.heading.x());
+        heading.append(spec.heading.y());
+        heading.append(spec.heading.z());
+        heading.append(spec.heading.scalar());
+        result.insert("heading", heading);
+    }
     return result;
 }
 
@@ -1451,6 +1460,33 @@ bool array_spec_from_json(const QJsonValue &json_value, UnitArraySpec *spec)
             return false;
         }
     }
+    if (object.contains("heading"))
+    {
+        const QJsonArray heading = object.value("heading").toArray();
+        if (heading.size() != 4)
+        {
+            return false;
+        }
+        double components[4];
+        for (int index = 0; index < 4; ++index)
+        {
+            if (!heading.at(index).isDouble() ||
+                !std::isfinite(heading.at(index).toDouble()))
+            {
+                return false;
+            }
+            components[index] = heading.at(index).toDouble();
+        }
+        spec->heading = QQuaternion(static_cast<float>(components[3]),
+                                    static_cast<float>(components[0]),
+                                    static_cast<float>(components[1]),
+                                    static_cast<float>(components[2]));
+        if (spec->heading.lengthSquared() <= 1.0e-8f)
+        {
+            return false;
+        }
+        spec->heading.normalize();
+    }
     return true;
 }
 
@@ -1468,6 +1504,11 @@ bool is_valid_array_spec(const UnitArraySpec &spec)
            std::isfinite(spec.angle_degrees) &&
            std::isfinite(spec.major_radius) &&
            std::isfinite(spec.minor_radius) &&
+           std::isfinite(spec.heading.scalar()) &&
+           std::isfinite(spec.heading.x()) &&
+           std::isfinite(spec.heading.y()) &&
+           std::isfinite(spec.heading.z()) &&
+           spec.heading.lengthSquared() > 1.0e-8f &&
            (!spec.use_reference_geometry ||
             is_usable_reference_frame(spec.direction, spec.plane_normal)) &&
            (spec.type != UnitArrayType::Elliptical ||

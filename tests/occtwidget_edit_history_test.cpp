@@ -576,7 +576,7 @@ int main(int argc, char *argv[])
     {
         collect_leaf_units(child);
     }
-    if (!check(nested_leaf_units.size() == 8,
+if (!check(nested_leaf_units.size() == 8,
                "Three-layer array should expose eight leaf injectors") ||
         !check(std::all_of(nested_leaf_units.cbegin(), nested_leaf_units.cend(),
                            [](const std::shared_ptr<Unit> &leaf)
@@ -1269,17 +1269,24 @@ int main(int argc, char *argv[])
     widget.finish_reference_transform_transaction();
     const std::shared_ptr<Unit> active_reference_array_source =
         widget.unit_hash.value(reference_bound_uuid);
-    if (!check(widget.unit_hash.value(reference_bound_uuid)->array_spec
+    
+if (!check(widget.unit_hash.value(reference_bound_uuid)->array_spec
                    .use_reference_geometry,
                "Reference-bound Array should retain its dependency before clear") ||
-        !check(vectors_close(
-                   active_reference_array_source->array_spec.direction,
-                   QVector3D(0.0f, 1.0f, 0.0f)) &&
+        !check(active_reference_array_source->child_units.size() >= 2 &&
+                   vectors_close(
+                       active_reference_array_source->array_spec.direction,
+                       QVector3D(0.0f, 1.0f, 0.0f)) &&
                    vectors_close(
                        active_reference_array_source->child_units.at(1)
                                ->inj.injector_data.pos -
-                           active_reference_array_source->inj.injector_data.pos,
-                       QVector3D(0.0f, 2.0f, 0.0f)),
+                           active_reference_array_source->child_units.at(0)
+                               ->inj.injector_data.pos,
+                       QVector3D(0.0f, 2.0f, 0.0f)) &&
+                   vectors_close(
+                       active_reference_array_source->child_units.at(0)
+                           ->inj.injector_data.pos,
+                       active_reference_array_source->array_spec.origin),
                "Active reference rotation should update bound Array geometry") ||
         !check(widget.undo_reference_transform() &&
                    vectors_close(
@@ -1481,7 +1488,8 @@ int main(int argc, char *argv[])
         !check(vectors_close(
                    stored_secondary_array_source->child_units.at(1)
                            ->inj.injector_data.pos -
-                       stored_secondary_array_source->inj.injector_data.pos,
+                       stored_secondary_array_source->child_units.at(0)
+                           ->inj.injector_data.pos,
                    initial_array_direction),
                "Initial Array spacing should follow its saved direction") ||
         !check(widget.set_reference_geometry_visual_transform(
@@ -1500,7 +1508,8 @@ int main(int argc, char *argv[])
                    vectors_close(
                        rotated_array_source->child_units.at(1)
                                ->inj.injector_data.pos -
-                           rotated_array_source->inj.injector_data.pos,
+                           rotated_array_source->child_units.at(0)
+                               ->inj.injector_data.pos,
                        QVector3D(0.0f, 1.0f, 0.0f)),
                "Array rules and generated children should follow reference rotation"))
     {
@@ -1657,7 +1666,8 @@ int main(int argc, char *argv[])
                    vectors_close(
                        moved_nested_reference_source->child_units.at(1)
                                ->inj.injector_data.pos -
-                           moved_nested_reference_source->inj.injector_data.pos,
+                           moved_nested_reference_source->child_units.at(0)
+                               ->inj.injector_data.pos,
                        QVector3D(-0.5f, 0.0f, 0.0f)),
                "Reference motion should update both nested rules and leaf placements"))
     {
@@ -1967,7 +1977,7 @@ int main(int argc, char *argv[])
                     UnitArraySpec{QUuid(), {}, UnitArrayType::Linear, 2,
                                   QVector3D(1.0f, 0.0f, 0.0f),
                                   fill_child->inj.injector_data.pos, 2.0f,
-                                  360.0f, 0.01f, 0.005f,
+                                  0.01f, 360.0f, 0.01f, 0.005f,
                                   QVector3D(0.0f, 0.0f, 1.0f), false, false,
                                   QUuid()}) == 2,
                "Fill child should become a nested array source"))
@@ -2071,5 +2081,127 @@ int main(int argc, char *argv[])
     }
     widget.update_fill_preview(fill_root_uuid, edited_fill);
     widget.clear_array_preview();
+
+    widget.display_units({}, true);
+    Unit heading_source = make_valid_unit();
+    heading_source.inj.injector_data.name = "heading-source";
+    heading_source.inj.injector_data.pos = QVector3D(0.0f, 0.0f, 0.0f);
+    heading_source.inj.injector_data.vel = QVector3D(1.0f, 0.0f, 0.0f);
+    heading_source.inj.injector_data.atomizer_axis = QVector3D(1.0f, 0.0f, 0.0f);
+    if (!check(heading_source.inj.create_injector(),
+               "Heading source geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({heading_source});
+    const QUuid heading_source_uuid = widget.unit_hash.constBegin().key();
+    UnitArraySpec heading_linear;
+    heading_linear.type = UnitArrayType::Linear;
+    heading_linear.count = 3;
+    heading_linear.spacing = 5.0f;
+    heading_linear.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    heading_linear.origin = QVector3D(0.0f, 0.0f, 0.0f);
+    heading_linear.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    if (!check(widget.create_unit_array(heading_source_uuid, heading_linear) == 3,
+               "Linear heading array should create three copies"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> heading_child;
+    std::shared_ptr<Unit> detached_child;
+    QVector<QVector3D> positions_before;
+    QVector<QVector3D> directions_before;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(heading_source_uuid)->child_units)
+    {
+        if (child == nullptr || !child->follows_array)
+        {
+            continue;
+        }
+        positions_before.append(child->inj.injector_data.pos);
+        directions_before.append(child->inj.injector_data.vel);
+        if (child->array_instance_path == QVector<int>{1})
+        {
+            heading_child = child;
+        }
+        if (child->array_instance_path == QVector<int>{2})
+        {
+            detached_child = child;
+        }
+    }
+    if (!check(heading_child != nullptr && detached_child != nullptr,
+               "Linear copies should be addressable") ||
+        !check(widget.set_unit_follow_array(detached_child->inj.uuid, false),
+               "One linear copy should detach"))
+    {
+        return 1;
+    }
+    const QVector3D detached_direction = detached_child->inj.injector_data.vel;
+    const QVector3D detached_position = detached_child->inj.injector_data.pos;
+    const UnitArraySpec frame_before =
+        widget.unit_hash.value(heading_source_uuid)->array_spec;
+    if (!check(widget.rotate_units_by_uuid(
+                   {heading_child->inj.uuid}, QVector3D(0.0f, 0.0f, 1.0f), 90.0f) > 0,
+               "Rotating a following copy should succeed"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> heading_owner =
+        widget.unit_hash.value(heading_source_uuid);
+    const std::shared_ptr<Unit> detached_after =
+        widget.unit_hash.value(detached_child->inj.uuid);
+    int followed = 0;
+    bool directions_yawed = true;
+    bool positions_held = true;
+    for (const std::shared_ptr<Unit> &child : heading_owner->child_units)
+    {
+        if (child == nullptr || !child->follows_array)
+        {
+            continue;
+        }
+        ++followed;
+        const QVector3D expected_direction(-directions_before.at(0).y(),
+                                           directions_before.at(0).x(),
+                                           directions_before.at(0).z());
+        if (!vectors_close(child->inj.injector_data.vel, expected_direction))
+        {
+            directions_yawed = false;
+        }
+        bool found = false;
+        for (const QVector3D &position : positions_before)
+        {
+            if (vectors_close(position, child->inj.injector_data.pos))
+            {
+                found = true;
+                break;
+            }
+        }
+        positions_held = positions_held && found;
+    }
+    if (!check(vectors_close(heading_owner->array_spec.origin, frame_before.origin) &&
+                   vectors_close(heading_owner->array_spec.direction, frame_before.direction) &&
+                   vectors_close(heading_owner->array_spec.plane_normal, frame_before.plane_normal),
+               "Follower rotation must keep the linear frame fixed") ||
+        !check(followed == 2 && directions_yawed && positions_held,
+               "Follower rotation should yaw only the following copies") ||
+        !check(detached_after != nullptr &&
+                   vectors_close(detached_after->inj.injector_data.pos, detached_position) &&
+                   vectors_close(detached_after->inj.injector_data.vel, detached_direction),
+               "Detached copy should stay put while siblings yaw") ||
+        !check(!array_heading_is_identity(heading_owner->array_spec.heading),
+               "Follower rotation should persist as array heading"))
+    {
+        return 1;
+    }
+    UnitArraySpec edited_heading = heading_owner->array_spec;
+    edited_heading.heading = QQuaternion();
+    if (!check(widget.update_unit_array_layer(heading_source_uuid, 0, edited_heading),
+               "Layer edit should keep the saved heading") ||
+        !check(!array_heading_is_identity(
+                   widget.unit_hash.value(heading_source_uuid)->array_spec.heading),
+               "Layer edit must not clear follower heading"))
+    {
+        return 1;
+    }
     return 0;
 }

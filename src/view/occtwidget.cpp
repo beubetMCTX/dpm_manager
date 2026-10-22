@@ -12,8 +12,14 @@
 #include <gp_Quaternion.hxx>
 #include <gp_Ax1.hxx>
 #include <gp_Ax3.hxx>
+#include <gp_Lin.hxx>
 #include <gp_Pln.hxx>
 #include <gp_Vec.hxx>
+#include <AIS_ManipulatorOwner.hxx>
+#include <Extrema_ExtElC.hxx>
+#include <Extrema_POnCurv.hxx>
+#include <IntAna_IntConicQuad.hxx>
+#include <SelectMgr_SequenceOfOwner.hxx>
 #include <BRepBuilderAPI_MakeEdge.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_MakePolygon.hxx>
@@ -146,11 +152,20 @@ QVector3D transform_vector(const gp_Trsf &transformation,
 
 void transform_unit_pattern_frames(Unit &unit, const gp_Trsf &transformation)
 {
-    const auto transform_spec = [&transformation](UnitArraySpec &spec)
+    const gp_Quaternion frame_quaternion = transformation.GetRotation();
+    const QQuaternion frame_rotation(frame_quaternion.W(), frame_quaternion.X(),
+                                     frame_quaternion.Y(), frame_quaternion.Z());
+    const auto transform_spec = [&](UnitArraySpec &spec)
     {
         spec.origin = transform_point(transformation, spec.origin);
         spec.direction = transform_vector(transformation, spec.direction);
         spec.plane_normal = transform_vector(transformation, spec.plane_normal);
+        if (!array_heading_is_identity(frame_rotation) &&
+            !array_heading_is_identity(spec.heading))
+        {
+            spec.heading = (frame_rotation * spec.heading *
+                            frame_rotation.conjugated()).normalized();
+        }
     };
     const auto transform_fill = [&transformation](UnitFillSpec &spec)
     {
@@ -2493,7 +2508,11 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
     m_transform_gizmo->SetPart(AIS_MM_Rotation, mode == AIS_MM_Rotation);
     m_transform_gizmo->SetPart(AIS_MM_Scaling, Standard_False);
     m_transform_gizmo->SetPart(AIS_MM_TranslationPlane, Standard_False);
-    m_transform_gizmo->SetModeActivationOnDetection(Standard_True);
+    // Hover highlighting must not own the drag mode. A second press on the
+    // same ring does not get a new highlight, and OCCT then leaves the mode
+    // inactive so StartTransform never runs.
+    m_transform_gizmo->SetAutoHilight(Standard_False);
+    m_transform_gizmo->SetModeActivationOnDetection(Standard_False);
     m_transform_gizmo->EnableMode(mode);
     // Attach/EnableMode may recalculate internal placement. Re-apply the
     // world frame after configuration so no local unit frame leaks in.
@@ -2527,7 +2546,7 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
         snapshot.array_specs = node->array_specs;
         snapshot.has_fill_spec = node->has_fill_spec;
         snapshot.fill_spec = node->fill_spec;
-        snapshot.derived_array_output = node != unit && node->is_array_child &&
+        snapshot.derived_array_output = node->is_array_child &&
                                         node->follows_array;
         m_transform_gizmo_before_tree.append(snapshot);
         for (const std::shared_ptr<Unit> &child : node->child_units)
@@ -2536,6 +2555,44 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
         }
     };
     capture_tree(unit);
+    if (unit->is_array_child && unit->follows_array &&
+        !unit->array_parent_uuid.isNull())
+    {
+        const std::shared_ptr<Unit> owner =
+            unit_hash.value(unit->array_parent_uuid);
+        if (owner != nullptr && !captured_units.contains(owner->inj.uuid) &&
+            !owner->ais_display.IsNull())
+        {
+            captured_units.insert(owner->inj.uuid);
+            TransformGizmoUnitSnapshot owner_snapshot;
+            owner_snapshot.uuid = owner->inj.uuid;
+            owner_snapshot.unit_type = owner->type;
+            owner_snapshot.injector_data = owner->inj.injector_data;
+            owner_snapshot.shape = owner->inj.shape;
+            owner_snapshot.local_transformation =
+                owner->ais_display->LocalTransformation();
+            owner_snapshot.move_snapshot = make_move_snapshot(*owner);
+            owner_snapshot.assembly_local_position =
+                owner->assembly_local_position;
+            owner_snapshot.assembly_local_rotation =
+                owner->assembly_local_rotation;
+            owner_snapshot.has_array_spec = owner->has_array_spec;
+            owner_snapshot.array_spec = owner->array_spec;
+            owner_snapshot.array_specs = owner->array_specs;
+            owner_snapshot.has_fill_spec = owner->has_fill_spec;
+            owner_snapshot.fill_spec = owner->fill_spec;
+            owner_snapshot.derived_array_output = false;
+            m_transform_gizmo_before_tree.append(owner_snapshot);
+            for (const std::shared_ptr<Unit> &child : owner->child_units)
+            {
+                if (child != nullptr && child->is_array_child &&
+                    child->follows_array)
+                {
+                    capture_tree(child);
+                }
+            }
+        }
+    }
     m_transform_gizmo_preview_transformation = gp_Trsf();
     m_transform_gizmo_snapshot_valid = !m_transform_gizmo_before_tree.isEmpty();
     m_transform_gizmo_preview_changed = false;
@@ -2553,6 +2610,198 @@ bool OCCTWidget::attach_transform_gizmo(const QUuid &uuid,
         AIS_SelectionModesConcurrency_Single, Standard_True);
     m_context->UpdateCurrentViewer();
     m_view->Redraw();
+    return true;
+}
+
+gp_Dir OCCTWidget::transform_gizmo_axis_direction(int axis_index) const
+{
+    switch (axis_index)
+    {
+    case 0:
+        return gp_Dir(1.0, 0.0, 0.0);
+    case 1:
+        return gp_Dir(0.0, 1.0, 0.0);
+    default:
+        return gp_Dir(0.0, 0.0, 1.0);
+    }
+}
+
+bool OCCTWidget::view_cursor_ray(int cursor_x, int cursor_y,
+                                 gp_Pnt *origin, gp_Dir *direction) const
+{
+    if (origin == nullptr || direction == nullptr || m_view.IsNull())
+    {
+        return false;
+    }
+
+    Standard_Real ray_x = 0.0;
+    Standard_Real ray_y = 0.0;
+    Standard_Real ray_z = 0.0;
+    Standard_Real direction_x = 0.0;
+    Standard_Real direction_y = 0.0;
+    Standard_Real direction_z = 0.0;
+    m_view->ConvertWithProj(cursor_x, cursor_y, ray_x, ray_y, ray_z,
+                            direction_x, direction_y, direction_z);
+    if (!std::isfinite(ray_x) || !std::isfinite(ray_y) ||
+        !std::isfinite(ray_z) || !std::isfinite(direction_x) ||
+        !std::isfinite(direction_y) || !std::isfinite(direction_z))
+    {
+        return false;
+    }
+
+    const gp_Vec ray_direction(direction_x, direction_y, direction_z);
+    if (ray_direction.SquareMagnitude() <= 1.0e-18)
+    {
+        return false;
+    }
+    *origin = gp_Pnt(ray_x, ray_y, ray_z);
+    *direction = gp_Dir(ray_direction);
+    return true;
+}
+
+bool OCCTWidget::begin_detected_gizmo_drag(int cursor_x, int cursor_y)
+{
+    if (m_transform_gizmo.IsNull() || m_context.IsNull() || m_view.IsNull())
+    {
+        return false;
+    }
+
+    const Handle(AIS_ManipulatorOwner) owner =
+        Handle(AIS_ManipulatorOwner)::DownCast(m_context->DetectedOwner());
+    if (owner.IsNull() || owner->Mode() != m_transform_gizmo_mode ||
+        owner->Index() < 0 || owner->Index() > 2)
+    {
+        return false;
+    }
+
+    gp_Pnt ray_origin;
+    gp_Dir ray_direction;
+    if (!view_cursor_ray(cursor_x, cursor_y, &ray_origin, &ray_direction))
+    {
+        return false;
+    }
+
+    const gp_Pnt pivot(m_transform_gizmo_position.x(),
+                       m_transform_gizmo_position.y(),
+                       m_transform_gizmo_position.z());
+    const gp_Dir axis = transform_gizmo_axis_direction(owner->Index());
+    const gp_Lin ray(ray_origin, ray_direction);
+    gp_Pnt start_point;
+    if (m_transform_gizmo_mode == AIS_MM_Rotation)
+    {
+        const IntAna_IntConicQuad intersection(ray, gp_Pln(pivot, axis),
+                                               Precision::Angular(),
+                                               Precision::Intersection());
+        if (!intersection.IsDone() || intersection.IsParallel() ||
+            intersection.NbPoints() < 1)
+        {
+            return false;
+        }
+        start_point = intersection.Point(1);
+    }
+    else if (m_transform_gizmo_mode == AIS_MM_Translation)
+    {
+        const Extrema_ExtElC extrema(ray, gp_Lin(pivot, axis),
+                                     Precision::Angular());
+        if (!extrema.IsDone() || extrema.IsParallel() || extrema.NbExt() != 1)
+        {
+            return false;
+        }
+        Extrema_POnCurv points[2];
+        extrema.Points(1, points[0], points[1]);
+        start_point = points[1].Value();
+    }
+    else
+    {
+        return false;
+    }
+
+    // Arm the OCCT mode when its groups are available, but the drag itself
+    // does not depend on it. HilightSelected is a no-op while activation on
+    // detection is enabled, which is why a second grab used to do nothing.
+    m_transform_gizmo->SetModeActivationOnDetection(Standard_False);
+    m_transform_gizmo->DeactivateCurrentMode();
+    SelectMgr_SequenceOfOwner owners;
+    owners.Append(owner);
+    m_transform_gizmo->HilightSelected(m_context->MainPrsMgr(), owners);
+
+    m_transform_gizmo_axis_index = owner->Index();
+    m_transform_gizmo_drag_axis = axis;
+    m_transform_gizmo_drag_start = start_point;
+    m_transform_gizmo_drag_start_valid = true;
+    m_transform_gizmo_dragging = true;
+    return true;
+}
+
+bool OCCTWidget::transform_from_gizmo_drag(int cursor_x, int cursor_y,
+                                           gp_Trsf *transformation) const
+{
+    if (transformation == nullptr || !m_transform_gizmo_drag_start_valid)
+    {
+        return false;
+    }
+    *transformation = gp_Trsf();
+
+    gp_Pnt ray_origin;
+    gp_Dir ray_direction;
+    if (!view_cursor_ray(cursor_x, cursor_y, &ray_origin, &ray_direction))
+    {
+        return false;
+    }
+
+    const gp_Pnt pivot(m_transform_gizmo_position.x(),
+                       m_transform_gizmo_position.y(),
+                       m_transform_gizmo_position.z());
+    const gp_Dir axis = m_transform_gizmo_drag_axis;
+    const gp_Lin ray(ray_origin, ray_direction);
+    if (m_transform_gizmo_mode == AIS_MM_Rotation)
+    {
+        const IntAna_IntConicQuad intersection(ray, gp_Pln(pivot, axis),
+                                               Precision::Angular(),
+                                               Precision::Intersection());
+        if (!intersection.IsDone() || intersection.IsParallel() ||
+            intersection.NbPoints() < 1)
+        {
+            return false;
+        }
+
+        const gp_Vec axis_vector(axis);
+        gp_Vec from_pivot(pivot, m_transform_gizmo_drag_start);
+        gp_Vec to_pivot(pivot, intersection.Point(1));
+        from_pivot -= axis_vector * from_pivot.Dot(axis_vector);
+        to_pivot -= axis_vector * to_pivot.Dot(axis_vector);
+        if (from_pivot.SquareMagnitude() <= 1.0e-18 ||
+            to_pivot.SquareMagnitude() <= 1.0e-18)
+        {
+            return true;
+        }
+        const Standard_Real angle = std::atan2(
+            axis_vector.Dot(from_pivot.Crossed(to_pivot)),
+            from_pivot.Dot(to_pivot));
+        if (std::abs(angle) > Precision::Confusion())
+        {
+            transformation->SetRotation(gp_Ax1(pivot, axis), angle);
+        }
+        return true;
+    }
+
+    if (m_transform_gizmo_mode != AIS_MM_Translation)
+    {
+        return false;
+    }
+
+    const Extrema_ExtElC extrema(ray, gp_Lin(pivot, axis), Precision::Angular());
+    if (!extrema.IsDone() || extrema.IsParallel() || extrema.NbExt() != 1)
+    {
+        return false;
+    }
+    Extrema_POnCurv points[2];
+    extrema.Points(1, points[0], points[1]);
+    const gp_Vec translation(m_transform_gizmo_drag_start, points[1].Value());
+    if (translation.SquareMagnitude() > 1.0e-18)
+    {
+        transformation->SetTranslation(translation);
+    }
     return true;
 }
 
@@ -2611,6 +2860,51 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
     m_transform_gizmo_preview_transformation = snapped_transformation;
 
     const QVector3D root_position = preview.pos;
+    const bool spin_array_copies =
+        m_transform_gizmo_mode == AIS_MM_Rotation && unit->is_array_child &&
+        unit->follows_array && !unit->array_parent_uuid.isNull();
+    gp_XYZ spin_axis(0.0, 0.0, 1.0);
+    Standard_Real spin_angle = 0.0;
+    const bool has_array_spin =
+        spin_array_copies &&
+        snapped_transformation.GetRotation(spin_axis, spin_angle) &&
+        spin_axis.Modulus() > Precision::Confusion();
+    QHash<QUuid, QVector3D> snapshot_positions;
+    if (has_array_spin)
+    {
+        for (const TransformGizmoUnitSnapshot &snapshot :
+             m_transform_gizmo_before_tree)
+        {
+            snapshot_positions.insert(snapshot.uuid, snapshot.injector_data.pos);
+        }
+    }
+    const auto array_instance_pivot = [&](const std::shared_ptr<Unit> &node)
+    {
+        std::shared_ptr<Unit> current = node;
+        QVector3D pivot = node->inj.injector_data.pos;
+        while (current != nullptr)
+        {
+            const auto position = snapshot_positions.constFind(current->inj.uuid);
+            if (position != snapshot_positions.cend())
+            {
+                pivot = position.value();
+            }
+            if (current->assembly_parent_uuid.isNull() ||
+                !snapshot_positions.contains(current->assembly_parent_uuid))
+            {
+                break;
+            }
+            const std::shared_ptr<Unit> parent =
+                unit_hash.value(current->assembly_parent_uuid);
+            if (parent == nullptr || !parent->is_array_child ||
+                !parent->follows_array)
+            {
+                break;
+            }
+            current = parent;
+        }
+        return pivot;
+    };
     for (const TransformGizmoUnitSnapshot &snapshot :
          m_transform_gizmo_before_tree)
     {
@@ -2619,13 +2913,30 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         {
             continue;
         }
+        gp_Trsf applied_transformation = snapped_transformation;
+        if (spin_array_copies)
+        {
+            applied_transformation = gp_Trsf();
+            const bool same_array_follower =
+                affected->is_array_child && affected->follows_array &&
+                affected->array_parent_uuid == unit->array_parent_uuid;
+            if (same_array_follower && has_array_spin)
+            {
+                const QVector3D pivot = array_instance_pivot(affected);
+                applied_transformation.SetRotation(
+                    gp_Ax1(gp_Pnt(pivot.x(), pivot.y(), pivot.z()),
+                           gp_Dir(spin_axis)),
+                    spin_angle);
+            }
+        }
         Injector transformed = snapshot.injector_data;
-        apply_transform_to_injector(transformed, snapped_transformation);
+        apply_transform_to_injector(transformed, applied_transformation);
         affected->inj.injector_data = transformed;
-        if (!affected->ais_display.IsNull())
+        if (!affected->ais_display.IsNull() &&
+            m_context->IsDisplayed(affected->ais_display))
         {
             affected->ais_display->SetLocalTransformation(
-                snapped_transformation * snapshot.local_transformation);
+                applied_transformation * snapshot.local_transformation);
             m_context->Redisplay(affected->ais_display, Standard_False);
         }
         update_unit_local_coordinate_frame(snapshot.uuid);
@@ -2711,6 +3022,39 @@ bool OCCTWidget::commit_transform_gizmo_preview()
         m_transform_gizmo_preview_transformation.GetRotation();
     const QQuaternion delta_rotation(occt_rotation.W(), occt_rotation.X(),
                                      occt_rotation.Y(), occt_rotation.Z());
+    bool preserve_array_frames = false;
+    const std::shared_ptr<Unit> spinning_follower =
+        unit_hash.value(m_transform_gizmo_uuid);
+    if (m_transform_gizmo_mode == AIS_MM_Rotation &&
+        spinning_follower != nullptr && spinning_follower->is_array_child &&
+        spinning_follower->follows_array &&
+        !spinning_follower->array_parent_uuid.isNull() &&
+        !array_heading_is_identity(delta_rotation))
+    {
+        const std::shared_ptr<Unit> owner =
+            unit_hash.value(spinning_follower->array_parent_uuid);
+        if (owner != nullptr &&
+            (owner->has_array_spec || !owner->array_specs.isEmpty()))
+        {
+            preserve_array_frames = true;
+            QList<UnitArraySpec> specs = owner->array_specs;
+            if (specs.isEmpty())
+            {
+                specs.append(owner->array_spec);
+            }
+            const int layer_index = qBound(
+                0,
+                spinning_follower->array_layer > 0
+                    ? spinning_follower->array_layer - 1
+                    : 0,
+                specs.size() - 1);
+            specs[layer_index].heading =
+                (delta_rotation * specs[layer_index].heading).normalized();
+            owner->array_specs = specs;
+            owner->array_spec = specs.last();
+            owner->has_array_spec = true;
+        }
+    }
 
     for (const TransformGizmoUnitSnapshot &snapshot :
          m_transform_gizmo_before_tree)
@@ -2722,7 +3066,7 @@ bool OCCTWidget::commit_transform_gizmo_preview()
             return false;
         }
 
-        if (!snapshot.derived_array_output)
+        if (!snapshot.derived_array_output && !preserve_array_frames)
         {
             transform_unit_pattern_frames(
                 *affected, m_transform_gizmo_preview_transformation);
@@ -2772,7 +3116,8 @@ bool OCCTWidget::commit_transform_gizmo_preview()
             restore_transform_gizmo_preview();
             return false;
         }
-        if (!affected->ais_display.IsNull())
+        if (!affected->ais_display.IsNull() &&
+            m_context->IsDisplayed(affected->ais_display))
         {
             affected->ais_display->SetLocalTransformation(gp_Trsf());
             affected->ais_display->Set(affected->inj.shape);
@@ -2842,8 +3187,55 @@ bool OCCTWidget::commit_transform_gizmo_preview()
         m_active_edit_batch_id = QUuid();
     }
 
+    QUuid rebuild_uuid = m_transform_gizmo_uuid;
+    QVector<QUuid> placement_key;
+    const std::shared_ptr<Unit> gizmo_unit =
+        unit_hash.value(m_transform_gizmo_uuid);
+    if (gizmo_unit != nullptr && gizmo_unit->is_array_child &&
+        gizmo_unit->follows_array && !gizmo_unit->array_parent_uuid.isNull())
+    {
+        rebuild_uuid = gizmo_unit->array_parent_uuid;
+        placement_key = gizmo_unit->array_instance_key;
+    }
+    const QVector<int> placement_path =
+        gizmo_unit != nullptr ? gizmo_unit->array_instance_path : QVector<int>();
+    const int placement_layer =
+        gizmo_unit != nullptr ? gizmo_unit->array_layer : 0;
     QSet<QUuid> visited;
-    rebuild_unit_outputs(m_transform_gizmo_uuid, visited);
+    rebuild_unit_outputs(rebuild_uuid, visited);
+    if (gizmo_unit != nullptr && gizmo_unit->is_array_child &&
+        gizmo_unit->follows_array)
+    {
+        const std::shared_ptr<Unit> owner = unit_hash.value(rebuild_uuid);
+        if (owner != nullptr)
+        {
+            const std::shared_ptr<Unit> *path_match = nullptr;
+            for (const std::shared_ptr<Unit> &child : owner->child_units)
+            {
+                if (child == nullptr || !child->follows_array)
+                {
+                    continue;
+                }
+                if (!placement_key.isEmpty() &&
+                    child->array_instance_key == placement_key)
+                {
+                    m_transform_gizmo_uuid = child->inj.uuid;
+                    path_match = nullptr;
+                    break;
+                }
+                if (path_match == nullptr &&
+                    child->array_layer == placement_layer &&
+                    child->array_instance_path == placement_path)
+                {
+                    path_match = &child;
+                }
+            }
+            if (path_match != nullptr)
+            {
+                m_transform_gizmo_uuid = (*path_match)->inj.uuid;
+            }
+        }
+    }
     if (!m_view.IsNull())
     {
         m_view->Redraw();
@@ -2862,14 +3254,31 @@ void OCCTWidget::clear_transform_gizmo()
         }
         m_transform_gizmo_dragging = false;
         m_transform_gizmo->DeactivateCurrentMode();
-        if (m_transform_gizmo->IsAttached())
+    }
+
+    // Detach() removes the manipulator through the attached shape's context.
+    // Rebuilding an array child drops that shape first, so Detach() keeps the
+    // old rings displayed and the next mode switch adds another handle.
+    if (!m_context.IsNull())
+    {
+        AIS_ListOfInteractive objects;
+        m_context->ObjectsInside(objects);
+        for (AIS_ListOfInteractive::Iterator iterator(objects); iterator.More();
+             iterator.Next())
         {
-            m_transform_gizmo->Detach();
+            if (!Handle(AIS_Manipulator)::DownCast(iterator.Value()).IsNull())
+            {
+                m_context->Remove(iterator.Value(), Standard_False);
+            }
         }
-        else if (!m_context.IsNull())
+        if (!m_transform_gizmo.IsNull())
         {
             m_context->Remove(m_transform_gizmo, Standard_False);
         }
+    }
+    if (!m_transform_gizmo.IsNull() && m_transform_gizmo->IsAttached())
+    {
+        m_transform_gizmo->Detach();
     }
 
     m_transform_gizmo.Nullify();
@@ -2878,6 +3287,8 @@ void OCCTWidget::clear_transform_gizmo()
     m_transform_gizmo_before_tree.clear();
     m_transform_gizmo_preview_transformation = gp_Trsf();
     m_transform_gizmo_mode = AIS_MM_None;
+    m_transform_gizmo_axis_index = -1;
+    m_transform_gizmo_drag_start_valid = false;
     m_transform_gizmo_snapshot_valid = false;
     m_transform_gizmo_preview_changed = false;
     if (!m_view.IsNull())
@@ -2897,8 +3308,8 @@ void OCCTWidget::finish_transform_gizmo(bool apply)
         return;
     }
 
-    const QUuid uuid = m_transform_gizmo_uuid;
     const AIS_ManipulatorMode mode = m_transform_gizmo_mode;
+    QUuid uuid = m_transform_gizmo_uuid;
     const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
     m_transform_gizmo->StopTransform(apply ? Standard_True : Standard_False);
     m_transform_gizmo_dragging = false;
@@ -2925,6 +3336,7 @@ void OCCTWidget::finish_transform_gizmo(bool apply)
     {
         restore_transform_gizmo_preview();
     }
+    uuid = m_transform_gizmo_uuid;
 
     const bool keep_mode = m_interaction_mode != Interaction_Mode::Selection;
     m_transform_gizmo_snapshot_valid = false;
@@ -2967,7 +3379,54 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
             }
         }
     };
+    QList<QUuid> resolved_uuids;
+    QSet<QUuid> resolved_seen;
+    const auto follower_position_overridden = [&](const std::shared_ptr<Unit> &unit)
+    {
+        if (unit == nullptr || !unit->is_array_child || !unit->follows_array ||
+            unit->array_parent_uuid.isNull())
+        {
+            return false;
+        }
+        const std::shared_ptr<Unit> parent =
+            unit_hash.value(unit->array_parent_uuid);
+        if (parent == nullptr)
+        {
+            return false;
+        }
+        const UnitArrayOverride *array_override = find_array_override(
+            *parent, unit->array_instance_path, unit->array_instance_key);
+        if (array_override == nullptr)
+        {
+            return false;
+        }
+        quint32 fields = effective_unit_array_override_fields(*array_override);
+        if ((fields & UnitArrayOverrideGeometry) != 0)
+        {
+            fields |= unit_array_geometry_override_fields();
+        }
+        return (fields & UnitArrayOverridePosition) != 0;
+    };
     for (const QUuid &uuid : uuids)
+    {
+        QUuid target = uuid;
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        // A following child normally moves the whole pattern. A position
+        // override stays on that child and must not drag the array frame.
+        if (unit != nullptr && unit->is_array_child && unit->follows_array &&
+            !unit->array_parent_uuid.isNull() &&
+            unit_hash.contains(unit->array_parent_uuid) &&
+            !follower_position_overridden(unit))
+        {
+            target = unit->array_parent_uuid;
+        }
+        if (!resolved_seen.contains(target))
+        {
+            resolved_seen.insert(target);
+            resolved_uuids.append(target);
+        }
+    }
+    for (const QUuid &uuid : resolved_uuids)
     {
         append_unit_and_members(uuid);
     }
@@ -3732,13 +4191,90 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
             }
         }
     };
+    QList<QUuid> resolved_uuids;
+    QSet<QUuid> resolved_seen;
+    QList<QPair<QUuid, int>> heading_layers;
+    QSet<QString> heading_seen;
     for (const QUuid &uuid : uuids)
+    {
+        const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+        if (unit != nullptr && unit->is_array_child && unit->follows_array &&
+            !unit->array_parent_uuid.isNull() &&
+            unit_hash.contains(unit->array_parent_uuid))
+        {
+            if (unit_locked(uuid) || unit_locked(unit->array_parent_uuid))
+            {
+                continue;
+            }
+            const std::shared_ptr<Unit> owner =
+                unit_hash.value(unit->array_parent_uuid);
+            QList<UnitArraySpec> specs = owner != nullptr ? owner->array_specs
+                                                          : QList<UnitArraySpec>();
+            if (owner != nullptr && specs.isEmpty() && owner->has_array_spec)
+            {
+                specs.append(owner->array_spec);
+            }
+            if (owner == nullptr || specs.isEmpty())
+            {
+                continue;
+            }
+            const int layer_index = qBound(
+                0, unit->array_layer > 0 ? unit->array_layer - 1 : 0,
+                specs.size() - 1);
+            const QString key = owner->inj.uuid.toString(QUuid::WithoutBraces) +
+                                QStringLiteral(":") + QString::number(layer_index);
+            if (!heading_seen.contains(key))
+            {
+                heading_seen.insert(key);
+                heading_layers.append(qMakePair(owner->inj.uuid, layer_index));
+            }
+            continue;
+        }
+        if (!resolved_seen.contains(uuid))
+        {
+            resolved_seen.insert(uuid);
+            resolved_uuids.append(uuid);
+        }
+    }
+    for (const QUuid &uuid : resolved_uuids)
     {
         append_unit_and_members(uuid);
     }
 
     m_active_edit_batch_id = QUuid::createUuid();
     int rotated_count = 0;
+    QList<QUuid> heading_rebuild_uuids;
+    if (!array_heading_is_identity(delta_rotation))
+    {
+        for (const QPair<QUuid, int> &heading_layer : heading_layers)
+        {
+            const std::shared_ptr<Unit> owner =
+                unit_hash.value(heading_layer.first);
+            if (owner == nullptr)
+            {
+                continue;
+            }
+            QList<UnitArraySpec> specs = owner->array_specs;
+            if (specs.isEmpty() && owner->has_array_spec)
+            {
+                specs.append(owner->array_spec);
+            }
+            if (heading_layer.second < 0 || heading_layer.second >= specs.size())
+            {
+                continue;
+            }
+            UnitEditTransaction transaction = make_unit_edit_transaction(*owner);
+            specs[heading_layer.second].heading =
+                (delta_rotation * specs[heading_layer.second].heading).normalized();
+            owner->array_specs = specs;
+            owner->array_spec = specs.last();
+            owner->has_array_spec = true;
+            record_edit(transaction, *owner);
+            emit unit_data_updated(owner.get());
+            heading_rebuild_uuids.append(owner->inj.uuid);
+            ++rotated_count;
+        }
+    }
     for (const QUuid &uuid : operation_uuids)
     {
         const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
@@ -3851,6 +4387,10 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     {
         QSet<QUuid> visited;
         for (const QUuid &uuid : operation_uuids)
+        {
+            rebuild_unit_outputs(uuid, visited);
+        }
+        for (const QUuid &uuid : heading_rebuild_uuids)
         {
             rebuild_unit_outputs(uuid, visited);
         }
@@ -4821,6 +5361,10 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         pattern->fill_source_uuids.clear();
         for (const std::shared_ptr<Unit> &source_child : source_node->child_units)
         {
+            if (source_child == nullptr)
+            {
+                continue;
+            }
             const std::shared_ptr<Unit> child = make_pattern(source_child);
             if (child == nullptr)
             {
@@ -4840,7 +5384,11 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         source->child_units.cbegin(), source->child_units.cend(),
         [](const std::shared_ptr<Unit> &child)
         {
-            return child != nullptr &&
+            const bool detached_array_instance =
+                child != nullptr && child->is_array_child &&
+                !child->follows_array && !child->has_array_spec &&
+                !child->has_fill_spec;
+            return child != nullptr && !detached_array_instance &&
                    !(child->is_array_child && child->follows_array);
         });
     const bool source_is_composite = source_is_assembly ||
@@ -4969,6 +5517,38 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
     {
         const QList<std::shared_ptr<Unit>> instances =
             expand_unit_tree_array(*pattern, specs.at(layer));
+        if (!instances.isEmpty() && instances.first() != nullptr &&
+            !array_heading_is_identity(specs.at(layer).heading))
+        {
+            const QQuaternion layer_heading = specs.at(layer).heading;
+            const auto refresh_heading = [&](const std::shared_ptr<Unit> &node,
+                                             const auto &self) -> void
+            {
+                if (node == nullptr || !node->inj.create_injector())
+                {
+                    return;
+                }
+                if (!node->ais_display.IsNull())
+                {
+                    node->ais_display->Set(node->inj.shape);
+                    m_context->Redisplay(node->ais_display, Standard_False);
+                }
+                for (const std::shared_ptr<Unit> &child : node->child_units)
+                {
+                    self(child, self);
+                }
+            };
+            for (const std::shared_ptr<Unit> &child : source->child_units)
+            {
+                if (child == nullptr || !child->is_array_child ||
+                    !child->follows_array)
+                {
+                    continue;
+                }
+                apply_array_heading(*child, layer_heading);
+                refresh_heading(child, refresh_heading);
+            }
+        }
         // The zero-th placement is the pattern already represented by the
         // previous layer. Add only the new outer placements.
         for (int index = 1; index < instances.size(); ++index)
@@ -5130,6 +5710,10 @@ bool OCCTWidget::update_unit_array_layer(const QUuid &source_uuid,
     const UnitArraySpec previous_latest = source->array_spec;
     UnitArraySpec updated_spec = spec;
     reconcile_array_spec_identity(updated_spec, specs.at(layer_index));
+    if (array_heading_is_identity(updated_spec.heading))
+    {
+        updated_spec.heading = specs.at(layer_index).heading;
+    }
     specs[layer_index] = updated_spec;
     source->array_specs = specs;
     source->array_spec = specs.last();
@@ -9619,14 +10203,9 @@ void OCCTWidget::mousePressEvent(QMouseEvent *event)
         if (!m_transform_gizmo.IsNull() && m_context->HasDetected() &&
             m_context->DetectedInteractive() == m_transform_gizmo)
         {
-            m_context->SelectDetected();
-            if (m_transform_gizmo->HasActiveMode())
-            {
-                m_transform_gizmo_dragging = true;
-                m_transform_gizmo->StartTransform(pos.x(), pos.y(), m_view);
-                event->accept();
-                return;
-            }
+            begin_detected_gizmo_drag(pos.x(), pos.y());
+            event->accept();
+            return;
         }
 
         if (m_context->HasDetected())
@@ -10187,8 +10766,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
     if (m_transform_gizmo_dragging && !m_transform_gizmo.IsNull())
     {
         gp_Trsf transformation;
-        if (m_transform_gizmo->ObjectTransformation(
-                pos.x(), pos.y(), m_view, transformation))
+        if (transform_from_gizmo_drag(pos.x(), pos.y(), &transformation))
         {
             update_transform_gizmo_preview(transformation);
         }

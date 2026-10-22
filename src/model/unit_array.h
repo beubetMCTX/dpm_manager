@@ -81,4 +81,15 @@ struct ArrayPatternGuide
 ArrayPatternGuide array_pattern_guide(const QVector3D &source_position,
                                       const UnitArraySpec &spec);
 
+// Yaw every injector in the instance around pivot without moving that pivot
+// or the array frame. Identity headings are ignored.
+void apply_array_heading_about_pivot(Unit &root, const QVector3D &pivot,
+                                     const QQuaternion &heading);
+void apply_array_heading(Unit &root, const QQuaternion &heading);
+
+inline bool array_heading_is_identity(const QQuaternion &heading)
+{
+    return heading.vector().lengthSquared() <= 1.0e-12f;
+}
+
 #endif // UNIT_ARRAY_H

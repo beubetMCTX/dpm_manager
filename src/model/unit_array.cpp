@@ -243,11 +243,20 @@ void transform_unit_pattern_frames(Unit &unit, const QVector3D &pivot,
     {
         return rotate_vector(direction, axis, angle);
     };
+    const QVector3D frame_axis = normalized_or(axis, QVector3D(0.0f, 0.0f, 1.0f));
+    const QQuaternion frame_rotation = QQuaternion::fromAxisAndAngle(
+        frame_axis, static_cast<float>(qRadiansToDegrees(angle)));
     const auto transform_array = [&](UnitArraySpec &spec)
     {
         spec.origin = rotate_point(spec.origin);
         spec.direction = rotate_direction(spec.direction);
         spec.plane_normal = rotate_direction(spec.plane_normal);
+        if (!array_heading_is_identity(frame_rotation) &&
+            !array_heading_is_identity(spec.heading))
+        {
+            spec.heading = (frame_rotation * spec.heading *
+                            frame_rotation.conjugated()).normalized();
+        }
     };
     const auto transform_fill = [&](UnitFillSpec &spec)
     {
@@ -534,6 +543,7 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
             conform_injector_to_normal(child.inj.injector_data,
                                        spec.plane_normal);
         }
+        apply_array_heading(child, spec.heading);
         if (!child.inj.create_injector())
         {
             continue;
@@ -712,7 +722,12 @@ std::shared_ptr<Unit> clone_unit_tree_impl(const Unit &source,
 
     for (const std::shared_ptr<Unit> &source_child : source.child_units)
     {
+        const bool detached_array_instance =
+            source_child != nullptr && source_child->is_array_child &&
+            !source_child->follows_array && !source_child->has_array_spec &&
+            !source_child->has_fill_spec;
         if (source_child == nullptr ||
+            (detached_array_instance && !include_generated_children) ||
             (source_child->is_array_child && source_child->follows_array &&
              !include_generated_children))
         {
@@ -782,6 +797,87 @@ void mirror_unit_tree(Unit &root, const QVector3D &point,
             mirror_unit_tree(*child, point, normal);
         }
     }
+}
+
+void sync_single_pitch_yaw_heading(Unit &node, const QQuaternion &heading)
+{
+    Injector &injector = node.inj.injector_data;
+    if (injector.injection_type == single &&
+        injector.single_direction_mode == Single_Direction_Mode::Pitch_Yaw)
+    {
+        const double pitch = qDegreesToRadians(injector.single_pitch_degrees);
+        const double yaw = qDegreesToRadians(injector.single_yaw_degrees);
+        QVector3D direction(
+            static_cast<float>(std::cos(pitch) * std::cos(yaw)),
+            static_cast<float>(std::cos(pitch) * std::sin(yaw)),
+            static_cast<float>(std::sin(pitch)));
+        direction = heading.rotatedVector(direction);
+        if (direction.lengthSquared() > 1.0e-12f)
+        {
+            direction.normalize();
+            injector.single_pitch_degrees = static_cast<float>(qRadiansToDegrees(
+                std::asin(qBound(-1.0f, direction.z(), 1.0f))));
+            injector.single_yaw_degrees = static_cast<float>(qRadiansToDegrees(
+                std::atan2(direction.y(), direction.x())));
+        }
+    }
+    for (const std::shared_ptr<Unit> &child : node.child_units)
+    {
+        if (child != nullptr)
+        {
+            sync_single_pitch_yaw_heading(*child, heading);
+        }
+    }
+}
+
+void rotate_heading_target_hitpoint(Unit &node, const QVector3D &pivot,
+                                    const QVector3D &axis, float angle_radians)
+{
+    Injector &injector = node.inj.injector_data;
+    if (injector.injection_type == single &&
+        injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint &&
+        (injector.single_target_scope == Single_Target_Scope::World ||
+         injector.single_target_scope == Single_Target_Scope::Reference_Local))
+    {
+        // Placement keeps these hitpoints fixed. Heading is an aim change,
+        // so the point has to orbit the injector or the spray never yaws.
+        injector.single_target_hitpoint =
+            pivot + rotate_vector(injector.single_target_hitpoint - pivot,
+                                  axis, angle_radians);
+    }
+    for (const std::shared_ptr<Unit> &child : node.child_units)
+    {
+        if (child != nullptr)
+        {
+            rotate_heading_target_hitpoint(*child, pivot, axis, angle_radians);
+        }
+    }
+}
+
+void apply_array_heading_about_pivot(Unit &root, const QVector3D &pivot,
+                                     const QQuaternion &heading)
+{
+    if (array_heading_is_identity(heading))
+    {
+        return;
+    }
+    const QQuaternion rotation = heading.normalized();
+    sync_single_pitch_yaw_heading(root, rotation);
+    QVector3D axis;
+    float angle_degrees = 0.0f;
+    rotation.getAxisAndAngle(&axis, &angle_degrees);
+    if (axis.lengthSquared() <= 1.0e-12f || std::abs(angle_degrees) <= 1.0e-4f)
+    {
+        return;
+    }
+    const float angle_radians = qDegreesToRadians(angle_degrees);
+    transform_unit_tree(root, pivot, axis, angle_radians);
+    rotate_heading_target_hitpoint(root, pivot, axis, angle_radians);
+}
+
+void apply_array_heading(Unit &root, const QQuaternion &heading)
+{
+    apply_array_heading_about_pivot(root, root.inj.injector_data.pos, heading);
 }
 
 void conform_unit_tree_to_normal(Unit &root, const QVector3D &normal)
@@ -901,6 +997,7 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
                 mirror_unit_tree(*instance, spec.origin, spec.plane_normal);
             }
         }
+        apply_array_heading(*instance, spec.heading);
         if (!rebuild_unit_tree_geometry(*instance))
         {
             continue;

@@ -496,6 +496,12 @@ private:
     void restore_transform_gizmo_preview();
     bool commit_transform_gizmo_preview();
     void finish_transform_gizmo(bool apply);
+    bool view_cursor_ray(int cursor_x, int cursor_y,
+                         gp_Pnt *origin, gp_Dir *direction) const;
+    gp_Dir transform_gizmo_axis_direction(int axis_index) const;
+    bool begin_detected_gizmo_drag(int cursor_x, int cursor_y);
+    bool transform_from_gizmo_drag(int cursor_x, int cursor_y,
+                                   gp_Trsf *transformation) const;
     void finish_direct_drag(bool record_history);
     bool cancel_active_drag_for_undo();
 
@@ -730,6 +736,10 @@ private:
     gp_Trsf m_transform_gizmo_preview_transformation;
     AIS_ManipulatorMode m_transform_gizmo_mode = AIS_MM_None;
     bool m_transform_gizmo_dragging = false;
+    int m_transform_gizmo_axis_index = -1;
+    gp_Pnt m_transform_gizmo_drag_start;
+    gp_Dir m_transform_gizmo_drag_axis = gp_Dir(0.0, 0.0, 1.0);
+    bool m_transform_gizmo_drag_start_valid = false;
     bool m_transform_gizmo_snapshot_valid = false;
     bool m_transform_gizmo_preview_changed = false;
     Interaction_Mode m_interaction_mode = Interaction_Mode::Selection;

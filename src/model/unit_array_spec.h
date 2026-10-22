@@ -2,6 +2,7 @@
 #define UNIT_ARRAY_SPEC_H
 
 #include <QList>
+#include <QQuaternion>
 #include <QUuid>
 #include <QVector3D>
 
@@ -44,6 +45,9 @@ struct UnitArraySpec
     // Stable identity of the reference frame used by this layer. A null
     // value is accepted only for legacy sessions and is migrated on load.
     QUuid reference_geometry_uuid;
+    // Extra world rotation applied to every copy after placement. The array
+    // frame itself (origin, direction, radii, plane) stays unchanged.
+    QQuaternion heading;
 };
 
 struct UnitFillSpec
