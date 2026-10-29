@@ -772,7 +772,9 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
     translate_injector_points(root.inj.injector_data, translation);
     if (target_hitpoint_follows_copy(root.inj.injector_data))
     {
-        root.inj.injector_data.single_target_hitpoint += translation;
+        set_injector_target_hitpoint(
+            root.inj.injector_data,
+            root.inj.injector_data.single_target_hitpoint + translation);
     }
 
     for (const std::shared_ptr<Unit> &child : root.child_units)

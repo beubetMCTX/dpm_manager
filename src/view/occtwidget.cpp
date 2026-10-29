@@ -338,24 +338,8 @@ double log_displayed_pose(const char *event, const Unit &unit)
 void copy_injector_geometry_fields(Injector &target, const Injector &source)
 {
     target.injection_type = source.injection_type;
-    target.single_direction_mode = source.single_direction_mode;
-    target.single_pitch_degrees = source.single_pitch_degrees;
-    target.single_yaw_degrees = source.single_yaw_degrees;
-    target.single_target_hitpoint = source.single_target_hitpoint;
-    target.single_target_scope = source.single_target_scope;
-    target.pos = source.pos;
-    target.pos2 = source.pos2;
-    target.ff_center = source.ff_center;
-    target.ff_virtual_origin = source.ff_virtual_origin;
-    target.ff_normal = source.ff_normal;
-    target.vel = source.vel;
-    target.vel2 = source.vel2;
-    target.ang_vel = source.ang_vel;
-    target.ang_vel2 = source.ang_vel2;
-    target.atomizer_axis = source.atomizer_axis;
-    target.axis = source.axis;
-    target.vel_mag = source.vel_mag;
-    target.ang_vel_mag = source.ang_vel_mag;
+    copy_injector_position_fields(target, source);
+    copy_injector_direction_fields(target, source);
     target.diameter = source.diameter;
     target.diameter2 = source.diameter2;
     target.inner_diameter = source.inner_diameter;
@@ -378,37 +362,6 @@ void copy_injector_geometry_fields(Injector &target, const Injector &source)
     target.stagger_radius = source.stagger_radius;
     target.posr = source.posr;
     target.posu = source.posu;
-}
-
-void copy_injector_position_fields(Injector &target, const Injector &source)
-{
-    target.pos = source.pos;
-    target.pos2 = source.pos2;
-    target.ff_center = source.ff_center;
-    target.ff_virtual_origin = source.ff_virtual_origin;
-    target.volume_bgeom_min = source.volume_bgeom_min;
-    target.volume_bgeom_max = source.volume_bgeom_max;
-    target.posr = source.posr;
-    target.posu = source.posu;
-}
-
-void copy_injector_direction_fields(Injector &target, const Injector &source)
-{
-    target.single_direction_mode = source.single_direction_mode;
-    target.single_pitch_degrees = source.single_pitch_degrees;
-    target.single_yaw_degrees = source.single_yaw_degrees;
-    target.single_target_hitpoint = source.single_target_hitpoint;
-    target.single_target_scope = source.single_target_scope;
-    target.ff_normal = source.ff_normal;
-    target.vel = source.vel;
-    target.vel2 = source.vel2;
-    target.ang_vel = source.ang_vel;
-    target.ang_vel2 = source.ang_vel2;
-    target.atomizer_axis = source.atomizer_axis;
-    target.axis = source.axis;
-    target.vel_mag = source.vel_mag;
-    target.ang_vel_mag = source.ang_vel_mag;
-    target.swirl_frac = source.swirl_frac;
 }
 
 void copy_injector_particle_size_fields(Injector &target,
@@ -3493,7 +3446,6 @@ bool OCCTWidget::commit_transform_gizmo_preview()
                 {
                     notify_unit_direction(affected.get());
                 }
-                publish_unit_data(affected.get());
             }
         }
         m_active_move_batch_id = QUuid();
@@ -3534,7 +3486,6 @@ bool OCCTWidget::commit_transform_gizmo_preview()
             record_edit(transaction, *affected);
             notify_unit_pose(affected.get());
             notify_unit_direction(affected.get());
-            publish_unit_data(affected.get());
         }
         m_active_edit_batch_id = QUuid();
     }
@@ -3807,12 +3758,9 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
 
         if (!unit->inj.create_injector())
         {
-            injector.pos = before.pos;
-            injector.pos2 = before.pos2;
-            injector.ff_center = before.ff_center;
-            injector.ff_virtual_origin = before.ff_virtual_origin;
-            injector.volume_bgeom_min = before.volume_bgeom_min;
-            injector.volume_bgeom_max = before.volume_bgeom_max;
+            restore_injector_points(injector, before.pos, before.pos2,
+                                    before.ff_center, before.ff_virtual_origin,
+                                    before.volume_bgeom_min, before.volume_bgeom_max);
             continue;
         }
 
@@ -3841,7 +3789,6 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         {
             notify_unit_direction(unit.get());
         }
-        publish_unit_data(unit.get());
         ++translated_count;
     }
 
@@ -4231,7 +4178,6 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
     notify_unit_direction(unit.get());
-    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4283,7 +4229,6 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
         update_unit_local_coordinate_frame(unit->inj.uuid);
     }
     notify_unit_direction(unit.get());
-    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
 
     QUuid gizmo_uuid = !m_transform_gizmo_uuid.isNull()
@@ -4411,8 +4356,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     set_injector_pitch_yaw(injector, pitch_degrees, yaw_degrees);
     if (!unit->inj.create_injector())
     {
-        injector.single_pitch_degrees = old_pitch;
-        injector.single_yaw_degrees = old_yaw;
+        set_injector_pitch_yaw(injector, old_pitch, old_yaw);
         m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
@@ -4423,7 +4367,6 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
     notify_unit_direction(unit.get());
-    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4472,7 +4415,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     set_injector_target_hitpoint(injector, target);
     if (!unit->inj.create_injector())
     {
-        injector.single_target_hitpoint = old_target;
+        set_injector_target_hitpoint(injector, old_target);
         m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
@@ -4483,7 +4426,6 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
     notify_unit_direction(unit.get());
-    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4541,7 +4483,6 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
     notify_unit_direction(unit.get());
-    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4784,7 +4725,6 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         record_edit(transaction, *unit);
         notify_unit_pose(unit.get());
         notify_unit_direction(unit.get());
-        publish_unit_data(unit.get());
         ++rotated_count;
     }
 
@@ -8360,12 +8300,9 @@ bool OCCTWidget::apply_move_snapshot(const UnitMoveHistoryEntry &entry,
     Injector &injector = unit->inj.injector_data;
     const Injector previous_data = injector;
     const UnitMoveSnapshot previous_snapshot = make_move_snapshot(*unit);
-    injector.pos = snapshot.pos;
-    injector.pos2 = snapshot.pos2;
-    injector.ff_center = snapshot.ff_center;
-    injector.ff_virtual_origin = snapshot.ff_virtual_origin;
-    injector.volume_bgeom_min = snapshot.volume_bgeom_min;
-    injector.volume_bgeom_max = snapshot.volume_bgeom_max;
+    restore_injector_points(injector, snapshot.pos, snapshot.pos2,
+                            snapshot.ff_center, snapshot.ff_virtual_origin,
+                            snapshot.volume_bgeom_min, snapshot.volume_bgeom_max);
     unit->assembly_local_position = snapshot.assembly_local_position;
     unit->assembly_local_rotation = snapshot.assembly_local_rotation;
     unit->has_array_spec = snapshot.has_array_spec;
@@ -8396,7 +8333,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     update_unit_local_coordinate_frame(entry.uuid);
     capture_array_override_snapshot(*unit);
     m_view->Redraw();
-    publish_unit_data(unit.get());
+    notify_unit_pose(unit.get());
     return true;
 }
 
@@ -8699,33 +8636,7 @@ QList<Unit> OCCTWidget::dpm_export_units() const
         concrete.type = injector;
         const QVector3D spray = injector_frame_direction(concrete.inj.injector_data);
         Injector &exported_injector = concrete.inj.injector_data;
-        const auto align_vector = [&spray](QVector3D &vector)
-        {
-            const float speed = vector.length();
-            vector = spray * (speed > 1.0e-8f ? speed : 1.0f);
-        };
-        switch (exported_injector.injection_type)
-        {
-        case cone:
-            exported_injector.axis = spray;
-            break;
-        case flat_fan_atomizer:
-            exported_injector.ff_normal = spray;
-            break;
-        case plain_oriface_atomizer:
-        case pressure_swirl_atomizer:
-        case air_blast_atomizer:
-        case effervescent_atomizer:
-            exported_injector.atomizer_axis = spray;
-            break;
-        default:
-            align_vector(exported_injector.vel);
-            if (exported_injector.vel2.lengthSquared() > 1.0e-12f)
-            {
-                exported_injector.vel2 = spray * exported_injector.vel2.length();
-            }
-            break;
-        }
+        apply_export_spray_direction(exported_injector, spray);
         concrete.child_units.clear();
         concrete.assembly_child_uuids.clear();
         concrete.assembly_parent_uuid = QUuid();
@@ -9064,12 +8975,9 @@ bool OCCTWidget::cancel_active_drag_for_undo()
 
     UnitMoveSnapshot &snapshot = m_drag_move_before;
     Injector &injector = unit->inj.injector_data;
-    injector.pos = snapshot.pos;
-    injector.pos2 = snapshot.pos2;
-    injector.ff_center = snapshot.ff_center;
-    injector.ff_virtual_origin = snapshot.ff_virtual_origin;
-    injector.volume_bgeom_min = snapshot.volume_bgeom_min;
-    injector.volume_bgeom_max = snapshot.volume_bgeom_max;
+    restore_injector_points(injector, snapshot.pos, snapshot.pos2,
+                            snapshot.ff_center, snapshot.ff_virtual_origin,
+                            snapshot.volume_bgeom_min, snapshot.volume_bgeom_max);
     if (unit->inj.create_injector() && !unit->ais_display.IsNull())
     {
 unit->ais_display->SetLocalTransformation(gp_Trsf());
@@ -11538,6 +11446,11 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
     {
         inj_edit_dialog->refresh_geometry_from_unit_data(
             unit_hash.value(uuid).get());
+    });
+    connect(m_unit_document, &UnitDocument::directionChanged, inj_edit_dialog,
+            [this, inj_edit_dialog](const QUuid &uuid)
+    {
+        inj_edit_dialog->refresh_from_unit_data(unit_hash.value(uuid).get());
     });
     inj_edit_dialog->show();
 }

@@ -87,3 +87,71 @@ void align_injector_directions(Injector &injector, const QVector3D &direction)
     injector.vel = along(injector.vel);
     injector.vel2 = along(injector.vel2);
 }
+
+void restore_injector_points(Injector &injector,
+                             const QVector3D &pos,
+                             const QVector3D &pos2,
+                             const QVector3D &ff_center,
+                             const QVector3D &ff_virtual_origin,
+                             const QVector3D &volume_min,
+                             const QVector3D &volume_max)
+{
+    injector.pos = pos;
+    injector.pos2 = pos2;
+    injector.ff_center = ff_center;
+    injector.ff_virtual_origin = ff_virtual_origin;
+    injector.volume_bgeom_min = volume_min;
+    injector.volume_bgeom_max = volume_max;
+}
+
+void copy_injector_position_fields(Injector &target, const Injector &source)
+{
+    restore_injector_points(target, source.pos, source.pos2, source.ff_center,
+                            source.ff_virtual_origin, source.volume_bgeom_min,
+                            source.volume_bgeom_max);
+    target.posr = source.posr;
+    target.posu = source.posu;
+}
+
+void copy_injector_direction_fields(Injector &target, const Injector &source)
+{
+    target.single_direction_mode = source.single_direction_mode;
+    set_injector_pitch_yaw(target, source.single_pitch_degrees, source.single_yaw_degrees);
+    set_injector_target_hitpoint(target, source.single_target_hitpoint);
+    target.single_target_scope = source.single_target_scope;
+    target.ff_normal = source.ff_normal;
+    target.vel = source.vel;
+    target.vel2 = source.vel2;
+    target.ang_vel = source.ang_vel;
+    target.ang_vel2 = source.ang_vel2;
+    target.atomizer_axis = source.atomizer_axis;
+    target.axis = source.axis;
+    target.vel_mag = source.vel_mag;
+    target.ang_vel_mag = source.ang_vel_mag;
+    target.swirl_frac = source.swirl_frac;
+}
+
+void apply_export_spray_direction(Injector &injector, const QVector3D &spray)
+{
+    switch (injector.injection_type)
+    {
+    case cone:
+    case flat_fan_atomizer:
+    case plain_oriface_atomizer:
+    case pressure_swirl_atomizer:
+    case air_blast_atomizer:
+    case effervescent_atomizer:
+        set_injector_direction(injector, spray);
+        break;
+    default:
+    {
+        const float speed = injector.vel.length();
+        set_injector_direction(injector, spray * (speed > 1.0e-8f ? speed : 1.0f));
+        if (injector.vel2.lengthSquared() > 1.0e-12f)
+        {
+            injector.vel2 = spray * injector.vel2.length();
+        }
+        break;
+    }
+    }
+}

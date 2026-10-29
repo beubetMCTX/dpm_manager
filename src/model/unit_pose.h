@@ -25,3 +25,14 @@ void map_injector_spatial(
 
 // Keep each direction vector's length and point it along direction.
 void align_injector_directions(Injector &injector, const QVector3D &direction);
+
+void restore_injector_points(Injector &injector,
+                             const QVector3D &pos,
+                             const QVector3D &pos2,
+                             const QVector3D &ff_center,
+                             const QVector3D &ff_virtual_origin,
+                             const QVector3D &volume_min,
+                             const QVector3D &volume_max);
+void copy_injector_position_fields(Injector &target, const Injector &source);
+void copy_injector_direction_fields(Injector &target, const Injector &source);
+void apply_export_spray_direction(Injector &injector, const QVector3D &spray);

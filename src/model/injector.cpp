@@ -1,4 +1,5 @@
 #include "injector.h"
+#include "unit_pose.h"
 #include "runtime_debug.h"
 
 #include <qdebug.h>
@@ -45,16 +46,16 @@ bool adopt_single_direction_on_shift(Injector &injector,
     if (next_mode == Single_Direction_Mode::Pitch_Yaw)
     {
         constexpr double kPi = 3.14159265358979323846;
-        injector.single_pitch_degrees = std::asin(std::clamp(
-            direction.z(), -1.0f, 1.0f)) * 180.0 / kPi;
-        injector.single_yaw_degrees =
-            std::atan2(direction.y(), direction.x()) * 180.0 / kPi;
+        set_injector_pitch_yaw(
+            injector,
+            std::asin(std::clamp(direction.z(), -1.0f, 1.0f)) * 180.0 / kPi,
+            std::atan2(direction.y(), direction.x()) * 180.0 / kPi);
         return true;
     }
     if (next_mode == Single_Direction_Mode::Vector)
     {
         const float speed = injector.vel.length();
-        injector.vel = direction * (speed > 1.0e-6f ? speed : 1.0f);
+        set_injector_direction(injector, direction * (speed > 1.0e-6f ? speed : 1.0f));
         return true;
     }
     return false;
