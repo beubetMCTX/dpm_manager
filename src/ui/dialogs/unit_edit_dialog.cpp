@@ -2,6 +2,7 @@
 #include "runtime_debug.h"
 #include "ui_unit_edit_dialog.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -3507,8 +3508,12 @@ void unit_edit_dialog::build_point_property_rows()
                 },
                 [&injector](int value)
                 {
-                    injector.single_direction_mode =
-                        static_cast<Single_Direction_Mode>(value);
+                    const auto next = static_cast<Single_Direction_Mode>(value);
+                    if (QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier))
+                    {
+                        adopt_single_direction_on_shift(injector, next);
+                    }
+                    injector.single_direction_mode = next;
                 });
 
             switch (injector.single_direction_mode)

@@ -33,8 +33,15 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMenu>
+#include <QPalette>
+#include <QMoveEvent>
+#include <QResizeEvent>
 #include <QPair>
 #include <QSet>
+#include <QCursor>
+#include <QGuiApplication>
+#include <QHash>
+#include <QScreen>
 #include <QComboBox>
 #include <QSpinBox>
 #include <QSignalBlocker>
@@ -392,6 +399,34 @@ MainWindow::MainWindow(QWidget *parent)
     connect(chinese_action, &QAction::triggered, this,
             [select_language]() { select_language("zh_CN"); });
 
+    QSettings hint_settings;
+    m_viewport_hint_show_guide =
+        hint_settings.value(QStringLiteral("viewportHint/guide"), true).toBool();
+    m_viewport_hint_show_warning =
+        hint_settings.value(QStringLiteral("viewportHint/warning"), true).toBool();
+    m_viewport_hint_show_error =
+        hint_settings.value(QStringLiteral("viewportHint/error"), true).toBool();
+    QMenu *hint_menu = ui->menuSettings->addMenu(tr("Hints"));
+    const auto add_hint_level = [this, hint_menu](const QString &label,
+                                                   Viewport_Hint_Level level,
+                                                   bool enabled)
+    {
+        QAction *action = hint_menu->addAction(label);
+        action->setCheckable(true);
+        action->setChecked(enabled);
+        connect(action, &QAction::toggled, this,
+                [this, level](bool checked)
+                {
+                    set_viewport_hint_level_enabled(level, checked);
+                });
+    };
+    add_hint_level(tr("Guide"), Viewport_Hint_Level::Guide,
+                   m_viewport_hint_show_guide);
+    add_hint_level(tr("Warning"), Viewport_Hint_Level::Warning,
+                   m_viewport_hint_show_warning);
+    add_hint_level(tr("Error"), Viewport_Hint_Level::Error,
+                   m_viewport_hint_show_error);
+
     Unit_Preferences unit_preferences;
     QString unit_preferences_error;
     if (load_unit_preferences(&unit_preferences, &unit_preferences_error))
@@ -406,8 +441,13 @@ MainWindow::MainWindow(QWidget *parent)
     //tab_widget = new QTabWidget();
 
     //this->setCentralWidget(m_3d_widget);
-    m_3d_widget = new OCCTWidget(this);
-    this->setCentralWidget(m_3d_widget);
+    // Host keeps the usage note as a sibling of the OCCT window. A child of
+    // the OCCT widget is painted over by the OpenGL surface.
+    m_viewport_host = new QWidget(this);
+    m_viewport_host->setObjectName("viewportHost");
+    m_3d_widget = new OCCTWidget(m_viewport_host);
+    this->setCentralWidget(m_viewport_host);
+    m_viewport_host->installEventFilter(this);
     m_3d_widget->installEventFilter(this);
     m_3d_widget->apply_visual_preferences(UnitSystem::active_preferences());
     runtime_debug::trace("MainWindow OCCTWidget created");
@@ -3725,12 +3765,12 @@ void MainWindow::create_array_editor_panel()
     frame_layout->addRow(tr("Origin X"), m_array_editor_origin_x);
     frame_layout->addRow(tr("Origin Y"), m_array_editor_origin_y);
     frame_layout->addRow(tr("Origin Z"), m_array_editor_origin_z);
-    frame_layout->addRow(tr("Direction X"), m_array_editor_direction_x);
-    frame_layout->addRow(tr("Direction Y"), m_array_editor_direction_y);
-    frame_layout->addRow(tr("Direction Z"), m_array_editor_direction_z);
-    frame_layout->addRow(tr("Plane normal X"), m_array_editor_normal_x);
-    frame_layout->addRow(tr("Plane normal Y"), m_array_editor_normal_y);
-    frame_layout->addRow(tr("Plane normal Z"), m_array_editor_normal_z);
+    frame_layout->addRow(tr("Frame X"), m_array_editor_direction_x);
+    frame_layout->addRow(tr("Frame Y"), m_array_editor_direction_y);
+    frame_layout->addRow(tr("Frame Z"), m_array_editor_direction_z);
+    frame_layout->addRow(tr("Frame normal X"), m_array_editor_normal_x);
+    frame_layout->addRow(tr("Frame normal Y"), m_array_editor_normal_y);
+    frame_layout->addRow(tr("Frame normal Z"), m_array_editor_normal_z);
     m_array_editor_conform_normal = new QCheckBox(
         tr("Align injector directions to reference normal"), frame_group);
     frame_layout->addRow(m_array_editor_conform_normal);
@@ -4778,22 +4818,269 @@ void MainWindow::reset_window_layout()
 
 void MainWindow::position_viewport_interaction_toolbar()
 {
-    if (m_viewport_interaction_toolbar == nullptr || m_3d_widget == nullptr)
+    if (m_3d_widget == nullptr)
     {
         return;
     }
 
-    m_viewport_interaction_toolbar->move(8, 8);
-    m_viewport_interaction_toolbar->raise();
+    if (m_viewport_interaction_toolbar != nullptr)
+    {
+        m_viewport_interaction_toolbar->move(8, 8);
+        m_viewport_interaction_toolbar->raise();
+    }
+}
+
+QString MainWindow::viewport_hint_style(Viewport_Hint_Level level) const
+{
+    QString border = QStringLiteral("#7EB6FF");
+    QString background = QStringLiteral("#102033");
+    QString foreground = QStringLiteral("#E7F1FF");
+    if (level == Viewport_Hint_Level::Warning)
+    {
+        border = QStringLiteral("#E6C15A");
+        background = QStringLiteral("#2A2110");
+        foreground = QStringLiteral("#FFF6D8");
+    }
+    else if (level == Viewport_Hint_Level::Error)
+    {
+        border = QStringLiteral("#FF6B6B");
+        background = QStringLiteral("#2A1214");
+        foreground = QStringLiteral("#FFE8E8");
+    }
+    return QStringLiteral(
+        "QLabel#viewportUsageNote {"
+        "  background-color: %1;"
+        "  color: %2;"
+        "  border: 2px solid %3;"
+        "  border-radius: 6px;"
+        "}").arg(background, foreground, border);
+}
+
+bool MainWindow::viewport_hint_level_enabled(Viewport_Hint_Level level) const
+{
+    if (level == Viewport_Hint_Level::Warning)
+    {
+        return m_viewport_hint_show_warning;
+    }
+    if (level == Viewport_Hint_Level::Error)
+    {
+        return m_viewport_hint_show_error;
+    }
+    return m_viewport_hint_show_guide;
+}
+
+void MainWindow::set_viewport_hint_level_enabled(Viewport_Hint_Level level,
+                                                 bool enabled)
+{
+    QString key = QStringLiteral("viewportHint/guide");
+    if (level == Viewport_Hint_Level::Warning)
+    {
+        m_viewport_hint_show_warning = enabled;
+        key = QStringLiteral("viewportHint/warning");
+    }
+    else if (level == Viewport_Hint_Level::Error)
+    {
+        m_viewport_hint_show_error = enabled;
+        key = QStringLiteral("viewportHint/error");
+    }
+    else
+    {
+        m_viewport_hint_show_guide = enabled;
+    }
+    QSettings settings;
+    settings.setValue(key, enabled);
+    if (!enabled && m_viewport_usage_note != nullptr &&
+        m_viewport_usage_note->isVisible() && m_viewport_hint_level == level)
+    {
+        m_viewport_usage_note->hide();
+    }
+    else if (enabled)
+    {
+        refresh_hovered_viewport_hint();
+    }
+}
+
+void MainWindow::show_viewport_hint(Viewport_Hint_Level level,
+                                    const QString &text,
+                                    int sticky_ms)
+{
+    if (m_viewport_usage_note == nullptr || text.trimmed().isEmpty())
+    {
+        return;
+    }
+    m_viewport_hint_level = level;
+    if (!viewport_hint_level_enabled(level))
+    {
+        m_viewport_usage_note->hide();
+        return;
+    }
+    if (!m_viewport_usage_note->windowFlags().testFlag(Qt::Tool))
+    {
+        m_viewport_usage_note->setWindowFlags(
+            Qt::Tool | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
+        m_viewport_usage_note->setAttribute(Qt::WA_ShowWithoutActivating, true);
+        m_viewport_usage_note->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    }
+    m_viewport_usage_note->setStyleSheet(viewport_hint_style(level));
+    m_viewport_usage_note->setText(text);
+    m_viewport_usage_note->setFixedWidth(320);
+    m_viewport_usage_note->adjustSize();
+    const int hint_height = qMax(m_viewport_usage_note->sizeHint().height(),
+                                 m_viewport_usage_note->height());
+    m_viewport_usage_note->resize(320, hint_height);
+    m_viewport_hint_sticky = sticky_ms > 0;
+    if (m_viewport_hint_hide_timer != nullptr)
+    {
+        if (sticky_ms > 0)
+        {
+            m_viewport_hint_hide_timer->start(sticky_ms);
+        }
+        else
+        {
+            m_viewport_hint_hide_timer->stop();
+        }
+    }
+    m_viewport_usage_note->show();
+    m_viewport_usage_note->raise();
+    position_viewport_hint();
+    if (m_viewport_hint_timer != nullptr && !m_viewport_hint_timer->isActive())
+    {
+        m_viewport_hint_timer->start();
+    }
+}
+
+void MainWindow::hide_viewport_hint()
+{
+    m_viewport_hint_button = nullptr;
+    m_viewport_hint_sticky = false;
+    if (m_viewport_hint_timer != nullptr)
+    {
+        m_viewport_hint_timer->stop();
+    }
+    if (m_viewport_hint_hide_timer != nullptr)
+    {
+        m_viewport_hint_hide_timer->stop();
+    }
+    if (m_viewport_usage_note != nullptr)
+    {
+        m_viewport_usage_note->hide();
+    }
+}
+
+void MainWindow::position_viewport_hint()
+{
+    if (m_viewport_usage_note == nullptr || !m_viewport_usage_note->isVisible())
+    {
+        return;
+    }
+
+    const QPoint cursor = QCursor::pos();
+    if (!m_viewport_hint_sticky && m_viewport_hint_button != nullptr)
+    {
+        const QRect button_rect(
+            m_viewport_hint_button->mapToGlobal(QPoint(0, 0)),
+            m_viewport_hint_button->size());
+        if (!button_rect.adjusted(-6, -6, 6, 6).contains(cursor))
+        {
+            hide_viewport_hint();
+            return;
+        }
+    }
+
+    QScreen *screen = QGuiApplication::screenAt(cursor);
+    if (screen == nullptr)
+    {
+        screen = QGuiApplication::primaryScreen();
+    }
+    const QRect bounds = screen == nullptr ? QRect() : screen->availableGeometry();
+    const int gap = 16;
+    const int hint_width = m_viewport_usage_note->width();
+    const int hint_height = m_viewport_usage_note->height();
+    int x = cursor.x() + gap;
+    int y = cursor.y() - hint_height - gap;
+    const bool too_close_to_top = bounds.isNull()
+        ? cursor.y() < hint_height + gap + 8
+        : y < bounds.top() + 4;
+    if (too_close_to_top)
+    {
+        y = cursor.y() + gap;
+    }
+    if (!bounds.isNull() && x + hint_width > bounds.right() - 4)
+    {
+        x = qMax(bounds.left() + 4, cursor.x() - hint_width - gap);
+    }
+    if (!bounds.isNull())
+    {
+        x = qBound(bounds.left() + 4, x, qMax(bounds.left() + 4, bounds.right() - hint_width - 4));
+        y = qBound(bounds.top() + 4, y, qMax(bounds.top() + 4, bounds.bottom() - hint_height - 4));
+    }
+    m_viewport_usage_note->move(x, y);
+}
+
+void MainWindow::refresh_hovered_viewport_hint()
+{
+    if (m_viewport_hint_button == nullptr)
+    {
+        return;
+    }
+
+    const QString key = m_viewport_hint_button->property("viewportHintKey").toString();
+    QString text = m_viewport_hint_button->property("viewportHintText").toString();
+    Viewport_Hint_Level level = Viewport_Hint_Level::Guide;
+    bool target_mode = false;
+    if (m_3d_widget != nullptr && m_object_list != nullptr)
+    {
+        QTreeWidgetItem *item = m_object_list->currentItem();
+        const QUuid uuid = item == nullptr
+                               ? QUuid()
+                               : QUuid(item->data(0, Qt::UserRole).toString());
+        const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+        target_mode = unit != nullptr &&
+                      unit->inj.injector_data.injection_type == single &&
+                      unit->inj.injector_data.single_direction_mode ==
+                          Single_Direction_Mode::Target_Hitpoint;
+    }
+    if (key == QStringLiteral("translate") && target_mode)
+    {
+        level = Viewport_Hint_Level::Warning;
+        text += QStringLiteral("\n当前是 Target：平移不带动瞄准点。");
+    }
+    else if (key == QStringLiteral("rotate") && target_mode)
+    {
+        level = Viewport_Hint_Level::Warning;
+        text = QStringLiteral("旋转\n当前是 Target，没有旋转手柄。");
+    }
+    show_viewport_hint(level, text);
+}
+
+void MainWindow::update_viewport_usage_note()
+{
+    refresh_hovered_viewport_hint();
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_3d_widget && event != nullptr &&
+    if (watched == m_viewport_host && event != nullptr &&
+        event->type() == QEvent::Resize && m_3d_widget != nullptr)
+    {
+        const auto *resize_event = static_cast<const QResizeEvent *>(event);
+        m_3d_widget->setGeometry(0, 0, resize_event->size().width(),
+                                 resize_event->size().height());
+    }
+    if ((watched == m_3d_widget || watched == m_viewport_host) &&
+        event != nullptr &&
         (event->type() == QEvent::Move || event->type() == QEvent::Resize ||
          event->type() == QEvent::Show))
     {
         position_viewport_interaction_toolbar();
+    }
+    if (watched != nullptr &&
+        watched->property("viewportHintKey").isValid() &&
+        event != nullptr &&
+        (event->type() == QEvent::Enter || event->type() == QEvent::HoverEnter))
+    {
+        m_viewport_hint_button = qobject_cast<QWidget *>(watched);
+        refresh_hovered_viewport_hint();
     }
     return QMainWindow::eventFilter(watched, event);
 }
@@ -4813,6 +5100,18 @@ void MainWindow::changeEvent(QEvent *event)
             position_viewport_interaction_toolbar();
         });
     }
+}
+
+void MainWindow::moveEvent(QMoveEvent *event)
+{
+    QMainWindow::moveEvent(event);
+    position_viewport_interaction_toolbar();
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    position_viewport_interaction_toolbar();
 }
 
 void MainWindow::create_object_list_panel()
@@ -4920,7 +5219,40 @@ void MainWindow::create_object_list_panel()
     interaction_toolbar->setAttribute(Qt::WA_NativeWindow);
     interaction_toolbar->show();
     interaction_toolbar->raise();
-    QTimer::singleShot(0, this, &MainWindow::position_viewport_interaction_toolbar);
+    m_viewport_usage_note = new QLabel(this);
+    m_viewport_usage_note->setObjectName("viewportUsageNote");
+    m_viewport_usage_note->setWindowFlags(
+        Qt::Tool | Qt::FramelessWindowHint | Qt::WindowDoesNotAcceptFocus);
+    m_viewport_usage_note->setAttribute(Qt::WA_ShowWithoutActivating, true);
+    m_viewport_usage_note->setAttribute(Qt::WA_TransparentForMouseEvents, true);
+    m_viewport_usage_note->setAttribute(Qt::WA_StyledBackground, true);
+    m_viewport_usage_note->setWordWrap(true);
+    m_viewport_usage_note->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_viewport_usage_note->setFocusPolicy(Qt::NoFocus);
+    m_viewport_usage_note->setMargin(8);
+    m_viewport_usage_note->setFixedWidth(320);
+    QFont usage_note_font = m_viewport_usage_note->font();
+    usage_note_font.setPointSize(10);
+    m_viewport_usage_note->setFont(usage_note_font);
+    m_viewport_usage_note->hide();
+    m_viewport_hint_timer = new QTimer(this);
+    m_viewport_hint_timer->setInterval(30);
+    connect(m_viewport_hint_timer, &QTimer::timeout, this,
+            &MainWindow::position_viewport_hint);
+    m_viewport_hint_hide_timer = new QTimer(this);
+    m_viewport_hint_hide_timer->setSingleShot(true);
+    connect(m_viewport_hint_hide_timer, &QTimer::timeout, this, [this]()
+    {
+        m_viewport_hint_sticky = false;
+        if (m_viewport_hint_button == nullptr)
+        {
+            hide_viewport_hint();
+        }
+        else
+        {
+            refresh_hovered_viewport_hint();
+        }
+    });
     auto *toolbar_selection = new QToolButton(interaction_toolbar);
     auto *toolbar_translation = new QToolButton(interaction_toolbar);
     auto *toolbar_rotation = new QToolButton(interaction_toolbar);
@@ -4960,9 +5292,24 @@ void MainWindow::create_object_list_panel()
         button->setStyleSheet(mode_button_style);
         interaction_layout->addWidget(button);
     }
-    toolbar_selection->setToolTip(tr("Select"));
-    toolbar_translation->setToolTip(tr("Translate"));
-    toolbar_rotation->setToolTip(tr("Rotate"));
+    const auto bind_viewport_hint = [this](QWidget *widget,
+                                           const QString &key,
+                                           const QString &text)
+    {
+        widget->setProperty("viewportHintKey", key);
+        widget->setProperty("viewportHintText", text);
+        widget->setToolTip(QString());
+        widget->installEventFilter(this);
+    };
+    bind_viewport_hint(
+        toolbar_selection, QStringLiteral("select"),
+        QStringLiteral("选择\n点选喷注器或阵列。此模式不拖动模型。"));
+    bind_viewport_hint(
+        toolbar_translation, QStringLiteral("translate"),
+        QStringLiteral("平移\n拖世界坐标三轴。红轴 X 是喷射方向。"));
+    bind_viewport_hint(
+        toolbar_rotation, QStringLiteral("rotate"),
+        QStringLiteral("旋转\n拖旋转环。阵列子喷注器只改朝向，不改阵列圆、直线或镜像面。"));
     auto *mode_separator = new QFrame(interaction_toolbar);
     mode_separator->setFrameShape(QFrame::VLine);
     mode_separator->setFixedWidth(1);
@@ -4992,14 +5339,25 @@ void MainWindow::create_object_list_panel()
                             reference_tools_action, new_injector_action,
                             assembly_tools_action})
     {
-        action->setToolTip(action->text());
+        action->setToolTip(QString());
     }
+    const QHash<QAction *, QString> action_hints = {
+        {array_tools_action, QStringLiteral("阵列\n给当前喷注器或装配添加阵列层。")},
+        {fill_tools_action, QStringLiteral("填充\n按填充规则布置喷注器。")},
+        {test_set_action, QStringLiteral("测试喷注器\n载入一套测试喷注器。")},
+        {reference_tools_action, QStringLiteral("参考几何\n打开参考面、轴和原点工具。")},
+        {new_injector_action, QStringLiteral("新建喷注器\n在原点或当前参考面上放一个喷注器。")},
+        {assembly_tools_action, QStringLiteral("装配\n把至少两个选中的喷注器收成装配。")}
+    };
     for (QAction *action : {new_injector_action, assembly_tools_action,
                             array_tools_action, fill_tools_action,
                             test_set_action, reference_tools_action})
     {
         auto *tool_button = new QToolButton(interaction_toolbar);
         tool_button->setDefaultAction(action);
+        tool_button->setProperty("viewportHintKey", QStringLiteral("action"));
+        tool_button->setProperty("viewportHintText", action_hints.value(action));
+        tool_button->installEventFilter(this);
         tool_button->setToolButtonStyle(Qt::ToolButtonIconOnly);
         tool_button->setAutoRaise(true);
         tool_button->setFocusPolicy(Qt::NoFocus);
@@ -5060,6 +5418,8 @@ void MainWindow::create_object_list_panel()
         if (item == nullptr)
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
+            show_viewport_hint(Viewport_Hint_Level::Warning,
+                               QStringLiteral("先选中一个喷注器或装配。"), 2500);
             return;
         }
 
@@ -5069,6 +5429,8 @@ void MainWindow::create_object_list_panel()
             item_kind != QStringLiteral("fill"))
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
+            show_viewport_hint(Viewport_Hint_Level::Warning,
+                               QStringLiteral("先选中一个喷注器或装配。"), 2500);
             return;
         }
 
@@ -5080,6 +5442,8 @@ void MainWindow::create_object_list_panel()
             statusBar()->showMessage(
                 tr("Select an injector or Assembly first"),
                 5000);
+            show_viewport_hint(Viewport_Hint_Level::Warning,
+                               QStringLiteral("先选中一个喷注器或装配。"), 2500);
             return;
         }
 
@@ -5115,6 +5479,8 @@ void MainWindow::create_object_list_panel()
         if (item == nullptr)
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
+            show_viewport_hint(Viewport_Hint_Level::Warning,
+                               QStringLiteral("先选中一个喷注器或装配。"), 2500);
             return;
         }
         const QString item_kind = item->data(0, Qt::UserRole + 1).toString();
@@ -5123,6 +5489,8 @@ void MainWindow::create_object_list_panel()
             item_kind != QStringLiteral("fill"))
         {
             statusBar()->showMessage(tr("Select an injector or Assembly first"), 4000);
+            show_viewport_hint(Viewport_Hint_Level::Warning,
+                               QStringLiteral("先选中一个喷注器或装配。"), 2500);
             return;
         }
         const QPoint item_position = m_object_list->visualItemRect(item).center();
@@ -5195,6 +5563,8 @@ void MainWindow::create_object_list_panel()
         if (!unit.inj.create_injector())
         {
             statusBar()->showMessage(tr("Unable to create default injector"), 5000);
+            show_viewport_hint(Viewport_Hint_Level::Error,
+                               QStringLiteral("无法创建默认喷注器。"), 3000);
             return;
         }
         m_3d_widget->display_units({unit}, false);
@@ -5213,6 +5583,8 @@ void MainWindow::create_object_list_panel()
         {
             statusBar()->showMessage(
                 tr("Select at least two units to create an Assembly"), 4000);
+            show_viewport_hint(Viewport_Hint_Level::Warning,
+                               QStringLiteral("至少选中两个喷注器才能做装配。"), 2500);
             return;
         }
         if (m_3d_widget->create_assembly(selected_units))
@@ -5226,7 +5598,7 @@ void MainWindow::create_object_list_panel()
         }
     });
     connect(m_3d_widget, &OCCTWidget::interaction_mode_changed,
-            this, [toolbar_selection, toolbar_translation, toolbar_rotation,
+            this, [this, toolbar_selection, toolbar_translation, toolbar_rotation,
                    interaction_toolbar](int mode)
     {
         const QSignalBlocker selection_blocker(toolbar_selection);
@@ -5239,6 +5611,7 @@ void MainWindow::create_object_list_panel()
         toolbar_rotation->setChecked(
             mode == static_cast<int>(OCCTWidget::Interaction_Mode::Rotation));
         interaction_toolbar->raise();
+        update_viewport_usage_note();
     });
     auto *assembly_selected_button = new QPushButton("Create Assembly From Selected", panel);
     layout->addWidget(assembly_selected_button);
@@ -5265,7 +5638,14 @@ void MainWindow::create_object_list_panel()
     m_object_list->setHeaderHidden(true);
     m_object_list->setIndentation(16);
     m_object_list->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_object_list->setAlternatingRowColors(true);
+    m_object_list->setAlternatingRowColors(false);
+    m_object_list->setStyleSheet(QStringLiteral(
+        "QTreeWidget::item:selected,"
+        "QTreeWidget::item:selected:active,"
+        "QTreeWidget::item:selected:!active {"
+        " color: #FFE14A;"
+        " background-color: #3C3812;"
+        "}"));
     layout->addWidget(m_object_list);
 
     m_unit_position_group = new QGroupBox("Selected Unit Position", panel);
@@ -5297,6 +5677,9 @@ void MainWindow::create_object_list_panel()
     m_unit_direction_mode->addItem("Vector", static_cast<int>(Single_Direction_Mode::Vector));
     m_unit_direction_mode->addItem("Pitch / Yaw", static_cast<int>(Single_Direction_Mode::Pitch_Yaw));
     m_unit_direction_mode->addItem("Target Hitpoint", static_cast<int>(Single_Direction_Mode::Target_Hitpoint));
+    m_unit_direction_mode->setToolTip(
+        tr("Hold Shift to copy the current aim into Vector or Pitch/Yaw. "
+           "Target keeps its own point and is never overwritten."));
     direction_layout->addWidget(m_unit_direction_mode);
     m_unit_direction_stack = new QStackedWidget(m_unit_direction_group);
     auto create_direction_box = [this]()
@@ -5397,10 +5780,25 @@ void MainWindow::create_object_list_panel()
         const QUuid uuid(item->data(0, Qt::UserRole).toString());
         const auto mode = static_cast<Single_Direction_Mode>(
             m_unit_direction_mode->itemData(index).toInt());
-        if (!uuid.isNull() && m_3d_widget->set_unit_single_direction_mode_by_uuid(uuid, mode))
+        const bool convert_on_shift =
+            QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
+        if (!uuid.isNull() && m_3d_widget->set_unit_single_direction_mode_by_uuid(
+                uuid, mode, convert_on_shift))
         {
             update_unit_position_controls();
             mark_project_dirty();
+            if (convert_on_shift && mode == Single_Direction_Mode::Target_Hitpoint)
+            {
+                statusBar()->showMessage(
+                    tr("Target keeps its own point; Shift does not write it"),
+                    4000);
+            }
+            else if (convert_on_shift)
+            {
+                statusBar()->showMessage(
+                    tr("Copied the current aim into the selected direction mode"),
+                    4000);
+            }
         }
     });
 
@@ -6292,6 +6690,40 @@ void MainWindow::create_object_list_panel()
         update_object_list_panel();
     });
     m_object_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_3d_widget, &OCCTWidget::unit_context_menu_requested, this,
+            [this](const QUuid &uuid, const QPoint &global_position)
+    {
+        if (m_object_list == nullptr || uuid.isNull())
+        {
+            return;
+        }
+        QTreeWidgetItem *found = nullptr;
+        for (QTreeWidgetItem *candidate : m_object_list->all_items())
+        {
+            if (candidate == nullptr ||
+                candidate->data(0, Qt::UserRole + 1).toString() !=
+                    QStringLiteral("unit"))
+            {
+                continue;
+            }
+            if (QUuid(candidate->data(0, Qt::UserRole).toString()) == uuid)
+            {
+                found = candidate;
+                break;
+            }
+        }
+        if (found == nullptr)
+        {
+            return;
+        }
+        m_object_list->setCurrentItem(found);
+        m_object_list->scrollToItem(found);
+        m_forced_context_menu_global = global_position;
+        m_force_context_menu_global = true;
+        emit m_object_list->customContextMenuRequested(
+            m_object_list->visualItemRect(found).center());
+        m_force_context_menu_global = false;
+    });
     connect(m_object_list, &QTreeWidget::customContextMenuRequested, this,
             [this](const QPoint &position)
     {
@@ -6632,7 +7064,10 @@ void MainWindow::create_object_list_panel()
         }
         menu.addSeparator();
         QAction *delete_action = menu.addAction("Delete");
-        QAction *chosen_action = menu.exec(m_object_list->viewport()->mapToGlobal(position));
+        const QPoint popup_position = m_force_context_menu_global
+            ? m_forced_context_menu_global
+            : m_object_list->viewport()->mapToGlobal(position);
+        QAction *chosen_action = menu.exec(popup_position);
         if (chosen_action == edit_action)
         {
             m_3d_widget->edit_unit_by_uuid(uuid);
@@ -7347,22 +7782,12 @@ void MainWindow::update_object_list_panel()
         item->setData(0, Qt::UserRole + 1, QStringLiteral("unit"));
         item->setData(0, Qt::UserRole + 4,
                       uuid.toString(QUuid::WithoutBraces));
-        QColor state_color;
-        if (value.is_array_child && !value.follows_array)
+        if (m_3d_widget != nullptr)
         {
-            state_color = QColor(QStringLiteral("#9ED6A8"));
-        }
-        else if (value.is_array_child)
-        {
-            state_color = QColor(QStringLiteral("#8DB7E8"));
-        }
-        else if (value.has_array_spec || value.has_fill_spec)
-        {
-            state_color = QColor(QStringLiteral("#F0C674"));
-        }
-        if (state_color.isValid())
-        {
-            item->setData(0, Qt::UserRole + 6, state_color.name());
+            item->setData(
+                0, Qt::UserRole + 6,
+                m_3d_widget->injector_component_color(value.inj.injector_data)
+                    .name(QColor::HexRgb));
         }
         QFont item_font = item->font(0);
         item_font.setItalic(value.is_array_child && value.follows_array);
@@ -7443,11 +7868,38 @@ void MainWindow::update_object_list_panel()
         for (auto layer_it = array_layers.cbegin();
              layer_it != array_layers.cend(); ++layer_it)
         {
-            auto *layer_item = new QTreeWidgetItem(
-                item,
-                QStringList{QStringLiteral("Array Layer %1 (%2 instances)")
-                                .arg(layer_it.key())
-                                .arg(layer_it.value().size())});
+            QString array_kind = QStringLiteral("Array");
+            const QList<UnitArraySpec> layer_specs = unit->array_specs.isEmpty()
+                ? QList<UnitArraySpec>{unit->array_spec}
+                : unit->array_specs;
+            const int spec_index = layer_it.key() - 1;
+            if (spec_index >= 0 && spec_index < layer_specs.size())
+            {
+                switch (layer_specs.at(spec_index).type)
+                {
+                case UnitArrayType::Linear:
+                    array_kind = QStringLiteral("Linear array");
+                    break;
+                case UnitArrayType::Rotational:
+                    array_kind = QStringLiteral("Rotational array");
+                    break;
+                case UnitArrayType::Mirror:
+                    array_kind = QStringLiteral("Mirror array");
+                    break;
+                case UnitArrayType::Elliptical:
+                    array_kind = QStringLiteral("Elliptical array");
+                    break;
+                }
+            }
+            const QString layer_label = array_layers.size() > 1
+                ? QStringLiteral("%1 %2 (%3)")
+                      .arg(array_kind)
+                      .arg(layer_it.key())
+                      .arg(layer_it.value().size())
+                : QStringLiteral("%1 (%2)")
+                      .arg(array_kind)
+                      .arg(layer_it.value().size());
+            auto *layer_item = new QTreeWidgetItem(item, QStringList{layer_label});
             // Keep the source UUID on the grouping row itself. This makes a
             // layer a stable, selectable tree target instead of a decorative
             // label whose parent must be guessed by every action handler.
@@ -7484,7 +7936,7 @@ void MainWindow::update_object_list_panel()
             }
             layer_item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
             layer_item->setData(0, Qt::UserRole + 6,
-                                QStringLiteral("#F0C674"));
+                                QStringLiteral("#A7B0BA"));
             layer_item->setToolTip(
                 0, QStringLiteral("Select this layer to operate on its array source"));
             QFont layer_font = layer_item->font(0);
@@ -7526,7 +7978,7 @@ void MainWindow::update_object_list_panel()
             }
             fill_item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
             fill_item->setData(0, Qt::UserRole + 6,
-                               QStringLiteral("#F0C674"));
+                               QStringLiteral("#A7B0BA"));
             fill_item->setToolTip(
                 0, QStringLiteral("Select this group to operate on its fill source"));
             QFont fill_font = fill_item->font(0);
@@ -7638,7 +8090,7 @@ void MainWindow::update_object_list_panel()
         const QColor state_color(
             item->data(0, Qt::UserRole + 6).toString());
         item->setForeground(0, item->isSelected()
-                                ? QBrush(QColor("#5AA9FF"))
+                                ? QBrush(QColor("#FFE14A"))
                                 : state_color.isValid()
                                       ? QBrush(state_color)
                                       : palette.brush(QPalette::Text));
@@ -7699,7 +8151,7 @@ void MainWindow::refresh_object_list_selection_colors()
         const QColor state_color(
             item->data(0, Qt::UserRole + 6).toString());
         item->setForeground(0, item->isSelected()
-                                ? QBrush(QColor("#5AA9FF"))
+                                ? QBrush(QColor("#FFE14A"))
                                 : state_color.isValid()
                                       ? QBrush(state_color)
                                       : palette.brush(QPalette::Text));
@@ -7708,6 +8160,7 @@ void MainWindow::refresh_object_list_selection_colors()
 
 void MainWindow::update_unit_position_controls()
 {
+    update_viewport_usage_note();
     if (m_unit_position_x == nullptr || m_unit_position_y == nullptr ||
         m_unit_position_z == nullptr || m_object_list == nullptr ||
         m_3d_widget == nullptr || m_unit_direction_x == nullptr ||

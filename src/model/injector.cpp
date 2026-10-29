@@ -7,6 +7,59 @@
 #include <BRepBuilderAPI_Transform.hxx>
 #include <TopoDS.hxx>
 
+
+bool adopt_single_direction_on_shift(Injector &injector,
+                                     Single_Direction_Mode next_mode)
+{
+    const Single_Direction_Mode current = injector.single_direction_mode;
+    if (next_mode == current ||
+        next_mode == Single_Direction_Mode::Target_Hitpoint)
+    {
+        return false;
+    }
+
+    QVector3D raw;
+    if (current == Single_Direction_Mode::Pitch_Yaw)
+    {
+        constexpr double kPi = 3.14159265358979323846;
+        const double pitch = injector.single_pitch_degrees * kPi / 180.0;
+        const double yaw = injector.single_yaw_degrees * kPi / 180.0;
+        raw = QVector3D(static_cast<float>(std::cos(pitch) * std::cos(yaw)),
+                        static_cast<float>(std::cos(pitch) * std::sin(yaw)),
+                        static_cast<float>(std::sin(pitch)));
+    }
+    else if (current == Single_Direction_Mode::Target_Hitpoint)
+    {
+        raw = injector.single_target_hitpoint - injector.pos;
+    }
+    else
+    {
+        raw = injector.vel;
+    }
+    if (raw.lengthSquared() <= 1.0e-12f)
+    {
+        return false;
+    }
+    const QVector3D direction = raw.normalized();
+
+    if (next_mode == Single_Direction_Mode::Pitch_Yaw)
+    {
+        constexpr double kPi = 3.14159265358979323846;
+        injector.single_pitch_degrees = std::asin(std::clamp(
+            direction.z(), -1.0f, 1.0f)) * 180.0 / kPi;
+        injector.single_yaw_degrees =
+            std::atan2(direction.y(), direction.x()) * 180.0 / kPi;
+        return true;
+    }
+    if (next_mode == Single_Direction_Mode::Vector)
+    {
+        const float speed = injector.vel.length();
+        injector.vel = direction * (speed > 1.0e-6f ? speed : 1.0f);
+        return true;
+    }
+    return false;
+}
+
 namespace
 {
 constexpr double kPi = 3.14159265358979323846;

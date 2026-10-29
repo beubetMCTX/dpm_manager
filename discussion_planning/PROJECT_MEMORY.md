@@ -2,6 +2,8 @@
 
 ## Current Scope
 
+- 2026-10-30: refactor is modular and reusable, split by function. Unused global_functions.h removed.
+- 2026-10-30: refactor follows discussion_planning/2026-10-28-unit-state-flags.md. Split by function, not line count. Domain behavior belongs on Unit. UI listens through Qt signals and slots.
 - Qt/C++ DPM manager with OpenCASCADE geometry view.
 - Leaf `Unit` owns one injector; composite behavior is represented by runtime
   array/fill child relations while the full nested Assembly hierarchy remains

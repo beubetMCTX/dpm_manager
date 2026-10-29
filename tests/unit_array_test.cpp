@@ -134,6 +134,43 @@ int main(int argc, char **argv)
                    source.inj.injector_data.single_target_hitpoint,
                "world target hitpoint must not follow a linear array") && ok;
 
+    Unit aiming_source = source;
+    aiming_source.inj.injector_data.injection_type = single;
+    aiming_source.inj.injector_data.single_direction_mode =
+        Single_Direction_Mode::Target_Hitpoint;
+    aiming_source.inj.injector_data.single_target_scope =
+        Single_Target_Scope::Array_Local;
+    aiming_source.inj.injector_data.single_target_hitpoint =
+        QVector3D(0.0f, 5.0f, 0.0f);
+    aiming_source.inj.injector_data.pos = QVector3D(1.0f, 2.0f, 0.0f);
+    aiming_source.inj.injector_data.vel = QVector3D(10.0f, 0.0f, 0.0f);
+    const QList<Unit> aiming_children = expand_unit_array(aiming_source, linear);
+    const QVector3D aiming_point = aiming_source.inj.injector_data.single_target_hitpoint;
+    const QVector3D second_aim =
+        aiming_children.size() == 3
+            ? (aiming_point - aiming_children[2].inj.injector_data.pos).normalized()
+            : QVector3D();
+    ok = check(aiming_children.size() == 3 &&
+                   aiming_children[2].inj.injector_data.single_target_hitpoint ==
+                       aiming_point &&
+                   aiming_children[0].inj.injector_data.single_target_hitpoint ==
+                       aiming_point &&
+                   qAbs(QVector3D::dotProduct(second_aim, QVector3D(1.0f, 0.0f, 0.0f))) < 0.95f,
+               "target mode copies should aim at the shared hitpoint") && ok;
+    UnitArraySpec aiming_rotation = rotational;
+    aiming_rotation.count = 4;
+    aiming_rotation.angle_degrees = 360.0f;
+    aiming_rotation.origin = QVector3D(0.0f, 0.0f, 0.0f);
+    aiming_rotation.orbit_radius = 5.0f;
+    const QList<Unit> aiming_rotated =
+        expand_unit_array(aiming_source, aiming_rotation);
+    ok = check(aiming_rotated.size() == 4 &&
+                   aiming_rotated[1].inj.injector_data.single_target_hitpoint ==
+                       aiming_point &&
+                   aiming_rotated[2].inj.injector_data.single_target_hitpoint ==
+                       aiming_point,
+               "target mode rotation should keep the shared hitpoint") && ok;
+
     source.inj.injector_data.single_target_scope = Single_Target_Scope::Parent_Local;
     const QList<Unit> parent_target_children = expand_unit_array(source, linear);
     ok = check(parent_target_children[2].inj.injector_data.single_target_hitpoint ==

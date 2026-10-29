@@ -69,6 +69,7 @@ public:
     ~MainWindow();
 
     OCCTWidget* m_3d_widget;
+    QWidget *m_viewport_host = nullptr;
     QList<Unit> units;
     QTabWidget* tab_widget;
 
@@ -111,6 +112,8 @@ private slots:
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void changeEvent(QEvent *event) override;
+    void moveEvent(QMoveEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void closeEvent(QCloseEvent *event) override;
@@ -156,7 +159,24 @@ private:
     bool build_fill_editor_spec(UnitFillSpec *output,
                                 bool show_warning = false);
     void update_array_editor_preview();
+    enum class Viewport_Hint_Level
+    {
+        Guide,
+        Warning,
+        Error
+    };
+
     void position_viewport_interaction_toolbar();
+    void update_viewport_usage_note();
+    void show_viewport_hint(Viewport_Hint_Level level,
+                            const QString &text,
+                            int sticky_ms = 0);
+    void hide_viewport_hint();
+    void position_viewport_hint();
+    void refresh_hovered_viewport_hint();
+    QString viewport_hint_style(Viewport_Hint_Level level) const;
+    bool viewport_hint_level_enabled(Viewport_Hint_Level level) const;
+    void set_viewport_hint_level_enabled(Viewport_Hint_Level level, bool enabled);
     void apply_reference_geometry_transform();
     void create_object_list_panel();
     void update_object_list_panel();
@@ -186,6 +206,8 @@ private:
     QString m_chemkin_file_path;
     QString m_project_session_file_path;
     bool m_project_dirty = false;
+    QPoint m_forced_context_menu_global;
+    bool m_force_context_menu_global = false;
     bool m_project_baseline_initialized = false;
     QByteArray m_saved_project_fingerprint;
     QTimer *m_dirty_refresh_timer = nullptr;
@@ -197,6 +219,15 @@ private:
     QUuid m_project_active_reference_geometry_uuid;
     QToolBar *m_chemkin_toolbar = nullptr;
     QWidget *m_viewport_interaction_toolbar = nullptr;
+    QLabel *m_viewport_usage_note = nullptr;
+    QPointer<QWidget> m_viewport_hint_button;
+    QTimer *m_viewport_hint_timer = nullptr;
+    QTimer *m_viewport_hint_hide_timer = nullptr;
+    bool m_viewport_hint_sticky = false;
+    Viewport_Hint_Level m_viewport_hint_level = Viewport_Hint_Level::Guide;
+    bool m_viewport_hint_show_guide = true;
+    bool m_viewport_hint_show_warning = true;
+    bool m_viewport_hint_show_error = true;
     QLabel *m_chemkin_status_label = nullptr;
     QLineEdit *m_chemkin_path_edit = nullptr;
     QMenu *m_recent_projects_menu = nullptr;

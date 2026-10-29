@@ -224,6 +224,11 @@ void runtime_debug::checkpoint(const QString &message)
     append_runtime_log_line(QString("[CHECKPOINT] %1").arg(message));
 }
 
+void runtime_debug::event(const QString &message)
+{
+    append_runtime_log_line(QString("[EVENT] %1").arg(message));
+}
+
 void runtime_debug::trace(const QString &message)
 {
     if (!verbose_debug_enabled())

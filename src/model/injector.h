@@ -410,6 +410,11 @@ private:
 
 };
 
+// Copies the active mode's aim into Vector or Pitch/Yaw. Target can be the
+// source, but nothing writes its hitpoint.
+bool adopt_single_direction_on_shift(Injector &injector,
+                                     Single_Direction_Mode next_mode);
+
 class Injector_OCCT
 {
 public:

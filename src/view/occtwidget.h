@@ -243,7 +243,8 @@ public:
     QVector3D unit_direction_by_uuid(const QUuid &uuid) const;
     bool set_unit_direction_by_uuid(const QUuid &uuid, const QVector3D &direction);
     bool set_unit_single_direction_mode_by_uuid(const QUuid &uuid,
-                                                Single_Direction_Mode mode);
+                                                Single_Direction_Mode mode,
+                                                bool convert_on_shift = false);
     bool unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
                                        double *pitch_degrees,
                                        double *yaw_degrees) const;
@@ -360,6 +361,8 @@ public:
 
     QHash<QUuid, std::shared_ptr<Unit>> unit_hash;
 
+    QColor injector_component_color(const Injector &injector) const;
+
 signals:
     void interaction_mode_changed(int mode);
     void unit_data_updated(Unit *unit);
@@ -380,6 +383,7 @@ signals:
     void unit_display_list_changed();
     void unit_removed(const QUuid &uuid);
     void selection_changed(const QUuid &uuid, bool reference_geometry);
+    void unit_context_menu_requested(const QUuid &uuid, const QPoint &global_position);
     void unit_selection_changed(const QList<QUuid> &uuids);
     void move_history_changed(bool can_undo, bool can_redo);
     void edit_history_changed(bool can_undo, bool can_redo);
@@ -437,6 +441,8 @@ private:
     void show_reference_face_for_uuid(const QUuid &uuid,
                                       const TopoDS_Face &face);
     void clear_unit_local_coordinate_frames();
+    void clear_array_frame_trihedrons();
+    void rebuild_array_frame_trihedrons();
     void rebuild_unit_local_coordinate_frames();
     void update_unit_local_coordinate_frame(const QUuid &uuid);
     void clear_reference_face_coordinate_frames();
@@ -469,6 +475,10 @@ private:
     bool promote_derived_unit_to_persistent(
         const std::shared_ptr<Unit> &unit);
     void clear_unit_array_children(Unit &source);
+    void discard_derived_array_unit(Unit &source,
+                                    const std::shared_ptr<Unit> &node);
+    void refresh_displayed_unit_shape(const std::shared_ptr<Unit> &unit);
+    void recompute_displayed_unit_selection(const Handle(AIS_Shape) &display);
     bool array_source_represented_by_instances(const Unit &source) const;
     void sync_array_source_presentation(Unit &source);
     int rebuild_unit_array_layers(const QUuid &source_uuid);
@@ -539,6 +549,13 @@ private:
         UnitFillSpec fill_spec;
         bool derived_array_output = false;
     };
+    void capture_transform_gizmo_snapshot(const std::shared_ptr<Unit> &unit);
+    bool transform_gizmo_snapshot_matches_follow_state() const;
+    void sync_transform_gizmo_after_follow_change(const QUuid &uuid);
+    void restore_transform_gizmo_unit(const TransformGizmoUnitSnapshot &snapshot);
+    bool transform_gizmo_target_is_detached_array_child() const;
+    bool transform_snapshot_is_live_derived(
+        const TransformGizmoUnitSnapshot &snapshot) const;
     struct UnitMoveHistoryEntry
     {
         QUuid uuid;
@@ -750,6 +767,7 @@ private:
     Handle(AIS_Trihedron) face_trihedron;
     gp_Ax2 selected_face_axis;
     QHash<QUuid, Handle(AIS_Trihedron)> m_unit_local_trihedrons;
+    QHash<QString, Handle(AIS_Trihedron)> m_array_frame_trihedrons;
     QVector<Handle(AIS_Trihedron)> m_reference_face_trihedrons;
     QVector3D m_reference_position;
     QVector3D m_reference_rotation;
@@ -796,6 +814,7 @@ private:
     QVector<UnitDeleteHistoryEntry> m_delete_history;
     int m_delete_history_index = 0;
     bool m_replaying_delete_history = false;
+    bool m_suppress_array_override_capture = false;
     bool m_replaying_edit_history = false;
     bool m_replaying_operation_history = false;
     QVector<UnitOperationHistoryEntry> m_operation_history;

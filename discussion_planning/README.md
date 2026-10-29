@@ -1,5 +1,10 @@
 # DPM Manager Discussion Planning
 
+### 2026-10-30 Unit Document Refactor
+
+- Agreed, not started. Follow [2026-10-30 unit document refactor](2026-10-30-unit-document-refactor.md).
+- Split later files by responsibility. Keep Unit copyable and keep signals on the live scene object.
+
 ### 2026-10-22 Array Follow And Preview
 
 - Deleting the last array layer, or refreshing the editor while it is hidden, clears the yellow pattern preview instead of leaving a draft copy in the viewport.

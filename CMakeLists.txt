@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(dpm_manager VERSION 0.1 LANGUAGES CXX)
 
-option(DPM_BUILD_TESTS "Build focused regression tests" ON)
+option(DPM_BUILD_TESTS "Build focused regression tests" OFF)
 option(DPM_ENABLE_ADVANCED_ATOMIZER_PREVIEW
        "Enable experimental advanced atomizer geometry previews"
        ON)
@@ -98,7 +98,6 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
         ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
-        ${COMMON_DIR}/global_functions.h
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp

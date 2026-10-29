@@ -2,9 +2,11 @@
 #include "transform_snap.h"
 
 #include <algorithm>
+#include <cstdio>
 #include <BRepBndLib.hxx>
 #include <Bnd_Box.hxx>
 #include <QApplication>
+#include <TColStd_ListOfInteger.hxx>
 #include <cmath>
 
 namespace
@@ -14,6 +16,8 @@ bool check(bool condition, const char *message)
     if (!condition)
     {
         qCritical() << message;
+        std::fprintf(stderr, "%s\n", message);
+        std::fflush(stderr);
         return false;
     }
     return true;
@@ -34,6 +38,76 @@ Unit make_valid_unit()
     unit.inj.injector_data.atomizer_axis = QVector3D(1.0f, 0.0f, 0.0f);
     unit.inj.injector_data.total_flow_rate = 1.0;
     return unit;
+}
+
+double displayed_origin_gap(const Unit &unit)
+{
+    if (unit.inj.shape.IsNull())
+    {
+        return -1.0;
+    }
+    Bnd_Box bounds;
+    BRepBndLib::Add(unit.inj.shape, bounds);
+    if (bounds.IsVoid())
+    {
+        return -1.0;
+    }
+    if (!unit.ais_display.IsNull())
+    {
+        bounds = bounds.Transformed(unit.ais_display->LocalTransformation());
+    }
+    Standard_Real xmin = 0.0;
+    Standard_Real ymin = 0.0;
+    Standard_Real zmin = 0.0;
+    Standard_Real xmax = 0.0;
+    Standard_Real ymax = 0.0;
+    Standard_Real zmax = 0.0;
+    bounds.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+    const QVector3D point = unit.inj.injector_data.pos;
+    const double dx = point.x() < xmin ? xmin - point.x()
+                      : point.x() > xmax ? point.x() - xmax
+                                         : 0.0;
+    const double dy = point.y() < ymin ? ymin - point.y()
+                      : point.y() > ymax ? point.y() - ymax
+                                         : 0.0;
+    const double dz = point.z() < zmin ? zmin - point.z()
+                      : point.z() > zmax ? point.z() - zmax
+                                         : 0.0;
+    return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+bool displayed_shape_follows_direction(const Unit &unit, const QVector3D &direction)
+{
+    if (unit.inj.shape.IsNull() || direction.lengthSquared() <= 1.0e-12f)
+    {
+        return false;
+    }
+    Bnd_Box bounds;
+    BRepBndLib::Add(unit.inj.shape, bounds);
+    if (bounds.IsVoid())
+    {
+        return false;
+    }
+    if (!unit.ais_display.IsNull())
+    {
+        bounds = bounds.Transformed(unit.ais_display->LocalTransformation());
+    }
+    Standard_Real xmin = 0.0;
+    Standard_Real ymin = 0.0;
+    Standard_Real zmin = 0.0;
+    Standard_Real xmax = 0.0;
+    Standard_Real ymax = 0.0;
+    Standard_Real zmax = 0.0;
+    bounds.Get(xmin, ymin, zmin, xmax, ymax, zmax);
+    const QVector3D center(static_cast<float>(0.5 * (xmin + xmax)),
+                           static_cast<float>(0.5 * (ymin + ymax)),
+                           static_cast<float>(0.5 * (zmin + zmax)));
+    const QVector3D offset = center - unit.inj.injector_data.pos;
+    if (offset.lengthSquared() <= 1.0e-12f)
+    {
+        return false;
+    }
+    return QVector3D::dotProduct(offset.normalized(), direction.normalized()) > 0.9f;
 }
 
 double shape_center_x(const TopoDS_Shape &shape)
@@ -79,6 +153,52 @@ public:
         widget.m_transform_gizmo_snapshot_valid = false;
         widget.clear_transform_gizmo();
         return committed;
+    }
+
+    static bool attach_gizmo(OCCTWidget &widget, const QUuid &uuid,
+                             AIS_ManipulatorMode mode)
+    {
+        return widget.attach_transform_gizmo(uuid, mode);
+    }
+
+    static bool update_and_commit(OCCTWidget &widget,
+                                  const gp_Trsf &transformation)
+    {
+        widget.update_transform_gizmo_preview(transformation);
+        return widget.commit_transform_gizmo_preview();
+    }
+
+    static bool represented_source_stays_unpickable(OCCTWidget &widget,
+                                                    const QUuid &uuid)
+    {
+        const std::shared_ptr<Unit> source = widget.unit_hash.value(uuid);
+        if (source == nullptr || source->ais_display.IsNull() ||
+            widget.m_get_context().IsNull())
+        {
+            return false;
+        }
+        widget.select(TopAbs_SHAPE);
+        if (!source->presentation_hidden ||
+            widget.m_get_context()->IsDisplayed(source->ais_display))
+        {
+            return false;
+        }
+        for (const std::shared_ptr<Unit> &child : source->child_units)
+        {
+            if (child != nullptr && child->follows_array &&
+                child->presentation_hidden)
+            {
+                return false;
+            }
+        }
+        TColStd_ListOfInteger modes;
+        widget.m_get_context()->ActivatedModes(source->ais_display, modes);
+        return modes.Extent() == 0;
+    }
+
+    static QUuid transform_gizmo_uuid(const OCCTWidget &widget)
+    {
+        return widget.m_transform_gizmo_uuid;
     }
 };
 
@@ -1124,6 +1244,28 @@ if (!check(nested_leaf_units.size() == 8,
         return 1;
     }
 
+    stored_unit->inj.injector_data.single_target_scope =
+        Single_Target_Scope::Array_Local;
+    const QVector3D target_before_translation =
+        stored_unit->inj.injector_data.single_target_hitpoint;
+    const QVector3D position_before_translation =
+        stored_unit->inj.injector_data.pos;
+    gp_Trsf target_translation;
+    target_translation.SetTranslation(gp_Vec(0.01, 0.0, 0.0));
+    if (!check(OCCTWidgetEditHistoryTestAccess::begin_preview(
+                   widget, uuid, AIS_MM_Translation, target_translation) &&
+                   OCCTWidgetEditHistoryTestAccess::commit_preview(widget),
+               "Target Hitpoint translation gizmo should commit") ||
+        !check(vectors_close(stored_unit->inj.injector_data.pos,
+                             position_before_translation +
+                                 QVector3D(0.01f, 0.0f, 0.0f)),
+               "Target Hitpoint translation should move the injector") ||
+        !check(vectors_close(stored_unit->inj.injector_data.single_target_hitpoint,
+                             target_before_translation),
+               "Target Hitpoint translation must leave the aim point fixed"))
+    {
+        return 1;
+    }
     // Create a history entry whose before-state cannot rebuild. Undo must
     // reject it without damaging the currently valid state.
     stored_unit->inj.injector_data.vel = QVector3D();
@@ -1831,11 +1973,11 @@ if (!check(widget.unit_hash.value(reference_bound_uuid)->array_spec
                    physical_child_after_rebuild->inj.injector_data.material == "O2",
                "Physical override should survive parent material edit") ||
         !check(physical_child_after_rebuild != nullptr &&
-                   physical_child_after_rebuild->inj.uuid !=
+                   physical_child_after_rebuild->inj.uuid ==
                    physical_child_uuid_before_rebuild &&
-                   widget.unit_hash.value(physical_child_after_rebuild->inj.uuid).get() ==
+                   widget.unit_hash.value(physical_child_uuid_before_rebuild).get() ==
                        physical_child_after_rebuild.get(),
-               "Physical override must not overwrite regenerated child UUID"))
+               "Physical override must keep the child UUID"))
     {
         return 1;
     }
@@ -2200,6 +2342,391 @@ if (!check(widget.unit_hash.value(reference_bound_uuid)->array_spec
         !check(!array_heading_is_identity(
                    widget.unit_hash.value(heading_source_uuid)->array_spec.heading),
                "Layer edit must not clear follower heading"))
+    {
+        return 1;
+    }
+
+    std::shared_ptr<Unit> editable_child;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(heading_source_uuid)->child_units)
+    {
+        if (child != nullptr && child->follows_array &&
+            child->array_instance_path == QVector<int>{1})
+        {
+            editable_child = child;
+            break;
+        }
+    }
+    if (!check(editable_child != nullptr,
+               "A following copy should remain editable from the inspector"))
+    {
+        return 1;
+    }
+    const QUuid stale_child_uuid = editable_child->inj.uuid;
+    const QVector3D stale_child_position = editable_child->inj.injector_data.pos;
+    const QVector3D source_position = widget.unit_position_by_uuid(stale_child_uuid);
+    if (!check(widget.set_unit_position_by_uuid(
+                   stale_child_uuid, source_position + QVector3D(1.0f, 0.0f, 0.0f)),
+               "Inspector edit of a following copy should move the pattern") ||
+        !check(widget.unit_hash.contains(stale_child_uuid),
+               "Pattern rebuild should keep the edited copy"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> rebuilt_child =
+        widget.unit_hash.value(stale_child_uuid);
+    if (!check(rebuilt_child != nullptr && rebuilt_child->follows_array &&
+                   rebuilt_child->inj.uuid == stale_child_uuid &&
+                   rebuilt_child->array_instance_path == QVector<int>{1} &&
+                   vectors_close(rebuilt_child->inj.injector_data.pos,
+                                 stale_child_position + QVector3D(1.0f, 0.0f, 0.0f)),
+               "Inspector edit should keep the same array copy identity"))
+    {
+        return 1;
+    }
+
+    const QUuid detached_uuid = detached_after->inj.uuid;
+    const QVector3D drifted_position =
+        detached_position + QVector3D(4.0f, 5.0f, 0.0f);
+    const QVector3D rejoined_position =
+        detached_position + QVector3D(1.0f, 0.0f, 0.0f);
+    const QVector3D yawed_direction(-directions_before.at(0).y(),
+                                    directions_before.at(0).x(),
+                                    directions_before.at(0).z());
+    if (!check(widget.unit_hash.contains(detached_uuid) &&
+                   widget.set_unit_position_by_uuid(detached_uuid, drifted_position) &&
+                   vectors_close(widget.unit_hash.value(detached_uuid)->inj.injector_data.pos,
+                                 drifted_position),
+               "Detached copy should accept an inspector move") ||
+        !check(widget.set_unit_follow_array(detached_uuid, true),
+               "Re-enabling Follow Array should rejoin the pattern"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> rejoined = widget.unit_hash.value(detached_uuid);
+    if (!check(rejoined != nullptr && rejoined->follows_array &&
+                   rejoined->inj.uuid == detached_uuid &&
+                   rejoined->array_instance_path == QVector<int>{2} &&
+                   vectors_close(rejoined->inj.injector_data.pos, rejoined_position) &&
+                   vectors_close(rejoined->inj.injector_data.vel, yawed_direction),
+               "Re-enabling Follow Array should restore the pattern pose"))
+    {
+        return 1;
+    }
+
+    widget.display_units({}, true);
+    Unit detach_drag_source = make_valid_unit();
+    detach_drag_source.inj.injector_data.name = "detach-drag-source";
+    detach_drag_source.inj.injector_data.pos = QVector3D(0.0f, 0.0f, 0.0f);
+    detach_drag_source.inj.injector_data.vel = QVector3D(1.0f, 0.0f, 0.0f);
+    detach_drag_source.inj.injector_data.atomizer_axis = QVector3D(1.0f, 0.0f, 0.0f);
+    if (!check(detach_drag_source.inj.create_injector(),
+               "Detach-drag source geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({detach_drag_source});
+    const QUuid detach_drag_source_uuid = widget.unit_hash.constBegin().key();
+    UnitArraySpec detach_drag_linear;
+    detach_drag_linear.type = UnitArrayType::Linear;
+    detach_drag_linear.count = 3;
+    detach_drag_linear.spacing = 5.0f;
+    detach_drag_linear.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    detach_drag_linear.origin = QVector3D(0.0f, 0.0f, 0.0f);
+    detach_drag_linear.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    if (!check(widget.create_unit_array(detach_drag_source_uuid, detach_drag_linear) == 3,
+               "Detach-drag array should create three copies"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> detach_drag_child;
+    QHash<QUuid, QVector3D> pose_before;
+    QHash<QUuid, QVector3D> direction_before;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(detach_drag_source_uuid)->child_units)
+    {
+        if (child == nullptr)
+        {
+            continue;
+        }
+        pose_before.insert(child->inj.uuid, child->inj.injector_data.pos);
+        direction_before.insert(child->inj.uuid, child->inj.injector_data.vel);
+        if (child->array_instance_path == QVector<int>{1})
+        {
+            detach_drag_child = child;
+        }
+    }
+    const UnitArraySpec detach_frame_before =
+        widget.unit_hash.value(detach_drag_source_uuid)->array_spec;
+    const QVector3D source_direction_before =
+        widget.unit_hash.value(detach_drag_source_uuid)->inj.injector_data.vel;
+    if (!check(detach_drag_child != nullptr && detach_drag_child->follows_array,
+               "Detach-drag copy should start by following the array") ||
+        !check(OCCTWidgetEditHistoryTestAccess::attach_gizmo(
+                   widget, detach_drag_child->inj.uuid, AIS_MM_Rotation),
+               "Detach-drag gizmo should attach while the copy still follows") ||
+        !check(widget.set_unit_follow_array(detach_drag_child->inj.uuid, false),
+               "Detach-drag copy should leave the array without dropping the gizmo"))
+    {
+        return 1;
+    }
+    const QVector3D detach_pivot = detach_drag_child->inj.injector_data.pos;
+    gp_Trsf detach_rotation;
+    detach_rotation.SetRotation(
+        gp_Ax1(gp_Pnt(detach_pivot.x(), detach_pivot.y(), detach_pivot.z()),
+               gp_Dir(0.0, 0.0, 1.0)),
+        qDegreesToRadians(90.0));
+    if (!check(OCCTWidgetEditHistoryTestAccess::update_and_commit(widget, detach_rotation),
+               "Rotating a detached copy through the existing gizmo should commit"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> detach_owner =
+        widget.unit_hash.value(detach_drag_source_uuid);
+    const std::shared_ptr<Unit> detach_after =
+        widget.unit_hash.value(detach_drag_child->inj.uuid);
+    const QVector3D old_direction = direction_before.value(detach_drag_child->inj.uuid);
+    const QVector3D expected_direction(-old_direction.y(), old_direction.x(),
+                                       old_direction.z());
+    bool siblings_held = detach_owner != nullptr;
+    if (detach_owner != nullptr)
+    {
+        for (const std::shared_ptr<Unit> &child : detach_owner->child_units)
+        {
+            if (child == nullptr || child->inj.uuid == detach_drag_child->inj.uuid)
+            {
+                continue;
+            }
+            siblings_held = siblings_held && child->follows_array &&
+                            vectors_close(child->inj.injector_data.pos,
+                                          pose_before.value(child->inj.uuid)) &&
+                            vectors_close(child->inj.injector_data.vel,
+                                          direction_before.value(child->inj.uuid)) &&
+                            displayed_origin_gap(*child) < 1.0e-6;
+        }
+    }
+    if (!check(detach_owner != nullptr &&
+                   vectors_close(detach_owner->array_spec.origin, detach_frame_before.origin) &&
+                   vectors_close(detach_owner->array_spec.direction,
+                                 detach_frame_before.direction) &&
+                   vectors_close(detach_owner->array_spec.plane_normal,
+                                 detach_frame_before.plane_normal) &&
+                   array_heading_is_identity(detach_owner->array_spec.heading) &&
+                   vectors_close(detach_owner->inj.injector_data.vel, source_direction_before),
+               "Detached gizmo rotation must not turn the array frame or source") ||
+        !check(siblings_held,
+               "Detached gizmo rotation must leave following copies unchanged") ||
+        !check(detach_after != nullptr && !detach_after->follows_array &&
+                   vectors_close(detach_after->inj.injector_data.pos, detach_pivot) &&
+                   vectors_close(detach_after->inj.injector_data.vel, expected_direction) &&
+                   displayed_origin_gap(*detach_after) < 1.0e-6,
+               "Detached gizmo rotation should yaw only that copy and keep its mesh"))
+    {
+        return 1;
+    }
+
+    widget.display_units({}, true);
+    Unit baked_source = make_valid_unit();
+    baked_source.inj.injector_data.name = "baked-heading-source";
+    baked_source.inj.injector_data.pos = QVector3D(0.0f, 0.0f, 0.0f);
+    baked_source.inj.injector_data.vel = QVector3D(1.0f, 0.0f, 0.0f);
+    baked_source.inj.injector_data.atomizer_axis = QVector3D(1.0f, 0.0f, 0.0f);
+    if (!check(baked_source.inj.create_injector(),
+               "Baked heading source geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({baked_source});
+    const QUuid baked_source_uuid = widget.unit_hash.constBegin().key();
+    UnitArraySpec baked_linear;
+    baked_linear.type = UnitArrayType::Linear;
+    baked_linear.count = 3;
+    baked_linear.spacing = 5.0f;
+    baked_linear.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    baked_linear.origin = QVector3D(0.0f, 0.0f, 0.0f);
+    baked_linear.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    if (!check(widget.create_unit_array(baked_source_uuid, baked_linear) == 3,
+               "Baked heading array should create three copies") ||
+        !check(OCCTWidgetEditHistoryTestAccess::represented_source_stays_unpickable(
+                   widget, baked_source_uuid),
+               "Array prototype should stay hidden and unpickable"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> baked_child;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(baked_source_uuid)->child_units)
+    {
+        if (child != nullptr && child->follows_array &&
+            child->array_instance_path == QVector<int>{1})
+        {
+            baked_child = child;
+            break;
+        }
+    }
+    const QVector3D baked_frame_direction =
+        widget.unit_hash.value(baked_source_uuid)->array_spec.direction;
+    if (!check(baked_child != nullptr,
+               "Following copy should accept a heading gizmo") ||
+        !check(OCCTWidgetEditHistoryTestAccess::attach_gizmo(
+                   widget, baked_source_uuid, AIS_MM_Rotation) &&
+                   OCCTWidgetEditHistoryTestAccess::transform_gizmo_uuid(widget) ==
+                       baked_source_uuid &&
+                   !widget.m_get_context()->IsDisplayed(
+                       widget.unit_hash.value(baked_source_uuid)->ais_display),
+               "Gizmo on the array prototype should not redraw its mesh") ||
+        !check(OCCTWidgetEditHistoryTestAccess::attach_gizmo(
+                   widget, baked_child->inj.uuid, AIS_MM_Rotation),
+               "Following copy rotation gizmo should attach"))
+    {
+        return 1;
+    }
+    const QVector3D baked_pivot = baked_child->inj.injector_data.pos;
+    gp_Trsf baked_rotation;
+    baked_rotation.SetRotation(
+        gp_Ax1(gp_Pnt(baked_pivot.x(), baked_pivot.y(), baked_pivot.z()),
+               gp_Dir(0.0, 0.0, 1.0)),
+        qDegreesToRadians(90.0));
+    if (!check(OCCTWidgetEditHistoryTestAccess::update_and_commit(widget, baked_rotation),
+               "Following copy rotation should commit into injector data"))
+    {
+        return 1;
+    }
+    const std::shared_ptr<Unit> baked_after =
+        widget.unit_hash.value(baked_child->inj.uuid);
+    const QVector3D baked_direction(0.0f, 1.0f, 0.0f);
+    if (!check(baked_after != nullptr && baked_after->follows_array &&
+                   vectors_close(baked_after->inj.injector_data.pos, baked_pivot) &&
+                   vectors_close(baked_after->inj.injector_data.vel, baked_direction) &&
+                   vectors_close(widget.unit_direction_by_uuid(baked_after->inj.uuid),
+                                 baked_direction) &&
+                   displayed_origin_gap(*baked_after) < 1.0e-6 &&
+                   displayed_shape_follows_direction(*baked_after, baked_direction),
+               "Following copy rotation must bake the mesh to the new direction") ||
+        !check(vectors_close(widget.unit_hash.value(baked_source_uuid)->array_spec.direction,
+                             baked_frame_direction),
+               "Following copy rotation must keep the array line fixed"))
+    {
+        return 1;
+    }
+
+    if (!check(widget.set_unit_single_direction_mode_by_uuid(
+                   baked_source_uuid, Single_Direction_Mode::Target_Hitpoint),
+               "Source should switch to target hitpoint mode"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> target_child;
+    for (const std::shared_ptr<Unit> &child :
+         widget.unit_hash.value(baked_source_uuid)->child_units)
+    {
+        if (child != nullptr && child->follows_array)
+        {
+            target_child = child;
+            break;
+        }
+    }
+    if (!check(target_child != nullptr &&
+                   target_child->inj.injector_data.single_direction_mode ==
+                       Single_Direction_Mode::Target_Hitpoint &&
+                   !OCCTWidgetEditHistoryTestAccess::attach_gizmo(
+                       widget, target_child->inj.uuid, AIS_MM_Rotation) &&
+                   OCCTWidgetEditHistoryTestAccess::attach_gizmo(
+                       widget, target_child->inj.uuid, AIS_MM_Translation),
+               "Target mode should lock rotation but still allow translation"))
+    {
+        return 1;
+    }
+
+    widget.display_units({}, true);
+    Unit hidden_source = make_valid_unit();
+    hidden_source.inj.injector_data.name = "presentation-hidden-source";
+    hidden_source.inj.injector_data.pos = QVector3D(0.0f, 0.0f, 0.0f);
+    hidden_source.inj.injector_data.vel = QVector3D(1.0f, 0.0f, 0.0f);
+    hidden_source.inj.injector_data.atomizer_axis = QVector3D(1.0f, 0.0f, 0.0f);
+    if (!check(hidden_source.inj.create_injector(),
+               "Presentation-hidden source geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({hidden_source});
+    const QUuid hidden_uuid = widget.unit_hash.constBegin().key();
+    UnitArraySpec hidden_linear;
+    hidden_linear.type = UnitArrayType::Linear;
+    hidden_linear.count = 3;
+    hidden_linear.spacing = 5.0f;
+    hidden_linear.direction = QVector3D(1.0f, 0.0f, 0.0f);
+    hidden_linear.origin = QVector3D(0.0f, 0.0f, 0.0f);
+    hidden_linear.plane_normal = QVector3D(0.0f, 0.0f, 1.0f);
+    if (!check(widget.create_unit_array(hidden_uuid, hidden_linear) == 3,
+               "Presentation-hidden array should create three copies"))
+    {
+        return 1;
+    }
+    std::shared_ptr<Unit> hidden_stored = widget.unit_hash.value(hidden_uuid);
+    QList<QUuid> hidden_followers;
+    if (hidden_stored != nullptr)
+    {
+        for (const std::shared_ptr<Unit> &child : hidden_stored->child_units)
+        {
+            if (child != nullptr && child->follows_array)
+            {
+                hidden_followers.append(child->inj.uuid);
+            }
+        }
+    }
+    if (!check(hidden_stored != nullptr && hidden_stored->presentation_hidden &&
+                   hidden_followers.size() == 3 &&
+                   !widget.m_get_context()->IsDisplayed(hidden_stored->ais_display),
+               "Array mother should set presentation_hidden while copies follow"))
+    {
+        return 1;
+    }
+    if (!check(widget.set_unit_follow_array(hidden_followers.first(), false),
+               "Unfollow one copy should succeed") ||
+        !check(widget.unit_hash.value(hidden_uuid) != nullptr &&
+                   widget.unit_hash.value(hidden_uuid)->presentation_hidden &&
+                   !widget.m_get_context()->IsDisplayed(
+                       widget.unit_hash.value(hidden_uuid)->ais_display),
+               "One detached copy should keep the mother hidden"))
+    {
+        return 1;
+    }
+    bool unfollowed_rest = true;
+    for (int index = 1; index < hidden_followers.size(); ++index)
+    {
+        unfollowed_rest = unfollowed_rest &&
+                          widget.set_unit_follow_array(hidden_followers.at(index), false);
+    }
+    hidden_stored = widget.unit_hash.value(hidden_uuid);
+    if (!check(unfollowed_rest && hidden_stored != nullptr &&
+                   !hidden_stored->presentation_hidden &&
+                   widget.m_get_context()->IsDisplayed(hidden_stored->ais_display),
+               "Last unfollow should clear presentation_hidden and show the mother"))
+    {
+        return 1;
+    }
+    widget.display_units({}, true);
+    Unit layer_source = make_valid_unit();
+    layer_source.inj.injector_data.name = "presentation-layer-source";
+    layer_source.inj.injector_data.pos = QVector3D(0.0f, 0.0f, 0.0f);
+    layer_source.inj.injector_data.vel = QVector3D(1.0f, 0.0f, 0.0f);
+    layer_source.inj.injector_data.atomizer_axis = QVector3D(1.0f, 0.0f, 0.0f);
+    if (!check(layer_source.inj.create_injector(),
+               "Layer-removal source geometry should be valid"))
+    {
+        return 1;
+    }
+    widget.display_units({layer_source});
+    const QUuid layer_uuid = widget.unit_hash.constBegin().key();
+    if (!check(widget.create_unit_array(layer_uuid, hidden_linear) == 3 &&
+                   widget.remove_unit_array_layer(layer_uuid, 0),
+               "Removing the only array layer should succeed") ||
+        !check(widget.unit_hash.value(layer_uuid) != nullptr &&
+                   !widget.unit_hash.value(layer_uuid)->presentation_hidden &&
+                   widget.m_get_context()->IsDisplayed(
+                       widget.unit_hash.value(layer_uuid)->ais_display),
+               "Removing the array layer should show the mother again"))
     {
         return 1;
     }

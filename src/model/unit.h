@@ -157,6 +157,10 @@ public:
     QUuid array_parent_uuid;
     bool is_array_child = false;
     bool follows_array = true;
+    // Runtime mesh gate, distinct from viewer visibility. An array mother
+    // stays logically present, but its mesh and local axes stay out of the
+    // OCCT context while at least one copy still follows it. Not serialized.
+    bool presentation_hidden = false;
     // Persistent nested sources can keep their own Array/Fill definition while
     // optionally following the placement transform of their parent array.
     bool follows_parent_transform = false;
@@ -203,6 +207,7 @@ public:
         , array_parent_uuid(other.array_parent_uuid)
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
+        , presentation_hidden(other.presentation_hidden)
         , follows_parent_transform(other.follows_parent_transform)
         , parent_follow_reference_origin(other.parent_follow_reference_origin)
         , parent_follow_reference_direction(other.parent_follow_reference_direction)
@@ -241,6 +246,7 @@ public:
         array_parent_uuid = other.array_parent_uuid;
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
+        presentation_hidden = other.presentation_hidden;
         follows_parent_transform = other.follows_parent_transform;
         parent_follow_reference_origin = other.parent_follow_reference_origin;
         parent_follow_reference_direction = other.parent_follow_reference_direction;
@@ -272,6 +278,7 @@ public:
         , array_parent_uuid(other.array_parent_uuid)
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
+        , presentation_hidden(other.presentation_hidden)
         , follows_parent_transform(other.follows_parent_transform)
         , parent_follow_reference_origin(other.parent_follow_reference_origin)
         , parent_follow_reference_direction(other.parent_follow_reference_direction)
@@ -310,6 +317,7 @@ public:
         array_parent_uuid = other.array_parent_uuid;
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
+        presentation_hidden = other.presentation_hidden;
         follows_parent_transform = other.follows_parent_transform;
         parent_follow_reference_origin = other.parent_follow_reference_origin;
         parent_follow_reference_direction = other.parent_follow_reference_direction;

@@ -11,6 +11,19 @@ QVector3D normalized_or(const QVector3D &value, const QVector3D &fallback)
     return value.lengthSquared() > 1.0e-12f ? value.normalized() : fallback.normalized();
 }
 
+bool array_target_hitpoint_follows_copy(const Injector &injector)
+{
+    // Target Hitpoint aims every copy at the configured point. Moving that
+    // point with the copy keeps the source direction and never converges.
+    if (injector.injection_type == single &&
+        injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint)
+    {
+        return false;
+    }
+    return injector.single_target_scope != Single_Target_Scope::World &&
+           injector.single_target_scope != Single_Target_Scope::Reference_Local;
+}
+
 QVector3D reference_local_point(const QVector3D &value,
                                 const QVector3D &origin,
                                 const QVector3D &direction,
@@ -165,8 +178,7 @@ void translate_injector_spatial(Injector &injector, const QVector3D &offset)
     injector.ff_virtual_origin += offset;
     injector.volume_bgeom_min += offset;
     injector.volume_bgeom_max += offset;
-    if (injector.single_target_scope != Single_Target_Scope::World &&
-        injector.single_target_scope != Single_Target_Scope::Reference_Local)
+    if (array_target_hitpoint_follows_copy(injector))
     {
         injector.single_target_hitpoint += offset;
     }
@@ -217,8 +229,7 @@ void rotate_injector_data(Injector &injector, const QVector3D &origin,
     rotate_point(injector.ff_virtual_origin);
     rotate_point(injector.volume_bgeom_min);
     rotate_point(injector.volume_bgeom_max);
-    if (injector.single_target_scope != Single_Target_Scope::World &&
-        injector.single_target_scope != Single_Target_Scope::Reference_Local)
+    if (array_target_hitpoint_follows_copy(injector))
     {
         rotate_point(injector.single_target_hitpoint);
     }
@@ -303,8 +314,7 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_point(injector.ff_virtual_origin);
     mirror_point(injector.volume_bgeom_min);
     mirror_point(injector.volume_bgeom_max);
-    if (injector.single_target_scope != Single_Target_Scope::World &&
-        injector.single_target_scope != Single_Target_Scope::Reference_Local)
+    if (array_target_hitpoint_follows_copy(injector))
     {
         mirror_point(injector.single_target_hitpoint);
     }
@@ -482,6 +492,7 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
     for (int index = 0; index < count; ++index)
     {
         Unit child(source);
+        child.presentation_hidden = false;
         child.inj.uuid = QUuid::createUuid();
         child.prototype_uuid = source.inj.uuid;
         child.prototype_chain = source.prototype_chain;
@@ -607,6 +618,7 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             }
             const Unit &source = sources.at(source_index);
             Unit child(source);
+            child.presentation_hidden = false;
             child.inj.uuid = QUuid::createUuid();
             child.prototype_uuid = source.inj.uuid;
             child.prototype_chain = source.prototype_chain;
@@ -645,10 +657,7 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             child.inj.injector_data.ff_virtual_origin += offset;
             child.inj.injector_data.volume_bgeom_min += offset;
             child.inj.injector_data.volume_bgeom_max += offset;
-            if (child.inj.injector_data.single_target_scope !=
-                    Single_Target_Scope::World &&
-                child.inj.injector_data.single_target_scope !=
-                    Single_Target_Scope::Reference_Local)
+            if (array_target_hitpoint_follows_copy(child.inj.injector_data))
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
             }
@@ -697,6 +706,7 @@ std::shared_ptr<Unit> clone_unit_tree_impl(const Unit &source,
                                            bool include_generated_children)
 {
     const std::shared_ptr<Unit> clone = std::make_shared<Unit>(source);
+    clone->presentation_hidden = false;
     const QUuid source_uuid = source.inj.uuid;
     const QUuid clone_uuid = QUuid::createUuid();
     uuid_map.insert(source_uuid, clone_uuid);
@@ -769,8 +779,7 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
     root.inj.injector_data.ff_virtual_origin += translation;
     root.inj.injector_data.volume_bgeom_min += translation;
     root.inj.injector_data.volume_bgeom_max += translation;
-    if (root.inj.injector_data.single_target_scope != Single_Target_Scope::World &&
-        root.inj.injector_data.single_target_scope != Single_Target_Scope::Reference_Local)
+    if (array_target_hitpoint_follows_copy(root.inj.injector_data))
     {
         root.inj.injector_data.single_target_hitpoint += translation;
     }
