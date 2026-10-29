@@ -8,6 +8,15 @@
 #include <QHash>
 #include <QVector3D>
 
+// Target mode keeps the configured point. Other modes follow the copy unless
+// the scope is world or reference-local.
+bool target_hitpoint_follows_copy(const Injector &injector);
+
+// Reference-local values are read in the pattern frame. Other scopes return
+// the hitpoint already stored on the injector.
+QVector3D resolved_aim_point(const Injector &injector, const UnitArraySpec &spec);
+QVector3D resolved_aim_point(const Injector &injector, const UnitFillSpec &spec);
+
 // Expands one leaf Unit into independent display-ready child Units.
 // The source remains unchanged and every child receives a fresh UUID.
 QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec);

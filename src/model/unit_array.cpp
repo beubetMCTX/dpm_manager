@@ -12,18 +12,6 @@ QVector3D normalized_or(const QVector3D &value, const QVector3D &fallback)
     return value.lengthSquared() > 1.0e-12f ? value.normalized() : fallback.normalized();
 }
 
-bool array_target_hitpoint_follows_copy(const Injector &injector)
-{
-    // Target Hitpoint aims every copy at the configured point. Moving that
-    // point with the copy keeps the source direction and never converges.
-    if (injector.injection_type == single &&
-        injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint)
-    {
-        return false;
-    }
-    return injector.single_target_scope != Single_Target_Scope::World &&
-           injector.single_target_scope != Single_Target_Scope::Reference_Local;
-}
 
 QVector3D reference_local_point(const QVector3D &value,
                                 const QVector3D &origin,
@@ -179,7 +167,7 @@ void translate_injector_spatial(Injector &injector, const QVector3D &offset)
     injector.ff_virtual_origin += offset;
     injector.volume_bgeom_min += offset;
     injector.volume_bgeom_max += offset;
-    if (array_target_hitpoint_follows_copy(injector))
+    if (target_hitpoint_follows_copy(injector))
     {
         injector.single_target_hitpoint += offset;
     }
@@ -230,7 +218,7 @@ void rotate_injector_data(Injector &injector, const QVector3D &origin,
     rotate_point(injector.ff_virtual_origin);
     rotate_point(injector.volume_bgeom_min);
     rotate_point(injector.volume_bgeom_max);
-    if (array_target_hitpoint_follows_copy(injector))
+    if (target_hitpoint_follows_copy(injector))
     {
         rotate_point(injector.single_target_hitpoint);
     }
@@ -315,7 +303,7 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
     mirror_point(injector.ff_virtual_origin);
     mirror_point(injector.volume_bgeom_min);
     mirror_point(injector.volume_bgeom_max);
-    if (array_target_hitpoint_follows_copy(injector))
+    if (target_hitpoint_follows_copy(injector))
     {
         mirror_point(injector.single_target_hitpoint);
     }
@@ -418,6 +406,74 @@ void append_array_instance_path(Unit &root, int placement_index,
         {
             append_array_instance_path(*child, placement_index,
                                        placement_uuid, layer_uuid);
+        }
+    }
+}
+}
+
+bool target_hitpoint_follows_copy(const Injector &injector)
+{
+    // Target Hitpoint aims every copy at the configured point. Moving that
+    // point with the copy keeps the source direction and never converges.
+    if (injector.injection_type == single &&
+        injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint)
+    {
+        return false;
+    }
+    return injector.single_target_scope != Single_Target_Scope::World &&
+           injector.single_target_scope != Single_Target_Scope::Reference_Local;
+}
+
+QVector3D resolved_aim_point(const Injector &injector, const QVector3D &origin,
+                             const QVector3D &direction,
+                             const QVector3D &plane_normal,
+                             bool resolve_reference_local)
+{
+    if (resolve_reference_local &&
+        injector.single_target_scope == Single_Target_Scope::Reference_Local)
+    {
+        return reference_local_point(injector.single_target_hitpoint, origin,
+                                     direction, plane_normal);
+    }
+    return injector.single_target_hitpoint;
+}
+
+QVector3D resolved_aim_point(const Injector &injector, const UnitArraySpec &spec)
+{
+    return resolved_aim_point(injector, spec.origin, spec.direction,
+                              spec.plane_normal, true);
+}
+
+QVector3D resolved_aim_point(const Injector &injector, const UnitFillSpec &spec)
+{
+    return resolved_aim_point(injector, spec.origin, spec.direction,
+                              spec.plane_normal, spec.use_reference_geometry);
+}
+
+namespace
+{
+void assign_resolved_aim(Unit &unit, const UnitArraySpec &spec)
+{
+    unit.inj.injector_data.single_target_hitpoint =
+        resolved_aim_point(unit.inj.injector_data, spec);
+    for (const std::shared_ptr<Unit> &child : unit.child_units)
+    {
+        if (child != nullptr)
+        {
+            assign_resolved_aim(*child, spec);
+        }
+    }
+}
+
+void assign_resolved_aim(Unit &unit, const UnitFillSpec &spec)
+{
+    unit.inj.injector_data.single_target_hitpoint =
+        resolved_aim_point(unit.inj.injector_data, spec);
+    for (const std::shared_ptr<Unit> &child : unit.child_units)
+    {
+        if (child != nullptr)
+        {
+            assign_resolved_aim(*child, spec);
         }
     }
 }
@@ -543,13 +599,8 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
                                  spec.plane_normal);
         }
 
-        if (child.inj.injector_data.single_target_scope ==
-            Single_Target_Scope::Reference_Local)
-        {
-            child.inj.injector_data.single_target_hitpoint =
-                reference_local_point(child.inj.injector_data.single_target_hitpoint,
-                spec);
-        }
+        child.inj.injector_data.single_target_hitpoint =
+            resolved_aim_point(child.inj.injector_data, spec);
         if (spec.use_reference_geometry && spec.conform_to_reference_normal)
         {
             conform_injector_to_normal(child.inj.injector_data,
@@ -658,20 +709,12 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             child.inj.injector_data.ff_virtual_origin += offset;
             child.inj.injector_data.volume_bgeom_min += offset;
             child.inj.injector_data.volume_bgeom_max += offset;
-            if (array_target_hitpoint_follows_copy(child.inj.injector_data))
+            if (target_hitpoint_follows_copy(child.inj.injector_data))
             {
                 child.inj.injector_data.single_target_hitpoint += offset;
             }
-            if (child.inj.injector_data.single_target_scope ==
-                    Single_Target_Scope::Reference_Local &&
-                spec.use_reference_geometry)
-            {
-                child.inj.injector_data.single_target_hitpoint =
-                    reference_local_point(child.inj.injector_data.single_target_hitpoint,
-                                          spec.origin,
-                                          spec.direction,
-                                          spec.plane_normal);
-            }
+            child.inj.injector_data.single_target_hitpoint =
+                resolved_aim_point(child.inj.injector_data, spec);
             if (spec.use_reference_geometry && spec.conform_to_reference_normal)
             {
                 conform_injector_to_normal(child.inj.injector_data, fill_z);
@@ -779,7 +822,7 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
     root.inj.injector_data.ff_virtual_origin += translation;
     root.inj.injector_data.volume_bgeom_min += translation;
     root.inj.injector_data.volume_bgeom_max += translation;
-    if (array_target_hitpoint_follows_copy(root.inj.injector_data))
+    if (target_hitpoint_follows_copy(root.inj.injector_data))
     {
         root.inj.injector_data.single_target_hitpoint += translation;
     }
@@ -1006,6 +1049,7 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_array(const Unit &source,
                 mirror_unit_tree(*instance, spec.origin, spec.plane_normal);
             }
         }
+        assign_resolved_aim(*instance, spec);
         apply_array_heading(*instance, spec.heading);
         if (!rebuild_unit_tree_geometry(*instance))
         {
@@ -1078,6 +1122,7 @@ QList<std::shared_ptr<Unit>> expand_unit_tree_fill(
                                   sources.at(source_index)->inj.injector_data.pos;
         transform_unit_tree(*instance, QVector3D(),
                             QVector3D(0.0f, 0.0f, 1.0f), 0.0f, offset);
+        assign_resolved_aim(*instance, spec);
         if (spec.use_reference_geometry && spec.conform_to_reference_normal)
         {
             conform_unit_tree_to_normal(*instance, spec.plane_normal);
