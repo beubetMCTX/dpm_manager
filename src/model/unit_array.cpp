@@ -165,7 +165,7 @@ void translate_injector_spatial(Injector &injector, const QVector3D &offset)
     translate_injector_points(injector, offset);
     if (target_hitpoint_follows_copy(injector))
     {
-        injector.single_target_hitpoint += offset;
+        set_injector_target_hitpoint(injector, injector.single_target_hitpoint + offset);
     }
 }
 
@@ -179,52 +179,34 @@ void conform_injector_to_normal(Injector &injector, const QVector3D &normal)
     }
 
     const QQuaternion rotation = QQuaternion::rotationTo(source.normalized(), target);
-    const auto rotate_direction = [&](QVector3D &direction)
-    {
-        if (direction.lengthSquared() > 1.0e-12f)
+    map_injector_spatial(
+        injector,
+        [](const QVector3D &point) { return point; },
+        [&](const QVector3D &direction)
         {
+            if (direction.lengthSquared() <= 1.0e-12f)
+            {
+                return direction;
+            }
             const float magnitude = direction.length();
-            direction = (rotation * direction.normalized()) * magnitude;
-        }
-    };
-    rotate_direction(injector.vel);
-    rotate_direction(injector.vel2);
-    rotate_direction(injector.ang_vel);
-    rotate_direction(injector.ang_vel2);
-    rotate_direction(injector.atomizer_axis);
-    rotate_direction(injector.axis);
-    rotate_direction(injector.ff_normal);
+            return (rotation * direction.normalized()) * magnitude;
+        },
+        false);
 }
 
 void rotate_injector_data(Injector &injector, const QVector3D &origin,
                           const QVector3D &axis, float angle)
 {
-    const auto rotate_point = [&](QVector3D &point)
+    const auto rotate_point = [&](const QVector3D &point)
     {
-        point = origin + rotate_vector(point - origin, axis, angle);
+        return origin + rotate_vector(point - origin, axis, angle);
     };
-    const auto rotate_direction = [&](QVector3D &direction)
+    const auto rotate_direction = [&](const QVector3D &direction)
     {
-        direction = rotate_vector(direction, axis, angle);
+        return rotate_vector(direction, axis, angle);
     };
-
-    rotate_point(injector.pos);
-    rotate_point(injector.pos2);
-    rotate_point(injector.ff_center);
-    rotate_point(injector.ff_virtual_origin);
-    rotate_point(injector.volume_bgeom_min);
-    rotate_point(injector.volume_bgeom_max);
-    if (target_hitpoint_follows_copy(injector))
-    {
-        rotate_point(injector.single_target_hitpoint);
-    }
-    rotate_direction(injector.vel);
-    rotate_direction(injector.vel2);
-    rotate_direction(injector.ang_vel);
-    rotate_direction(injector.ang_vel2);
-    rotate_direction(injector.atomizer_axis);
-    rotate_direction(injector.ff_normal);
-    rotate_direction(injector.axis);
+    map_injector_spatial(injector, rotate_point, rotate_direction,
+                         target_hitpoint_follows_copy(injector));
 }
 
 void transform_unit_pattern_frames(Unit &unit, const QVector3D &pivot,
@@ -283,33 +265,17 @@ void mirror_injector_data(Injector &injector, const QVector3D &point,
                           const QVector3D &normal)
 {
     const QVector3D n = normalized_or(normal, QVector3D(1.0f, 0.0f, 0.0f));
-    const auto mirror_point = [&](QVector3D &value)
+    const auto map_point = [&](const QVector3D &value)
     {
         const float distance = QVector3D::dotProduct(value - point, n);
-        value -= 2.0f * distance * n;
+        return value - 2.0f * distance * n;
     };
-    const auto mirror_direction = [&](QVector3D &value)
+    const auto map_direction = [&](const QVector3D &value)
     {
-        value -= 2.0f * QVector3D::dotProduct(value, n) * n;
+        return value - 2.0f * QVector3D::dotProduct(value, n) * n;
     };
-
-    mirror_point(injector.pos);
-    mirror_point(injector.pos2);
-    mirror_point(injector.ff_center);
-    mirror_point(injector.ff_virtual_origin);
-    mirror_point(injector.volume_bgeom_min);
-    mirror_point(injector.volume_bgeom_max);
-    if (target_hitpoint_follows_copy(injector))
-    {
-        mirror_point(injector.single_target_hitpoint);
-    }
-    mirror_direction(injector.vel);
-    mirror_direction(injector.vel2);
-    mirror_direction(injector.ang_vel);
-    mirror_direction(injector.ang_vel2);
-    mirror_direction(injector.atomizer_axis);
-    mirror_direction(injector.ff_normal);
-    mirror_direction(injector.axis);
+    map_injector_spatial(injector, map_point, map_direction,
+                         target_hitpoint_follows_copy(injector));
 }
 
 void mirror_unit_pattern_frames(Unit &unit, const QVector3D &point,
@@ -875,9 +841,10 @@ void rotate_heading_target_hitpoint(Unit &node, const QVector3D &pivot,
     {
         // Placement keeps these hitpoints fixed. Heading is an aim change,
         // so the point has to orbit the injector or the spray never yaws.
-        injector.single_target_hitpoint =
+        set_injector_target_hitpoint(
+            injector,
             pivot + rotate_vector(injector.single_target_hitpoint - pivot,
-                                  axis, angle_radians);
+                                  axis, angle_radians));
     }
     for (const std::shared_ptr<Unit> &child : node.child_units)
     {

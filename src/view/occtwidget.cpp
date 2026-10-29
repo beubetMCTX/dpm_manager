@@ -762,28 +762,17 @@ void apply_transform_to_injector(Injector &injector,
                                  const gp_Trsf &transformation)
 {
     const QVector3D original_direction = injector_frame_direction(injector);
-
-    injector.pos = transform_point(transformation, injector.pos);
-    injector.pos2 = transform_point(transformation, injector.pos2);
-    injector.ff_center = transform_point(transformation, injector.ff_center);
-    injector.ff_virtual_origin = transform_point(transformation,
-                                                  injector.ff_virtual_origin);
+    const QVector3D original_min = injector.volume_bgeom_min;
+    const QVector3D original_max = injector.volume_bgeom_max;
+    map_injector_spatial(
+        injector,
+        [&](const QVector3D &point) { return transform_point(transformation, point); },
+        [&](const QVector3D &vector) { return transform_vector(transformation, vector); },
+        false);
     injector.posr = transform_point(transformation, injector.posr);
     injector.posu = transform_point(transformation, injector.posu);
-
-    transform_bounding_box(transformation,
-                           injector.volume_bgeom_min,
-                           injector.volume_bgeom_max,
-                           injector.volume_bgeom_min,
-                           injector.volume_bgeom_max);
-
-    injector.vel = transform_vector(transformation, injector.vel);
-    injector.vel2 = transform_vector(transformation, injector.vel2);
-    injector.ang_vel = transform_vector(transformation, injector.ang_vel);
-    injector.ang_vel2 = transform_vector(transformation, injector.ang_vel2);
-    injector.ff_normal = transform_vector(transformation, injector.ff_normal);
-    injector.atomizer_axis = transform_vector(transformation, injector.atomizer_axis);
-    injector.axis = transform_vector(transformation, injector.axis);
+    transform_bounding_box(transformation, original_min, original_max,
+                           injector.volume_bgeom_min, injector.volume_bgeom_max);
 
     const bool pure_target_translation =
         injector.injection_type == single &&
@@ -4738,23 +4727,9 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
             return pivot + rotate_vector(point - pivot);
         };
 
-        injector.pos = rotate_point(injector.pos);
-        injector.pos2 = rotate_point(injector.pos2);
-        injector.ff_center = rotate_point(injector.ff_center);
-        injector.ff_virtual_origin = rotate_point(injector.ff_virtual_origin);
-        injector.volume_bgeom_min = rotate_point(injector.volume_bgeom_min);
-        injector.volume_bgeom_max = rotate_point(injector.volume_bgeom_max);
-        if (injector.single_target_scope != Single_Target_Scope::World)
-        {
-            injector.single_target_hitpoint =
-                rotate_point(injector.single_target_hitpoint);
-        }
-        injector.vel = rotate_vector(injector.vel);
-        injector.vel2 = rotate_vector(injector.vel2);
-        injector.ang_vel = rotate_vector(injector.ang_vel);
-        injector.ang_vel2 = rotate_vector(injector.ang_vel2);
-        injector.ff_normal = rotate_vector(injector.ff_normal);
-        injector.atomizer_axis = rotate_vector(injector.atomizer_axis);
+        map_injector_spatial(
+            injector, rotate_point, rotate_vector,
+            injector.single_target_scope != Single_Target_Scope::World);
 
         if (!unit->inj.create_injector())
         {
@@ -5127,25 +5102,12 @@ bool OCCTWidget::paste_copied_unit_to_selected_face()
 
     Injector &pasted_injector = pasted.inj.injector_data;
     const QVector3D translation = face_origin - pasted_injector.pos;
-    pasted_injector.pos = face_origin;
-    pasted_injector.pos2 += translation;
-    pasted_injector.ff_center += translation;
-    pasted_injector.ff_virtual_origin += translation;
-    pasted_injector.volume_bgeom_min += translation;
-    pasted_injector.volume_bgeom_max += translation;
+    translate_injector_points(pasted_injector, translation);
 
     // Directional injector models use the selected face normal as their
     // attachment direction. Preserve each vector's magnitude while changing
     // only its orientation.
-    const auto along_face_normal = [&face_normal](const QVector3D &value)
-    {
-        return face_normal * value.length();
-    };
-    pasted_injector.axis = along_face_normal(pasted_injector.axis);
-    pasted_injector.atomizer_axis = along_face_normal(pasted_injector.atomizer_axis);
-    pasted_injector.ff_normal = along_face_normal(pasted_injector.ff_normal);
-    pasted_injector.vel = along_face_normal(pasted_injector.vel);
-    pasted_injector.vel2 = along_face_normal(pasted_injector.vel2);
+    align_injector_directions(pasted_injector, face_normal);
 
     if (!pasted.inj.create_injector())
     {
