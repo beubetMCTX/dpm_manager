@@ -792,8 +792,8 @@ void apply_transform_to_injector(Injector &injector,
     if (injector.single_target_scope != Single_Target_Scope::World &&
         !pure_target_translation)
     {
-        injector.single_target_hitpoint = transform_point(
-            transformation, injector.single_target_hitpoint);
+        set_injector_target_hitpoint(
+            injector, transform_point(transformation, injector.single_target_hitpoint));
     }
 
     if (injector.injection_type == single &&
@@ -801,10 +801,10 @@ void apply_transform_to_injector(Injector &injector,
     {
         const QVector3D direction = transform_vector(
             transformation, original_direction).normalized();
-        injector.single_pitch_degrees = qRadiansToDegrees(
-            std::asin(qBound(-1.0f, direction.z(), 1.0f)));
-        injector.single_yaw_degrees = qRadiansToDegrees(
-            std::atan2(direction.y(), direction.x()));
+        set_injector_pitch_yaw(
+            injector,
+            qRadiansToDegrees(std::asin(qBound(-1.0f, direction.z(), 1.0f))),
+            qRadiansToDegrees(std::atan2(direction.y(), direction.x())));
     }
 }
 }
@@ -3497,6 +3497,13 @@ bool OCCTWidget::commit_transform_gizmo_preview()
             {
                 record_move(snapshot.uuid, snapshot.move_snapshot,
                             make_move_snapshot(*affected));
+                notify_unit_pose(affected.get());
+                if (affected->inj.injector_data.injection_type == single &&
+                    affected->inj.injector_data.single_direction_mode ==
+                        Single_Direction_Mode::Target_Hitpoint)
+                {
+                    notify_unit_direction(affected.get());
+                }
                 publish_unit_data(affected.get());
             }
         }
@@ -3536,6 +3543,8 @@ bool OCCTWidget::commit_transform_gizmo_preview()
             transaction.before_has_fill_spec = snapshot.has_fill_spec;
             transaction.before_fill_spec = snapshot.fill_spec;
             record_edit(transaction, *affected);
+            notify_unit_pose(affected.get());
+            notify_unit_direction(affected.get());
             publish_unit_data(affected.get());
         }
         m_active_edit_batch_id = QUuid();
@@ -4798,6 +4807,8 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         capture_array_override_snapshot(*unit);
         update_unit_local_coordinate_frame(uuid);
         record_edit(transaction, *unit);
+        notify_unit_pose(unit.get());
+        notify_unit_direction(unit.get());
         publish_unit_data(unit.get());
         ++rotated_count;
     }
