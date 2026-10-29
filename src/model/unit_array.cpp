@@ -1,4 +1,5 @@
 #include "unit_array.h"
+#include "unit_pose.h"
 #include "unit_state.h"
 
 #include <QQuaternion>
@@ -161,12 +162,7 @@ QVector3D primary_direction(const Injector &injector)
 
 void translate_injector_spatial(Injector &injector, const QVector3D &offset)
 {
-    injector.pos += offset;
-    injector.pos2 += offset;
-    injector.ff_center += offset;
-    injector.ff_virtual_origin += offset;
-    injector.volume_bgeom_min += offset;
-    injector.volume_bgeom_max += offset;
+    translate_injector_points(injector, offset);
     if (target_hitpoint_follows_copy(injector))
     {
         injector.single_target_hitpoint += offset;
@@ -703,16 +699,7 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             const QVector3D target = spec.origin + fill_x * local_x +
                                      fill_y * local_y;
             const QVector3D offset = target - source.inj.injector_data.pos;
-            child.inj.injector_data.pos += offset;
-            child.inj.injector_data.pos2 += offset;
-            child.inj.injector_data.ff_center += offset;
-            child.inj.injector_data.ff_virtual_origin += offset;
-            child.inj.injector_data.volume_bgeom_min += offset;
-            child.inj.injector_data.volume_bgeom_max += offset;
-            if (target_hitpoint_follows_copy(child.inj.injector_data))
-            {
-                child.inj.injector_data.single_target_hitpoint += offset;
-            }
+            translate_injector_spatial(child.inj.injector_data, offset);
             child.inj.injector_data.single_target_hitpoint =
                 resolved_aim_point(child.inj.injector_data, spec);
             if (spec.use_reference_geometry && spec.conform_to_reference_normal)
@@ -816,12 +803,7 @@ void transform_unit_tree(Unit &root, const QVector3D &pivot,
                          angle_radians);
     transform_unit_pattern_frames(root, pivot, usable_axis, angle_radians,
                                   translation);
-    root.inj.injector_data.pos += translation;
-    root.inj.injector_data.pos2 += translation;
-    root.inj.injector_data.ff_center += translation;
-    root.inj.injector_data.ff_virtual_origin += translation;
-    root.inj.injector_data.volume_bgeom_min += translation;
-    root.inj.injector_data.volume_bgeom_max += translation;
+    translate_injector_points(root.inj.injector_data, translation);
     if (target_hitpoint_follows_copy(root.inj.injector_data))
     {
         root.inj.injector_data.single_target_hitpoint += translation;
@@ -867,10 +849,10 @@ void sync_single_pitch_yaw_heading(Unit &node, const QQuaternion &heading)
         if (direction.lengthSquared() > 1.0e-12f)
         {
             direction.normalize();
-            injector.single_pitch_degrees = static_cast<float>(qRadiansToDegrees(
-                std::asin(qBound(-1.0f, direction.z(), 1.0f))));
-            injector.single_yaw_degrees = static_cast<float>(qRadiansToDegrees(
-                std::atan2(direction.y(), direction.x())));
+            set_injector_pitch_yaw(
+                injector,
+                qRadiansToDegrees(std::asin(qBound(-1.0f, direction.z(), 1.0f))),
+                qRadiansToDegrees(std::atan2(direction.y(), direction.x())));
         }
     }
     for (const std::shared_ptr<Unit> &child : node.child_units)

@@ -1,5 +1,6 @@
 #include "occtwidget.h"
 #include "unit_state.h"
+#include "unit_pose.h"
 #include "unit_document.h"
 #include "transform_snap.h"
 #include "runtime_debug.h"
@@ -3803,12 +3804,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
 
         const UnitMoveSnapshot before = make_move_snapshot(*unit);
         Injector &injector = unit->inj.injector_data;
-        injector.pos += delta;
-        injector.pos2 += delta;
-        injector.ff_center += delta;
-        injector.ff_virtual_origin += delta;
-        injector.volume_bgeom_min += delta;
-        injector.volume_bgeom_max += delta;
+        translate_injector_points(injector, delta);
         translate_unit_pattern_origins(*unit, delta);
 
         if (!unit->inj.create_injector())
@@ -3841,6 +3837,12 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         capture_array_override_snapshot(*unit);
         const UnitMoveSnapshot after = make_move_snapshot(*unit);
         record_move(uuid, before, after);
+        notify_unit_pose(unit.get());
+        if (injector.injection_type == single &&
+            injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint)
+        {
+            notify_unit_direction(unit.get());
+        }
         publish_unit_data(unit.get());
         ++translated_count;
     }
@@ -4216,24 +4218,7 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     }
     const Injector before = injector;
     begin_unit_edit_transaction(unit.get());
-    switch (injector.injection_type)
-    {
-    case cone:
-        injector.axis = direction;
-        break;
-    case flat_fan_atomizer:
-        injector.ff_normal = direction;
-        break;
-    case plain_oriface_atomizer:
-    case pressure_swirl_atomizer:
-    case air_blast_atomizer:
-    case effervescent_atomizer:
-        injector.atomizer_axis = direction;
-        break;
-    default:
-        injector.vel = direction;
-        break;
-    }
+    set_injector_direction(injector, direction);
 
     if (!unit->inj.create_injector())
     {
@@ -4425,8 +4410,7 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     begin_unit_edit_transaction(unit.get());
     const double old_pitch = injector.single_pitch_degrees;
     const double old_yaw = injector.single_yaw_degrees;
-    injector.single_pitch_degrees = pitch_degrees;
-    injector.single_yaw_degrees = yaw_degrees;
+    set_injector_pitch_yaw(injector, pitch_degrees, yaw_degrees);
     if (!unit->inj.create_injector())
     {
         injector.single_pitch_degrees = old_pitch;
@@ -4487,7 +4471,7 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     Injector &injector = unit->inj.injector_data;
     begin_unit_edit_transaction(unit.get());
     const QVector3D old_target = injector.single_target_hitpoint;
-    injector.single_target_hitpoint = target;
+    set_injector_target_hitpoint(injector, target);
     if (!unit->inj.create_injector())
     {
         injector.single_target_hitpoint = old_target;
@@ -11809,14 +11793,14 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
                 injector.pos,
                 delta_vec,
                 UnitSystem::active_preferences().translation_snap);
-            injector.pos += delta_vec;
-            injector.pos2 += delta_vec;
-            injector.ff_center += delta_vec;
-            injector.ff_virtual_origin += delta_vec;
-            injector.volume_bgeom_min += delta_vec;
-            injector.volume_bgeom_max += delta_vec;
+            translate_injector_points(injector, delta_vec);
             update_unit_local_coordinate_frame(unit->inj.uuid);
             publish_unit_pose(unit);
+            if (injector.injection_type == single &&
+                injector.single_direction_mode == Single_Direction_Mode::Target_Hitpoint)
+            {
+                notify_unit_direction(unit);
+            }
 
             // Injector geometry is generated in world coordinates. During a
             // drag, keep data and axes live, but apply one display-only
