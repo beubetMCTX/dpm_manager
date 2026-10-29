@@ -2104,16 +2104,9 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
         }
         const bool changed = current->user_locked != locked;
         current->user_locked = locked;
-        if (locked && m_transform_gizmo_uuid == current_uuid)
-        {
-            clear_transform_gizmo();
-        }
-        if (locked && selected_shape == current->ais_display)
-        {
-            myIsDragging = false;
-        }
         if (changed)
         {
+            apply_unit_presentation(*current);
             emit unit_lock_changed(current_uuid, locked);
         }
         // Keep lock state consistent with the object tree. Array-generated
@@ -7262,19 +7255,33 @@ bool OCCTWidget::array_source_represented_by_instances(const Unit &source) const
 
 void OCCTWidget::apply_unit_presentation(Unit &unit)
 {
+    const QUuid uuid = unit.inj.uuid;
+    const bool present = unit_mesh_present(unit);
+    // Lock blocks the handle and drag. It does not hide the mesh.
+    if (!present || unit.user_locked)
+    {
+        if (m_transform_gizmo_uuid == uuid)
+        {
+            clear_transform_gizmo();
+        }
+        if (!unit.ais_display.IsNull() && selected_shape == unit.ais_display)
+        {
+            myIsDragging = false;
+        }
+    }
+
     if (unit.ais_display.IsNull() || m_context.IsNull())
     {
         return;
     }
 
-    const QUuid uuid = unit.inj.uuid;
     const Handle(AIS_Trihedron) trihedron = m_unit_local_trihedrons.value(uuid);
-    if (!unit_mesh_present(unit) && unit.user_visible)
+    if (!present && unit.user_visible)
     {
         sync_array_source_presentation(unit);
         return;
     }
-    if (unit_mesh_present(unit))
+    if (present)
     {
         m_context->Display(unit.ais_display, Standard_False);
         if (!trihedron.IsNull())
@@ -7284,10 +7291,6 @@ void OCCTWidget::apply_unit_presentation(Unit &unit)
         return;
     }
 
-    if (m_transform_gizmo_uuid == uuid)
-    {
-        clear_transform_gizmo();
-    }
     m_context->Erase(unit.ais_display, Standard_False);
     if (!trihedron.IsNull())
     {
