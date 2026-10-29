@@ -1,4 +1,5 @@
 #include "unit_array.h"
+#include "unit_state.h"
 
 #include <QQuaternion>
 #include <QSet>
@@ -492,7 +493,7 @@ QList<Unit> expand_unit_array(const Unit &source, const UnitArraySpec &spec)
     for (int index = 0; index < count; ++index)
     {
         Unit child(source);
-        child.presentation_hidden = false;
+        refresh_unit_derived_flags(child);
         child.inj.uuid = QUuid::createUuid();
         child.prototype_uuid = source.inj.uuid;
         child.prototype_chain = source.prototype_chain;
@@ -618,7 +619,7 @@ QList<Unit> expand_unit_fill(const QList<Unit> &sources, const UnitFillSpec &spe
             }
             const Unit &source = sources.at(source_index);
             Unit child(source);
-            child.presentation_hidden = false;
+            refresh_unit_derived_flags(child);
             child.inj.uuid = QUuid::createUuid();
             child.prototype_uuid = source.inj.uuid;
             child.prototype_chain = source.prototype_chain;
@@ -692,7 +693,7 @@ bool has_persistent_children(const Unit &unit)
     for (const std::shared_ptr<Unit> &child : unit.child_units)
     {
         if (child != nullptr &&
-            !(child->is_array_child && child->follows_array))
+            !(child->is_following_array_child()))
         {
             return true;
         }
@@ -706,7 +707,7 @@ std::shared_ptr<Unit> clone_unit_tree_impl(const Unit &source,
                                            bool include_generated_children)
 {
     const std::shared_ptr<Unit> clone = std::make_shared<Unit>(source);
-    clone->presentation_hidden = false;
+    refresh_unit_derived_flags(*clone);
     const QUuid source_uuid = source.inj.uuid;
     const QUuid clone_uuid = QUuid::createUuid();
     uuid_map.insert(source_uuid, clone_uuid);
@@ -733,18 +734,17 @@ std::shared_ptr<Unit> clone_unit_tree_impl(const Unit &source,
     for (const std::shared_ptr<Unit> &source_child : source.child_units)
     {
         const bool detached_array_instance =
-            source_child != nullptr && source_child->is_array_child &&
-            !source_child->follows_array && !source_child->has_array_spec &&
+            source_child != nullptr && source_child->is_detached_array_child() && !source_child->has_array_spec &&
             !source_child->has_fill_spec;
         if (source_child == nullptr ||
             (detached_array_instance && !include_generated_children) ||
-            (source_child->is_array_child && source_child->follows_array &&
+            (source_child->is_following_array_child() &&
              !include_generated_children))
         {
             continue;
         }
         const bool child_is_persistent_array_source =
-            source_child->is_array_child && !source_child->follows_array &&
+            source_child->is_detached_array_child() &&
             (source_child->has_array_spec || source_child->has_fill_spec);
         const std::shared_ptr<Unit> child = clone_unit_tree_impl(
             *source_child, uuid_map, mark_as_derived,

@@ -912,7 +912,7 @@ QJsonObject unit_tree_to_json(const Unit &unit,
     {
         const Unit *candidate = it.value();
         if (candidate == nullptr || candidate->inj.uuid.isNull() ||
-            (candidate->is_array_child && candidate->follows_array))
+            (candidate->is_following_array_child()))
         {
             continue;
         }
@@ -944,7 +944,7 @@ QJsonObject unit_tree_to_json(const Unit &unit,
     {
         const Unit *child = unit_index.value(child_uuid, nullptr);
         if (child == nullptr || child->inj.uuid.isNull() ||
-            (child->is_array_child && child->follows_array) ||
+            (child->is_following_array_child()) ||
             (visited != nullptr && visited->contains(child->inj.uuid)))
         {
             continue;
@@ -1848,7 +1848,7 @@ QJsonObject data_to_json(const project_session::Data &data,
     {
         if (!unit.assembly_parent_uuid.isNull() ||
             !unit.array_parent_uuid.isNull() ||
-            (unit.is_array_child && unit.follows_array) ||
+            (unit.is_following_array_child()) ||
             visited_tree_units.contains(unit.inj.uuid))
         {
             continue;

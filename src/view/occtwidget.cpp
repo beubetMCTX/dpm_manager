@@ -1,4 +1,6 @@
 #include "occtwidget.h"
+#include "unit_state.h"
+#include "unit_document.h"
 #include "transform_snap.h"
 #include "runtime_debug.h"
 #include <AIS_ViewCube.hxx>
@@ -824,6 +826,83 @@ OCCTWidget::OCCTWidget(QWidget *parent) : QWidget(parent), m_dpi_scale(this->dev
     {
         m_initialize_context(); // 初始化交互环境
     }
+
+    m_unit_document = new UnitDocument(this);
+    connect(this, &OCCTWidget::unit_lock_changed, this,
+            [this](const QUuid &uuid, bool) { notify_unit_presentation(uuid); });
+}
+
+void OCCTWidget::publish_unit_data(const Unit *unit)
+{
+    if (m_unit_document != nullptr && unit != nullptr)
+    {
+        emit m_unit_document->contentChanged(unit->inj.uuid);
+    }
+}
+
+void OCCTWidget::publish_unit_pose(const Unit *unit)
+{
+    notify_unit_pose(unit);
+}
+
+void OCCTWidget::publish_unit_added(const Unit *unit)
+{
+    if (m_unit_document == nullptr || unit == nullptr)
+    {
+        return;
+    }
+    emit m_unit_document->unitAdded(unit->inj.uuid);
+    notify_unit_structure();
+}
+
+void OCCTWidget::publish_unit_removed(const QUuid &uuid)
+{
+    if (m_unit_document == nullptr)
+    {
+        return;
+    }
+    emit m_unit_document->unitRemoved(uuid);
+    notify_unit_structure();
+}
+
+void OCCTWidget::notify_unit_pose(const Unit *unit)
+{
+    if (m_unit_document != nullptr && unit != nullptr)
+    {
+        emit m_unit_document->poseChanged(unit->inj.uuid);
+    }
+}
+
+void OCCTWidget::notify_unit_direction(const Unit *unit)
+{
+    if (m_unit_document != nullptr && unit != nullptr)
+    {
+        emit m_unit_document->directionChanged(unit->inj.uuid);
+    }
+}
+
+void OCCTWidget::notify_unit_follow(const Unit *unit)
+{
+    if (m_unit_document != nullptr && unit != nullptr)
+    {
+        emit m_unit_document->followChanged(unit->inj.uuid);
+    }
+}
+
+void OCCTWidget::notify_unit_presentation(const QUuid &uuid)
+{
+    if (m_unit_document != nullptr)
+    {
+        emit m_unit_document->presentationChanged(uuid);
+    }
+}
+
+void OCCTWidget::notify_unit_structure()
+{
+    if (m_unit_document != nullptr)
+    {
+        emit m_unit_document->structureChanged();
+    }
 }
 
 OCCTWidget::~OCCTWidget()
@@ -861,8 +940,6 @@ OCCTWidget::~OCCTWidget()
 
     unit_hash.clear();
     m_array_dependents.clear();
-    m_unit_visibility.clear();
-    m_unit_locks.clear();
     reference_geometry.Nullify();
     base_geometry.Nullify();
     trihedron_main.Nullify();
@@ -949,15 +1026,13 @@ void OCCTWidget::display_units(const QList<Unit> &units,
         }
         unit_hash.clear();
         m_array_dependents.clear();
-        m_unit_visibility.clear();
-        m_unit_locks.clear();
     }
 
     for (int i = 0; i < units.size(); ++i)
     {
         const Unit &unit = units[i];
         const std::shared_ptr<Unit> stored_unit = std::make_shared<Unit>(unit);
-        stored_unit->presentation_hidden = false;
+        refresh_unit_derived_flags(*stored_unit);
         if (stored_unit->has_array_spec)
         {
             QList<UnitArraySpec> specs = stored_unit->array_specs;
@@ -977,8 +1052,8 @@ void OCCTWidget::display_units(const QList<Unit> &units,
             ensure_fill_spec_identity(stored_unit->fill_spec);
         }
         unit_hash.insert(stored_unit->inj.uuid, stored_unit);
-        m_unit_visibility.insert(stored_unit->inj.uuid, true);
-        m_unit_locks.insert(stored_unit->inj.uuid, false);
+        stored_unit->user_visible = true;
+        stored_unit->user_locked = false;
 
         stored_unit->ais_display->Set(stored_unit->inj.shape);
 stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
@@ -990,7 +1065,7 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
         configured_injector_transparency(stored_unit->inj.injector_data));
 
         m_context->Activate(stored_unit->ais_display, TopAbs_SHAPE, Standard_True);
-        m_context->Display(stored_unit->ais_display, Standard_False);
+        apply_unit_presentation(*stored_unit);
     }
 
     for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
@@ -1017,7 +1092,7 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
     {
         const std::shared_ptr<Unit> unit = it.value();
         if (unit == nullptr ||
-            (unit->is_array_child && unit->follows_array) ||
+            (unit->is_following_array_child()) ||
             (!unit->has_array_spec && !unit->has_fill_spec))
         {
             continue;
@@ -1096,7 +1171,7 @@ stored_unit->ais_display->SetLocalTransformation(gp_Trsf());
             m_view->Redraw();
         });
     }
-    emit unit_display_list_changed();
+    notify_unit_structure();
 }
 
 bool OCCTWidget::select_unit_by_uuid(const QUuid &uuid)
@@ -1237,31 +1312,8 @@ bool OCCTWidget::set_unit_visible(const QUuid &uuid, bool visible)
         {
             return;
         }
-        m_unit_visibility.insert(current_uuid, visible);
-        if (visible && !current->presentation_hidden)
-        {
-            m_context->Display(current->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(current_uuid).IsNull())
-            {
-                m_context->Display(m_unit_local_trihedrons.value(current_uuid), Standard_False);
-            }
-        }
-        else if (visible)
-        {
-            sync_array_source_presentation(*current);
-        }
-        else
-        {
-            if (m_transform_gizmo_uuid == current_uuid)
-            {
-                clear_transform_gizmo();
-            }
-            m_context->Erase(current->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(current_uuid).IsNull())
-            {
-                m_context->Erase(m_unit_local_trihedrons.value(current_uuid), Standard_False);
-            }
-        }
+        current->user_visible = visible;
+        apply_unit_presentation(*current);
         if (!visible && selected_shape == current->ais_display)
         {
             m_selected_unit_uuid = QUuid();
@@ -1309,31 +1361,8 @@ void OCCTWidget::set_all_units_visible(bool visible)
             continue;
         }
 
-        m_unit_visibility.insert(uuid, visible);
-        if (visible && !unit->presentation_hidden)
-        {
-            m_context->Display(unit->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(uuid).IsNull())
-            {
-                m_context->Display(m_unit_local_trihedrons.value(uuid), Standard_False);
-            }
-        }
-        else if (visible)
-        {
-            sync_array_source_presentation(*unit);
-        }
-        else
-        {
-            if (m_transform_gizmo_uuid == uuid)
-            {
-                clear_transform_gizmo();
-            }
-            m_context->Erase(unit->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(uuid).IsNull())
-            {
-                m_context->Erase(m_unit_local_trihedrons.value(uuid), Standard_False);
-            }
-        }
+        unit->user_visible = visible;
+        apply_unit_presentation(*unit);
 
         if (!visible && selected_shape == unit->ais_display)
         {
@@ -2042,7 +2071,8 @@ bool OCCTWidget::select_reference_geometry_visual_face_by_descriptor(
 
 bool OCCTWidget::unit_visible(const QUuid &uuid) const
 {
-    return m_unit_visibility.value(uuid, false);
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    return unit != nullptr && unit->user_visible;
 }
 
 bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
@@ -2072,8 +2102,8 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
         {
             return;
         }
-        const bool changed = m_unit_locks.value(current_uuid, false) != locked;
-        m_unit_locks.insert(current_uuid, locked);
+        const bool changed = current->user_locked != locked;
+        current->user_locked = locked;
         if (locked && m_transform_gizmo_uuid == current_uuid)
         {
             clear_transform_gizmo();
@@ -2107,7 +2137,8 @@ bool OCCTWidget::set_unit_locked(const QUuid &uuid, bool locked)
 
 bool OCCTWidget::unit_locked(const QUuid &uuid) const
 {
-    return m_unit_locks.value(uuid, false);
+    const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
+    return unit != nullptr && unit->user_locked;
 }
 
 QHash<QUuid, UnitDisplayState> OCCTWidget::persistent_unit_display_states() const
@@ -2117,7 +2148,7 @@ QHash<QUuid, UnitDisplayState> OCCTWidget::persistent_unit_display_states() cons
     {
         const std::shared_ptr<Unit> unit = it.value();
         if (unit == nullptr ||
-            (unit->is_array_child && unit->follows_array))
+            (unit->is_following_array_child()))
         {
             continue;
         }
@@ -2243,33 +2274,12 @@ void OCCTWidget::restore_unit_display_states(
             continue;
         }
         const UnitDisplayState state = states.value(uuid);
-        m_unit_visibility.insert(uuid, state.visible);
-        m_unit_locks.insert(uuid, state.locked);
-        if (state.visible && !unit->presentation_hidden)
-        {
-            m_context->Display(unit->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(uuid).IsNull())
-            {
-                m_context->Display(m_unit_local_trihedrons.value(uuid),
-                                  Standard_False);
-            }
-        }
-        else if (state.visible)
-        {
-            sync_array_source_presentation(*unit);
-        }
-        else
-        {
-            m_context->Erase(unit->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(uuid).IsNull())
-            {
-                m_context->Erase(m_unit_local_trihedrons.value(uuid),
-                                Standard_False);
-            }
-        }
+        unit->user_visible = state.visible;
+        unit->user_locked = state.locked;
+        apply_unit_presentation(*unit);
     }
     m_view->Redraw();
-    emit unit_display_list_changed();
+    notify_unit_structure();
 }
 
 void OCCTWidget::apply_visual_preferences(const Unit_Preferences &preferences)
@@ -2445,7 +2455,7 @@ void OCCTWidget::restore_derived_unit_display_states(
     const auto stable_identity_matches = [](const Unit &unit,
                                             const DerivedUnitDisplayState &state)
     {
-        return unit.is_array_child && unit.follows_array &&
+        return unit.is_following_array_child() &&
                unit.array_parent_uuid == state.array_parent_uuid &&
                unit.array_instance_path == state.array_instance_path &&
                unit.array_instance_key == state.array_instance_key &&
@@ -2469,30 +2479,9 @@ void OCCTWidget::restore_derived_unit_display_states(
         }
 
         const QUuid uuid = unit->inj.uuid;
-        m_unit_visibility.insert(uuid, state.visible);
-        m_unit_locks.insert(uuid, state.locked);
-        if (state.visible && !unit->presentation_hidden)
-        {
-            m_context->Display(unit->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(uuid).IsNull())
-            {
-                m_context->Display(m_unit_local_trihedrons.value(uuid),
-                                   Standard_False);
-            }
-        }
-        else if (state.visible)
-        {
-            sync_array_source_presentation(*unit);
-        }
-        else
-        {
-            m_context->Erase(unit->ais_display, Standard_False);
-            if (!m_unit_local_trihedrons.value(uuid).IsNull())
-            {
-                m_context->Erase(m_unit_local_trihedrons.value(uuid),
-                                 Standard_False);
-            }
-        }
+        unit->user_visible = state.visible;
+        unit->user_locked = state.locked;
+        apply_unit_presentation(*unit);
     };
 
     for (const DerivedUnitDisplayState &saved_state : states)
@@ -2581,8 +2570,7 @@ void OCCTWidget::capture_transform_gizmo_snapshot(const std::shared_ptr<Unit> &u
         snapshot.array_specs = node->array_specs;
         snapshot.has_fill_spec = node->has_fill_spec;
         snapshot.fill_spec = node->fill_spec;
-        snapshot.derived_array_output = node->is_array_child &&
-                                        node->follows_array;
+        snapshot.derived_array_output = node->is_following_array_child();
         m_transform_gizmo_before_tree.append(snapshot);
         for (const std::shared_ptr<Unit> &child : node->child_units)
         {
@@ -2590,7 +2578,7 @@ void OCCTWidget::capture_transform_gizmo_snapshot(const std::shared_ptr<Unit> &u
         }
     };
     capture_tree(unit);
-    if (unit->is_array_child && unit->follows_array &&
+    if (unit->is_following_array_child() &&
         !unit->array_parent_uuid.isNull())
     {
         const std::shared_ptr<Unit> owner =
@@ -2620,8 +2608,7 @@ void OCCTWidget::capture_transform_gizmo_snapshot(const std::shared_ptr<Unit> &u
             m_transform_gizmo_before_tree.append(owner_snapshot);
             for (const std::shared_ptr<Unit> &child : owner->child_units)
             {
-                if (child != nullptr && child->is_array_child &&
-                    child->follows_array)
+                if (child != nullptr && child->is_following_array_child())
                 {
                     capture_tree(child);
                 }
@@ -2656,7 +2643,7 @@ bool OCCTWidget::transform_gizmo_snapshot_matches_follow_state() const
         return false;
     }
 
-    const bool live_derived = unit->is_array_child && unit->follows_array;
+    const bool live_derived = unit->is_following_array_child();
     if (target_snapshot->derived_array_output != live_derived)
     {
         return false;
@@ -2678,7 +2665,7 @@ bool OCCTWidget::transform_gizmo_snapshot_matches_follow_state() const
 bool OCCTWidget::transform_gizmo_target_is_detached_array_child() const
 {
     const std::shared_ptr<Unit> unit = unit_hash.value(m_transform_gizmo_uuid);
-    return unit != nullptr && unit->is_array_child && !unit->follows_array;
+    return unit != nullptr && unit->is_detached_array_child();
 }
 
 bool OCCTWidget::transform_snapshot_is_live_derived(
@@ -2686,7 +2673,7 @@ bool OCCTWidget::transform_snapshot_is_live_derived(
 {
     const std::shared_ptr<Unit> affected = unit_hash.value(snapshot.uuid);
     return snapshot.derived_array_output && affected != nullptr &&
-           affected->is_array_child && affected->follows_array;
+           affected->is_following_array_child();
 }
 
 void OCCTWidget::restore_transform_gizmo_unit(
@@ -2720,7 +2707,7 @@ void OCCTWidget::restore_transform_gizmo_unit(
         }
     }
     update_unit_local_coordinate_frame(snapshot.uuid);
-    emit unit_position_updated(affected.get());
+    publish_unit_pose(affected.get());
 }
 
 void OCCTWidget::sync_transform_gizmo_after_follow_change(const QUuid &uuid)
@@ -3172,8 +3159,7 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
 
     const QVector3D root_position = preview.pos;
     const bool spin_array_copies =
-        m_transform_gizmo_mode == AIS_MM_Rotation && unit->is_array_child &&
-        unit->follows_array && !unit->array_parent_uuid.isNull();
+        m_transform_gizmo_mode == AIS_MM_Rotation && unit->is_following_array_child() && !unit->array_parent_uuid.isNull();
     gp_XYZ spin_axis(0.0, 0.0, 1.0);
     Standard_Real spin_angle = 0.0;
     const bool has_array_spin =
@@ -3234,7 +3220,7 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         {
             applied_transformation = gp_Trsf();
             const bool same_array_follower =
-                affected->is_array_child && affected->follows_array &&
+                affected->is_following_array_child() &&
                 affected->array_parent_uuid == unit->array_parent_uuid;
             if (same_array_follower && has_array_spin)
             {
@@ -3249,7 +3235,7 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
         apply_transform_to_injector(transformed, applied_transformation);
         affected->inj.injector_data = transformed;
         if (affected->inj.uuid != m_transform_gizmo_uuid &&
-            affected->presentation_hidden)
+            !unit_mesh_present(*affected))
         {
             continue;
         }
@@ -3262,7 +3248,7 @@ void OCCTWidget::update_transform_gizmo_preview(const gp_Trsf &transformation)
             recompute_displayed_unit_selection(affected->ais_display);
         }
         update_unit_local_coordinate_frame(snapshot.uuid);
-        emit unit_position_updated(affected.get());
+        publish_unit_pose(affected.get());
     }
     // Rotation stays on the pivot captured when the drag started.
     // Moving the ring onto the preview origin makes it orbit and, in
@@ -3318,7 +3304,7 @@ void OCCTWidget::restore_transform_gizmo_preview()
             }
         }
         update_unit_local_coordinate_frame(snapshot.uuid);
-        emit unit_position_updated(affected.get());
+        publish_unit_pose(affected.get());
     }
 }
 
@@ -3349,8 +3335,7 @@ bool OCCTWidget::commit_transform_gizmo_preview()
     const std::shared_ptr<Unit> spinning_follower =
         unit_hash.value(m_transform_gizmo_uuid);
     if (m_transform_gizmo_mode == AIS_MM_Rotation &&
-        spinning_follower != nullptr && spinning_follower->is_array_child &&
-        spinning_follower->follows_array &&
+        spinning_follower != nullptr && spinning_follower->is_following_array_child() &&
         !spinning_follower->array_parent_uuid.isNull() &&
         !array_heading_is_identity(delta_rotation))
     {
@@ -3403,9 +3388,12 @@ bool OCCTWidget::commit_transform_gizmo_preview()
                 *affected, m_transform_gizmo_preview_transformation);
         }
         if (affected->inj.uuid != m_transform_gizmo_uuid &&
-            affected->presentation_hidden)
+            !unit_mesh_present(*affected))
         {
-            sync_array_source_presentation(*affected);
+            if (affected->presentation_hidden)
+            {
+                sync_array_source_presentation(*affected);
+            }
             continue;
         }
 
@@ -3515,7 +3503,7 @@ bool OCCTWidget::commit_transform_gizmo_preview()
             {
                 record_move(snapshot.uuid, snapshot.move_snapshot,
                             make_move_snapshot(*affected));
-                emit unit_data_updated(affected.get());
+                publish_unit_data(affected.get());
             }
         }
         m_active_move_batch_id = QUuid();
@@ -3554,7 +3542,7 @@ bool OCCTWidget::commit_transform_gizmo_preview()
             transaction.before_has_fill_spec = snapshot.has_fill_spec;
             transaction.before_fill_spec = snapshot.fill_spec;
             record_edit(transaction, *affected);
-            emit unit_data_updated(affected.get());
+            publish_unit_data(affected.get());
         }
         m_active_edit_batch_id = QUuid();
     }
@@ -3564,8 +3552,7 @@ bool OCCTWidget::commit_transform_gizmo_preview()
     QVector<QUuid> placement_key;
     const std::shared_ptr<Unit> gizmo_unit =
         unit_hash.value(m_transform_gizmo_uuid);
-    if (gizmo_unit != nullptr && gizmo_unit->is_array_child &&
-        gizmo_unit->follows_array && !gizmo_unit->array_parent_uuid.isNull())
+    if (gizmo_unit != nullptr && gizmo_unit->is_following_array_child() && !gizmo_unit->array_parent_uuid.isNull())
     {
         rebuild_uuid = gizmo_unit->array_parent_uuid;
         placement_key = gizmo_unit->array_instance_key;
@@ -3576,8 +3563,7 @@ bool OCCTWidget::commit_transform_gizmo_preview()
         gizmo_unit != nullptr ? gizmo_unit->array_layer : 0;
     QSet<QUuid> visited;
     rebuild_unit_outputs(rebuild_uuid, visited);
-    if (gizmo_unit != nullptr && gizmo_unit->is_array_child &&
-        gizmo_unit->follows_array)
+    if (gizmo_unit != nullptr && gizmo_unit->is_following_array_child())
     {
         const std::shared_ptr<Unit> owner = unit_hash.value(rebuild_uuid);
         if (owner != nullptr)
@@ -3793,7 +3779,7 @@ int OCCTWidget::translate_units_by_uuid(const QList<QUuid> &uuids,
         const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
         // A following child normally moves the whole pattern. A position
         // override stays on that child and must not drag the array frame.
-        if (unit != nullptr && unit->is_array_child && unit->follows_array &&
+        if (unit != nullptr && unit->is_following_array_child() &&
             !unit->array_parent_uuid.isNull() &&
             unit_hash.contains(unit->array_parent_uuid) &&
             !follower_position_overridden(unit))
@@ -3862,7 +3848,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         capture_array_override_snapshot(*unit);
         const UnitMoveSnapshot after = make_move_snapshot(*unit);
         record_move(uuid, before, after);
-        emit unit_data_updated(unit.get());
+        publish_unit_data(unit.get());
         ++translated_count;
     }
 
@@ -3927,8 +3913,7 @@ std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit(
 {
     std::shared_ptr<Unit> current = unit_hash.value(uuid);
     QSet<QUuid> visited;
-    while (current != nullptr && current->is_array_child &&
-           current->follows_array && !current->prototype_uuid.isNull() &&
+    while (current != nullptr && current->is_following_array_child() && !current->prototype_uuid.isNull() &&
            !visited.contains(current->inj.uuid))
     {
         visited.insert(current->inj.uuid);
@@ -4080,8 +4065,7 @@ std::shared_ptr<Unit> OCCTWidget::resolve_effective_edit_unit_for_fields(
 {
     std::shared_ptr<Unit> current = unit_hash.value(uuid);
     QSet<QUuid> visited;
-    while (current != nullptr && current->is_array_child &&
-           current->follows_array && !current->prototype_uuid.isNull() &&
+    while (current != nullptr && current->is_following_array_child() && !current->prototype_uuid.isNull() &&
            !visited.contains(current->inj.uuid))
     {
         visited.insert(current->inj.uuid);
@@ -4203,7 +4187,7 @@ QVector3D OCCTWidget::unit_position_by_uuid(const QUuid &uuid) const
 QVector3D OCCTWidget::unit_direction_by_uuid(const QUuid &uuid) const
 {
     const std::shared_ptr<Unit> live = unit_hash.value(uuid);
-    if (live != nullptr && live->is_array_child && live->follows_array)
+    if (live != nullptr && live->is_following_array_child())
     {
         // Array heading is stored on the pattern, but the inspector shows the
         // selected copy. Resolving to the prototype keeps the pre-rotation
@@ -4270,7 +4254,8 @@ bool OCCTWidget::set_unit_direction_by_uuid(const QUuid &uuid,
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
-    emit unit_data_updated(unit.get());
+    notify_unit_direction(unit.get());
+    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4313,7 +4298,7 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
         m_edit_transactions.remove(unit->inj.uuid);
         return false;
     }
-    if (!unit->presentation_hidden && !unit->ais_display.IsNull())
+    if (unit_mesh_present(*unit) && !unit->ais_display.IsNull())
     {
         unit->ais_display->Set(unit->inj.shape);
         unit->ais_display->SetTransparency(configured_injector_transparency(injector));
@@ -4321,7 +4306,8 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
         m_context->Redisplay(unit->ais_display, Standard_False);
         update_unit_local_coordinate_frame(unit->inj.uuid);
     }
-    emit unit_data_updated(unit.get());
+    notify_unit_direction(unit.get());
+    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
 
     QUuid gizmo_uuid = !m_transform_gizmo_uuid.isNull()
@@ -4331,8 +4317,7 @@ bool OCCTWidget::set_unit_single_direction_mode_by_uuid(
     QVector<int> placement_path;
     int placement_layer = 0;
     const std::shared_ptr<Unit> gizmo_unit = unit_hash.value(gizmo_uuid);
-    if (gizmo_unit != nullptr && gizmo_unit->is_array_child &&
-        gizmo_unit->follows_array)
+    if (gizmo_unit != nullptr && gizmo_unit->is_following_array_child())
     {
         placement_key = gizmo_unit->array_instance_key;
         placement_path = gizmo_unit->array_instance_path;
@@ -4462,7 +4447,8 @@ bool OCCTWidget::set_unit_single_pitch_yaw_by_uuid(const QUuid &uuid,
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
-    emit unit_data_updated(unit.get());
+    notify_unit_direction(unit.get());
+    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4521,7 +4507,8 @@ bool OCCTWidget::set_unit_single_target_by_uuid(const QUuid &uuid,
     unit->ais_display->SetColor(color_for_injector(injector));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
-    emit unit_data_updated(unit.get());
+    notify_unit_direction(unit.get());
+    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4578,7 +4565,8 @@ bool OCCTWidget::set_unit_single_target_scope_by_uuid(const QUuid &uuid,
     unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(unit->inj.uuid);
-    emit unit_data_updated(unit.get());
+    notify_unit_direction(unit.get());
+    publish_unit_data(unit.get());
     finish_unit_edit_transaction(unit.get(), true);
     {
         QSet<QUuid> visited;
@@ -4669,7 +4657,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
     for (const QUuid &uuid : uuids)
     {
         const std::shared_ptr<Unit> unit = unit_hash.value(uuid);
-        if (unit != nullptr && unit->is_array_child && unit->follows_array &&
+        if (unit != nullptr && unit->is_following_array_child() &&
             !unit->array_parent_uuid.isNull() &&
             unit_hash.contains(unit->array_parent_uuid))
         {
@@ -4741,7 +4729,7 @@ int OCCTWidget::rotate_units_by_uuid(const QList<QUuid> &uuids,
             owner->array_spec = specs.last();
             owner->has_array_spec = true;
             record_edit(transaction, *owner);
-            emit unit_data_updated(owner.get());
+            publish_unit_data(owner.get());
             heading_rebuild_uuids.append(owner->inj.uuid);
             ++rotated_count;
         }
@@ -4833,7 +4821,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
         capture_array_override_snapshot(*unit);
         update_unit_local_coordinate_frame(uuid);
         record_edit(transaction, *unit);
-        emit unit_data_updated(unit.get());
+        publish_unit_data(unit.get());
         ++rotated_count;
     }
 
@@ -4919,7 +4907,7 @@ int OCCTWidget::set_material_for_units_by_uuid(const QList<QUuid> &uuids,
             unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
         }
         record_edit(transaction, *unit);
-        emit unit_data_updated(unit.get());
+        publish_unit_data(unit.get());
         changed_sources.insert(unit->inj.uuid);
         ++changed_count;
     }
@@ -4979,7 +4967,7 @@ int OCCTWidget::set_species_for_units_by_uuid(const QList<QUuid> &uuids,
             unit->ais_display->SetColor(color_for_injector(unit->inj.injector_data));
         }
         record_edit(transaction, *unit);
-        emit unit_data_updated(unit.get());
+        publish_unit_data(unit.get());
         changed_sources.insert(unit->inj.uuid);
         ++changed_count;
     }
@@ -5031,7 +5019,7 @@ bool OCCTWidget::set_unit_name(const QUuid &uuid, const QString &name)
     UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
     unit->inj.injector_data.name = normalized_name;
     record_edit(transaction, *unit);
-    emit unit_data_updated(unit.get());
+    publish_unit_data(unit.get());
     {
         QSet<QUuid> visited;
         rebuild_unit_outputs(unit->inj.uuid, visited);
@@ -5047,7 +5035,7 @@ bool OCCTWidget::edit_unit_by_uuid(const QUuid &uuid)
         return false;
     }
 
-    if (unit->is_array_child && unit->follows_array &&
+    if (unit->is_following_array_child() &&
         !unit->prototype_uuid.isNull())
     {
         bool override_physical = false;
@@ -5121,7 +5109,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     clear_move_history();
     m_view->Redraw();
     record_edit(transaction, *unit);
-    emit unit_data_updated(unit.get());
+    publish_unit_data(unit.get());
     return true;
 }
 
@@ -5184,7 +5172,7 @@ bool OCCTWidget::paste_copied_unit_to_selected_face()
         return false;
     }
 
-    emit unit_added(pasted_unit.get());
+    publish_unit_added(pasted_unit.get());
     record_structure_edit(before, capture_persistent_units());
     return true;
 }
@@ -5230,7 +5218,7 @@ bool OCCTWidget::create_injector_on_selected_face()
         return false;
     }
 
-    emit unit_added(created_unit.get());
+    publish_unit_added(created_unit.get());
     record_structure_edit(before, capture_persistent_units());
     m_view->Redraw();
     return true;
@@ -5355,7 +5343,7 @@ node->ais_display->SetLocalTransformation(gp_Trsf());
     m_active_edit_batch_id = QUuid();
     QSet<QUuid> visited;
     rebuild_unit_outputs(uuid, visited);
-    emit unit_data_updated(unit.get());
+    publish_unit_data(unit.get());
     m_view->Redraw();
     return true;
 }
@@ -5389,8 +5377,8 @@ bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
             return;
         }
         unit_hash.insert(unit->inj.uuid, unit);
-        m_unit_visibility.insert(unit->inj.uuid, true);
-        m_unit_locks.insert(unit->inj.uuid, false);
+        unit->user_visible = true;
+        unit->user_locked = false;
         unit->u_owner->set_unit(unit.get());
         unit->ais_display->SetOwner(unit->u_owner);
         unit->ais_display->Set(unit->inj.shape);
@@ -5399,7 +5387,7 @@ bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
         unit->ais_display->SetTransparency(
             configured_injector_transparency(unit->inj.injector_data));
         m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
-        m_context->Display(unit->ais_display, Standard_False);
+        apply_unit_presentation(*unit);
         for (const std::shared_ptr<Unit> &child : unit->child_units)
         {
             register_tree(child);
@@ -5418,7 +5406,7 @@ bool OCCTWidget::clone_unit_tree_by_uuid(const QUuid &uuid)
     rebuild_unit_local_coordinate_frames();
     m_view->FitAll();
     m_view->Redraw();
-    emit unit_display_list_changed();
+    notify_unit_structure();
     record_structure_edit(before, capture_persistent_units());
     return true;
 }
@@ -5522,8 +5510,8 @@ bool OCCTWidget::create_assembly(const QList<QUuid> &uuids)
         parent->type = injector;
         return false;
     }
-    emit unit_data_updated(parent.get());
-    emit unit_display_list_changed();
+    publish_unit_data(parent.get());
+    notify_unit_structure();
     record_structure_edit(before, capture_persistent_units());
     return true;
 }
@@ -5546,10 +5534,10 @@ bool OCCTWidget::detach_from_assembly(const QUuid &uuid)
         {
             parent->type = injector;
         }
-        emit unit_data_updated(parent.get());
+        publish_unit_data(parent.get());
     }
     child->assembly_parent_uuid = QUuid();
-    emit unit_display_list_changed();
+    notify_unit_structure();
     record_structure_edit(before, capture_persistent_units());
     return true;
 }
@@ -5580,8 +5568,8 @@ bool OCCTWidget::dissolve_assembly(const QUuid &uuid)
     assembly->has_fill_spec = false;
     assembly->fill_source_uuids.clear();
     assembly->type = injector;
-    emit unit_data_updated(assembly.get());
-    emit unit_display_list_changed();
+    publish_unit_data(assembly.get());
+    notify_unit_structure();
     record_structure_edit(before, capture_persistent_units());
     return true;
 }
@@ -5704,6 +5692,7 @@ int OCCTWidget::synchronize_parent_following_instance(Unit &parent,
     follower->array_parent_uuid = parent.inj.uuid;
     follower->is_array_child = true;
     follower->follows_array = false;
+    notify_unit_follow(follower.get());
     follower->follows_parent_transform = true;
     follower->array_layer = layer;
     follower->array_layer_uuid = instance.array_layer_uuid;
@@ -5749,8 +5738,8 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
             return;
         }
         unit_hash.insert(unit->inj.uuid, unit);
-        m_unit_visibility.insert(unit->inj.uuid, true);
-        m_unit_locks.insert(unit->inj.uuid, false);
+        unit->user_visible = true;
+        unit->user_locked = false;
         unit->u_owner->set_unit(unit.get());
         unit->ais_display->SetOwner(unit->u_owner);
         unit->ais_display->Set(unit->inj.shape);
@@ -5758,7 +5747,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         unit->ais_display->SetTransparency(
             configured_injector_transparency(unit->inj.injector_data));
         m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
-        m_context->Display(unit->ais_display, Standard_False);
+        apply_unit_presentation(*unit);
         for (const std::shared_ptr<Unit> &child : unit->child_units)
         {
             self(child, self);
@@ -5776,7 +5765,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         unit->array_parent_uuid = source_uuid;
         unit->is_array_child = true;
         unit->follows_array = true;
-        unit->presentation_hidden = false;
+        refresh_unit_derived_flags(*unit);
         unit->follows_parent_transform = false;
         unit->parent_follow_reference_valid = false;
         unit->array_layer = layer;
@@ -5856,11 +5845,10 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         [](const std::shared_ptr<Unit> &child)
         {
             const bool detached_array_instance =
-                child != nullptr && child->is_array_child &&
-                !child->follows_array && !child->has_array_spec &&
+                child != nullptr && child->is_detached_array_child() && !child->has_array_spec &&
                 !child->has_fill_spec;
             return child != nullptr && !detached_array_instance &&
-                   !(child->is_array_child && child->follows_array);
+                   !(child->is_following_array_child());
         });
     const bool source_is_composite = source_is_assembly ||
                                      source_has_persistent_children;
@@ -5943,8 +5931,8 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
             {
                 return true;
             }
-            m_context->Display(unit->ais_display, Standard_False);
             m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
+            apply_unit_presentation(*unit);
         }
         else
         {
@@ -6002,8 +5990,7 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
         source->child_units.clear();
         for (const std::shared_ptr<Unit> &previous : previous_children)
         {
-            if (previous != nullptr && previous->is_array_child &&
-                previous->follows_array)
+            if (previous != nullptr && previous->is_following_array_child())
             {
                 parked_followers.insert(follower_identity(*previous), previous);
                 continue;
@@ -6221,8 +6208,8 @@ int OCCTWidget::rebuild_unit_array_layers(const QUuid &source_uuid)
     rebuild_unit_local_coordinate_frames();
     sync_array_source_presentation(*source);
     m_view->Redraw();
-    emit unit_display_list_changed();
-    emit unit_data_updated(source.get());
+    notify_unit_structure();
+    publish_unit_data(source.get());
     if (!m_transform_gizmo_uuid.isNull() &&
         unit_hash.contains(m_transform_gizmo_uuid) &&
         (m_transform_gizmo_mode == AIS_MM_Translation ||
@@ -6243,9 +6230,8 @@ int OCCTWidget::create_unit_array(const QUuid &source_uuid,
     {
         return 0;
     }
-    const bool source_was_following = source->is_array_child &&
-                                      source->follows_array;
-    if (source->is_array_child && source->follows_array &&
+    const bool source_was_following = source->is_following_array_child();
+    if (source->is_following_array_child() &&
         !promote_derived_unit_to_persistent(source))
     {
         return 0;
@@ -6325,7 +6311,7 @@ bool OCCTWidget::update_unit_array_layer(const QUuid &source_uuid,
                                          const UnitArraySpec &spec)
 {
     const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
-    if (source == nullptr || source->is_array_child && source->follows_array ||
+    if (source == nullptr || source->is_following_array_child() ||
         !source->has_array_spec)
     {
         return false;
@@ -6368,7 +6354,7 @@ bool OCCTWidget::remove_unit_array_layer(const QUuid &source_uuid,
                                          int layer_index)
 {
     const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
-    if (source == nullptr || source->is_array_child && source->follows_array ||
+    if (source == nullptr || source->is_following_array_child() ||
         !source->has_array_spec)
     {
         return false;
@@ -6397,8 +6383,8 @@ bool OCCTWidget::remove_unit_array_layer(const QUuid &source_uuid,
         source->type = source_was_assembly ? Assebly : injector;
         rebuild_unit_local_coordinate_frames();
         m_view->Redraw();
-        emit unit_display_list_changed();
-        emit unit_data_updated(source.get());
+        notify_unit_structure();
+        publish_unit_data(source.get());
         record_structure_edit(before, capture_persistent_units());
         QSet<QUuid> visited;
         rebuild_dependent_arrays(source_uuid, visited);
@@ -6428,7 +6414,7 @@ bool OCCTWidget::move_unit_array_layer(const QUuid &source_uuid,
                                        int to_index)
 {
     const std::shared_ptr<Unit> source = unit_hash.value(source_uuid);
-    if (source == nullptr || source->is_array_child && source->follows_array ||
+    if (source == nullptr || source->is_following_array_child() ||
         !source->has_array_spec)
     {
         return false;
@@ -6570,8 +6556,7 @@ void OCCTWidget::update_array_preview(const QUuid &source_uuid,
                                         [](const std::shared_ptr<Unit> &child)
                                         {
                                             return child != nullptr &&
-                                                   !(child->is_array_child &&
-                                                     child->follows_array);
+                                                   !(child->is_following_array_child());
                                         });
     std::shared_ptr<Unit> pattern;
     const UnitArraySpec &first_spec = specs.first();
@@ -6944,8 +6929,7 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         {
             continue;
         }
-        const bool was_following = source->is_array_child &&
-                                   source->follows_array;
+        const bool was_following = source->is_following_array_child();
         if (was_following &&
             !promote_derived_unit_to_persistent(source))
         {
@@ -7059,8 +7043,8 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
                 return;
             }
             unit_hash.insert(unit->inj.uuid, unit);
-            m_unit_visibility.insert(unit->inj.uuid, true);
-            m_unit_locks.insert(unit->inj.uuid, false);
+            unit->user_visible = true;
+            unit->user_locked = false;
             unit->u_owner->set_unit(unit.get());
             unit->ais_display->SetOwner(unit->u_owner);
             unit->ais_display->Set(unit->inj.shape);
@@ -7069,7 +7053,7 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
             unit->ais_display->SetTransparency(
                 configured_injector_transparency(unit->inj.injector_data));
             m_context->Activate(unit->ais_display, TopAbs_SHAPE, Standard_True);
-            m_context->Display(unit->ais_display, Standard_False);
+            apply_unit_presentation(*unit);
             for (const std::shared_ptr<Unit> &child : unit->child_units)
             {
                 register_tree(child);
@@ -7122,11 +7106,11 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
                 m_view->FitAll();
             }
             m_view->Redraw();
-            emit unit_display_list_changed();
+            notify_unit_structure();
         }
         if (parent != nullptr)
         {
-            emit unit_data_updated(parent.get());
+            publish_unit_data(parent.get());
         }
         if (displayed_count > 0 && record_history)
         {
@@ -7178,10 +7162,10 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
         stored_child->ais_display->SetOwner(stored_child->u_owner);
 
         unit_hash.insert(stored_child->inj.uuid, stored_child);
-        m_unit_visibility.insert(stored_child->inj.uuid, true);
-        m_unit_locks.insert(stored_child->inj.uuid, false);
+        stored_child->user_visible = true;
+        stored_child->user_locked = false;
         m_context->Activate(stored_child->ais_display, TopAbs_SHAPE, Standard_True);
-        m_context->Display(stored_child->ais_display, Standard_False);
+        apply_unit_presentation(*stored_child);
         if (stored_child->inj.injector_data.injection_type == volume)
         {
             stored_child->ais_display->SetTransparency(
@@ -7207,7 +7191,7 @@ int OCCTWidget::create_unit_fill_internal(const QList<QUuid> &source_uuids,
             m_view->FitAll();
         }
         m_view->Redraw();
-        emit unit_display_list_changed();
+        notify_unit_structure();
         if (record_history)
         {
             record_structure_edit(before, capture_persistent_units());
@@ -7249,7 +7233,8 @@ bool OCCTWidget::promote_derived_unit_to_persistent(
     // for a second composition step without silently editing the original
     // array rule.
     unit->follows_array = false;
-    unit->presentation_hidden = false;
+    refresh_unit_derived_flags(*unit);
+    notify_unit_follow(unit.get());
     unit->follows_parent_transform = false;
     unit->parent_follow_reference_valid = false;
     if (unit->prototype_uuid.isNull())
@@ -7265,23 +7250,49 @@ bool OCCTWidget::promote_derived_unit_to_persistent(
             sync_array_source_presentation(*parent);
         }
     }
-    emit unit_data_updated(unit.get());
+    publish_unit_data(unit.get());
     sync_transform_gizmo_after_follow_change(unit->inj.uuid);
     return true;
 }
 
 bool OCCTWidget::array_source_represented_by_instances(const Unit &source) const
 {
-    if (!source.has_array_spec)
+    return unit_has_following_copy(source);
+}
+
+void OCCTWidget::apply_unit_presentation(Unit &unit)
+{
+    if (unit.ais_display.IsNull() || m_context.IsNull())
     {
-        return false;
+        return;
     }
-    return std::any_of(source.child_units.cbegin(), source.child_units.cend(),
-                       [](const std::shared_ptr<Unit> &child)
-                       {
-                           return child != nullptr && child->is_array_child &&
-                                  child->follows_array;
-                       });
+
+    const QUuid uuid = unit.inj.uuid;
+    const Handle(AIS_Trihedron) trihedron = m_unit_local_trihedrons.value(uuid);
+    if (!unit_mesh_present(unit) && unit.user_visible)
+    {
+        sync_array_source_presentation(unit);
+        return;
+    }
+    if (unit_mesh_present(unit))
+    {
+        m_context->Display(unit.ais_display, Standard_False);
+        if (!trihedron.IsNull())
+        {
+            m_context->Display(trihedron, Standard_False);
+        }
+        return;
+    }
+
+    if (m_transform_gizmo_uuid == uuid)
+    {
+        clear_transform_gizmo();
+    }
+    m_context->Erase(unit.ais_display, Standard_False);
+    if (!trihedron.IsNull())
+    {
+        m_context->Erase(trihedron, Standard_False);
+    }
 }
 
 void OCCTWidget::sync_array_source_presentation(Unit &source)
@@ -7290,7 +7301,7 @@ void OCCTWidget::sync_array_source_presentation(Unit &source)
     {
         return;
     }
-    source.presentation_hidden = array_source_represented_by_instances(source);
+    refresh_unit_derived_flags(source);
     const Handle(AIS_Trihedron) trihedron =
         m_unit_local_trihedrons.value(source.inj.uuid);
     if (source.presentation_hidden)
@@ -7369,7 +7380,7 @@ void OCCTWidget::discard_derived_array_unit(Unit &source,
         {
             return;
         }
-        if (current->is_array_child && current->follows_array)
+        if (current->is_following_array_child())
         {
             capture_array_override_snapshot(*current);
         }
@@ -7411,8 +7422,6 @@ void OCCTWidget::discard_derived_array_unit(Unit &source,
                               Standard_False);
         }
         m_unit_local_trihedrons.remove(node_uuid);
-        m_unit_visibility.remove(node_uuid);
-        m_unit_locks.remove(node_uuid);
         unit_hash.remove(node_uuid);
     };
     remove_derived_tree(node);
@@ -7473,7 +7482,7 @@ void OCCTWidget::rebuild_array_dependency_index()
             {
                 return;
             }
-            if (node->is_array_child && node->follows_array)
+            if (node->is_following_array_child())
             {
                 QSet<QUuid> prototypes;
                 for (const QUuid &prototype_uuid : node->prototype_chain)
@@ -7626,7 +7635,7 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
             [](const std::shared_ptr<Unit> &child)
             {
                 return child != nullptr &&
-                       !(child->is_array_child && child->follows_array);
+                       !(child->is_following_array_child());
             });
         if (unit->has_array_spec || unit->has_fill_spec ||
             has_persistent_children)
@@ -7652,6 +7661,7 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
         const QList<Unit> before = capture_persistent_units();
         remove_array_override(*unit);
         unit->follows_array = true;
+        notify_unit_follow(unit.get());
         unit->follows_parent_transform = false;
         unit->parent_follow_reference_valid = false;
         m_suppress_array_override_capture = true;
@@ -7670,7 +7680,8 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
 
     const QList<Unit> before = capture_persistent_units();
     unit->follows_array = false;
-    unit->presentation_hidden = false;
+    refresh_unit_derived_flags(*unit);
+    notify_unit_follow(unit.get());
     if (!unit->array_parent_uuid.isNull())
     {
         const std::shared_ptr<Unit> parent =
@@ -7680,8 +7691,8 @@ bool OCCTWidget::set_unit_follow_array(const QUuid &uuid, bool follow)
             sync_array_source_presentation(*parent);
         }
     }
-    emit unit_data_updated(unit.get());
-    emit unit_display_list_changed();
+    publish_unit_data(unit.get());
+    notify_unit_structure();
     record_structure_edit(before, capture_persistent_units());
     sync_transform_gizmo_after_follow_change(uuid);
     return true;
@@ -7720,8 +7731,8 @@ bool OCCTWidget::set_unit_parent_transform_follow(const QUuid &uuid,
             return false;
         }
     }
-    emit unit_data_updated(unit.get());
-    emit unit_display_list_changed();
+    publish_unit_data(unit.get());
+    notify_unit_structure();
     record_structure_edit(before, capture_persistent_units());
     return true;
 }
@@ -7801,7 +7812,7 @@ bool OCCTWidget::set_unit_array_override_fields(const QUuid &uuid,
         QSet<QUuid> visited;
         rebuild_unit_outputs(parent->inj.uuid, visited);
     }
-    emit unit_display_list_changed();
+    notify_unit_structure();
     record_structure_edit(before, capture_persistent_units());
     return true;
 }
@@ -7874,6 +7885,7 @@ bool OCCTWidget::restore_unit_array_inheritance(const QUuid &uuid)
     const QUuid parent_uuid = unit->array_parent_uuid;
     remove_array_override(*unit);
     unit->follows_array = true;
+    notify_unit_follow(unit.get());
     m_replaying_delete_history = true;
     const bool removed = remove_unit_by_uuid(uuid);
     m_replaying_delete_history = false;
@@ -7994,8 +8006,6 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
     }
 
     m_pending_visual_refreshes.remove(uuid);
-    m_unit_visibility.remove(uuid);
-    m_unit_locks.remove(uuid);
     m_edit_transactions.remove(uuid);
     unit_hash.remove(uuid);
     clear_array_preview();
@@ -8006,8 +8016,7 @@ bool OCCTWidget::remove_unit_by_uuid(const QUuid &uuid)
         delete_entry.after_units = capture_persistent_units();
         record_delete(delete_entry);
     }
-    emit unit_removed(uuid);
-    emit unit_display_list_changed();
+    publish_unit_removed(uuid);
 
     if (!m_view.IsNull())
     {
@@ -8071,20 +8080,17 @@ bool OCCTWidget::restore_deleted_unit(const UnitDeleteHistoryEntry &entry)
         configured_injector_transparency(restored_unit->inj.injector_data));
 
     unit_hash.insert(entry.uuid, restored_unit);
-    m_unit_visibility.insert(entry.uuid, entry.visible);
-    m_unit_locks.insert(entry.uuid, entry.locked);
+    restored_unit->user_visible = entry.visible;
+    restored_unit->user_locked = entry.locked;
     m_context->Activate(restored_unit->ais_display, TopAbs_SHAPE, Standard_True);
-    if (entry.visible)
-    {
-        m_context->Display(restored_unit->ais_display, Standard_False);
-    }
     update_unit_local_coordinate_frame(entry.uuid);
+    apply_unit_presentation(*restored_unit);
     if (!m_view.IsNull())
     {
         m_view->Redraw();
     }
-    emit unit_added(restored_unit.get());
-    emit unit_display_list_changed();
+    publish_unit_added(restored_unit.get());
+    notify_unit_structure();
     return true;
 }
 
@@ -8430,7 +8436,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     update_unit_local_coordinate_frame(entry.uuid);
     capture_array_override_snapshot(*unit);
     m_view->Redraw();
-    emit unit_data_updated(unit.get());
+    publish_unit_data(unit.get());
     return true;
 }
 
@@ -8480,7 +8486,7 @@ void OCCTWidget::begin_unit_edit_transaction(Unit *unit)
     }
 
     UnitEditTransaction transaction = make_unit_edit_transaction(*unit);
-    if (unit->is_array_child && unit->follows_array)
+    if (unit->is_following_array_child())
     {
         transaction.structure_sensitive = true;
         transaction.before_units = capture_persistent_units();
@@ -8627,7 +8633,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
     m_context->Redisplay(unit->ais_display, Standard_False);
     update_unit_local_coordinate_frame(entry.uuid);
     m_view->Redraw();
-    emit unit_data_updated(unit.get());
+    publish_unit_data(unit.get());
     return true;
 }
 
@@ -8638,7 +8644,7 @@ QList<Unit> OCCTWidget::capture_persistent_units() const
     {
         const std::shared_ptr<Unit> unit = it.value();
         if (unit != nullptr &&
-            !(unit->is_array_child && unit->follows_array))
+            !(unit->is_following_array_child()))
         {
             runtime_units.append(unit);
         }
@@ -9113,7 +9119,7 @@ unit->ais_display->SetLocalTransformation(gp_Trsf());
             configured_injector_transparency(injector));
         m_context->Redisplay(unit->ais_display, Standard_False);
         update_unit_local_coordinate_frame(unit->inj.uuid);
-        emit unit_position_updated(unit.get());
+        publish_unit_pose(unit.get());
     }
     myIsDragging = false;
     m_drag_unit_uuid = QUuid();
@@ -9314,7 +9320,7 @@ void OCCTWidget::update_unit_local_coordinate_frame(const QUuid &uuid)
     {
         return;
     }
-    if (unit->presentation_hidden)
+    if (!unit_mesh_present(*unit))
     {
         const Handle(AIS_Trihedron) existing = m_unit_local_trihedrons.take(uuid);
         if (!existing.IsNull())
@@ -9783,7 +9789,7 @@ void OCCTWidget::detach_reference_geometry_dependencies(
     for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
     {
         const std::shared_ptr<Unit> unit = it.value();
-        if (unit == nullptr || (unit->is_array_child && unit->follows_array))
+        if (unit == nullptr || (unit->is_following_array_child()))
         {
             continue;
         }
@@ -9829,7 +9835,7 @@ void OCCTWidget::detach_reference_geometry_dependencies(
                 unit->array_spec = unit->array_specs.last();
             }
             dependent_sources.append(unit->inj.uuid);
-            emit unit_data_updated(unit.get());
+            publish_unit_data(unit.get());
         }
     }
 
@@ -9914,7 +9920,7 @@ void OCCTWidget::update_reference_bound_array_frames(
     for (auto it = unit_hash.begin(); it != unit_hash.end(); ++it)
     {
         const std::shared_ptr<Unit> &unit = it.value();
-        if (unit == nullptr || (unit->is_array_child && unit->follows_array))
+        if (unit == nullptr || (unit->is_following_array_child()))
         {
             continue;
         }
@@ -9987,7 +9993,7 @@ void OCCTWidget::update_reference_bound_array_frames(
         {
             continue;
         }
-        emit unit_data_updated(source.get());
+        publish_unit_data(source.get());
         rebuild_unit_outputs(source_uuid, visited);
     }
 }
@@ -11247,7 +11253,7 @@ void OCCTWidget::finish_direct_drag(bool record_history)
 
         if (changed)
         {
-            emit unit_data_updated(unit.get());
+            publish_unit_data(unit.get());
             QSet<QUuid> visited;
             rebuild_unit_outputs(uuid, visited);
         }
@@ -11309,7 +11315,7 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
         {
             continue;
         }
-        if (unit->presentation_hidden)
+        if (!unit_mesh_present(*unit))
         {
             m_context->Deactivate(unit->ais_display);
             continue;
@@ -11343,7 +11349,7 @@ bool OCCTWidget::select(TopAbs_ShapeEnum select_mode)
         const std::shared_ptr<Unit> stored =
             unit_hash.value(detected_unit->inj.uuid);
         if (stored != nullptr &&
-            stored->presentation_hidden)
+            !unit_mesh_present(*stored))
         {
             m_context->ClearDetected(Standard_False);
             if (m_x_max >= 0 && m_y_max >= 0)
@@ -11521,8 +11527,7 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
     connect(inj_edit_dialog, &unit_edit_dialog::injector_data_changed, this,
             [this](Unit *changed_unit, bool geometry_changed)
     {
-        if (changed_unit != nullptr && changed_unit->is_array_child &&
-            changed_unit->follows_array)
+        if (changed_unit != nullptr && changed_unit->is_following_array_child())
         {
             // A dialog edit is intentionally local to the selected generated
             // instance. Mark only the scope that requested the edit; the other
@@ -11557,16 +11562,23 @@ void OCCTWidget::open_edit_widget(opencascade::handle<AIS_Shape> shape)
                 m_context->Redisplay(changed_unit->ais_display, Standard_False);
             }
         }
-        emit unit_data_updated(changed_unit);
+        publish_unit_data(changed_unit);
     });
     connect(inj_edit_dialog, &unit_edit_dialog::injector_geometry_changed, this, [this](Unit *changed_unit)
     {
         schedule_unit_visual_refresh(changed_unit);
     });
-    connect(this, &OCCTWidget::unit_data_updated,
-            inj_edit_dialog, &unit_edit_dialog::refresh_from_unit_data);
-    connect(this, &OCCTWidget::unit_position_updated,
-            inj_edit_dialog, &unit_edit_dialog::refresh_geometry_from_unit_data);
+    connect(m_unit_document, &UnitDocument::contentChanged, inj_edit_dialog,
+            [this, inj_edit_dialog](const QUuid &uuid)
+    {
+        inj_edit_dialog->refresh_from_unit_data(unit_hash.value(uuid).get());
+    });
+    connect(m_unit_document, &UnitDocument::poseChanged, inj_edit_dialog,
+            [this, inj_edit_dialog](const QUuid &uuid)
+    {
+        inj_edit_dialog->refresh_geometry_from_unit_data(
+            unit_hash.value(uuid).get());
+    });
     inj_edit_dialog->show();
 }
 
@@ -11801,7 +11813,7 @@ void OCCTWidget::mouseMoveEvent(QMouseEvent *event)
             injector.volume_bgeom_min += delta_vec;
             injector.volume_bgeom_max += delta_vec;
             update_unit_local_coordinate_frame(unit->inj.uuid);
-            emit unit_position_updated(unit);
+            publish_unit_pose(unit);
 
             // Injector geometry is generated in world coordinates. During a
             // drag, keep data and axes live, but apply one display-only

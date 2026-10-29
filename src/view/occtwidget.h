@@ -79,6 +79,8 @@
 #include "base_geom_read.h"
 #include "app_config.h"
 #include "unit.h"
+
+class UnitDocument;
 #include "unit_array.h"
 #include "unit_edit_dialog.h"
 #include "unit_system.h"
@@ -360,16 +362,14 @@ public:
     void refresh_open_unit_editors();
 
     QHash<QUuid, std::shared_ptr<Unit>> unit_hash;
+    UnitDocument *unit_document() const { return m_unit_document; }
 
     QColor injector_component_color(const Injector &injector) const;
 
 signals:
     void interaction_mode_changed(int mode);
-    void unit_data_updated(Unit *unit);
-    void unit_position_updated(Unit *unit);
     void unit_geometry_refresh_failed(const QUuid &uuid,
                                       const QString &message);
-    void unit_added(Unit *unit);
     void reference_transform_changed(const QVector3D &position,
                                      const QVector3D &rotation_degrees);
     void reference_geometry_available(bool available);
@@ -380,8 +380,6 @@ signals:
     void reference_geometry_collection_changed();
     void reference_geometry_visual_transform_changed(const QUuid &uuid);
     void unit_lock_changed(const QUuid &uuid, bool locked);
-    void unit_display_list_changed();
-    void unit_removed(const QUuid &uuid);
     void selection_changed(const QUuid &uuid, bool reference_geometry);
     void unit_context_menu_requested(const QUuid &uuid, const QPoint &global_position);
     void unit_selection_changed(const QList<QUuid> &uuids);
@@ -480,6 +478,7 @@ private:
     void refresh_displayed_unit_shape(const std::shared_ptr<Unit> &unit);
     void recompute_displayed_unit_selection(const Handle(AIS_Shape) &display);
     bool array_source_represented_by_instances(const Unit &source) const;
+    void apply_unit_presentation(Unit &unit);
     void sync_array_source_presentation(Unit &source);
     int rebuild_unit_array_layers(const QUuid &source_uuid);
     bool synchronize_parent_following_unit(Unit &target,
@@ -788,8 +787,17 @@ private:
     Unit_Edit_Case_Context m_unit_editor_case_context;
     QList<QPointer<unit_edit_dialog>> m_open_edit_dialogs;
     QSet<QUuid> m_pending_visual_refreshes;
-    QHash<QUuid, bool> m_unit_visibility;
-    QHash<QUuid, bool> m_unit_locks;
+    void publish_unit_data(const Unit *unit);
+    void publish_unit_pose(const Unit *unit);
+    void publish_unit_added(const Unit *unit);
+    void publish_unit_removed(const QUuid &uuid);
+    void notify_unit_pose(const Unit *unit);
+    void notify_unit_direction(const Unit *unit);
+    void notify_unit_follow(const Unit *unit);
+    void notify_unit_presentation(const QUuid &uuid);
+    void notify_unit_structure();
+    UnitDocument *m_unit_document = nullptr;
+
     QHash<QUuid, QSet<QUuid>> m_array_dependents;
     bool m_reference_geometry_visible = true;
     QUuid m_reference_geometry_uuid;

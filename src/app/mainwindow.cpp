@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "unit_array.h"
+#include "unit_document.h"
 #include "./ui_mainwindow.h"
 #include "app_config.h"
 #include "chemkin_io.h"
@@ -601,14 +602,14 @@ MainWindow::MainWindow(QWidget *parent)
         update_reference_geometry_controls();
         update_object_list_panel();
     });
-    connect(m_3d_widget, &OCCTWidget::unit_display_list_changed,
+    connect(m_3d_widget->unit_document(), &UnitDocument::structureChanged,
             this, [this]()
     {
         sync_persistent_units_from_occt();
         update_object_list_panel();
     });
-    connect(m_3d_widget, &OCCTWidget::unit_lock_changed,
-            this, [this](const QUuid &uuid, bool)
+    connect(m_3d_widget->unit_document(), &UnitDocument::presentationChanged,
+            this, [this](const QUuid &uuid)
     {
         if (m_3d_widget == nullptr || !m_3d_widget->unit_hash.contains(uuid))
         {
@@ -621,7 +622,12 @@ MainWindow::MainWindow(QWidget *parent)
             update_object_list_item(uuid, unit->inj.injector_data.name);
         }
     });
-    connect(m_3d_widget, &OCCTWidget::unit_removed, this,
+    connect(m_3d_widget->unit_document(), &UnitDocument::followChanged,
+            this, [this](const QUuid &)
+    {
+        update_object_list_panel();
+    });
+    connect(m_3d_widget->unit_document(), &UnitDocument::unitRemoved, this,
             [this](const QUuid &uuid)
     {
         Q_UNUSED(uuid);
@@ -680,10 +686,10 @@ MainWindow::MainWindow(QWidget *parent)
         ui->actionUndo_Move->setEnabled(can_undo);
         ui->actionRedo_Move->setEnabled(can_redo);
     });
-    connect(m_3d_widget, &OCCTWidget::unit_added, this,
-            [this](Unit *added_unit)
+    connect(m_3d_widget->unit_document(), &UnitDocument::unitAdded, this,
+            [this](const QUuid &uuid)
     {
-        if (added_unit == nullptr)
+        if (m_3d_widget == nullptr || !m_3d_widget->unit_hash.contains(uuid))
         {
             return;
         }
@@ -704,10 +710,45 @@ MainWindow::MainWindow(QWidget *parent)
 
     // OCCT owns editable Unit copies so that interactive handles remain stable.
     // Keep the MainWindow list synchronized whenever one of those copies changes.
-    connect(m_3d_widget, &OCCTWidget::unit_data_updated,
-            this, &MainWindow::sync_unit_from_occt);
-    connect(m_3d_widget, &OCCTWidget::unit_position_updated,
-            this, &MainWindow::sync_unit_position_from_occt);
+    connect(m_3d_widget->unit_document(), &UnitDocument::contentChanged,
+            this, [this](const QUuid &uuid)
+    {
+        if (m_3d_widget == nullptr)
+        {
+            return;
+        }
+        const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+        if (unit != nullptr)
+        {
+            sync_unit_from_occt(unit.get());
+        }
+    });
+    connect(m_3d_widget->unit_document(), &UnitDocument::poseChanged,
+            this, [this](const QUuid &uuid)
+    {
+        if (m_3d_widget == nullptr)
+        {
+            return;
+        }
+        const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+        if (unit != nullptr)
+        {
+            sync_unit_position_from_occt(unit.get());
+        }
+    });
+    connect(m_3d_widget->unit_document(), &UnitDocument::directionChanged,
+            this, [this](const QUuid &uuid)
+    {
+        if (m_3d_widget == nullptr)
+        {
+            return;
+        }
+        const std::shared_ptr<Unit> unit = m_3d_widget->unit_hash.value(uuid);
+        if (unit != nullptr)
+        {
+            sync_unit_from_occt(unit.get());
+        }
+    });
     connect(m_3d_widget, &OCCTWidget::unit_geometry_refresh_failed,
             this, [this](const QUuid &, const QString &message)
     {
@@ -873,7 +914,7 @@ void MainWindow::sync_persistent_units_from_occt()
     {
         const std::shared_ptr<Unit> runtime_unit = it.value();
         if (runtime_unit == nullptr ||
-            (runtime_unit->is_array_child && runtime_unit->follows_array))
+            (runtime_unit->is_following_array_child()))
         {
             continue;
         }
@@ -923,7 +964,7 @@ void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dir
     // Full synchronization remains the fallback for add/remove/reparent
     // operations where the persistent list may have changed shape.
     Unit *persistent_source = changed_unit;
-    if (changed_unit->is_array_child && changed_unit->follows_array)
+    if (changed_unit->is_following_array_child())
     {
         const std::shared_ptr<Unit> parent =
             m_3d_widget->unit_hash.value(changed_unit->array_parent_uuid);
@@ -932,7 +973,7 @@ void MainWindow::sync_unit_from_occt_impl(Unit *changed_unit, bool recompute_dir
 
     bool synchronized_one = false;
     if (persistent_source != nullptr &&
-        !(persistent_source->is_array_child && persistent_source->follows_array))
+        !(persistent_source->is_following_array_child()))
     {
         auto stored_it = std::find_if(
             units.begin(), units.end(),
@@ -5454,7 +5495,7 @@ void MainWindow::create_object_list_panel()
         if (m_array_editor_source_label != nullptr && source_unit != nullptr)
         {
             const QString source_kind =
-                source_unit->is_array_child && source_unit->follows_array
+                source_unit->is_following_array_child()
                     ? tr("generated child; becomes nested source on Apply")
                     : source_unit->is_array_child
                           ? tr("independent nested source")
@@ -6983,8 +7024,7 @@ void MainWindow::create_object_list_panel()
             m_3d_widget->unit_array_override_fields(uuid);
         follow_array_action->setCheckable(true);
         follow_array_action->setChecked(selected_unit != nullptr &&
-                                         selected_unit->is_array_child &&
-                                         selected_unit->follows_array);
+                                         selected_unit->is_following_array_child());
         follow_array_action->setEnabled(selected_unit != nullptr &&
                                         selected_unit->is_array_child);
         follow_parent_transform_action->setCheckable(true);
@@ -6992,23 +7032,19 @@ void MainWindow::create_object_list_panel()
             selected_unit != nullptr &&
             selected_unit->follows_parent_transform);
         follow_parent_transform_action->setEnabled(
-            selected_unit != nullptr && selected_unit->is_array_child &&
-            !selected_unit->follows_array &&
+            selected_unit != nullptr && selected_unit->is_detached_array_child() &&
             (selected_unit->has_array_spec || selected_unit->has_fill_spec ||
              !selected_unit->assembly_child_uuids.isEmpty()));
         override_physical_action->setCheckable(true);
         override_physical_action->setChecked(override_physical);
         override_physical_action->setEnabled(
-            selected_unit != nullptr && selected_unit->is_array_child &&
-            selected_unit->follows_array);
+            selected_unit != nullptr && selected_unit->is_following_array_child());
         override_geometry_action->setCheckable(true);
         override_geometry_action->setChecked(override_geometry);
         override_geometry_action->setEnabled(
-            selected_unit != nullptr && selected_unit->is_array_child &&
-            selected_unit->follows_array);
+            selected_unit != nullptr && selected_unit->is_following_array_child());
         const bool override_fields_enabled =
-            selected_unit != nullptr && selected_unit->is_array_child &&
-            selected_unit->follows_array;
+            selected_unit != nullptr && selected_unit->is_following_array_child();
         for (QAction *action : {override_material_species_action,
                                 override_physical_fields_action,
                                 override_position_action,
@@ -7053,7 +7089,7 @@ void MainWindow::create_object_list_panel()
             const std::shared_ptr<Unit> selected_unit =
                 m_3d_widget->unit_hash.value(selected_uuid);
             if (!selected_uuid.isNull() && selected_unit != nullptr &&
-                !(selected_unit->is_array_child && selected_unit->follows_array))
+                !(selected_unit->is_following_array_child()))
             {
                 selected_unit_ids.append(selected_uuid);
             }
@@ -7790,7 +7826,7 @@ void MainWindow::update_object_list_panel()
                     .name(QColor::HexRgb));
         }
         QFont item_font = item->font(0);
-        item_font.setItalic(value.is_array_child && value.follows_array);
+        item_font.setItalic(value.is_following_array_child());
         item->setFont(0, item_font);
         item->setToolTip(0,
             QString("Injection: %1\nParticle: %2\nMaterial: %3\nAssembly parent: %4\nState: %5\nUUID: %6")

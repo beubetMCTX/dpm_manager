@@ -160,7 +160,20 @@ public:
     // Runtime mesh gate, distinct from viewer visibility. An array mother
     // stays logically present, but its mesh and local axes stay out of the
     // OCCT context while at least one copy still follows it. Not serialized.
+    // Semantic updates go through refresh_unit_derived_flags().
     bool presentation_hidden = false;
+    bool user_visible = true;
+    bool user_locked = false;
+
+    bool is_following_array_child() const
+    {
+        return is_array_child && follows_array;
+    }
+
+    bool is_detached_array_child() const
+    {
+        return is_array_child && !follows_array;
+    }
     // Persistent nested sources can keep their own Array/Fill definition while
     // optionally following the placement transform of their parent array.
     bool follows_parent_transform = false;
@@ -208,6 +221,8 @@ public:
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
         , presentation_hidden(other.presentation_hidden)
+        , user_visible(other.user_visible)
+        , user_locked(other.user_locked)
         , follows_parent_transform(other.follows_parent_transform)
         , parent_follow_reference_origin(other.parent_follow_reference_origin)
         , parent_follow_reference_direction(other.parent_follow_reference_direction)
@@ -247,6 +262,8 @@ public:
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
         presentation_hidden = other.presentation_hidden;
+        user_visible = other.user_visible;
+        user_locked = other.user_locked;
         follows_parent_transform = other.follows_parent_transform;
         parent_follow_reference_origin = other.parent_follow_reference_origin;
         parent_follow_reference_direction = other.parent_follow_reference_direction;
@@ -279,6 +296,8 @@ public:
         , is_array_child(other.is_array_child)
         , follows_array(other.follows_array)
         , presentation_hidden(other.presentation_hidden)
+        , user_visible(other.user_visible)
+        , user_locked(other.user_locked)
         , follows_parent_transform(other.follows_parent_transform)
         , parent_follow_reference_origin(other.parent_follow_reference_origin)
         , parent_follow_reference_direction(other.parent_follow_reference_direction)
@@ -318,6 +337,8 @@ public:
         is_array_child = other.is_array_child;
         follows_array = other.follows_array;
         presentation_hidden = other.presentation_hidden;
+        user_visible = other.user_visible;
+        user_locked = other.user_locked;
         follows_parent_transform = other.follows_parent_transform;
         parent_follow_reference_origin = other.parent_follow_reference_origin;
         parent_follow_reference_direction = other.parent_follow_reference_direction;

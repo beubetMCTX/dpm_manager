@@ -96,7 +96,9 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         ${MODEL_DIR}/unit.h
         ${MODEL_DIR}/unit_array_spec.h
         ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
+        ${MODEL_DIR}/unit_state.h ${MODEL_DIR}/unit_state.cpp
         ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
+        ${MODEL_DIR}/unit_document.h ${MODEL_DIR}/unit_document.cpp
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
@@ -198,6 +200,7 @@ if(DPM_BUILD_TESTS)
         ${IO_DIR}/project_session.h ${IO_DIR}/project_session.cpp
         ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
         ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
+        ${MODEL_DIR}/unit_state.h ${MODEL_DIR}/unit_state.cpp
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
@@ -381,9 +384,11 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
     add_executable(occtwidget_edit_history_regression
         tests/occtwidget_edit_history_test.cpp
         ${VIEW_DIR}/occtwidget.h ${VIEW_DIR}/occtwidget.cpp
+        ${MODEL_DIR}/unit_document.h ${MODEL_DIR}/unit_document.cpp
         ${IO_DIR}/base_geom_read.h ${IO_DIR}/base_geom_read.cpp
         ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
         ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
+        ${MODEL_DIR}/unit_state.h ${MODEL_DIR}/unit_state.cpp
         ${COMMON_DIR}/app_config.h ${COMMON_DIR}/app_config.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
         ${COMMON_DIR}/unit_system.h ${COMMON_DIR}/unit_system.cpp
@@ -420,6 +425,7 @@ set_tests_properties(auxiliary_dialog_lifetime_regression
         tests/unit_array_test.cpp
         ${MODEL_DIR}/unit.h ${MODEL_DIR}/unit_array_spec.h
         ${MODEL_DIR}/unit_array.h ${MODEL_DIR}/unit_array.cpp
+        ${MODEL_DIR}/unit_state.h ${MODEL_DIR}/unit_state.cpp
         ${MODEL_DIR}/injector.h ${MODEL_DIR}/injector.cpp
         ${COMMON_DIR}/runtime_debug.h ${COMMON_DIR}/runtime_debug.cpp
     )
